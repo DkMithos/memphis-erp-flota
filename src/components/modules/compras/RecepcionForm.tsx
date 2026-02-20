@@ -1,0 +1,268 @@
+import { useState, useEffect, useMemo } from 'react';
+import { ArrowLeft, Save, X, AlertTriangle } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
+import { Textarea } from '../../ui/textarea';
+import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
+import { Alert, AlertDescription } from '../../ui/alert';
+import { useRecepcionesStore, type NuevaRecepcionInput } from '../../../lib/compras/recepciones-store';
+import { useOrdenesStore } from '../../../lib/compras/ordenes-store';
+import { validarCantidadRecibida, validarObservaciones, type EstadoRecepcion } from '../../../lib/compras/recepciones-config';
+import { formatearMonto } from '../../../lib/compras/ordenes-config';
+
+interface RecepcionFormProps {
+  ordenIdParam?: string;
+  onCancel: () => void;
+  onSuccess: (recepcionId: string) => void;
+}
+
+interface ItemRecibidoForm {
+  descripcion: string;
+  cantidadOrdenada: number;
+  cantidadRecibida: number;
+  unidad: string;
+  observacionItem: string;
+}
+
+export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFormProps) {
+  const { crearRecepcion } = useRecepcionesStore();
+  const { obtenerOrdenPorId, aplicarEstadoRecepcion } = useOrdenesStore();
+
+  const orden = ordenIdParam ? obtenerOrdenPorId(ordenIdParam) : undefined;
+
+  const [estado, setEstado] = useState<EstadoRecepcion>('conforme');
+  const [observaciones, setObservaciones] = useState('');
+  const [itemsRecibidos, setItemsRecibidos] = useState<ItemRecibidoForm[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Cargar items de la orden
+  useEffect(() => {
+    if (orden) {
+      setItemsRecibidos(
+        orden.items.map(item => ({
+          descripcion: item.descripcion,
+          cantidadOrdenada: item.cantidad,
+          cantidadRecibida: item.cantidad, // Por defecto, recibe todo
+          unidad: item.unidad,
+          observacionItem: ''
+        }))
+      );
+    }
+  }, [orden]);
+
+  // Validar recepción completa o parcial
+  const esRecepcionCompleta = useMemo(() => {
+    return itemsRecibidos.every(item => item.cantidadRecibida >= item.cantidadOrdenada);
+  }, [itemsRecibidos]);
+
+  // Validación
+  const validarFormulario = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!ordenIdParam) {
+      newErrors.orden = 'Debe seleccionar una orden';
+    }
+
+    if (estado === 'observada' && !observaciones.trim()) {
+      const validacion = validarObservaciones(observaciones, true);
+      if (!validacion.valid) {
+        newErrors.observaciones = validacion.error!;
+      }
+    }
+
+    itemsRecibidos.forEach((item, idx) => {
+      const validacion = validarCantidadRecibida(item.cantidadRecibida, item.cantidadOrdenada);
+      if (!validacion.valid) {
+        newErrors[`item-${idx}`] = validacion.error!;
+      }
+    });
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Actualizar item
+  const actualizarItem = (index: number, field: keyof ItemRecibidoForm, value: string | number) => {
+    const nuevos = [...itemsRecibidos];
+    (nuevos[index] as any)[field] = value;
+    setItemsRecibidos(nuevos);
+  };
+
+  // Submit
+  const handleSubmit = () => {
+    if (!validarFormulario()) return;
+
+    if (!orden) {
+      alert('No se encontró la orden');
+      return;
+    }
+
+    try {
+      const input: NuevaRecepcionInput = {
+        ordenId: orden.id,
+        itemsRecibidos: itemsRecibidos.map(item => ({
+          descripcion: item.descripcion,
+          cantidadRecibida: item.cantidadRecibida,
+          unidad: item.unidad,
+          observacionItem: item.observacionItem.trim() || null
+        })),
+        estado,
+        observaciones: observaciones.trim() || undefined
+      };
+
+      // Callback para actualizar el estado de la orden
+      const onOrdenUpdated = (ordenId: string, esCompleta: boolean) => {
+        aplicarEstadoRecepcion(ordenId, esCompleta);
+      };
+
+      const nuevaRecepcion = crearRecepcion(input, onOrdenUpdated);
+      onSuccess(nuevaRecepcion.id);
+    } catch (error) {
+      console.error('Error al crear recepción:', error);
+    }
+  };
+
+  if (!orden) {
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>
+          No se encontró la orden con ID: <strong>{ordenIdParam}</strong>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2>Nueva Recepción</h2>
+          <p className="text-muted-foreground mt-1">
+            Registrar recepción para orden {orden.id}
+          </p>
+        </div>
+        <Button variant="ghost" onClick={onCancel}>
+          <X className="size-4 mr-2" />
+          Cancelar
+        </Button>
+      </div>
+
+      {/* Info de la orden */}
+      <Alert>
+        <AlertDescription>
+          <strong>Orden:</strong> {orden.id} | <strong>Proveedor:</strong> {orden.proveedorNombre} | 
+          <strong> Total:</strong> {formatearMonto(orden.total, orden.moneda)}
+        </AlertDescription>
+      </Alert>
+
+      {/* Estado de recepción */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Estado de la Recepción</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup value={estado} onValueChange={(v) => setEstado(v as EstadoRecepcion)}>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="conforme" id="conforme" />
+              <Label htmlFor="conforme">Conforme - Recepción sin observaciones</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="observada" id="observada" />
+              <Label htmlFor="observada">Observada - Recepción con observaciones</Label>
+            </div>
+          </RadioGroup>
+        </CardContent>
+      </Card>
+
+      {/* Items */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Items Recibidos</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {itemsRecibidos.map((item, idx) => (
+            <div key={idx} className="border rounded-lg p-4 space-y-3">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <p className="font-medium">{item.descripcion}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Ordenado: {item.cantidadOrdenada} {item.unidad}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor={`item-${idx}-cantidadRecibida`}>Cantidad Recibida *</Label>
+                  <Input
+                    id={`item-${idx}-cantidadRecibida`}
+                    type="number"
+                    min="0"
+                    max={item.cantidadOrdenada}
+                    value={item.cantidadRecibida}
+                    onChange={(e) => actualizarItem(idx, 'cantidadRecibida', Number(e.target.value))}
+                  />
+                  {errors[`item-${idx}`] && (
+                    <p className="text-sm text-red-600 mt-1">{errors[`item-${idx}`]}</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor={`item-${idx}-observacionItem`}>Observación del Item</Label>
+                  <Input
+                    id={`item-${idx}-observacionItem`}
+                    value={item.observacionItem}
+                    onChange={(e) => actualizarItem(idx, 'observacionItem', e.target.value)}
+                    placeholder="Ej: Empaque dañado"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {!esRecepcionCompleta && (
+            <Alert>
+              <AlertTriangle className="size-4" />
+              <AlertDescription>
+                Esta será una <strong>recepción parcial</strong>. 
+                No todos los items fueron recibidos en su totalidad.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Observaciones generales */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Observaciones Generales</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            value={observaciones}
+            onChange={(e) => setObservaciones(e.target.value)}
+            rows={4}
+            placeholder="Observaciones sobre la recepción..."
+          />
+          {errors.observaciones && (
+            <p className="text-sm text-red-600 mt-1">{errors.observaciones}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Acciones */}
+      <div className="flex items-center justify-end gap-3">
+        <Button variant="outline" onClick={onCancel}>
+          <ArrowLeft className="size-4 mr-2" />
+          Cancelar
+        </Button>
+        <Button onClick={handleSubmit}>
+          <Save className="size-4 mr-2" />
+          Crear Recepción
+        </Button>
+      </div>
+    </div>
+  );
+}

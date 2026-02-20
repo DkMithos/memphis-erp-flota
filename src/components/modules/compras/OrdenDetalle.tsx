@@ -1,0 +1,433 @@
+import { useState } from 'react';
+import { ArrowLeft, Edit, CheckCircle, XCircle, Ban, Truck, Package, FileText, Calendar, DollarSign } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Button } from '../../ui/button';
+import { Badge } from '../../ui/badge';
+import { Alert, AlertDescription } from '../../ui/alert';
+import { Label } from '../../ui/label';
+import { Textarea } from '../../ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../ui/dialog';
+import { useOrdenesStore } from '../../../lib/compras/ordenes-store';
+import { useRecepcionesStore } from '../../../lib/compras/recepciones-store';
+import {
+  ORDEN_ESTADO_CONFIG,
+  ORDEN_TIPO_LABELS,
+  tienePermiso,
+  puedeEditarOrden,
+  puedeAnularOrden,
+  puedeRevisarOrden,
+  puedeMarcarEnEjecucion,
+  puedeRecibirOrden,
+  formatearMonto,
+  formatearFecha,
+  validarMotivo
+} from '../../../lib/compras/ordenes-config';
+
+interface OrdenDetalleProps {
+  ordenId: string;
+  onNavigate: (route: string) => void;
+}
+
+export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
+  const { obtenerOrdenPorId, aprobarOrden, rechazarOrden, marcarEnEjecucion, anularOrden, usuarioActual } = useOrdenesStore();
+  const { obtenerRecepcionesPorOrden } = useRecepcionesStore();
+  
+  const orden = obtenerOrdenPorId(ordenId);
+  const recepciones = obtenerRecepcionesPorOrden(ordenId);
+
+  // Dialogs
+  const [showAprobarDialog, setShowAprobarDialog] = useState(false);
+  const [showRechazarDialog, setShowRechazarDialog] = useState(false);
+  const [showAnularDialog, setShowAnularDialog] = useState(false);
+  const [motivoRechazo, setMotivoRechazo] = useState('');
+  const [motivoAnulacion, setMotivoAnulacion] = useState('');
+  const [errorMotivo, setErrorMotivo] = useState('');
+
+  if (!orden) {
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>
+          No se encontró la orden con ID: <strong>{ordenId}</strong>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  const estadoConfig = ORDEN_ESTADO_CONFIG[orden.estado];
+  const puedeAprobar = tienePermiso(usuarioActual.rol, 'aprobar') && puedeRevisarOrden(orden.estado);
+  const puedeRechazar = tienePermiso(usuarioActual.rol, 'rechazar') && puedeRevisarOrden(orden.estado);
+  const puedeEditar = tienePermiso(usuarioActual.rol, 'editar') && puedeEditarOrden(orden.estado);
+  const puedeAnular = tienePermiso(usuarioActual.rol, 'anular') && puedeAnularOrden(orden.estado);
+  const puedeIniciarEjecucion = tienePermiso(usuarioActual.rol, 'marcarEnEjecucion') && puedeMarcarEnEjecucion(orden.estado);
+  const puedeCrearRecepcion = (tienePermiso(usuarioActual.rol, 'ver') || usuarioActual.rol === 'operaciones') 
+    && puedeRecibirOrden(orden.estado);
+
+  // Handlers
+  const handleAprobar = () => {
+    aprobarOrden(orden.id, usuarioActual.email);
+    setShowAprobarDialog(false);
+  };
+
+  const handleRechazar = () => {
+    const validacion = validarMotivo(motivoRechazo, 'rechazo');
+    if (!validacion.valid) {
+      setErrorMotivo(validacion.error!);
+      return;
+    }
+    rechazarOrden(orden.id, usuarioActual.email, motivoRechazo);
+    setShowRechazarDialog(false);
+    setMotivoRechazo('');
+    setErrorMotivo('');
+  };
+
+  const handleAnular = () => {
+    const validacion = validarMotivo(motivoAnulacion, 'anulación');
+    if (!validacion.valid) {
+      setErrorMotivo(validacion.error!);
+      return;
+    }
+    anularOrden(orden.id, motivoAnulacion);
+    setShowAnularDialog(false);
+    setMotivoAnulacion('');
+    setErrorMotivo('');
+  };
+
+  const handleIniciarEjecucion = () => {
+    marcarEnEjecucion(orden.id);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <Button variant="ghost" size="sm" onClick={() => onNavigate('/compras/ordenes')}>
+              <ArrowLeft className="size-4 mr-2" />
+              Volver a Órdenes
+            </Button>
+          </div>
+          <div className="flex items-center gap-3">
+            <h2>{orden.id}</h2>
+            <Badge className={estadoConfig.className}>
+              <estadoConfig.icon className="size-3 mr-1" />
+              {estadoConfig.label}
+            </Badge>
+            <Badge variant="outline">{orden.tipo === 'oc' ? 'OC' : 'OS'}</Badge>
+          </div>
+          <p className="text-muted-foreground mt-1">
+            {ORDEN_TIPO_LABELS[orden.tipo]} - {orden.proveedorNombre}
+          </p>
+        </div>
+
+        {/* Acciones */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {puedeEditar && (
+            <Button onClick={() => onNavigate(`/compras/ordenes/${orden.id}/editar`)}>
+              <Edit className="size-4 mr-2" />
+              Editar
+            </Button>
+          )}
+          {puedeAprobar && (
+            <Button onClick={() => setShowAprobarDialog(true)} variant="default">
+              <CheckCircle className="size-4 mr-2" />
+              Aprobar
+            </Button>
+          )}
+          {puedeRechazar && (
+            <Button onClick={() => setShowRechazarDialog(true)} variant="destructive">
+              <XCircle className="size-4 mr-2" />
+              Rechazar
+            </Button>
+          )}
+          {puedeIniciarEjecucion && (
+            <Button onClick={handleIniciarEjecucion} variant="outline">
+              <Truck className="size-4 mr-2" />
+              Marcar en Ejecución
+            </Button>
+          )}
+          {puedeCrearRecepcion && (
+            <Button onClick={() => onNavigate(`/compras/recepciones/nuevo?orden=${orden.id}`)} variant="default">
+              <Package className="size-4 mr-2" />
+              Crear Recepción
+            </Button>
+          )}
+          {puedeAnular && (
+            <Button onClick={() => setShowAnularDialog(true)} variant="outline">
+              <Ban className="size-4 mr-2" />
+              Anular
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Alerta si fue rechazada */}
+      {orden.motivoRechazo && (
+        <Alert variant="destructive">
+          <XCircle className="size-4" />
+          <AlertDescription>
+            <strong>Orden rechazada:</strong> {orden.motivoRechazo}
+            <br />
+            <span className="text-xs">Por: {orden.rechazadoPor} el {orden.rechazadoEn && formatearFecha(orden.rechazadoEn)}</span>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Alerta si fue anulada */}
+      {orden.estado === 'anulada' && orden.auditoria.motivoAnulacion && (
+        <Alert>
+          <Ban className="size-4" />
+          <AlertDescription>
+            <strong>Orden anulada:</strong> {orden.auditoria.motivoAnulacion}
+            <br />
+            <span className="text-xs">Por: {orden.auditoria.anuladoPor} el {orden.auditoria.anuladoEn && formatearFecha(orden.auditoria.anuladoEn)}</span>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Información General */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="size-5" />
+              Información General
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <p className="text-sm text-muted-foreground">Cotización Origen</p>
+              <Button variant="link" className="p-0 h-auto" onClick={() => onNavigate(`/compras/cotizaciones/${orden.cotizacionId}`)}>
+                {orden.cotizacionId}
+              </Button>
+            </div>
+            {orden.requerimientoId && (
+              <div>
+                <p className="text-sm text-muted-foreground">Requerimiento</p>
+                <Button variant="link" className="p-0 h-auto" onClick={() => onNavigate(`/compras/requerimientos/${orden.requerimientoId}`)}>
+                  {orden.requerimientoId}
+                </Button>
+              </div>
+            )}
+            <div>
+              <p className="text-sm text-muted-foreground">Proveedor</p>
+              <p className="font-medium">{orden.proveedorNombre}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Moneda</p>
+              <p className="font-medium">{orden.moneda === 'PEN' ? 'Soles (S/)' : 'Dólares ($)'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Fecha de Emisión</p>
+              <p className="font-medium">{formatearFecha(orden.fechaEmision)}</p>
+            </div>
+            {orden.fechaEntregaEstimada && (
+              <div>
+                <p className="text-sm text-muted-foreground">Fecha de Entrega Estimada</p>
+                <p className="font-medium">{formatearFecha(orden.fechaEntregaEstimada)}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="size-5" />
+              Totales
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-medium">{formatearMonto(orden.subtotal, orden.moneda)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Impuestos (18% IGV)</span>
+              <span className="font-medium">{formatearMonto(orden.impuestos, orden.moneda)}</span>
+            </div>
+            <div className="flex justify-between text-lg border-t pt-2">
+              <span className="font-semibold">Total</span>
+              <span className="font-semibold">{formatearMonto(orden.total, orden.moneda)}</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Items */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Items de la Orden ({orden.items.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {orden.items.map((item, idx) => (
+              <div key={item.id} className="border rounded-lg p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1">
+                    <p className="font-medium">{item.descripcion}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Cantidad: {item.cantidad} {item.unidad} • Precio unitario: {formatearMonto(item.precioUnitario, orden.moneda)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold">{formatearMonto(item.subtotal, orden.moneda)}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Condiciones */}
+      {orden.condiciones && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Condiciones de Pago/Entrega</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="whitespace-pre-wrap">{orden.condiciones}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recepciones Asociadas */}
+      {recepciones.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="size-5" />
+              Recepciones Asociadas ({recepciones.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {recepciones.map((rec) => (
+                <div key={rec.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium">{rec.id}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatearFecha(rec.fechaRecepcion)} • {rec.estado}
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => onNavigate(`/compras/recepciones/${rec.id}`)}>
+                    Ver Detalle
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Auditoría */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Auditoría</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <div>
+            <span className="text-muted-foreground">Creado por:</span> {orden.auditoria.creadoPor} el {formatearFecha(orden.auditoria.creadoEn)}
+          </div>
+          {orden.auditoria.modificadoPor && (
+            <div>
+              <span className="text-muted-foreground">Modificado por:</span> {orden.auditoria.modificadoPor} el {orden.auditoria.modificadoEn && formatearFecha(orden.auditoria.modificadoEn)}
+            </div>
+          )}
+          {orden.aprobadoPor && (
+            <div>
+              <span className="text-muted-foreground">Aprobado por:</span> {orden.aprobadoPor} el {orden.aprobadoEn && formatearFecha(orden.aprobadoEn)}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Dialogs */}
+      {/* Aprobar */}
+      <Dialog open={showAprobarDialog} onOpenChange={setShowAprobarDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aprobar Orden</DialogTitle>
+            <DialogDescription>
+              ¿Está seguro de aprobar la orden <strong>{orden.id}</strong>?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAprobarDialog(false)}>Cancelar</Button>
+            <Button onClick={handleAprobar}>Confirmar Aprobación</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rechazar */}
+      <Dialog open={showRechazarDialog} onOpenChange={setShowRechazarDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rechazar Orden</DialogTitle>
+            <DialogDescription>
+              Indique el motivo del rechazo (mínimo 30 caracteres)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="motivoRechazo">Motivo de Rechazo *</Label>
+            <Textarea
+              id="motivoRechazo"
+              value={motivoRechazo}
+              onChange={(e) => {
+                setMotivoRechazo(e.target.value);
+                setErrorMotivo('');
+              }}
+              rows={4}
+              placeholder="Explique las razones del rechazo..."
+            />
+            <p className="text-sm text-muted-foreground">{motivoRechazo.length}/30 caracteres</p>
+            {errorMotivo && <p className="text-sm text-red-600">{errorMotivo}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRechazarDialog(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleRechazar}>Confirmar Rechazo</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Anular */}
+      <Dialog open={showAnularDialog} onOpenChange={setShowAnularDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Anular Orden</DialogTitle>
+            <DialogDescription>
+              Indique el motivo de anulación (mínimo 30 caracteres)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="motivoAnulacion">Motivo de Anulación *</Label>
+            <Textarea
+              id="motivoAnulacion"
+              value={motivoAnulacion}
+              onChange={(e) => {
+                setMotivoAnulacion(e.target.value);
+                setErrorMotivo('');
+              }}
+              rows={4}
+              placeholder="Explique las razones de la anulación..."
+            />
+            <p className="text-sm text-muted-foreground">{motivoAnulacion.length}/30 caracteres</p>
+            {errorMotivo && <p className="text-sm text-red-600">{errorMotivo}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAnularDialog(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleAnular}>Confirmar Anulación</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
