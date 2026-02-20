@@ -1,0 +1,134 @@
+import { useState } from 'react';
+import { Building2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Checkbox } from '../ui/checkbox';
+
+interface LoginProps {
+  onLogin: () => void;
+}
+
+export function Login({ onLogin }: LoginProps) {
+  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onLogin();
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-4">
+          <div className="flex justify-center">
+            <div className="flex items-center gap-3">
+              <Building2 className="size-10 text-primary" />
+              <div>
+                <h1 className="text-2xl font-bold">KESA ERP</h1>
+                <p className="text-sm text-muted-foreground">Sistema Empresarial</p>
+              </div>
+            </div>
+          </div>
+          <div className="text-center">
+            <CardTitle>Iniciar Sesión</CardTitle>
+            <CardDescription className="mt-2">
+              Ingresa tus credenciales para acceder al sistema
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Correo Electrónico</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="usuario@empresa.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Contraseña</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 pr-10"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="remember" />
+                <label
+                  htmlFor="remember"
+                  className="text-sm text-muted-foreground cursor-pointer select-none"
+                >
+                  Recordarme
+                </label>
+              </div>
+              <Button variant="link" className="px-0" type="button">
+                ¿Olvidaste tu contraseña?
+              </Button>
+            </div>
+
+            <Button type="submit" className="w-full">
+              Iniciar Sesión
+            </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  O continuar con
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Button variant="outline" type="button">
+                Microsoft
+              </Button>
+              <Button variant="outline" type="button">
+                Google
+              </Button>
+            </div>
+          </form>
+
+          <div className="mt-6 text-center text-sm text-muted-foreground">
+            <p>¿No tienes una cuenta?</p>
+            <Button variant="link" className="px-0 mt-1">
+              Contacta con soporte
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
