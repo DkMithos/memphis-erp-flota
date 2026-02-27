@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 // Auth
+import { useAuth } from './auth/AuthProvider';
 import { Login } from './components/auth/Login';
 
 // Layout
@@ -118,7 +119,8 @@ import { Toaster } from './components/ui/sonner';
 const ENABLE_PUBLIC_LEGACY_ROUTES = false;
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user, loading } = useAuth();
+
   const [currentModule, setCurrentModule] = useState('dashboard');
   const [currentRoute, setCurrentRoute] = useState('/dashboard');
   const [darkMode, setDarkMode] = useState(false);
@@ -132,36 +134,18 @@ export default function App() {
     }
   }, [darkMode]);
 
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-  };
-
-  const handleToggleDarkMode = () => {
-    setDarkMode(!darkMode);
-  };
+  const handleToggleDarkMode = () => setDarkMode(!darkMode);
 
   const handleModuleChange = (moduleId: string, subRoute?: string) => {
     setCurrentModule(moduleId);
-    
-    // Si hay subRoute, usarlo; si no, usar el módulo base
-    if (subRoute) {
-      setCurrentRoute(subRoute);
-    } else {
-      setCurrentRoute(`/${moduleId}`);
-    }
-    
+    setCurrentRoute(subRoute ? subRoute : `/${moduleId}`);
     setIsMobileSidebarOpen(false);
   };
 
-  // Función para navegar programáticamente
   const navigateTo = (route: string) => {
     setCurrentRoute(route);
-    
-    // Extraer módulo de la ruta
     const modulePart = route.split('/')[1];
-    if (modulePart) {
-      setCurrentModule(modulePart);
-    }
+    if (modulePart) setCurrentModule(modulePart);
   };
 
   /**
@@ -176,14 +160,70 @@ export default function App() {
     );
   };
 
-  if (!isAuthenticated) {
-    return <Login onLogin={handleLogin} />;
+  /**
+   * Estas rutas deben funcionar incluso si NO hay sesión (Opción B: público anon)
+   */
+  const isPublicAllowedWithoutAuth = () => {
+    if (currentRoute.startsWith('/v/')) return true;
+    if (currentRoute.startsWith('/flota/vehiculos/') && currentRoute.includes('/print-qr')) return true;
+    if (ENABLE_PUBLIC_LEGACY_ROUTES && currentRoute.startsWith('/public/vehiculo/')) return true;
+    return false;
+  };
+
+  // 1) Mientras carga la sesión
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Cargando...</div>;
+  }
+
+  // 2) Si NO hay usuario y la ruta NO es pública: Login
+  if (!user && !isPublicAllowedWithoutAuth()) {
+    return <Login />;
   }
 
   const renderModule = () => {
+    // ========================================================================
+    // Routing de Vistas Públicas de Vehículos (QR + Hoja de Vida)
+    // Debe ir ANTES del routing /flota
+    // ========================================================================
+
+    // /v/:token - Ruta pública con token
+    if (currentRoute.startsWith('/v/')) {
+      const cleanPath = currentRoute.split('?')[0];
+      const segments = cleanPath.split('/').filter(Boolean); // ['v', 'token']
+      const token = segments[1];
+
+      if (token) {
+        return <VehiclePublicView token={token} onNavigate={navigateTo} />;
+      }
+    }
+
+    // /flota/vehiculos/:id/print-qr - Ruta interna para impresión de QR
+    if (currentRoute.startsWith('/flota/vehiculos/') && currentRoute.includes('/print-qr')) {
+      const cleanPath = currentRoute.split('?')[0];
+      const segments = cleanPath.split('/').filter(Boolean); // ['flota','vehiculos','VH-001','print-qr']
+      const vehiculoId = segments[2];
+
+      if (vehiculoId) {
+        return <VehicleQRPrint vehiculoId={vehiculoId} onNavigate={navigateTo} />;
+      }
+    }
+
+    // /public/vehiculo/:id (LEGACY)
+    if (ENABLE_PUBLIC_LEGACY_ROUTES && currentRoute.startsWith('/public/vehiculo/')) {
+      const cleanPath = currentRoute.split('?')[0];
+      const segments = cleanPath.split('/').filter(Boolean);
+      const vehiculoId = segments[2];
+      if (vehiculoId) return <VehiclePublicLifeSheet vehiculoId={vehiculoId} />;
+    }
+
+    // ========================================================================
+    // A partir de aquí: rutas internas (requieren sesión)
+    // Si llegaste aquí sin user, forzamos Login (defensivo)
+    // ========================================================================
+    if (!user) return <Login />;
+
     // Routing de Biomédico
     if (currentRoute.startsWith('/biomedico')) {
-      // /biomedico/mantenimientos/nuevo?equipo=EB-001
       if (currentRoute.startsWith('/biomedico/mantenimientos/nuevo')) {
         const urlParams = new URLSearchParams(currentRoute.split('?')[1] || '');
         const equipoIdParam = urlParams.get('equipo');
@@ -196,7 +236,6 @@ export default function App() {
         );
       }
 
-      // /biomedico/mantenimientos/:numero - MB-2024-001
       if (currentRoute.match(/^\/biomedico\/mantenimientos\/MB-\d{4}-\d{3}$/)) {
         const segments = currentRoute.split('/');
         const numero = segments[3];
@@ -209,7 +248,6 @@ export default function App() {
         );
       }
 
-      // /biomedico/mantenimientos (lista)
       if (currentRoute === '/biomedico/mantenimientos') {
         return (
           <BiomedicoMantenimientos
@@ -219,7 +257,6 @@ export default function App() {
         );
       }
 
-      // /biomedico/equipos/nuevo
       if (currentRoute === '/biomedico/equipos/nuevo') {
         return (
           <BiomedicoEquipoForm
@@ -230,7 +267,6 @@ export default function App() {
         );
       }
 
-      // /biomedico/equipos/:codigo/editar - EB-2024-001/editar
       if (currentRoute.match(/^\/biomedico\/equipos\/EB-\d{4}-\d{3}\/editar$/)) {
         const segments = currentRoute.split('/');
         const codigo = segments[3];
@@ -244,7 +280,6 @@ export default function App() {
         );
       }
 
-      // /biomedico/equipos/:codigo - EB-2024-001
       if (currentRoute.match(/^\/biomedico\/equipos\/EB-\d{4}-\d{3}$/)) {
         const segments = currentRoute.split('/');
         const codigo = segments[3];
@@ -254,8 +289,6 @@ export default function App() {
             onNavigateToEditar={() => navigateTo(`/biomedico/equipos/${codigo}/editar`)}
             onNavigateToMantenimiento={(numero) => navigateTo(`/biomedico/mantenimientos/${numero}`)}
             onNavigateToNuevoMantenimiento={() => {
-              // Obtener el ID del equipo desde el store para pasarlo al formulario de mantenimiento
-              // El ID es diferente del código (ej: EB-001 vs EB-2024-001)
               navigateTo(`/biomedico/mantenimientos/nuevo?equipo=${codigo}`);
             }}
             onBack={() => navigateTo('/biomedico/equipos')}
@@ -263,7 +296,6 @@ export default function App() {
         );
       }
 
-      // /biomedico/equipos (lista)
       if (currentRoute === '/biomedico/equipos') {
         return (
           <BiomedicoEquipos
@@ -273,12 +305,10 @@ export default function App() {
         );
       }
 
-      // Fallback a los viejos componentes placeholder para otras rutas
       if (currentRoute === '/biomedico/calibraciones') return <BiomedicoCalibraciones onNavigate={navigateTo} />;
       if (currentRoute === '/biomedico/incidencias') return <BiomedicoIncidencias onNavigate={navigateTo} />;
       if (currentRoute === '/biomedico/documentos') return <BiomedicoDocumentos onNavigate={navigateTo} />;
-      
-      // Dashboard de biomédico
+
       return <BiomedicoDashboard onNavigate={navigateTo} />;
     }
 
@@ -312,7 +342,6 @@ export default function App() {
 
     // Routing de Compras
     if (currentRoute.startsWith('/compras')) {
-      // /compras/recepciones/nuevo?orden=OC-0001
       if (currentRoute.startsWith('/compras/recepciones/nuevo')) {
         const urlParams = new URLSearchParams(currentRoute.split('?')[1] || '');
         const ordenIdParam = urlParams.get('orden');
@@ -325,7 +354,6 @@ export default function App() {
         );
       }
 
-      // /compras/recepciones/:id (detalle) - REC-0001
       if (currentRoute.startsWith('/compras/recepciones/') && !currentRoute.includes('/nuevo')) {
         const segments = currentRoute.split('/');
         const recepcionId = segments[3].split('?')[0];
@@ -334,10 +362,8 @@ export default function App() {
         }
       }
 
-      // /compras/recepciones (lista)
       if (currentRoute === '/compras/recepciones') return <RecepcionesLista onNavigate={navigateTo} />;
 
-      // /compras/ordenes/nuevo?cot=COT-0001&tipo=oc
       if (currentRoute.startsWith('/compras/ordenes/nuevo')) {
         const urlParams = new URLSearchParams(currentRoute.split('?')[1] || '');
         const cotizacionIdParam = urlParams.get('cot');
@@ -352,7 +378,6 @@ export default function App() {
         );
       }
 
-      // /compras/ordenes/:id/editar - OC-0001/editar o OS-0001/editar
       if (currentRoute.match(/^\/compras\/ordenes\/(OC|OS)-\d{4}\/editar$/)) {
         const segments = currentRoute.split('/');
         const ordenId = segments[3];
@@ -365,17 +390,14 @@ export default function App() {
         );
       }
 
-      // /compras/ordenes/:id (detalle) - OC-0001 o OS-0001
       if (currentRoute.match(/^\/compras\/ordenes\/(OC|OS)-\d{4}$/)) {
         const segments = currentRoute.split('/');
         const ordenId = segments[3];
         return <OrdenDetalle ordenId={ordenId} onNavigate={navigateTo} />;
       }
 
-      // /compras/ordenes (lista)
       if (currentRoute === '/compras/ordenes') return <OrdenesLista onNavigate={navigateTo} />;
 
-      // /compras/cotizaciones/nuevo?req=REQ-0001
       if (currentRoute.startsWith('/compras/cotizaciones/nuevo')) {
         const urlParams = new URLSearchParams(currentRoute.split('?')[1] || '');
         const requerimientoIdParam = urlParams.get('req');
@@ -388,7 +410,6 @@ export default function App() {
         );
       }
 
-      // /compras/cotizaciones/:id/editar
       if (currentRoute.match(/^\/compras\/cotizaciones\/COT-\d{4}\/editar$/)) {
         const segments = currentRoute.split('/');
         const cotizacionId = segments[3];
@@ -401,17 +422,14 @@ export default function App() {
         );
       }
 
-      // /compras/cotizaciones/:id (detalle)
       if (currentRoute.match(/^\/compras\/cotizaciones\/COT-\d{4}$/)) {
         const segments = currentRoute.split('/');
         const cotizacionId = segments[3];
         return <CotizacionDetalle cotizacionId={cotizacionId} onNavigate={navigateTo} />;
       }
 
-      // /compras/cotizaciones (lista)
       if (currentRoute === '/compras/cotizaciones') return <CotizacionesLista onNavigate={navigateTo} />;
 
-      // /compras/requerimientos/nuevo
       if (currentRoute === '/compras/requerimientos/nuevo') {
         return (
           <RequerimientoForm
@@ -421,7 +439,6 @@ export default function App() {
         );
       }
 
-      // /compras/requerimientos/:id/editar
       if (currentRoute.match(/^\/compras\/requerimientos\/REQ-\d{4}\/editar$/)) {
         const segments = currentRoute.split('/');
         const requerimientoId = segments[3];
@@ -434,23 +451,18 @@ export default function App() {
         );
       }
 
-      // /compras/requerimientos/:id (detalle)
       if (currentRoute.match(/^\/compras\/requerimientos\/REQ-\d{4}$/)) {
         const segments = currentRoute.split('/');
         const requerimientoId = segments[3];
         return <RequerimientoDetalle requerimientoId={requerimientoId} onNavigate={navigateTo} />;
       }
 
-      // /compras/requerimientos (lista)
       if (currentRoute === '/compras/requerimientos') return <RequerimientosLista onNavigate={navigateTo} />;
-      
-      // Dashboard principal (redirige a requerimientos)
       return <Compras onNavigate={navigateTo} />;
     }
 
     // Routing de Proveedores
     if (currentRoute.startsWith('/proveedores')) {
-      // /proveedores/directorio/nuevo
       if (currentRoute === '/proveedores/directorio/nuevo') {
         return (
           <ProveedorForm
@@ -460,7 +472,6 @@ export default function App() {
         );
       }
 
-      // /proveedores/directorio/:id/editar
       if (currentRoute.match(/^\/proveedores\/directorio\/PROV-\d{4}\/editar$/)) {
         const segments = currentRoute.split('/');
         const proveedorId = segments[3];
@@ -473,22 +484,16 @@ export default function App() {
         );
       }
 
-      // /proveedores/directorio/:id (detalle)
       if (currentRoute.match(/^\/proveedores\/directorio\/PROV-\d{4}$/)) {
         const segments = currentRoute.split('/');
         const proveedorId = segments[3];
         return <ProveedorDetalle proveedorId={proveedorId} onNavigate={navigateTo} />;
       }
 
-      // /proveedores/directorio
       if (currentRoute === '/proveedores/directorio') return <ProveedoresDirectorio onNavigate={navigateTo} />;
-      
-      // Otros submódulos
       if (currentRoute === '/proveedores/evaluaciones') return <ProveedoresEvaluaciones onNavigate={navigateTo} />;
       if (currentRoute === '/proveedores/contratos') return <ProveedoresContratos onNavigate={navigateTo} />;
       if (currentRoute === '/proveedores/talleres') return <ProveedoresTalleres onNavigate={navigateTo} />;
-      
-      // Dashboard principal (redirige al directorio)
       return <Proveedores onNavigate={navigateTo} />;
     }
 
@@ -499,81 +504,16 @@ export default function App() {
       if (currentRoute === '/crm/actividades') return <CRMActividades onNavigate={navigateTo} />;
       return <CRM />;
     }
-    
-    // ============================================================================
-    // Routing de Vistas Públicas de Vehículos (QR + Hoja de Vida)
-    // IMPORTANTE: Estas rutas NO requieren auth y NO muestran sidebar/topbar
-    // Deben ir ANTES del routing de Flota para que no sean capturadas por /flota
-    // ============================================================================
-    
-    // /v/:token - Nueva ruta pública con token (NUEVA IMPLEMENTACIÓN)
-    if (currentRoute.startsWith('/v/')) {
-      const cleanPath = currentRoute.split('?')[0];
-      const segments = cleanPath.split('/').filter(Boolean);
-      // segments: ['v', 'token-uuid']
-      const token = segments[1];
-      
-      if (token) {
-        return <VehiclePublicView token={token} onNavigate={navigateTo} />;
-      }
-    }
-    
-    // /flota/vehiculos/:id/print-qr - Ruta interna para impresión de QR
-    if (currentRoute.startsWith('/flota/vehiculos/') && currentRoute.includes('/print-qr')) {
-      const cleanPath = currentRoute.split('?')[0];
-      const segments = cleanPath.split('/').filter(Boolean);
-      // segments: ['flota', 'vehiculos', 'VH-001', 'print-qr']
-      const vehiculoId = segments[2];
-      
-      if (vehiculoId) {
-        return <VehicleQRPrint vehiculoId={vehiculoId} onNavigate={navigateTo} />;
-      }
-    }
-    
-    // /public/vehiculo/:id/print-qr (LEGACY - mantener por compatibilidad)
-    if (ENABLE_PUBLIC_LEGACY_ROUTES && currentRoute.startsWith('/public/vehiculo/') && currentRoute.includes('/print-qr')) {
-      const cleanPath = currentRoute.split('?')[0];
-      const segments = cleanPath.split('/').filter(Boolean);
-      // segments: ['public', 'vehiculo', 'VH-001', 'print-qr']
-      const vehiculoId = segments[2];
-      
-      if (vehiculoId) {
-        return <VehicleQRPrint vehiculoId={vehiculoId} onNavigate={navigateTo} />;
-      }
-    }
-    
-    // /public/vehiculo/:id?mode=public
-    if (ENABLE_PUBLIC_LEGACY_ROUTES && currentRoute.startsWith('/public/vehiculo/')) {
-      const cleanPath = currentRoute.split('?')[0];
-      const segments = cleanPath.split('/').filter(Boolean);
-      // segments: ['public', 'vehiculo', 'VH-001']
-      const vehiculoId = segments[2];
-      
-      if (vehiculoId) {
-        return <VehiclePublicLifeSheet vehiculoId={vehiculoId} />;
-      }
-    }
-    
-    // Routing de Flota con subrutas (orden: más específico → más general)
+
+    // Routing de Flota
     if (currentRoute.startsWith('/flota')) {
-      // Limpiar query params y separar en segmentos
       const cleanPath = currentRoute.split('?')[0];
-      const segments = cleanPath.split('/').filter(Boolean); // ['flota', 'vehiculos', 'nuevo']
-      
-      // segments[0] = 'flota'
-      // segments[1] = submódulo ('vehiculos' | 'mantenimientos' | 'dashboard' | undefined)
-      // segments[2] = id o acción ('nuevo' | 'VH-001' | 'OT-2024-001' | undefined)
-      // segments[3] = acción sobre id ('editar' | undefined)
-      
+      const segments = cleanPath.split('/').filter(Boolean);
       const submodulo = segments[1];
       const param = segments[2];
       const action = segments[3];
-      
-      // ============================================================================
-      // VEHÍCULOS
-      // ============================================================================
+
       if (submodulo === 'vehiculos') {
-        // /flota/vehiculos/nuevo
         if (param === 'nuevo') {
           return (
             <VehiculoForm
@@ -583,8 +523,7 @@ export default function App() {
             />
           );
         }
-        
-        // /flota/vehiculos/:id/editar (ej: /flota/vehiculos/VH-001/editar)
+
         if (param && action === 'editar') {
           return (
             <VehiculoForm
@@ -595,92 +534,57 @@ export default function App() {
             />
           );
         }
-        
-        // /flota/vehiculos/:id (detalle) (ej: /flota/vehiculos/VH-001)
+
         if (param && param !== 'nuevo' && !action) {
           return (
-            <VehiculoDetalle 
+            <VehiculoDetalle
               vehiculoId={param}
               onBack={() => navigateTo('/flota/vehiculos')}
               onNavigate={navigateTo}
             />
           );
         }
-        
-        // /flota/vehiculos (lista)
+
         return <VehiculosLista onNavigate={navigateTo} />;
       }
-      
-      // ============================================================================
-      // MANTENIMIENTOS
-      // ============================================================================
+
       if (submodulo === 'mantenimientos') {
-        // /flota/mantenimientos/nueva (con o sin query params)
         if (param === 'nueva') {
           const urlParams = new URLSearchParams(currentRoute.split('?')[1] || '');
           const tipoParam = urlParams.get('tipo') as 'preventivo' | 'correctivo' | 'predictivo' | null;
-          
+
           return (
-            <MantenimientoForm 
+            <MantenimientoForm
               tipoInicial={tipoParam || undefined}
               onCancel={() => navigateTo('/flota/mantenimientos')}
               onSuccess={(numeroOT) => navigateTo(`/flota/mantenimientos/${numeroOT}`)}
             />
           );
         }
-        
-        // /flota/mantenimientos/:otId (detalle) (ej: /flota/mantenimientos/OT-2024-001)
+
         if (param && param !== 'nueva') {
-          return (
-            <MantenimientoDetalle 
-              numeroOT={param}
-              onBack={() => navigateTo('/flota/mantenimientos')}
-            />
-          );
+          return <MantenimientoDetalle numeroOT={param} onBack={() => navigateTo('/flota/mantenimientos')} />;
         }
-        
-        // /flota/mantenimientos (lista)
+
         return (
-          <MantenimientosLista 
+          <MantenimientosLista
             onNavigateToDetalle={(numeroOT) => navigateTo(`/flota/mantenimientos/${numeroOT}`)}
             onNavigateToNueva={(tipo) => navigateTo(`/flota/mantenimientos/nueva?tipo=${tipo}`)}
           />
         );
       }
-      
-      // ============================================================================
-      // DASHBOARD
-      // ============================================================================
-      // /flota/reportes/vehiculos
-      if (submodulo === 'reportes' && param === 'vehiculos') {
-        return <FlotaReporteVehiculos onNavigate={navigateTo} />;
-      }
-      
-      // /flota/reportes/mantenimientos
-      if (submodulo === 'reportes' && param === 'mantenimientos') {
-        return <FlotaReporteMantenimientos onNavigate={navigateTo} />;
-      }
-      
-      // /flota/reportes/documentos
-      if (submodulo === 'reportes' && param === 'documentos') {
-        return <FlotaReporteDocumentos onNavigate={navigateTo} />;
-      }
-      
-      // /flota/analisis-preventivo - Análisis Preventivo Enterprise
-      if (submodulo === 'analisis-preventivo') {
-        return <FlotaPreventiveAnalytics onNavigate={navigateTo} />;
-      }
-      
-      // /flota/dashboard o /flota o /flota/
-      if (submodulo === 'dashboard' || !submodulo) {
-        return <FlotaDashboard onNavigate={navigateTo} />;
-      }
-      
-      // Fallback: si llega aquí, algo inesperado → mostrar dashboard
+
+      if (submodulo === 'reportes' && param === 'vehiculos') return <FlotaReporteVehiculos onNavigate={navigateTo} />;
+      if (submodulo === 'reportes' && param === 'mantenimientos') return <FlotaReporteMantenimientos onNavigate={navigateTo} />;
+      if (submodulo === 'reportes' && param === 'documentos') return <FlotaReporteDocumentos onNavigate={navigateTo} />;
+
+      if (submodulo === 'analisis-preventivo') return <FlotaPreventiveAnalytics onNavigate={navigateTo} />;
+
+      if (submodulo === 'dashboard' || !submodulo) return <FlotaDashboard onNavigate={navigateTo} />;
+
       return <FlotaDashboard onNavigate={navigateTo} />;
     }
-    
-    // Dashboard principal
+
     return <Dashboard />;
   };
 
@@ -696,10 +600,10 @@ export default function App() {
                     <MantenimientosStoreProvider>
                       <div className="min-h-screen bg-background">
                         {/* Desktop Sidebar - Oculto en rutas especiales */}
-                        {!isSpecialRoute() && (
+                        {!isSpecialRoute() && user && (
                           <div className="hidden lg:block print:hidden">
-                            <ERPSidebar 
-                              currentModule={currentModule} 
+                            <ERPSidebar
+                              currentModule={currentModule}
                               onModuleChange={handleModuleChange}
                               currentRoute={currentRoute}
                             />
@@ -707,11 +611,11 @@ export default function App() {
                         )}
 
                         {/* Mobile Sidebar - Oculto en rutas especiales */}
-                        {!isSpecialRoute() && (
+                        {!isSpecialRoute() && user && (
                           <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
                             <SheetContent side="left" className="p-0 w-64 print:hidden">
-                              <ERPSidebar 
-                                currentModule={currentModule} 
+                              <ERPSidebar
+                                currentModule={currentModule}
                                 onModuleChange={handleModuleChange}
                                 currentRoute={currentRoute}
                               />
@@ -719,10 +623,9 @@ export default function App() {
                           </Sheet>
                         )}
 
-                        {/* Topbar - Responsive - Oculto en rutas especiales */}
-                        {!isSpecialRoute() && (
+                        {/* Topbar - Oculto en rutas especiales */}
+                        {!isSpecialRoute() && user && (
                           <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 lg:px-6 fixed top-0 right-0 left-0 lg:left-64 z-10 print:hidden">
-                            {/* Mobile Menu Button */}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -742,17 +645,13 @@ export default function App() {
                             />
                           </header>
                         )}
-                        
-                        {/* Main - Sin margen/padding en rutas especiales */}
+
+                        {/* Main */}
                         <main className={isSpecialRoute() ? '' : 'lg:ml-64 mt-16 p-4 md:p-6'}>
-                          <div className={isSpecialRoute() ? '' : 'max-w-[1600px] mx-auto'}>
-                            {renderModule()}
-                          </div>
+                          <div className={isSpecialRoute() ? '' : 'max-w-[1600px] mx-auto'}>{renderModule()}</div>
                         </main>
 
                         <Toaster />
-                        
-                        {/* Responsive indicator - comment out if not needed */}
                         <ResponsiveIndicator />
                       </div>
                     </MantenimientosStoreProvider>
