@@ -10,14 +10,26 @@ interface LoginProps {
   onLogin: () => void;
 }
 
-export function Login({ onLogin }: LoginProps) {
+export function Login() {
+  const { signInWithPassword } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin();
+    setSubmitting(true);
+    setErrorMsg(null);
+    try {
+      await signInWithPassword(email.trim(), password);
+      // listo: AuthProvider actualiza session
+    } catch (err: any) {
+      setErrorMsg(err?.message ?? "Error al iniciar sesión");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
