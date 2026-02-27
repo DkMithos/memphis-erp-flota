@@ -5,30 +5,31 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Checkbox } from '../ui/checkbox';
+import { useAuth } from '../../auth/AuthProvider';
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin?: () => void; // opcional: por compatibilidad
 }
 
-export function Login() {
-  const { signInWithPassword } = useAuth();
+export function Login({ onLogin }: LoginProps) {
+  const { signInWithPassword } = useAuth(); // <- viene del AuthProvider
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
     setErrorMsg(null);
+    setLoading(true);
     try {
-      await signInWithPassword(email.trim(), password);
-      // listo: AuthProvider actualiza session
+      await signInWithPassword(email, password);
+      onLogin?.(); // si tu App aún lo usa, no rompe
     } catch (err: any) {
-      setErrorMsg(err?.message ?? "Error al iniciar sesión");
+      setErrorMsg(err?.message ?? 'No se pudo iniciar sesión.');
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 
@@ -52,6 +53,7 @@ export function Login() {
             </CardDescription>
           </div>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -66,6 +68,7 @@ export function Login() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10"
                   required
+                  autoComplete="email"
                 />
               </div>
             </div>
@@ -82,6 +85,7 @@ export function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10"
                   required
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
@@ -92,6 +96,12 @@ export function Login() {
                 </button>
               </div>
             </div>
+
+            {errorMsg && (
+              <div className="text-sm text-red-600 dark:text-red-400">
+                {errorMsg}
+              </div>
+            )}
 
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -108,8 +118,8 @@ export function Login() {
               </Button>
             </div>
 
-            <Button type="submit" className="w-full">
-              Iniciar Sesión
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Ingresando...' : 'Iniciar Sesión'}
             </Button>
 
             <div className="relative">
@@ -124,10 +134,10 @@ export function Login() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" type="button">
+              <Button variant="outline" type="button" disabled>
                 Microsoft
               </Button>
-              <Button variant="outline" type="button">
+              <Button variant="outline" type="button" disabled>
                 Google
               </Button>
             </div>
