@@ -8,28 +8,31 @@ import { Checkbox } from '../ui/checkbox';
 import { useAuth } from '../../auth/AuthProvider';
 
 interface LoginProps {
-  onLogin?: () => void; // opcional: por compatibilidad
+  onLogin?: () => void; // opcional: compatibilidad legacy
 }
 
 export function Login({ onLogin }: LoginProps) {
-  const { signInWithPassword } = useAuth(); // <- viene del AuthProvider
+  const { signInWithPassword } = useAuth();
+
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+
+  const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
-    setLoading(true);
+    setSubmitting(true);
+
     try {
-      await signInWithPassword(email, password);
-      onLogin?.(); // si tu App aún lo usa, no rompe
+      await signInWithPassword(email.trim(), password);
+      onLogin?.(); // si App todavía lo usa, no rompe
     } catch (err: any) {
       setErrorMsg(err?.message ?? 'No se pudo iniciar sesión.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -46,6 +49,7 @@ export function Login({ onLogin }: LoginProps) {
               </div>
             </div>
           </div>
+
           <div className="text-center">
             <CardTitle>Iniciar Sesión</CardTitle>
             <CardDescription className="mt-2">
@@ -89,8 +93,9 @@ export function Login({ onLogin }: LoginProps) {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
@@ -106,20 +111,18 @@ export function Login({ onLogin }: LoginProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Checkbox id="remember" />
-                <label
-                  htmlFor="remember"
-                  className="text-sm text-muted-foreground cursor-pointer select-none"
-                >
+                <label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer select-none">
                   Recordarme
                 </label>
               </div>
-              <Button variant="link" className="px-0" type="button">
+
+              <Button variant="link" className="px-0" type="button" disabled>
                 ¿Olvidaste tu contraseña?
               </Button>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Ingresando...' : 'Iniciar Sesión'}
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting ? 'Ingresando...' : 'Iniciar Sesión'}
             </Button>
 
             <div className="relative">
@@ -145,7 +148,7 @@ export function Login({ onLogin }: LoginProps) {
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>¿No tienes una cuenta?</p>
-            <Button variant="link" className="px-0 mt-1">
+            <Button variant="link" className="px-0 mt-1" type="button" disabled>
               Contacta con soporte
             </Button>
           </div>

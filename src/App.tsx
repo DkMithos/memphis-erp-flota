@@ -111,11 +111,6 @@ import { Button } from './components/ui/button';
 import { Sheet, SheetContent } from './components/ui/sheet';
 import { Toaster } from './components/ui/sonner';
 
-/**
- * FEATURE FLAG: Rutas públicas legacy (deshabilitadas por defecto)
- * Las rutas /public/vehiculo/:id están deprecadas en favor de /v/:token
- * Solo habilitar si se requiere compatibilidad retroactiva
- */
 const ENABLE_PUBLIC_LEGACY_ROUTES = false;
 
 export default function App() {
@@ -127,11 +122,8 @@ export default function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    if (darkMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
   }, [darkMode]);
 
   const handleToggleDarkMode = () => setDarkMode(!darkMode);
@@ -148,11 +140,6 @@ export default function App() {
     if (modulePart) setCurrentModule(modulePart);
   };
 
-  /**
-   * Detecta si la ruta actual es una página especial (sin Sidebar/Topbar)
-   * - Vistas públicas QR: /v/:token
-   * - Print views: /flota/vehiculos/:id/print-qr
-   */
   const isSpecialRoute = () => {
     return (
       currentRoute.startsWith('/v/') ||
@@ -160,9 +147,6 @@ export default function App() {
     );
   };
 
-  /**
-   * Estas rutas deben funcionar incluso si NO hay sesión (Opción B: público anon)
-   */
   const isPublicAllowedWithoutAuth = () => {
     if (currentRoute.startsWith('/v/')) return true;
     if (currentRoute.startsWith('/flota/vehiculos/') && currentRoute.includes('/print-qr')) return true;
@@ -172,57 +156,56 @@ export default function App() {
 
   // 1) Mientras carga la sesión
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Cargando...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
+        Cargando...
+      </div>
+    );
   }
 
-  // 2) Si NO hay usuario y la ruta NO es pública: Login
+  // 2) Si NO hay user y la ruta NO es pública: Login
   if (!user && !isPublicAllowedWithoutAuth()) {
     return <Login />;
   }
 
   const renderModule = () => {
-    // ========================================================================
-    // Routing de Vistas Públicas de Vehículos (QR + Hoja de Vida)
-    // Debe ir ANTES del routing /flota
-    // ========================================================================
+    // =========================
+    // RUTAS PÚBLICAS (SIN AUTH)
+    // =========================
 
-    // /v/:token - Ruta pública con token
+    // /v/:token
     if (currentRoute.startsWith('/v/')) {
       const cleanPath = currentRoute.split('?')[0];
-      const segments = cleanPath.split('/').filter(Boolean); // ['v', 'token']
+      const segments = cleanPath.split('/').filter(Boolean);
       const token = segments[1];
-
-      if (token) {
-        return <VehiclePublicView token={token} onNavigate={navigateTo} />;
-      }
+      if (token) return <VehiclePublicView token={token} onNavigate={navigateTo} />;
+      return <div className="p-6 text-sm text-muted-foreground">Token inválido.</div>;
     }
 
-    // /flota/vehiculos/:id/print-qr - Ruta interna para impresión de QR
+    // /flota/vehiculos/:id/print-qr
     if (currentRoute.startsWith('/flota/vehiculos/') && currentRoute.includes('/print-qr')) {
       const cleanPath = currentRoute.split('?')[0];
-      const segments = cleanPath.split('/').filter(Boolean); // ['flota','vehiculos','VH-001','print-qr']
+      const segments = cleanPath.split('/').filter(Boolean);
       const vehiculoId = segments[2];
-
-      if (vehiculoId) {
-        return <VehicleQRPrint vehiculoId={vehiculoId} onNavigate={navigateTo} />;
-      }
+      if (vehiculoId) return <VehicleQRPrint vehiculoId={vehiculoId} onNavigate={navigateTo} />;
+      return <div className="p-6 text-sm text-muted-foreground">Vehículo inválido.</div>;
     }
 
-    // /public/vehiculo/:id (LEGACY)
+    // /public/vehiculo/:id (legacy)
     if (ENABLE_PUBLIC_LEGACY_ROUTES && currentRoute.startsWith('/public/vehiculo/')) {
       const cleanPath = currentRoute.split('?')[0];
       const segments = cleanPath.split('/').filter(Boolean);
       const vehiculoId = segments[2];
       if (vehiculoId) return <VehiclePublicLifeSheet vehiculoId={vehiculoId} />;
+      return <div className="p-6 text-sm text-muted-foreground">Vehículo inválido.</div>;
     }
 
-    // ========================================================================
-    // A partir de aquí: rutas internas (requieren sesión)
-    // Si llegaste aquí sin user, forzamos Login (defensivo)
-    // ========================================================================
+    // =========================
+    // RUTAS INTERNAS (CON AUTH)
+    // =========================
     if (!user) return <Login />;
 
-    // Routing de Biomédico
+    // Biomédico
     if (currentRoute.startsWith('/biomedico')) {
       if (currentRoute.startsWith('/biomedico/mantenimientos/nuevo')) {
         const urlParams = new URLSearchParams(currentRoute.split('?')[1] || '');
@@ -288,9 +271,7 @@ export default function App() {
             codigoEquipo={codigo}
             onNavigateToEditar={() => navigateTo(`/biomedico/equipos/${codigo}/editar`)}
             onNavigateToMantenimiento={(numero) => navigateTo(`/biomedico/mantenimientos/${numero}`)}
-            onNavigateToNuevoMantenimiento={() => {
-              navigateTo(`/biomedico/mantenimientos/nuevo?equipo=${codigo}`);
-            }}
+            onNavigateToNuevoMantenimiento={() => navigateTo(`/biomedico/mantenimientos/nuevo?equipo=${codigo}`)}
             onBack={() => navigateTo('/biomedico/equipos')}
           />
         );
@@ -312,7 +293,7 @@ export default function App() {
       return <BiomedicoDashboard onNavigate={navigateTo} />;
     }
 
-    // Routing de Proyectos
+    // Proyectos
     if (currentRoute.startsWith('/proyectos')) {
       if (currentRoute === '/proyectos/cronograma') return <ProyectosCronograma onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/tareas') return <ProyectosTareas onNavigate={navigateTo} />;
@@ -322,7 +303,7 @@ export default function App() {
       return <Proyectos />;
     }
 
-    // Routing de Finanzas
+    // Finanzas
     if (currentRoute.startsWith('/finanzas')) {
       if (currentRoute === '/finanzas/presupuestos') return <FinanzasPresupuestos onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/cuentas-pagar') return <FinanzasCuentasPagar onNavigate={navigateTo} />;
@@ -331,7 +312,7 @@ export default function App() {
       return <Finanzas />;
     }
 
-    // Routing de Inventario
+    // Inventario
     if (currentRoute.startsWith('/inventario')) {
       if (currentRoute === '/inventario/productos') return <InventarioProductos onNavigate={navigateTo} />;
       if (currentRoute === '/inventario/movimientos') return <InventarioMovimientos onNavigate={navigateTo} />;
@@ -340,7 +321,7 @@ export default function App() {
       return <Inventario />;
     }
 
-    // Routing de Compras
+    // Compras
     if (currentRoute.startsWith('/compras')) {
       if (currentRoute.startsWith('/compras/recepciones/nuevo')) {
         const urlParams = new URLSearchParams(currentRoute.split('?')[1] || '');
@@ -461,7 +442,7 @@ export default function App() {
       return <Compras onNavigate={navigateTo} />;
     }
 
-    // Routing de Proveedores
+    // Proveedores
     if (currentRoute.startsWith('/proveedores')) {
       if (currentRoute === '/proveedores/directorio/nuevo') {
         return (
@@ -497,7 +478,7 @@ export default function App() {
       return <Proveedores onNavigate={navigateTo} />;
     }
 
-    // Routing de CRM
+    // CRM
     if (currentRoute.startsWith('/crm')) {
       if (currentRoute === '/crm/clientes') return <CRMClientes onNavigate={navigateTo} />;
       if (currentRoute === '/crm/oportunidades') return <CRMOportunidades onNavigate={navigateTo} />;
@@ -505,7 +486,7 @@ export default function App() {
       return <CRM />;
     }
 
-    // Routing de Flota
+    // Flota
     if (currentRoute.startsWith('/flota')) {
       const cleanPath = currentRoute.split('?')[0];
       const segments = cleanPath.split('/').filter(Boolean);
@@ -579,7 +560,6 @@ export default function App() {
       if (submodulo === 'reportes' && param === 'documentos') return <FlotaReporteDocumentos onNavigate={navigateTo} />;
 
       if (submodulo === 'analisis-preventivo') return <FlotaPreventiveAnalytics onNavigate={navigateTo} />;
-
       if (submodulo === 'dashboard' || !submodulo) return <FlotaDashboard onNavigate={navigateTo} />;
 
       return <FlotaDashboard onNavigate={navigateTo} />;
@@ -599,7 +579,7 @@ export default function App() {
                   <EquiposStoreProvider>
                     <MantenimientosStoreProvider>
                       <div className="min-h-screen bg-background">
-                        {/* Desktop Sidebar - Oculto en rutas especiales */}
+                        {/* Desktop Sidebar */}
                         {!isSpecialRoute() && user && (
                           <div className="hidden lg:block print:hidden">
                             <ERPSidebar
@@ -610,7 +590,7 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* Mobile Sidebar - Oculto en rutas especiales */}
+                        {/* Mobile Sidebar */}
                         {!isSpecialRoute() && user && (
                           <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
                             <SheetContent side="left" className="p-0 w-64 print:hidden">
@@ -623,7 +603,7 @@ export default function App() {
                           </Sheet>
                         )}
 
-                        {/* Topbar - Oculto en rutas especiales */}
+                        {/* Topbar */}
                         {!isSpecialRoute() && user && (
                           <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 lg:px-6 fixed top-0 right-0 left-0 lg:left-64 z-10 print:hidden">
                             <Button
@@ -646,9 +626,10 @@ export default function App() {
                           </header>
                         )}
 
-                        {/* Main */}
                         <main className={isSpecialRoute() ? '' : 'lg:ml-64 mt-16 p-4 md:p-6'}>
-                          <div className={isSpecialRoute() ? '' : 'max-w-[1600px] mx-auto'}>{renderModule()}</div>
+                          <div className={isSpecialRoute() ? '' : 'max-w-[1600px] mx-auto'}>
+                            {renderModule()}
+                          </div>
                         </main>
 
                         <Toaster />
