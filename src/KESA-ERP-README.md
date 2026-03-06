@@ -270,7 +270,7 @@ El prototipo incluye:
 
 ## 📄 Licencia
 
-Este es un prototipo UI/UX para demostración. Todos los datos son ficticios.
+Este es un prototipo UI/UX para demostración. Todos los datos son ficticios no reales.
 
 ---
 
