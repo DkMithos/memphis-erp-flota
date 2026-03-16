@@ -154,7 +154,7 @@ export function MantenimientoForm({
         observaciones: observaciones || undefined
       };
 
-      const nuevaOT = crearOrdenTrabajo(input);
+      const nuevaOT = await crearOrdenTrabajo(input);
       
       toast.success(`Orden de Trabajo ${nuevaOT.numeroOT} creada exitosamente`, {
         description: requiereAprobacion 

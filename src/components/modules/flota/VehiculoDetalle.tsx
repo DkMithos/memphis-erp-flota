@@ -76,7 +76,7 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate }: VehiculoDeta
 
     setProcesando(true);
 
-    const resultado = inactivarVehiculo(vehiculo.id, motivoInactivacion);
+    const resultado = await inactivarVehiculo(vehiculo.id, motivoInactivacion);
 
     if (resultado.exito) {
       toast.success('Vehículo inactivado', {
@@ -97,7 +97,7 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate }: VehiculoDeta
   const handleActivar = async () => {
     setProcesando(true);
 
-    const resultado = activarVehiculo(vehiculo.id);
+    const resultado = await activarVehiculo(vehiculo.id);
 
     if (resultado.exito) {
       toast.success('Vehículo activado', {

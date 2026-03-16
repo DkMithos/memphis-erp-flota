@@ -97,7 +97,7 @@ export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: Vehiculo
     };
 
     if (modo === 'crear') {
-      const resultado = crearVehiculo(data);
+      const resultado = await crearVehiculo(data);
 
       if (resultado.exito) {
         toast.success('Vehículo creado', {
@@ -111,7 +111,7 @@ export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: Vehiculo
         });
       }
     } else {
-      const resultado = actualizarVehiculo(vehiculoId!, data);
+      const resultado = await actualizarVehiculo(vehiculoId!, data);
 
       if (resultado.exito) {
         toast.success('Vehículo actualizado', {
