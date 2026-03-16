@@ -89,7 +89,7 @@ export function ContratoTab({ vehiculoId, vehiculo }: ContratoTabProps) {
 
     setGuardando(true);
 
-    const resultado = actualizarVinculoContrato(vehiculoId, formData);
+    const resultado = await actualizarVinculoContrato(vehiculoId, formData);
 
     if (resultado.exito) {
       toast.success('Contrato actualizado', {

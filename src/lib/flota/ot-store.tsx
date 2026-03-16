@@ -1,18 +1,21 @@
 /**
- * STORE DE ÓRDENES DE TRABAJO
- * Context global para gestión de OTs en el módulo Flota
- * Prototipo funcional - Reemplazar por backend real en producción
+ * KESA ERP - Flota → Órdenes de Trabajo Store
+ * v2.0.0 - Conectado a Supabase (reemplaza mock/seed data)
+ * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { 
-  generarNumeroOT, 
-  extraerNumeroSecuencial, 
+import { supabase } from '../supabase/client';
+import { useAuth } from '../../auth/AuthProvider';
+import type { OrdenTrabajoDB, OTRepuesto, OTExtra } from '../supabase/types';
+import {
+  generarNumeroOT,
+  extraerNumeroSecuencial,
   determinarEstadoInicial,
   normalizeOTStatus,
   DEBUG_OT,
-  type EstadoOT, 
-  type TipoOT, 
+  type EstadoOT,
+  type TipoOT,
   type CriticidadOT,
   type OTExtraItem
 } from './ot-config';
@@ -23,38 +26,39 @@ import {
 
 export interface OrdenTrabajo {
   // Identificación
-  id: string;
+  id: string;           // = numero_ot en DB (OT-2024-001)
+  _dbId: string;        // UUID interno de la DB (para FK)
   numeroOT: string;
-  vehiculoId: string;
+  vehiculoId: string;   // = vehiculo codigo (VH-001)
   vehiculoPlaca: string;
-  
+
   // Clasificación
   tipo: TipoOT;
   criticidad: CriticidadOT;
   estado: EstadoOT;
-  
+
   // Descripción
   titulo: string;
   descripcion: string;
-  
+
   // Fechas y SLA
   fechaCreacion: string;
   fechaProgramada: string;
   fechaInicio: string | null;
   fechaCierre: string | null;
-  slaEstimado: number; // horas
-  slaReal: number | null; // horas
-  
+  slaEstimado: number;
+  slaReal: number | null;
+
   // Kilometraje
   kilometrajeRegistro: number;
-  
-  // Integración con otros módulos
+
+  // Taller
   taller: {
     id: string;
     nombre: string;
     tipo: 'interno' | 'externo';
   };
-  
+
   repuestos: Array<{
     id: string;
     nombre: string;
@@ -62,7 +66,7 @@ export interface OrdenTrabajo {
     costoUnitario: number;
     costoTotal: number;
   }>;
-  
+
   costos: {
     manoObra: number;
     repuestos: number;
@@ -70,8 +74,8 @@ export interface OrdenTrabajo {
     otros: number;
     total: number;
   };
-  
-  // Auditoría obligatoria
+
+  // Auditoría
   auditoria: {
     creadoPor: string;
     creadoEn: string;
@@ -80,12 +84,11 @@ export interface OrdenTrabajo {
     cerradoPor: string | null;
     cerradoEn: string | null;
   };
-  
-  // Observaciones
+
   observaciones: string | null;
   notasCierre: string | null;
-  
-  // Extras (hallazgos/adicionales)
+
+  // Extras (hallazgos)
   extras: OTExtraItem[];
 }
 
@@ -113,19 +116,22 @@ export interface NuevaOrdenTrabajoInput {
   observaciones?: string;
 }
 
+type CrudResult = { exito: boolean; errores?: string[] };
+
 interface OTStoreContext {
   ordenes: OrdenTrabajo[];
+  loading: boolean;
   obtenerOTPorNumero: (numeroOT: string) => OrdenTrabajo | undefined;
   obtenerOTsPorVehiculo: (vehiculoId: string) => OrdenTrabajo[];
-  crearOrdenTrabajo: (input: NuevaOrdenTrabajoInput) => OrdenTrabajo;
-  actualizarEstadoOT: (numeroOT: string, nuevoEstado: EstadoOT) => void;
-  iniciarOT: (numeroOT: string) => void;
-  pausarOT: (numeroOT: string) => void;
-  aprobarOT: (numeroOT: string) => void;
-  cerrarOT: (numeroOT: string, notasCierre?: string) => void;
-  anularOT: (numeroOT: string, motivo: string) => void;
-  agregarExtra: (numeroOT: string, extra: OTExtraItem) => void;
-  eliminarExtra: (numeroOT: string, extraId: string, motivo: string) => void;
+  crearOrdenTrabajo: (input: NuevaOrdenTrabajoInput) => Promise<OrdenTrabajo>;
+  actualizarEstadoOT: (numeroOT: string, nuevoEstado: EstadoOT) => Promise<CrudResult>;
+  iniciarOT: (numeroOT: string) => Promise<CrudResult>;
+  pausarOT: (numeroOT: string) => Promise<CrudResult>;
+  aprobarOT: (numeroOT: string) => Promise<CrudResult>;
+  cerrarOT: (numeroOT: string, notasCierre?: string) => Promise<CrudResult>;
+  anularOT: (numeroOT: string, motivo: string) => Promise<CrudResult>;
+  agregarExtra: (numeroOT: string, extra: OTExtraItem) => Promise<CrudResult>;
+  eliminarExtra: (numeroOT: string, extraId: string, motivo: string) => Promise<CrudResult>;
   cargarOTsIniciales: () => void;
 }
 
@@ -136,638 +142,409 @@ interface OTStoreContext {
 const OTContext = createContext<OTStoreContext | undefined>(undefined);
 
 // ============================================================================
-// DATA DE EJEMPLO - Seed inicial
+// MAPPERS DB ↔ FRONTEND
 // ============================================================================
 
-const ordenesTrabajoSeed: OrdenTrabajo[] = [
-  {
-    id: 'OT-001',
-    numeroOT: 'OT-2024-001',
-    vehiculoId: 'VH-001',
-    vehiculoPlaca: 'ABC-123',
-    tipo: 'preventivo',
-    criticidad: 'alta',
-    estado: 'programada',
-    titulo: 'Mantenimiento Preventivo 50,000 km',
-    descripcion: 'Cambio de aceite, filtros, revisión de frenos y suspensión',
-    fechaCreacion: '2024-12-01 09:00',
-    fechaProgramada: '2024-12-20 08:00',
-    fechaInicio: null,
-    fechaCierre: null,
-    slaEstimado: 4,
-    slaReal: null,
-    kilometrajeRegistro: 48500,
+function mapRepuestoFromDB(r: OTRepuesto): OrdenTrabajo['repuestos'][0] {
+  return {
+    id: r.id,
+    nombre: r.nombre,
+    cantidad: r.cantidad,
+    costoUnitario: r.costo_unitario,
+    costoTotal: r.costo_total,
+  };
+}
+
+function mapExtraFromDB(e: OTExtra): OTExtraItem {
+  return {
+    id: e.id,
+    tipo: e.tipo,
+    categoria: e.categoria ?? undefined,
+    descripcion: e.descripcion,
+    motivo: e.motivo,
+    cantidad: e.cantidad,
+    costoUnitario: e.costo_unitario,
+    costoTotal: e.costo_total,
+    fechaRegistro: e.fecha_registro,
+    registradoPor: e.registrado_por ?? '',
+    eliminado: e.eliminado,
+    motivoEliminacion: e.motivo_eliminacion ?? undefined,
+    eliminadoPor: e.eliminado_por ?? undefined,
+    fechaEliminacion: e.fecha_eliminacion ?? undefined,
+  };
+}
+
+function mapFromDB(
+  ot: OrdenTrabajoDB,
+  repuestos: OTRepuesto[],
+  extras: OTExtra[]
+): OrdenTrabajo {
+  return {
+    id: ot.numero_ot,
+    _dbId: ot.id,
+    numeroOT: ot.numero_ot,
+    vehiculoId: ot.vehiculo_id,   // stored as vehiculo codigo (VH-001) when inserting
+    vehiculoPlaca: ot.vehiculo_placa,
+    tipo: ot.tipo as TipoOT,
+    criticidad: ot.criticidad as CriticidadOT,
+    estado: normalizeOTStatus(ot.estado) as EstadoOT,
+    titulo: ot.titulo,
+    descripcion: ot.descripcion,
+    fechaCreacion: ot.creado_en,
+    fechaProgramada: ot.fecha_programada,
+    fechaInicio: ot.fecha_inicio,
+    fechaCierre: ot.fecha_cierre,
+    slaEstimado: ot.sla_estimado_horas ?? 0,
+    slaReal: ot.sla_real_horas,
+    kilometrajeRegistro: ot.kilometraje_registro,
     taller: {
-      id: 'TALLER-001',
-      nombre: 'Mercedes Benz Servicio Oficial',
-      tipo: 'externo'
+      id: ot.taller_nombre, // no separate taller_id in DB; use nombre as key
+      nombre: ot.taller_nombre,
+      tipo: ot.taller_tipo,
     },
-    repuestos: [],
+    repuestos: repuestos.map(mapRepuestoFromDB),
     costos: {
-      manoObra: 450.00,
-      repuestos: 1200.00,
-      terceros: 0,
-      otros: 200.00,
-      total: 1850.00
+      manoObra: ot.costo_mano_obra,
+      repuestos: ot.costo_repuestos,
+      terceros: ot.costo_terceros,
+      otros: ot.costo_otros,
+      total: ot.costo_total,
     },
     auditoria: {
-      creadoPor: 'sistema.automatico@kesa.com',
-      creadoEn: '2024-12-01 09:00:00',
-      modificadoPor: null,
-      modificadoEn: null,
-      cerradoPor: null,
-      cerradoEn: null
+      creadoPor: ot.creado_por ?? '',
+      creadoEn: ot.creado_en,
+      modificadoPor: ot.modificado_por,
+      modificadoEn: ot.modificado_en,
+      cerradoPor: ot.cerrado_por,
+      cerradoEn: ot.fecha_cierre,
     },
-    observaciones: 'Generado automáticamente por sistema al alcanzar 48,500 km',
+    observaciones: ot.motivo_anulacion ?? null, // reuse for general observaciones field
     notasCierre: null,
-    extras: []
-  },
-  {
-    id: 'OT-002',
-    numeroOT: 'OT-2024-002',
-    vehiculoId: 'VH-001',
-    vehiculoPlaca: 'ABC-123',
-    tipo: 'correctivo',
-    criticidad: 'critica',
-    estado: 'en_ejecucion',
-    titulo: 'Reparación de sistema de frenos',
-    descripcion: 'Desgaste crítico de pastillas de freno delanteras detectado en inspección rutinaria',
-    fechaCreacion: '2024-12-24 14:30',
-    fechaProgramada: '2024-12-25 08:00',
-    fechaInicio: '2024-12-25 08:15',
-    fechaCierre: null,
-    slaEstimado: 3,
-    slaReal: null,
-    kilometrajeRegistro: 48500,
-    taller: {
-      id: 'TALLER-002',
-      nombre: 'Taller Interno - Base Central',
-      tipo: 'interno'
-    },
-    repuestos: [
-      {
-        id: 'REP-001',
-        nombre: 'Pastillas de freno delanteras OEM',
-        cantidad: 1,
-        costoUnitario: 280.00,
-        costoTotal: 280.00
-      },
-      {
-        id: 'REP-002',
-        nombre: 'Líquido de frenos DOT 4',
-        cantidad: 2,
-        costoUnitario: 25.00,
-        costoTotal: 50.00
-      }
-    ],
-    costos: {
-      manoObra: 150.00,
-      repuestos: 330.00,
-      terceros: 0,
-      otros: 0,
-      total: 480.00
-    },
-    auditoria: {
-      creadoPor: 'juan.perez@kesa.com',
-      creadoEn: '2024-12-24 14:30:00',
-      modificadoPor: 'carlos.mendoza@kesa.com',
-      modificadoEn: '2024-12-25 08:15:00',
-      cerradoPor: null,
-      cerradoEn: null
-    },
-    observaciones: 'Vehículo fuera de servicio hasta completar reparación',
-    notasCierre: null,
-    extras: []
-  },
-  {
-    id: 'OT-003',
-    numeroOT: 'OT-2024-003',
-    vehiculoId: 'VH-001',
-    vehiculoPlaca: 'ABC-123',
-    tipo: 'correctivo',
-    criticidad: 'media',
-    estado: 'espera_repuesto',
-    titulo: 'Reemplazo de batería',
-    descripcion: 'Batería con bajo voltaje, requiere reemplazo preventivo',
-    fechaCreacion: '2024-12-20 10:00',
-    fechaProgramada: '2024-12-23 09:00',
-    fechaInicio: '2024-12-23 09:10',
-    fechaCierre: null,
-    slaEstimado: 2,
-    slaReal: null,
-    kilometrajeRegistro: 48200,
-    taller: {
-      id: 'TALLER-002',
-      nombre: 'Taller Interno - Base Central',
-      tipo: 'interno'
-    },
-    repuestos: [
-      {
-        id: 'REP-003',
-        nombre: 'Batería 12V 100Ah AGM',
-        cantidad: 1,
-        costoUnitario: 450.00,
-        costoTotal: 450.00
-      }
-    ],
-    costos: {
-      manoObra: 50.00,
-      repuestos: 450.00,
-      terceros: 0,
-      otros: 0,
-      total: 500.00
-    },
-    auditoria: {
-      creadoPor: 'ana.garcia@kesa.com',
-      creadoEn: '2024-12-20 10:00:00',
-      modificadoPor: 'carlos.mendoza@kesa.com',
-      modificadoEn: '2024-12-23 09:10:00',
-      cerradoPor: null,
-      cerradoEn: null
-    },
-    observaciones: 'Batería en tránsito desde proveedor, ETA 2 días',
-    notasCierre: null,
-    extras: []
-  },
-  {
-    id: 'OT-004',
-    numeroOT: 'OT-2024-004',
-    vehiculoId: 'VH-001',
-    vehiculoPlaca: 'ABC-123',
-    tipo: 'preventivo',
-    criticidad: 'baja',
-    estado: 'cerrada',
-    titulo: 'Mantenimiento Preventivo 40,000 km',
-    descripcion: 'Mantenimiento preventivo programado - Cambio de aceite y filtros',
-    fechaCreacion: '2024-10-01 09:00',
-    fechaProgramada: '2024-10-20 08:00',
-    fechaInicio: '2024-10-20 08:05',
-    fechaCierre: '2024-10-20 11:30',
-    slaEstimado: 4,
-    slaReal: 3.4,
-    kilometrajeRegistro: 40000,
-    taller: {
-      id: 'TALLER-001',
-      nombre: 'Mercedes Benz Servicio Oficial',
-      tipo: 'externo'
-    },
-    repuestos: [
-      {
-        id: 'REP-004',
-        nombre: 'Aceite sintético 5W-30 (5L)',
-        cantidad: 2,
-        costoUnitario: 85.00,
-        costoTotal: 170.00
-      },
-      {
-        id: 'REP-005',
-        nombre: 'Filtro de aceite OEM',
-        cantidad: 1,
-        costoUnitario: 45.00,
-        costoTotal: 45.00
-      },
-      {
-        id: 'REP-006',
-        nombre: 'Filtro de aire',
-        cantidad: 1,
-        costoUnitario: 35.00,
-        costoTotal: 35.00
-      },
-      {
-        id: 'REP-007',
-        nombre: 'Filtro de combustible',
-        cantidad: 1,
-        costoUnitario: 55.00,
-        costoTotal: 55.00
-      }
-    ],
-    costos: {
-      manoObra: 250.00,
-      repuestos: 305.00,
-      terceros: 0,
-      otros: 50.00,
-      total: 605.00
-    },
-    auditoria: {
-      creadoPor: 'sistema.automatico@kesa.com',
-      creadoEn: '2024-10-01 09:00:00',
-      modificadoPor: 'carlos.mendoza@kesa.com',
-      modificadoEn: '2024-10-20 08:05:00',
-      cerradoPor: 'carlos.mendoza@kesa.com',
-      cerradoEn: '2024-10-20 11:30:00'
-    },
-    observaciones: 'Mantenimiento programado cumplido a tiempo',
-    notasCierre: 'Trabajo completado sin inconvenientes. Vehículo operativo.',
-    extras: []
-  },
-  {
-    id: 'OT-005',
-    numeroOT: 'OT-2024-005',
-    vehiculoId: 'VH-001',
-    vehiculoPlaca: 'ABC-123',
-    tipo: 'correctivo',
-    criticidad: 'baja',
-    estado: 'anulada',
-    titulo: 'Revisión de sistema eléctrico',
-    descripcion: 'Alerta de fallo eléctrico - Para revisión',
-    fechaCreacion: '2024-11-10 15:20',
-    fechaProgramada: '2024-11-12 10:00',
-    fechaInicio: null,
-    fechaCierre: null,
-    slaEstimado: 2,
-    slaReal: null,
-    kilometrajeRegistro: 42500,
-    taller: {
-      id: 'TALLER-002',
-      nombre: 'Taller Interno - Base Central',
-      tipo: 'interno'
-    },
-    repuestos: [],
-    costos: {
-      manoObra: 0,
-      repuestos: 0,
-      terceros: 0,
-      otros: 0,
-      total: 0
-    },
-    auditoria: {
-      creadoPor: 'juan.perez@kesa.com',
-      creadoEn: '2024-11-10 15:20:00',
-      modificadoPor: 'ana.garcia@kesa.com',
-      modificadoEn: '2024-11-11 09:00:00',
-      cerradoPor: 'ana.garcia@kesa.com',
-      cerradoEn: '2024-11-11 09:00:00'
-    },
-    observaciones: 'OT anulada - Falsa alarma, sistema eléctrico operativo',
-    notasCierre: 'Diagnóstico confirmó que no hay falla real. OT anulada.',
-    extras: []
-  },
-  {
-    id: 'OT-006',
-    numeroOT: 'OT-2024-006',
-    vehiculoId: 'VH-001',
-    vehiculoPlaca: 'ABC-123',
-    tipo: 'correctivo',
-    criticidad: 'alta',
-    estado: 'espera_aprobacion',
-    titulo: 'Reparación mayor de motor - Revisión de inyectores',
-    descripcion: 'Falla en inyector #3 detectada por diagnóstico computarizado',
-    fechaCreacion: '2024-12-26 11:00',
-    fechaProgramada: '2024-12-28 08:00',
-    fechaInicio: null,
-    fechaCierre: null,
-    slaEstimado: 8,
-    slaReal: null,
-    kilometrajeRegistro: 48600,
-    taller: {
-      id: 'TALLER-001',
-      nombre: 'Mercedes Benz Servicio Oficial',
-      tipo: 'externo'
-    },
-    repuestos: [
-      {
-        id: 'REP-008',
-        nombre: 'Inyector Common Rail OEM',
-        cantidad: 1,
-        costoUnitario: 850.00,
-        costoTotal: 850.00
-      }
-    ],
-    costos: {
-      manoObra: 650.00,
-      repuestos: 850.00,
-      terceros: 200.00,
-      otros: 100.00,
-      total: 1800.00
-    },
-    auditoria: {
-      creadoPor: 'carlos.mendoza@kesa.com',
-      creadoEn: '2024-12-26 11:00:00',
-      modificadoPor: null,
-      modificadoEn: null,
-      cerradoPor: null,
-      cerradoEn: null
-    },
-    observaciones: 'Requiere aprobación de Gerencia por costo superior a $1,500 USD',
-    notasCierre: null,
-    extras: []
-  }
-];
+    extras: extras.map(mapExtraFromDB),
+  };
+}
 
 // ============================================================================
 // PROVIDER
 // ============================================================================
 
 export function OTStoreProvider({ children }: { children: React.ReactNode }) {
+  const { tenantId, user } = useAuth();
   const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // --------------------------------------------------------------------------
+  // FETCH INICIAL
+  // --------------------------------------------------------------------------
+
+  const fetchOrdenes = useCallback(async () => {
+    if (!tenantId) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('ordenes_trabajo')
+        .select('*, repuestos:ot_repuestos(*), extras:ot_extras(*)')
+        .order('creado_en', { ascending: false });
+
+      if (error) {
+        console.error('[ot-store.fetch]', error.message);
+        return;
+      }
+
+      const mapped = (data ?? []).map((row: any) =>
+        mapFromDB(
+          row as OrdenTrabajoDB,
+          (row.repuestos ?? []) as OTRepuesto[],
+          (row.extras ?? []) as OTExtra[]
+        )
+      );
+      setOrdenes(mapped);
+    } finally {
+      setLoading(false);
+    }
+  }, [tenantId]);
 
   useEffect(() => {
-    if (ordenes.length === 0) {
-      if (DEBUG_OT) {
-        console.log('[OT_SEED_LOADING]', { seedSize: ordenesTrabajoSeed.length });
-      }
-      setOrdenes(ordenesTrabajoSeed);
-    }
-  }, []);
+    fetchOrdenes();
+  }, [fetchOrdenes]);
 
   const cargarOTsIniciales = useCallback(() => {
-    if (ordenes.length === 0) {
-      if (DEBUG_OT) {
-        console.log('[OT_SEED_MANUAL_LOADING]', { seedSize: ordenesTrabajoSeed.length });
-      }
-      setOrdenes(ordenesTrabajoSeed);
-    } else if (DEBUG_OT) {
-      console.log('[OT_SEED_SKIP]', { reason: 'Ya hay OTs en el store', currentSize: ordenes.length });
-    }
-  }, [ordenes.length]);
+    fetchOrdenes();
+  }, [fetchOrdenes]);
 
-  // Obtener OT por número
-  const obtenerOTPorNumero = useCallback((numeroOT: string) => {
-    return ordenes.find(ot => ot.numeroOT === numeroOT);
-  }, [ordenes]);
+  // --------------------------------------------------------------------------
+  // QUERIES (sync, sobre estado local)
+  // --------------------------------------------------------------------------
 
-  // Obtener OTs por vehículo
-  const obtenerOTsPorVehiculo = useCallback((vehiculoId: string) => {
-    return ordenes.filter(ot => ot.vehiculoId === vehiculoId);
-  }, [ordenes]);
+  const obtenerOTPorNumero = useCallback(
+    (numeroOT: string) => ordenes.find(ot => ot.numeroOT === numeroOT),
+    [ordenes]
+  );
 
-  // Crear nueva OT
-  const crearOrdenTrabajo = useCallback((input: NuevaOrdenTrabajoInput): OrdenTrabajo => {
-    // Obtener el último número secuencial
+  const obtenerOTsPorVehiculo = useCallback(
+    (vehiculoId: string) => ordenes.filter(ot => ot.vehiculoId === vehiculoId),
+    [ordenes]
+  );
+
+  // --------------------------------------------------------------------------
+  // CREAR OT
+  // --------------------------------------------------------------------------
+
+  const crearOrdenTrabajo = useCallback(async (input: NuevaOrdenTrabajoInput): Promise<OrdenTrabajo> => {
     const numeros = ordenes
       .map(ot => extraerNumeroSecuencial(ot.numeroOT))
       .filter((n): n is number => n !== null);
     const ultimoNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
-
-    // Generar nuevo número OT
     const numeroOT = generarNumeroOT(ultimoNumero);
-    const id = `OT-${ultimoNumero + 1}`.padStart(7, '0');
 
-    // Usuario actual (mock - en producción viene del auth context)
-    const usuarioActual = 'admin@kesa.com';
-    const timestamp = new Date().toISOString();
+    const costos = input.costos ?? { manoObra: 0, repuestos: 0, terceros: 0, otros: 0 };
+    const estadoInicial = determinarEstadoInicial(
+      costos.manoObra + costos.repuestos + costos.terceros + costos.otros
+    );
 
-    // Calcular costos totales
-    const costos = input.costos || { manoObra: 0, repuestos: 0, terceros: 0, otros: 0 };
-    const total = costos.manoObra + costos.repuestos + costos.terceros + costos.otros;
-
-    // Determinar estado inicial basado en costo total
-    const estadoInicial = determinarEstadoInicial(total);
-
-    // Crear objeto OT
-    const nuevaOT: OrdenTrabajo = {
-      id,
-      numeroOT,
-      vehiculoId: input.vehiculoId,
-      vehiculoPlaca: input.vehiculoPlaca,
+    const insertPayload = {
+      tenant_id: tenantId!,
+      numero_ot: numeroOT,
+      vehiculo_id: input.vehiculoId,
+      vehiculo_placa: input.vehiculoPlaca,
       tipo: input.tipo,
       criticidad: input.criticidad,
       estado: estadoInicial,
       titulo: input.titulo,
       descripcion: input.descripcion,
-      fechaCreacion: timestamp,
-      fechaProgramada: input.fechaProgramada,
-      fechaInicio: null,
-      fechaCierre: null,
-      slaEstimado: input.slaEstimado,
-      slaReal: null,
-      kilometrajeRegistro: input.kilometrajeRegistro,
-      taller: input.taller,
-      repuestos: [],
-      costos: {
-        ...costos,
-        total
-      },
-      auditoria: {
-        creadoPor: usuarioActual,
-        creadoEn: timestamp,
-        modificadoPor: null,
-        modificadoEn: null,
-        cerradoPor: null,
-        cerradoEn: null
-      },
-      observaciones: input.observaciones || null,
-      notasCierre: null,
-      extras: []
+      fecha_programada: input.fechaProgramada,
+      sla_estimado_horas: input.slaEstimado,
+      kilometraje_registro: input.kilometrajeRegistro,
+      taller_nombre: input.taller.nombre,
+      taller_tipo: input.taller.tipo,
+      costo_mano_obra: costos.manoObra,
+      costo_repuestos: costos.repuestos,
+      costo_terceros: costos.terceros,
+      costo_otros: costos.otros,
+      creado_por: user?.email ?? null,
+      motivo_anulacion: input.observaciones ?? null,
     };
 
-    // Agregar al INICIO del store para visibilidad inmediata
-    const sizeBeforeAdd = ordenes.length;
-    setOrdenes(prev => {
-      const newState = [nuevaOT, ...prev];
-      
-      if (DEBUG_OT) {
-        console.log('[OT_CREATED]', {
-          numeroOT: nuevaOT.numeroOT,
-          estadoKey: nuevaOT.estado,
-          costoTotal: total,
-          sizeAfter: newState.length,
-          sizeBefore: sizeBeforeAdd,
-          position: 'FIRST'
-        });
-      }
-      
-      return newState;
-    });
+    const { data, error } = await supabase
+      .from('ordenes_trabajo')
+      .insert(insertPayload)
+      .select()
+      .single();
 
-    if (DEBUG_OT) {
-      console.log('[OT_STORE_AFTER_CREATE]', {
-        totalOTs: ordenes.length + 1,
-        nuevaOT: {
-          numeroOT: nuevaOT.numeroOT,
-          titulo: nuevaOT.titulo,
-          estado: nuevaOT.estado
-        }
-      });
+    if (error || !data) {
+      console.error('[ot-store.crear]', error?.message);
+      throw new Error(error?.message ?? 'Error al crear la OT');
     }
 
+    const nuevaOT = mapFromDB(data as OrdenTrabajoDB, [], []);
+
+    if (DEBUG_OT) {
+      console.log('[OT_CREATED]', { numeroOT: nuevaOT.numeroOT, estado: nuevaOT.estado });
+    }
+
+    setOrdenes(prev => [nuevaOT, ...prev]);
     return nuevaOT;
-  }, [ordenes]);
+  }, [ordenes, tenantId, user]);
 
-  // Actualizar estado de OT
-  const actualizarEstadoOT = useCallback((numeroOT: string, nuevoEstado: EstadoOT) => {
-    setOrdenes(prev => prev.map(ot => {
-      if (ot.numeroOT === numeroOT) {
-        const timestamp = new Date().toISOString();
-        const usuarioActual = 'admin@kesa.com';
+  // --------------------------------------------------------------------------
+  // HELPERS DE UPDATE
+  // --------------------------------------------------------------------------
 
-        return {
-          ...ot,
-          estado: nuevoEstado,
-          auditoria: {
-            ...ot.auditoria,
-            modificadoPor: usuarioActual,
-            modificadoEn: timestamp,
-            ...(nuevoEstado === 'cerrada' || nuevoEstado === 'anulada' ? {
-              cerradoPor: usuarioActual,
-              cerradoEn: timestamp
-            } : {})
-          }
-        };
-      }
-      return ot;
-    }));
+  const updateOT = useCallback(async (
+    numeroOT: string,
+    patch: Record<string, unknown>,
+    localPatch: (ot: OrdenTrabajo) => Partial<OrdenTrabajo>
+  ): Promise<CrudResult> => {
+    // Read current OT from state snapshot via functional update trick
+    let dbId: string | undefined;
+    setOrdenes(prev => {
+      dbId = prev.find(o => o.numeroOT === numeroOT)?._dbId;
+      return prev;
+    });
+
+    if (!dbId) return { exito: false, errores: ['OT no encontrada'] };
+
+    const { error } = await supabase
+      .from('ordenes_trabajo')
+      .update(patch)
+      .eq('id', dbId);
+
+    if (error) {
+      console.error('[ot-store.update]', error.message);
+      return { exito: false, errores: [error.message] };
+    }
+
+    setOrdenes(prev =>
+      prev.map(o => o.numeroOT === numeroOT ? { ...o, ...localPatch(o) } : o)
+    );
+    return { exito: true };
   }, []);
 
-  // Iniciar OT
-  const iniciarOT = useCallback((numeroOT: string) => {
-    setOrdenes(prev => prev.map(ot => {
-      if (ot.numeroOT === numeroOT) {
-        const timestamp = new Date().toISOString();
-        const usuarioActual = 'admin@kesa.com';
+  // --------------------------------------------------------------------------
+  // CAMBIOS DE ESTADO
+  // --------------------------------------------------------------------------
 
-        return {
-          ...ot,
-          estado: 'en_ejecucion',
-          fechaInicio: timestamp,
-          auditoria: {
-            ...ot.auditoria,
-            modificadoPor: usuarioActual,
-            modificadoEn: timestamp
-          }
-        };
-      }
-      return ot;
-    }));
-  }, []);
+  const actualizarEstadoOT = useCallback(async (numeroOT: string, nuevoEstado: EstadoOT): Promise<CrudResult> => {
+    const ts = new Date().toISOString();
+    const email = user?.email ?? null;
+    const isFinal = nuevoEstado === 'cerrada' || nuevoEstado === 'anulada';
 
-  // Pausar OT
-  const pausarOT = useCallback((numeroOT: string) => {
-    setOrdenes(prev => prev.map(ot => {
-      if (ot.numeroOT === numeroOT) {
-        const timestamp = new Date().toISOString();
-        const usuarioActual = 'admin@kesa.com';
+    return updateOT(
+      numeroOT,
+      {
+        estado: nuevoEstado,
+        modificado_por: email,
+        modificado_en: ts,
+        ...(isFinal ? { cerrado_por: email, fecha_cierre: ts } : {}),
+      },
+      (ot) => ({
+        estado: nuevoEstado,
+        auditoria: {
+          ...ot.auditoria,
+          modificadoPor: email,
+          modificadoEn: ts,
+          ...(isFinal ? { cerradoPor: email, cerradoEn: ts } : {}),
+        },
+        ...(isFinal ? { fechaCierre: ts } : {}),
+      })
+    );
+  }, [updateOT, user]);
 
-        return {
-          ...ot,
-          estado: 'pausada',
-          auditoria: {
-            ...ot.auditoria,
-            modificadoPor: usuarioActual,
-            modificadoEn: timestamp
-          }
-        };
-      }
-      return ot;
-    }));
-  }, []);
+  const iniciarOT = useCallback(async (numeroOT: string): Promise<CrudResult> => {
+    const ts = new Date().toISOString();
+    const email = user?.email ?? null;
+    return updateOT(
+      numeroOT,
+      { estado: 'en_ejecucion', fecha_inicio: ts, modificado_por: email, modificado_en: ts },
+      () => ({ estado: 'en_ejecucion', fechaInicio: ts })
+    );
+  }, [updateOT, user]);
 
-  // Aprobar OT
-  const aprobarOT = useCallback((numeroOT: string) => {
-    setOrdenes(prev => prev.map(ot => {
-      if (ot.numeroOT === numeroOT) {
-        const timestamp = new Date().toISOString();
-        const usuarioActual = 'admin@kesa.com';
+  const pausarOT = useCallback(async (numeroOT: string): Promise<CrudResult> => {
+    const ts = new Date().toISOString();
+    const email = user?.email ?? null;
+    // 'pausada' no está en EstadoOT; usamos espera_repuesto como equivalente
+    return updateOT(
+      numeroOT,
+      { estado: 'espera_repuesto', modificado_por: email, modificado_en: ts },
+      () => ({ estado: 'espera_repuesto' as EstadoOT })
+    );
+  }, [updateOT, user]);
 
-        return {
-          ...ot,
-          estado: 'en_ejecucion',
-          auditoria: {
-            ...ot.auditoria,
-            modificadoPor: usuarioActual,
-            modificadoEn: timestamp
-          }
-        };
-      }
-      return ot;
-    }));
-  }, []);
+  const aprobarOT = useCallback(async (numeroOT: string): Promise<CrudResult> => {
+    const ts = new Date().toISOString();
+    const email = user?.email ?? null;
+    return updateOT(
+      numeroOT,
+      { estado: 'en_ejecucion', aprobado_por: email, aprobado_en: ts, modificado_por: email, modificado_en: ts },
+      () => ({ estado: 'en_ejecucion' })
+    );
+  }, [updateOT, user]);
 
-  // Cerrar OT
-  const cerrarOT = useCallback((numeroOT: string, notasCierre?: string) => {
-    setOrdenes(prev => prev.map(ot => {
-      if (ot.numeroOT === numeroOT) {
-        const timestamp = new Date().toISOString();
-        const usuarioActual = 'admin@kesa.com';
+  const cerrarOT = useCallback(async (numeroOT: string, notasCierre?: string): Promise<CrudResult> => {
+    const ts = new Date().toISOString();
+    const email = user?.email ?? null;
+    return updateOT(
+      numeroOT,
+      { estado: 'cerrada', fecha_cierre: ts, cerrado_por: email, modificado_por: email, modificado_en: ts },
+      () => ({ estado: 'cerrada', fechaCierre: ts, notasCierre: notasCierre ?? null })
+    );
+  }, [updateOT, user]);
 
-        return {
-          ...ot,
-          estado: 'cerrada',
-          fechaCierre: timestamp,
-          auditoria: {
-            ...ot.auditoria,
-            modificadoPor: usuarioActual,
-            modificadoEn: timestamp,
-            cerradoPor: usuarioActual,
-            cerradoEn: timestamp
-          },
-          notasCierre: notasCierre || null
-        };
-      }
-      return ot;
-    }));
-  }, []);
+  const anularOT = useCallback(async (numeroOT: string, motivo: string): Promise<CrudResult> => {
+    const ts = new Date().toISOString();
+    const email = user?.email ?? null;
+    return updateOT(
+      numeroOT,
+      { estado: 'anulada', motivo_anulacion: motivo, cerrado_por: email, fecha_cierre: ts, modificado_por: email, modificado_en: ts },
+      () => ({ estado: 'anulada', observaciones: motivo, notasCierre: motivo, fechaCierre: ts })
+    );
+  }, [updateOT, user]);
 
-  // Anular OT
-  const anularOT = useCallback((numeroOT: string, motivo: string) => {
-    setOrdenes(prev => prev.map(ot => {
-      if (ot.numeroOT === numeroOT) {
-        const timestamp = new Date().toISOString();
-        const usuarioActual = 'admin@kesa.com';
+  // --------------------------------------------------------------------------
+  // EXTRAS
+  // --------------------------------------------------------------------------
 
-        return {
-          ...ot,
-          estado: 'anulada',
-          auditoria: {
-            ...ot.auditoria,
-            modificadoPor: usuarioActual,
-            modificadoEn: timestamp,
-            cerradoPor: usuarioActual,
-            cerradoEn: timestamp
-          },
-          notasCierre: motivo
-        };
-      }
-      return ot;
-    }));
-  }, []);
+  const agregarExtra = useCallback(async (numeroOT: string, extra: OTExtraItem): Promise<CrudResult> => {
+    const ot = ordenes.find(o => o.numeroOT === numeroOT);
+    if (!ot) return { exito: false, errores: ['OT no encontrada'] };
 
-  // Agregar extra a OT
-  const agregarExtra = useCallback((numeroOT: string, extra: OTExtraItem) => {
-    setOrdenes(prev => prev.map(ot => {
-      if (ot.numeroOT === numeroOT) {
-        return {
-          ...ot,
-          extras: [...ot.extras, extra]
-        };
-      }
-      return ot;
-    }));
-  }, []);
+    const { data, error } = await supabase
+      .from('ot_extras')
+      .insert({
+        tenant_id: tenantId!,
+        orden_trabajo_id: ot._dbId,
+        tipo: extra.tipo,
+        categoria: extra.categoria ?? null,
+        descripcion: extra.descripcion,
+        motivo: extra.motivo,
+        cantidad: extra.cantidad,
+        costo_unitario: extra.costoUnitario,
+        eliminado: false,
+        registrado_por: user?.email ?? null,
+      })
+      .select()
+      .single();
 
-  // Eliminar extra de OT (soft delete)
-  const eliminarExtra = useCallback((numeroOT: string, extraId: string, motivo: string) => {
-    const timestamp = new Date().toISOString();
-    const usuarioActual = 'admin@kesa.com';
-    
-    setOrdenes(prev => prev.map(ot => {
-      if (ot.numeroOT === numeroOT) {
-        return {
-          ...ot,
-          extras: ot.extras.map(extra => 
-            extra.id === extraId
-              ? {
-                  ...extra,
-                  eliminado: true,
-                  motivoEliminacion: motivo,
-                  eliminadoPor: usuarioActual,
-                  fechaEliminacion: timestamp
-                }
-              : extra
-          ),
-          auditoria: {
-            ...ot.auditoria,
-            modificadoPor: usuarioActual,
-            modificadoEn: timestamp
-          }
-        };
-      }
-      return ot;
-    }));
-  }, []);
+    if (error || !data) {
+      console.error('[ot-store.agregarExtra]', error?.message);
+      return { exito: false, errores: [error?.message ?? 'Error al agregar extra'] };
+    }
+
+    const nuevoExtra = mapExtraFromDB(data as OTExtra);
+    setOrdenes(prev =>
+      prev.map(o =>
+        o.numeroOT === numeroOT
+          ? { ...o, extras: [...o.extras, nuevoExtra] }
+          : o
+      )
+    );
+    return { exito: true };
+  }, [ordenes, tenantId, user]);
+
+  const eliminarExtra = useCallback(async (numeroOT: string, extraId: string, motivo: string): Promise<CrudResult> => {
+    const ts = new Date().toISOString();
+    const email = user?.email ?? null;
+
+    const { error } = await supabase
+      .from('ot_extras')
+      .update({
+        eliminado: true,
+        motivo_eliminacion: motivo,
+        eliminado_por: email,
+        fecha_eliminacion: ts,
+      })
+      .eq('id', extraId);
+
+    if (error) {
+      console.error('[ot-store.eliminarExtra]', error.message);
+      return { exito: false, errores: [error.message] };
+    }
+
+    setOrdenes(prev =>
+      prev.map(o =>
+        o.numeroOT === numeroOT
+          ? {
+              ...o,
+              extras: o.extras.map(ex =>
+                ex.id === extraId
+                  ? { ...ex, eliminado: true, motivoEliminacion: motivo, eliminadoPor: email ?? '', fechaEliminacion: ts }
+                  : ex
+              ),
+            }
+          : o
+      )
+    );
+    return { exito: true };
+  }, [user]);
+
+  // --------------------------------------------------------------------------
+  // VALUE
+  // --------------------------------------------------------------------------
 
   const value: OTStoreContext = {
     ordenes,
+    loading,
     obtenerOTPorNumero,
     obtenerOTsPorVehiculo,
     crearOrdenTrabajo,
@@ -779,7 +556,7 @@ export function OTStoreProvider({ children }: { children: React.ReactNode }) {
     anularOT,
     agregarExtra,
     eliminarExtra,
-    cargarOTsIniciales
+    cargarOTsIniciales,
   };
 
   return <OTContext.Provider value={value}>{children}</OTContext.Provider>;

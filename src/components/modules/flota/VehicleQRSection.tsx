@@ -82,8 +82,8 @@ export function VehicleQRSection({ vehiculoId, placa, onNavigate }: VehicleQRSec
   // ✅ NORMALIZAR: publicViewEnabled = true si es undefined (para vehículos antiguos)
   const isPublicViewEnabled = vehiculo.publicViewEnabled ?? true;
 
-  const handleTogglePublicView = () => {
-    actualizarVehiculo(vehiculoId, {
+  const handleTogglePublicView = async () => {
+    await actualizarVehiculo(vehiculoId, {
       publicViewEnabled: !isPublicViewEnabled
     });
   };

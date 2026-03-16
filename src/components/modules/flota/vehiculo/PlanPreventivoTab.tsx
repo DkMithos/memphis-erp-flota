@@ -111,7 +111,7 @@ export function PlanPreventivoTab({ vehiculoId, vehiculo }: PlanPreventivoTabPro
 
     setGuardando(true);
 
-    const resultado = actualizarPlanPreventivo(vehiculoId, formData);
+    const resultado = await actualizarPlanPreventivo(vehiculoId, formData);
 
     if (resultado.exito) {
       toast.success('Plan preventivo actualizado', {

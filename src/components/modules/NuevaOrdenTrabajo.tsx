@@ -192,7 +192,7 @@ export function NuevaOrdenTrabajo({
   // CREAR OT
   // ============================================================================
 
-  const confirmarCreacion = () => {
+  const confirmarCreacion = async () => {
     if (!validarPaso2()) {
       setPasoActual(2);
       return;
@@ -223,7 +223,7 @@ export function NuevaOrdenTrabajo({
         observaciones: formData.observaciones || undefined
       };
 
-      const nuevaOT = crearOrdenTrabajo(input);
+      const nuevaOT = await crearOrdenTrabajo(input);
 
       toast.success('Orden de Trabajo creada exitosamente', {
         description: `${nuevaOT.numeroOT} - ${nuevaOT.titulo}`

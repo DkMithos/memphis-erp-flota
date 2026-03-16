@@ -120,13 +120,13 @@ export function MantenimientoDetalle({
     );
   };
 
-  const handleCambiarEstado = (nuevoEstado: EstadoOT) => {
-    actualizarEstadoOT(numeroOT, nuevoEstado);
+  const handleCambiarEstado = async (nuevoEstado: EstadoOT) => {
+    await actualizarEstadoOT(numeroOT, nuevoEstado);
     setOt(obtenerOTPorNumero(numeroOT));
     toast.success(`Estado actualizado a ${OT_ESTADO_CONFIG[nuevoEstado].label}`);
   };
 
-  const handleAnular = () => {
+  const handleAnular = async () => {
     if (motivoAnulacion.trim().length < 30) {
       toast.error('El motivo de anulación debe tener al menos 30 caracteres');
       return;
@@ -135,7 +135,7 @@ export function MantenimientoDetalle({
     setIsAnulando(true);
     
     try {
-      anularOT(numeroOT, motivoAnulacion);
+      await anularOT(numeroOT, motivoAnulacion);
       setOt(obtenerOTPorNumero(numeroOT));
       toast.success('Orden de Trabajo anulada exitosamente');
       setShowAnularDialog(false);
@@ -151,18 +151,14 @@ export function MantenimientoDetalle({
   const puedeAnularse = !['cerrada', 'anulada'].includes(ot.estado);
 
   // Wrappers para refrescar OT después de modificar extras
-  const handleAgregarExtra = (numeroOT: string, extra: OTExtraItem) => {
-    agregarExtra(numeroOT, extra);
-    // Refrescar OT inmediatamente
-    const otActualizada = obtenerOTPorNumero(numeroOT);
-    setOt(otActualizada);
+  const handleAgregarExtra = async (numeroOT: string, extra: OTExtraItem) => {
+    await agregarExtra(numeroOT, extra);
+    setOt(obtenerOTPorNumero(numeroOT));
   };
 
-  const handleEliminarExtra = (numeroOT: string, extraId: string, motivo: string) => {
-    eliminarExtra(numeroOT, extraId, motivo);
-    // Refrescar OT inmediatamente
-    const otActualizada = obtenerOTPorNumero(numeroOT);
-    setOt(otActualizada);
+  const handleEliminarExtra = async (numeroOT: string, extraId: string, motivo: string) => {
+    await eliminarExtra(numeroOT, extraId, motivo);
+    setOt(obtenerOTPorNumero(numeroOT));
   };
 
   return (

@@ -1,17 +1,23 @@
 /**
  * KESA ERP - Flota → Vehículos Store
- * Context + Provider con CRUD completo y auditoría
- * v3.0.0 - Con soporte para contratos, plan preventivo y documentos
+ * v4.0.0 - Conectado a Supabase (reemplaza localStorage/mock)
+ * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { supabase } from '../supabase/client';
+import { useAuth } from '../../auth/AuthProvider';
+import type { VehiculoDB, VehiculoDocumentoDB } from '../supabase/types';
 import {
-  Vehiculo,
-  EstadoVehiculo,
-  TipoVehiculo,
-  VehiculoVinculoContrato,
-  PlanPreventivoContratado,
-  VehiculoDocumento,
+  type Vehiculo,
+  type EstadoVehiculo,
+  type TipoVehiculo,
+  type VehiculoVinculoContrato,
+  type PlanPreventivoContratado,
+  type VehiculoDocumento,
+  type TipoContratoFlota,
+  type TipoPlanPreventivo,
+  type TipoDocumentoVehiculo,
   generateVehiculoId,
   normalizePlaca,
   validarVehiculo,
@@ -19,811 +25,555 @@ import {
   validarVinculoContrato,
   validarPlanPreventivo,
   validarDocumento,
-  generarDocumentoId,
   logDebug,
-  DEBUG_VEHICULOS
 } from './vehiculos-config';
-import { generatePublicToken } from './vehicle-public';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
+interface CrudResult {
+  exito: boolean;
+  errores?: string[];
+}
+
 interface VehiculosContextType {
   vehiculos: Vehiculo[];
-  crearVehiculo: (data: Omit<Vehiculo, 'id' | 'creadoPor' | 'creadoEn' | 'estado'>) => { exito: boolean; vehiculoId?: string; errores?: string[] };
-  actualizarVehiculo: (id: string, data: Partial<Vehiculo>) => { exito: boolean; errores?: string[] };
-  inactivarVehiculo: (id: string, motivo: string) => { exito: boolean; errores?: string[] };
-  activarVehiculo: (id: string) => { exito: boolean; errores?: string[] };
+  loading: boolean;
+  crearVehiculo: (data: Omit<Vehiculo, 'id' | 'creadoPor' | 'creadoEn' | 'estado'>) => Promise<{ exito: boolean; vehiculoId?: string; errores?: string[] }>;
+  actualizarVehiculo: (id: string, data: Partial<Vehiculo>) => Promise<CrudResult>;
+  inactivarVehiculo: (id: string, motivo: string) => Promise<CrudResult>;
+  activarVehiculo: (id: string) => Promise<CrudResult>;
   obtenerVehiculo: (id: string) => Vehiculo | undefined;
   obtenerVehiculoPorToken: (token: string) => Vehiculo | undefined;
   obtenerVehiculosPorEstado: (estado: EstadoVehiculo) => Vehiculo[];
   obtenerVehiculosPorTipo: (tipo: TipoVehiculo) => Vehiculo[];
   buscarVehiculos: (query: string) => Vehiculo[];
   ensurePublicToken: (id: string) => void;
-  // Contrato y Plan Preventivo
-  actualizarVinculoContrato: (vehiculoId: string, vinculo: VehiculoVinculoContrato) => { exito: boolean; errores?: string[] };
-  actualizarPlanPreventivo: (vehiculoId: string, plan: PlanPreventivoContratado) => { exito: boolean; errores?: string[] };
-  // Documentos
-  agregarDocumentoVehiculo: (vehiculoId: string, documento: Omit<VehiculoDocumento, 'id' | 'creadoPor' | 'creadoEn'>) => { exito: boolean; documentoId?: string; errores?: string[] };
-  actualizarDocumentoVehiculo: (vehiculoId: string, documentoId: string, data: Partial<VehiculoDocumento>) => { exito: boolean; errores?: string[] };
-  eliminarDocumentoVehiculo: (vehiculoId: string, documentoId: string) => { exito: boolean; errores?: string[] };
+  actualizarVinculoContrato: (vehiculoId: string, vinculo: VehiculoVinculoContrato) => Promise<CrudResult>;
+  actualizarPlanPreventivo: (vehiculoId: string, plan: PlanPreventivoContratado) => Promise<CrudResult>;
+  agregarDocumentoVehiculo: (vehiculoId: string, documento: Omit<VehiculoDocumento, 'id' | 'creadoPor' | 'creadoEn'>) => Promise<{ exito: boolean; documentoId?: string; errores?: string[] }>;
+  actualizarDocumentoVehiculo: (vehiculoId: string, documentoId: string, data: Partial<VehiculoDocumento>) => Promise<CrudResult>;
+  eliminarDocumentoVehiculo: (vehiculoId: string, documentoId: string) => Promise<CrudResult>;
   obtenerDocumentosVehiculo: (vehiculoId: string) => VehiculoDocumento[];
 }
 
 const VehiculosContext = createContext<VehiculosContextType | undefined>(undefined);
 
 // ============================================================================
-// SEED DATA (Idempotente)
+// MAPPERS DB ↔ FRONTEND
+// El frontend usa "id" = VH-001 (código). La DB usa UUID + columna "codigo".
 // ============================================================================
 
-const SEED_VEHICULOS: Vehiculo[] = [
-  {
-    id: 'VH-001',
-    placa: 'ABC-123',
-    vin: 'WDB9066791N123456',
-    tipo: 'ambulancia',
-    marca: 'Mercedes Benz',
-    modelo: 'Sprinter 316',
-    año: 2022,
-    color: 'Blanco',
-    motor: 'OM651',
-    combustible: 'diesel',
-    capacidad: '3.5 ton',
-    kilometraje: 48500,
-    ubicacionActual: 'Base Central',
-    estado: 'activo',
-    ultimoMantenimiento: '2024-10-20',
-    proximoMantenimiento: '2024-12-20',
-    planPreventivo: {
-      totalPreventivosContratados: 12,
-      frecuenciaKm: 10000,
-      frecuenciaDias: 90,
-      inicioContrato: '2024-01-01',
-      finContrato: '2025-12-31'
-    },
-    documentos: [
-      {
-        id: 'DOC-001',
-        tipo: 'SOAT',
-        numero: 'SOAT-2024-001',
-        fechaEmision: '2024-01-15',
-        fechaVencimiento: '2025-01-15'
-      },
-      {
-        id: 'DOC-002',
-        tipo: 'Revisión Técnica',
-        numero: 'RT-2024-001',
-        fechaEmision: '2024-03-10',
-        fechaVencimiento: '2025-03-10'
-      },
-      {
-        id: 'DOC-003',
-        tipo: 'Seguro Vehicular',
-        numero: 'SEG-2024-001',
-        fechaEmision: '2024-01-01',
-        fechaVencimiento: '2025-01-01'
-      }
-    ],
-    publicViewEnabled: true,
-    publicToken: generatePublicToken('VH-001'),
-    creadoPor: 'admin@kesa.com',
-    creadoEn: '2024-01-15T10:00:00Z'
-  },
-  {
-    id: 'VH-002',
-    placa: 'DEF-456',
-    vin: 'JTDBT923781234567',
-    tipo: 'camioneta',
-    marca: 'Toyota',
-    modelo: 'Hilux 4x4',
-    año: 2021,
-    color: 'Plateado',
-    motor: '1GD-FTV',
-    combustible: 'diesel',
-    capacidad: '1 ton',
-    kilometraje: 95800,
-    ubicacionActual: 'Base Norte',
-    estado: 'activo',
-    ultimoMantenimiento: '2024-11-15',
-    proximoMantenimiento: '2025-01-15',
-    planPreventivo: {
-      totalPreventivosContratados: 8,
-      frecuenciaKm: 15000,
-      frecuenciaDias: 120,
-      inicioContrato: '2024-02-01',
-      finContrato: '2025-12-31'
-    },
-    documentos: [
-      {
-        id: 'DOC-004',
-        tipo: 'SOAT',
-        numero: 'SOAT-2024-002',
-        fechaEmision: '2024-02-10',
-        fechaVencimiento: '2025-02-10'
-      },
-      {
-        id: 'DOC-005',
-        tipo: 'Revisión Técnica',
-        numero: 'RT-2024-002',
-        fechaEmision: '2024-04-05',
-        fechaVencimiento: '2024-12-25' // Próximo a vencer
-      }
-    ],
-    publicViewEnabled: true,
-    publicToken: generatePublicToken('VH-002'),
-    creadoPor: 'admin@kesa.com',
-    creadoEn: '2024-02-10T14:30:00Z'
-  },
-  {
-    id: 'VH-003',
-    placa: 'GHI-789',
-    vin: 'KMHSH81XDEU123456',
-    tipo: 'van',
-    marca: 'Hyundai',
-    modelo: 'H-1',
-    año: 2023,
-    color: 'Negro',
-    motor: 'D4CB',
-    combustible: 'diesel',
-    capacidad: '12 pasajeros',
-    kilometraje: 32000,
-    ubicacionActual: 'Base Sur',
-    estado: 'activo',
-    ultimoMantenimiento: '2024-11-25',
-    proximoMantenimiento: '2025-01-02',
-    planPreventivo: {
-      totalPreventivosContratados: 6,
-      frecuenciaKm: 8000,
-      frecuenciaDias: 60,
-      inicioContrato: '2024-03-01',
-      finContrato: '2025-12-31'
-    },
-    documentos: [
-      {
-        id: 'DOC-006',
-        tipo: 'SOAT',
-        numero: 'SOAT-2024-003',
-        fechaEmision: '2024-03-05',
-        fechaVencimiento: '2024-11-20' // Vencido
-      },
-      {
-        id: 'DOC-007',
-        tipo: 'Tarjeta de Propiedad',
-        numero: 'TP-789-2023',
-        fechaEmision: '2023-01-10',
-        observaciones: 'En trámite de renovación'
-      }
-    ],
-    publicViewEnabled: true,
-    publicToken: generatePublicToken('VH-003'),
-    creadoPor: 'admin@kesa.com',
-    creadoEn: '2024-03-05T09:15:00Z'
-  },
-  {
-    id: 'VH-004',
-    placa: 'JKL-012',
-    vin: 'WDB9066791N654321',
-    tipo: 'ambulancia',
-    marca: 'Mercedes Benz',
-    modelo: 'Sprinter 319',
-    año: 2022,
-    color: 'Blanco',
-    motor: 'OM651',
-    combustible: 'diesel',
-    capacidad: '3.5 ton',
-    kilometraje: 52000,
-    ubicacionActual: 'Taller Externo',
-    estado: 'en_taller',
-    ultimoMantenimiento: '2024-11-20',
-    proximoMantenimiento: '2025-01-10',
-    documentos: [
-      {
-        id: 'DOC-008',
-        tipo: 'SOAT',
-        numero: 'SOAT-2024-004',
-        fechaEmision: '2024-01-20',
-        fechaVencimiento: '2025-01-20'
-      }
-    ],
-    publicViewEnabled: true,
-    publicToken: generatePublicToken('VH-004'),
-    creadoPor: 'admin@kesa.com',
-    creadoEn: '2024-01-20T11:00:00Z'
-  },
-  {
-    id: 'VH-005',
-    placa: 'MNO-345',
-    vin: 'JN1TANS50U0123456',
-    tipo: 'camioneta',
-    marca: 'Nissan',
-    modelo: 'Frontier',
-    año: 2020,
-    color: 'Azul',
-    motor: 'YD25DDTi',
-    combustible: 'diesel',
-    capacidad: '1 ton',
-    kilometraje: 78500,
-    ubicacionActual: 'Base Este',
-    estado: 'activo',
-    ultimoMantenimiento: '2024-11-10',
-    proximoMantenimiento: '2024-12-28',
-    publicViewEnabled: true,
-    publicToken: generatePublicToken('VH-005'),
-    creadoPor: 'admin@kesa.com',
-    creadoEn: '2024-02-15T16:45:00Z'
-  },
-  {
-    id: 'VH-006',
-    placa: 'PQR-678',
-    tipo: 'auto',
-    marca: 'Toyota',
-    modelo: 'Corolla',
-    año: 2019,
-    color: 'Rojo',
-    combustible: 'gasolina',
-    capacidad: '5 pasajeros',
-    kilometraje: 125000,
-    ubicacionActual: 'Base Central',
-    estado: 'inactivo',
-    ultimoMantenimiento: '2024-08-15',
-    publicViewEnabled: false, // Vista pública deshabilitada para vehículo inactivo
-    publicToken: generatePublicToken('VH-006'),
-    creadoPor: 'admin@kesa.com',
-    creadoEn: '2023-12-01T08:30:00Z',
-    inactivadoPor: 'admin@kesa.com',
-    inactivadoEn: '2024-10-15T14:00:00Z',
-    motivoInactivacion: 'Vehículo dado de baja por desgaste excesivo y alto costo de mantenimiento. Se decidió reemplazar por unidad más nueva.'
-  }
-];
+function mapDocFromDB(d: VehiculoDocumentoDB): VehiculoDocumento {
+  return {
+    id: d.codigo,
+    tipo: d.tipo as TipoDocumentoVehiculo,
+    nombre: d.nombre,
+    numero: d.numero ?? undefined,
+    fechaEmision: d.fecha_emision ?? undefined,
+    fechaVencimiento: d.fecha_vencimiento,
+    archivoNombre: d.archivo_nombre ?? undefined,
+    observaciones: d.observaciones ?? undefined,
+    creadoPor: d.creado_por ?? undefined,
+    creadoEn: d.creado_en,
+    modificadoPor: d.modificado_por ?? undefined,
+    modificadoEn: d.modificado_en ?? undefined,
+  };
+}
 
-const STORAGE_KEY = 'kesa_flota_vehiculos';
+function mapFromDB(v: VehiculoDB, docs: VehiculoDocumentoDB[]): Vehiculo {
+  return {
+    id: v.codigo,
+    placa: v.placa,
+    vin: v.vin ?? undefined,
+    tipo: v.tipo as TipoVehiculo,
+    marca: v.marca,
+    modelo: v.modelo,
+    año: v.anio,
+    color: v.color,
+    motor: v.motor ?? undefined,
+    combustible: v.combustible as Vehiculo['combustible'],
+    capacidad: v.capacidad ?? undefined,
+    kilometraje: v.kilometraje,
+    ubicacionActual: v.ubicacion_actual,
+    estado: v.estado as EstadoVehiculo,
+    ultimoMantenimiento: v.ultimo_mantenimiento ?? undefined,
+    proximoMantenimiento: v.proximo_mantenimiento ?? undefined,
+    publicViewEnabled: v.public_view_enabled,
+    publicToken: v.public_token ?? undefined,
+    vinculoContrato: v.contrato_cliente_nombre ? {
+      clienteNombre: v.contrato_cliente_nombre,
+      proyectoNombre: v.contrato_proyecto_nombre ?? '',
+      contratoNombre: v.contrato_nombre ?? '',
+      tipoContrato: (v.contrato_tipo ?? 'otro') as TipoContratoFlota,
+      fechaInicio: v.contrato_fecha_inicio ?? '',
+      fechaFin: v.contrato_fecha_fin ?? '',
+    } : undefined,
+    planPreventivoContratado: v.plan_preventivo_habilitado ? {
+      habilitado: v.plan_preventivo_habilitado,
+      tipoPlan: (v.plan_preventivo_tipo ?? 'por_km') as TipoPlanPreventivo,
+      totalPreventivosContratados: v.plan_preventivo_total_contratados ?? 0,
+      intervaloKm: v.plan_preventivo_intervalo_km ?? undefined,
+      intervaloMeses: v.plan_preventivo_intervalo_meses ?? undefined,
+    } : undefined,
+    documentosVehiculo: docs.map(mapDocFromDB),
+    documentos: [],  // legacy — vacío, se usa documentosVehiculo
+    creadoPor: v.creado_por ?? 'sistema',
+    creadoEn: v.creado_en,
+    modificadoPor: v.modificado_por ?? undefined,
+    modificadoEn: v.modificado_en ?? undefined,
+    inactivadoPor: v.inactivado_por ?? undefined,
+    inactivadoEn: v.inactivado_en ?? undefined,
+    motivoInactivacion: v.motivo_inactivacion ?? undefined,
+  };
+}
 
 // ============================================================================
 // PROVIDER
 // ============================================================================
 
 export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
+  const { tenantId, user } = useAuth();
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
-  const [inicializado, setInicializado] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Cargar datos del localStorage al iniciar (seed idempotente)
-  useEffect(() => {
-    if (inicializado) return;
-    
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        logDebug('Datos cargados desde localStorage:', parsed.length, 'vehículos');
-        
-        // Normalizar vehículos: asegurar que documentos sea siempre array
-        const vehiculosNormalizados = parsed.map((v: Vehiculo) => ({
-          ...v,
-          documentos: v.documentos || [],
-        }));
-        
-        setVehiculos(vehiculosNormalizados);
-      } else {
-        // Primera carga: usar seed (ya normalizado)
-        logDebug('Primera carga: inicializando con seed data');
-        const seedNormalizado = SEED_VEHICULOS.map(v => ({
-          ...v,
-          documentos: v.documentos || [],
-        }));
-        setVehiculos(seedNormalizado);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(seedNormalizado));
-      }
-    } catch (error) {
-      console.error('[VEHICULOS] Error al cargar datos:', error);
-      const seedNormalizado = SEED_VEHICULOS.map(v => ({
-        ...v,
-        documentos: v.documentos || [],
-      }));
-      setVehiculos(seedNormalizado);
-    }
-    
-    setInicializado(true);
-  }, [inicializado]);
+  // Carga inicial desde Supabase
+  const fetchVehiculos = useCallback(async () => {
+    if (!tenantId) return;
+    setLoading(true);
 
-  // Guardar en localStorage cada vez que cambian los vehículos
-  useEffect(() => {
-    if (!inicializado) return;
-    
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(vehiculos));
-      logDebug('Datos guardados en localStorage:', vehiculos.length, 'vehículos');
-    } catch (error) {
-      console.error('[VEHICULOS] Error al guardar datos:', error);
+    const { data, error } = await supabase
+      .from('vehiculos')
+      .select('*, docs:vehiculo_documentos(*)')
+      .order('creado_en', { ascending: false });
+
+    if (error) {
+      console.error('[VEHICULOS] Error al cargar:', error.message);
+    } else if (data) {
+      const mapped = data.map((v: any) => mapFromDB(v, v.docs ?? []));
+      setVehiculos(mapped);
+      logDebug('Vehículos cargados desde Supabase:', mapped.length);
     }
-  }, [vehiculos, inicializado]);
+    setLoading(false);
+  }, [tenantId]);
+
+  useEffect(() => {
+    fetchVehiculos();
+  }, [fetchVehiculos]);
 
   // ============================================================================
-  // CRUD OPERATIONS
+  // CRUD
   // ============================================================================
 
-  /**
-   * Crear nuevo vehículo
-   */
-  const crearVehiculo = (
+  const crearVehiculo = async (
     data: Omit<Vehiculo, 'id' | 'creadoPor' | 'creadoEn' | 'estado'>
-  ): { exito: boolean; vehiculoId?: string; errores?: string[] } => {
-    logDebug('Intentando crear vehículo:', data);
+  ): Promise<{ exito: boolean; vehiculoId?: string; errores?: string[] }> => {
+    if (!tenantId || !user) return { exito: false, errores: ['Sin sesión activa'] };
 
-    // Validar datos
     const placasExistentes = vehiculos.map(v => normalizePlaca(v.placa));
-    const vinsExistentes = vehiculos
-      .filter(v => v.vin)
-      .map(v => v.vin!.trim().toUpperCase());
-
+    const vinsExistentes = vehiculos.filter(v => v.vin).map(v => v.vin!.trim().toUpperCase());
     const validacion = validarVehiculo(data, placasExistentes, vinsExistentes);
 
-    if (!validacion.valido) {
-      logDebug('Validación fallida:', validacion.errores);
-      return {
-        exito: false,
-        errores: validacion.errores
-      };
+    if (!validacion.valido) return { exito: false, errores: validacion.errores };
+
+    const nuevoCodigo = generateVehiculoId(vehiculos);
+
+    const { data: inserted, error } = await supabase
+      .from('vehiculos')
+      .insert({
+        tenant_id: tenantId,
+        codigo: nuevoCodigo,
+        placa: normalizePlaca(data.placa),
+        vin: data.vin ? data.vin.trim().toUpperCase() : null,
+        tipo: data.tipo,
+        marca: data.marca,
+        modelo: data.modelo,
+        anio: data.año,
+        color: data.color,
+        motor: data.motor ?? null,
+        combustible: data.combustible,
+        capacidad: data.capacidad ?? null,
+        kilometraje: data.kilometraje,
+        ubicacion_actual: data.ubicacionActual,
+        estado: 'activo',
+        public_view_enabled: data.publicViewEnabled ?? true,
+        // Contrato
+        contrato_cliente_nombre: data.vinculoContrato?.clienteNombre ?? null,
+        contrato_proyecto_nombre: data.vinculoContrato?.proyectoNombre ?? null,
+        contrato_nombre: data.vinculoContrato?.contratoNombre ?? null,
+        contrato_tipo: data.vinculoContrato?.tipoContrato ?? null,
+        contrato_fecha_inicio: data.vinculoContrato?.fechaInicio ?? null,
+        contrato_fecha_fin: data.vinculoContrato?.fechaFin ?? null,
+        // Plan preventivo
+        plan_preventivo_habilitado: data.planPreventivoContratado?.habilitado ?? false,
+        plan_preventivo_tipo: data.planPreventivoContratado?.tipoPlan ?? null,
+        plan_preventivo_total_contratados: data.planPreventivoContratado?.totalPreventivosContratados ?? 0,
+        plan_preventivo_intervalo_km: data.planPreventivoContratado?.intervaloKm ?? null,
+        plan_preventivo_intervalo_meses: data.planPreventivoContratado?.intervaloMeses ?? null,
+        creado_por: user.id,
+      })
+      .select('*, docs:vehiculo_documentos(*)')
+      .single();
+
+    if (error) {
+      console.error('[VEHICULOS] Error al crear:', error.message);
+      return { exito: false, errores: [error.message] };
     }
 
-    // Generar ID
-    const nuevoId = generateVehiculoId(vehiculos);
-
-    // Crear vehículo con auditoría
-    const nuevoVehiculo: Vehiculo = {
-      ...data,
-      id: nuevoId,
-      placa: normalizePlaca(data.placa),
-      vin: data.vin ? data.vin.trim().toUpperCase() : undefined,
-      estado: 'activo',
-      publicViewEnabled: data.publicViewEnabled ?? true, // Default: habilitado
-      publicToken: data.publicToken || generatePublicToken(nuevoId), // Genera token si no viene
-      creadoPor: 'admin@kesa.com', // TODO: obtener de contexto de usuario
-      creadoEn: new Date().toISOString()
-    };
-
-    setVehiculos(prev => [...prev, nuevoVehiculo]);
-
-    logDebug('Vehículo creado exitosamente:', nuevoId);
-
-    return {
-      exito: true,
-      vehiculoId: nuevoId
-    };
+    const nuevo = mapFromDB(inserted as any, (inserted as any).docs ?? []);
+    setVehiculos(prev => [nuevo, ...prev]);
+    logDebug('Vehículo creado:', nuevoCodigo);
+    return { exito: true, vehiculoId: nuevoCodigo };
   };
 
-  /**
-   * Actualizar vehículo existente
-   */
-  const actualizarVehiculo = (
+  const actualizarVehiculo = async (
     id: string,
     data: Partial<Vehiculo>
-  ): { exito: boolean; errores?: string[] } => {
-    logDebug('Intentando actualizar vehículo:', id, data);
+  ): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
     const vehiculoExistente = vehiculos.find(v => v.id === id);
+    if (!vehiculoExistente) return { exito: false, errores: ['Vehículo no encontrado'] };
 
-    if (!vehiculoExistente) {
-      return {
-        exito: false,
-        errores: ['Vehículo no encontrado']
-      };
-    }
-
-    // No permitir cambiar placa en edición (o validar que no exista)
     if (data.placa && normalizePlaca(data.placa) !== normalizePlaca(vehiculoExistente.placa)) {
-      return {
-        exito: false,
-        errores: ['No se permite cambiar la placa del vehículo']
-      };
+      return { exito: false, errores: ['No se permite cambiar la placa del vehículo'] };
     }
 
-    // Validar datos actualizados
     const vehiculoActualizado = { ...vehiculoExistente, ...data };
-    
-    const placasExistentes = vehiculos
-      .filter(v => v.id !== id)
-      .map(v => normalizePlaca(v.placa));
-    
-    const vinsExistentes = vehiculos
-      .filter(v => v.id !== id && v.vin)
-      .map(v => v.vin!.trim().toUpperCase());
+    const placasExistentes = vehiculos.filter(v => v.id !== id).map(v => normalizePlaca(v.placa));
+    const vinsExistentes = vehiculos.filter(v => v.id !== id && v.vin).map(v => v.vin!.trim().toUpperCase());
+    const validacion = validarVehiculo(vehiculoActualizado, placasExistentes, vinsExistentes, id);
+    if (!validacion.valido) return { exito: false, errores: validacion.errores };
 
-    const validacion = validarVehiculo(
-      vehiculoActualizado,
-      placasExistentes,
-      vinsExistentes,
-      id
-    );
+    const { error } = await supabase
+      .from('vehiculos')
+      .update({
+        tipo: data.tipo,
+        marca: data.marca,
+        modelo: data.modelo,
+        anio: data.año,
+        color: data.color,
+        motor: data.motor ?? null,
+        combustible: data.combustible,
+        capacidad: data.capacidad ?? null,
+        kilometraje: data.kilometraje,
+        ubicacion_actual: data.ubicacionActual,
+        public_view_enabled: data.publicViewEnabled,
+        contrato_cliente_nombre: data.vinculoContrato?.clienteNombre ?? null,
+        contrato_proyecto_nombre: data.vinculoContrato?.proyectoNombre ?? null,
+        contrato_nombre: data.vinculoContrato?.contratoNombre ?? null,
+        contrato_tipo: data.vinculoContrato?.tipoContrato ?? null,
+        contrato_fecha_inicio: data.vinculoContrato?.fechaInicio ?? null,
+        contrato_fecha_fin: data.vinculoContrato?.fechaFin ?? null,
+        plan_preventivo_habilitado: data.planPreventivoContratado?.habilitado ?? false,
+        plan_preventivo_tipo: data.planPreventivoContratado?.tipoPlan ?? null,
+        plan_preventivo_total_contratados: data.planPreventivoContratado?.totalPreventivosContratados ?? 0,
+        plan_preventivo_intervalo_km: data.planPreventivoContratado?.intervaloKm ?? null,
+        plan_preventivo_intervalo_meses: data.planPreventivoContratado?.intervaloMeses ?? null,
+        modificado_por: user.id,
+        modificado_en: new Date().toISOString(),
+      })
+      .eq('codigo', id);
 
-    if (!validacion.valido) {
-      logDebug('Validación fallida:', validacion.errores);
-      return {
-        exito: false,
-        errores: validacion.errores
-      };
+    if (error) {
+      console.error('[VEHICULOS] Error al actualizar:', error.message);
+      return { exito: false, errores: [error.message] };
     }
 
-    // Actualizar con auditoría
     setVehiculos(prev =>
-      prev.map(v =>
-        v.id === id
-          ? {
-              ...v,
-              ...data,
-              modificadoPor: 'admin@kesa.com', // TODO: obtener de contexto
-              modificadoEn: new Date().toISOString()
-            }
-          : v
-      )
+      prev.map(v => v.id === id ? { ...v, ...data, modificadoEn: new Date().toISOString() } : v)
     );
-
-    logDebug('Vehículo actualizado exitosamente:', id);
-
     return { exito: true };
   };
 
-  /**
-   * Inactivar vehículo (soft delete)
-   */
-  const inactivarVehiculo = (
-    id: string,
-    motivo: string
-  ): { exito: boolean; errores?: string[] } => {
-    logDebug('Intentando inactivar vehículo:', id, motivo);
+  const inactivarVehiculo = async (id: string, motivo: string): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-    const vehiculoExistente = vehiculos.find(v => v.id === id);
+    const v = vehiculos.find(v => v.id === id);
+    if (!v) return { exito: false, errores: ['Vehículo no encontrado'] };
+    if (v.estado === 'inactivo') return { exito: false, errores: ['El vehículo ya está inactivo'] };
 
-    if (!vehiculoExistente) {
-      return {
-        exito: false,
-        errores: ['Vehículo no encontrado']
-      };
-    }
+    const validacion = validarMotivoInactivacion(motivo);
+    if (!validacion.valido) return { exito: false, errores: validacion.errores };
 
-    if (vehiculoExistente.estado === 'inactivo') {
-      return {
-        exito: false,
-        errores: ['El vehículo ya está inactivo']
-      };
-    }
+    const ahora = new Date().toISOString();
+    const { error } = await supabase
+      .from('vehiculos')
+      .update({
+        estado: 'inactivo',
+        motivo_inactivacion: motivo,
+        inactivado_por: user.id,
+        inactivado_en: ahora,
+        modificado_por: user.id,
+        modificado_en: ahora,
+      })
+      .eq('codigo', id);
 
-    // Validar motivo
-    const validacionMotivo = validarMotivoInactivacion(motivo);
-    if (!validacionMotivo.valido) {
-      return {
-        exito: false,
-        errores: validacionMotivo.errores
-      };
-    }
+    if (error) return { exito: false, errores: [error.message] };
 
-    // Inactivar con auditoría
     setVehiculos(prev =>
-      prev.map(v =>
-        v.id === id
-          ? {
-              ...v,
-              estado: 'inactivo',
-              inactivadoPor: 'admin@kesa.com', // TODO: obtener de contexto
-              inactivadoEn: new Date().toISOString(),
-              motivoInactivacion: motivo
-            }
-          : v
+      prev.map(v => v.id === id
+        ? { ...v, estado: 'inactivo', motivoInactivacion: motivo, inactivadoPor: user.id, inactivadoEn: ahora }
+        : v
       )
     );
-
-    logDebug('Vehículo inactivado exitosamente:', id);
-
     return { exito: true };
   };
 
-  /**
-   * Activar vehículo
-   */
-  const activarVehiculo = (id: string): { exito: boolean; errores?: string[] } => {
-    logDebug('Intentando activar vehículo:', id);
+  const activarVehiculo = async (id: string): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-    const vehiculoExistente = vehiculos.find(v => v.id === id);
+    const v = vehiculos.find(v => v.id === id);
+    if (!v) return { exito: false, errores: ['Vehículo no encontrado'] };
+    if (v.estado !== 'inactivo') return { exito: false, errores: ['El vehículo no está inactivo'] };
 
-    if (!vehiculoExistente) {
-      return {
-        exito: false,
-        errores: ['Vehículo no encontrado']
-      };
-    }
+    const ahora = new Date().toISOString();
+    const { error } = await supabase
+      .from('vehiculos')
+      .update({
+        estado: 'activo',
+        motivo_inactivacion: null,
+        inactivado_por: null,
+        inactivado_en: null,
+        modificado_por: user.id,
+        modificado_en: ahora,
+      })
+      .eq('codigo', id);
 
-    if (vehiculoExistente.estado !== 'inactivo') {
-      return {
-        exito: false,
-        errores: ['El vehículo no está inactivo']
-      };
-    }
+    if (error) return { exito: false, errores: [error.message] };
 
-    // Activar con auditoría
     setVehiculos(prev =>
-      prev.map(v =>
-        v.id === id
-          ? {
-              ...v,
-              estado: 'activo',
-              modificadoPor: 'admin@kesa.com', // TODO: obtener de contexto
-              modificadoEn: new Date().toISOString(),
-              // Limpiar campos de inactivación
-              inactivadoPor: undefined,
-              inactivadoEn: undefined,
-              motivoInactivacion: undefined
-            }
-          : v
+      prev.map(v => v.id === id
+        ? { ...v, estado: 'activo', motivoInactivacion: undefined, inactivadoPor: undefined, inactivadoEn: undefined }
+        : v
       )
     );
-
-    logDebug('Vehículo activado exitosamente:', id);
-
     return { exito: true };
   };
 
   // ============================================================================
-  // QUERY OPERATIONS
+  // QUERIES (síncronas — operan sobre estado local ya cargado)
   // ============================================================================
 
-  const obtenerVehiculo = (id: string): Vehiculo | undefined => {
-    return vehiculos.find(v => v.id === id);
+  const obtenerVehiculo = (id: string) => vehiculos.find(v => v.id === id);
+
+  const obtenerVehiculoPorToken = (token: string) => vehiculos.find(v => v.publicToken === token);
+
+  const obtenerVehiculosPorEstado = (estado: EstadoVehiculo) => vehiculos.filter(v => v.estado === estado);
+
+  const obtenerVehiculosPorTipo = (tipo: TipoVehiculo) => vehiculos.filter(v => v.tipo === tipo);
+
+  const buscarVehiculos = (query: string) => {
+    if (!query.trim()) return vehiculos;
+    const q = query.toLowerCase().trim();
+    return vehiculos.filter(v =>
+      v.placa.toLowerCase().includes(q) ||
+      v.vin?.toLowerCase().includes(q) ||
+      v.marca.toLowerCase().includes(q) ||
+      v.modelo.toLowerCase().includes(q) ||
+      v.id.toLowerCase().includes(q)
+    );
   };
 
-  const obtenerVehiculoPorToken = (token: string): Vehiculo | undefined => {
-    return vehiculos.find(v => v.publicToken === token);
-  };
-
-  const obtenerVehiculosPorEstado = (estado: EstadoVehiculo): Vehiculo[] => {
-    return vehiculos.filter(v => v.estado === estado);
-  };
-
-  const obtenerVehiculosPorTipo = (tipo: TipoVehiculo): Vehiculo[] => {
-    return vehiculos.filter(v => v.tipo === tipo);
-  };
-
-  const buscarVehiculos = (query: string): Vehiculo[] => {
-    if (!query || query.trim() === '') {
-      return vehiculos;
-    }
-
-    const queryLower = query.toLowerCase().trim();
-
-    return vehiculos.filter(v => {
-      return (
-        v.placa.toLowerCase().includes(queryLower) ||
-        v.vin?.toLowerCase().includes(queryLower) ||
-        v.marca.toLowerCase().includes(queryLower) ||
-        v.modelo.toLowerCase().includes(queryLower) ||
-        v.id.toLowerCase().includes(queryLower)
-      );
-    });
-  };
+  // Con Supabase el token se genera en la DB automáticamente; esta función
+  // es no-op pero se mantiene para compatibilidad con los componentes.
+  const ensurePublicToken = (_id: string) => {};
 
   // ============================================================================
-  // HELPER METHODS
+  // CONTRATO Y PLAN PREVENTIVO
   // ============================================================================
 
-  /**
-   * Garantiza que el vehículo tenga un token público
-   * Si no existe, lo genera automáticamente (idempotente)
-   */
-  const ensurePublicToken = (id: string) => {
-    const vehiculoExistente = vehiculos.find(v => v.id === id);
+  const actualizarVinculoContrato = async (
+    vehiculoId: string,
+    vinculo: VehiculoVinculoContrato
+  ): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-    if (!vehiculoExistente) {
-      logDebug('Vehículo no encontrado para generar token público:', id);
-      return;
-    }
+    const validacion = validarVinculoContrato(vinculo);
+    if (!validacion.valido) return { exito: false, errores: validacion.errores };
 
-    if (vehiculoExistente.publicToken) {
-      logDebug('Vehículo ya tiene token público:', id);
-      return; // ✅ IDEMPOTENTE: No regenera
-    }
+    const { error } = await supabase
+      .from('vehiculos')
+      .update({
+        contrato_cliente_nombre: vinculo.clienteNombre,
+        contrato_proyecto_nombre: vinculo.proyectoNombre,
+        contrato_nombre: vinculo.contratoNombre,
+        contrato_tipo: vinculo.tipoContrato,
+        contrato_fecha_inicio: vinculo.fechaInicio,
+        contrato_fecha_fin: vinculo.fechaFin,
+        modificado_por: user.id,
+        modificado_en: new Date().toISOString(),
+      })
+      .eq('codigo', vehiculoId);
 
-    const nuevoToken = generatePublicToken(id);
+    if (error) return { exito: false, errores: [error.message] };
 
     setVehiculos(prev =>
-      prev.map(v =>
-        v.id === id
-          ? {
-              ...v,
-              publicToken: nuevoToken
-            }
-          : v
-      )
+      prev.map(v => v.id === vehiculoId ? { ...v, vinculoContrato: vinculo } : v)
     );
+    return { exito: true };
+  };
 
-    logDebug('Token público generado para vehículo:', id);
+  const actualizarPlanPreventivo = async (
+    vehiculoId: string,
+    plan: PlanPreventivoContratado
+  ): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+    const validacion = validarPlanPreventivo(plan);
+    if (!validacion.valido) return { exito: false, errores: validacion.errores };
+
+    const { error } = await supabase
+      .from('vehiculos')
+      .update({
+        plan_preventivo_habilitado: plan.habilitado,
+        plan_preventivo_tipo: plan.tipoPlan,
+        plan_preventivo_total_contratados: plan.totalPreventivosContratados,
+        plan_preventivo_intervalo_km: plan.intervaloKm ?? null,
+        plan_preventivo_intervalo_meses: plan.intervaloMeses ?? null,
+        modificado_por: user.id,
+        modificado_en: new Date().toISOString(),
+      })
+      .eq('codigo', vehiculoId);
+
+    if (error) return { exito: false, errores: [error.message] };
+
+    setVehiculos(prev =>
+      prev.map(v => v.id === vehiculoId ? { ...v, planPreventivoContratado: plan } : v)
+    );
+    return { exito: true };
   };
 
   // ============================================================================
-  // DOCUMENTS OPERATIONS
+  // DOCUMENTOS
   // ============================================================================
 
-  /**
-   * Agregar documento a vehículo
-   */
-  const agregarDocumentoVehiculo = (
+  const agregarDocumentoVehiculo = async (
     vehiculoId: string,
     documento: Omit<VehiculoDocumento, 'id' | 'creadoPor' | 'creadoEn'>
-  ): { exito: boolean; documentoId?: string; errores?: string[] } => {
-    logDebug('Intentando agregar documento a vehículo:', vehiculoId, documento);
+  ): Promise<{ exito: boolean; documentoId?: string; errores?: string[] }> => {
+    if (!tenantId || !user) return { exito: false, errores: ['Sin sesión activa'] };
 
     const vehiculoExistente = vehiculos.find(v => v.id === vehiculoId);
+    if (!vehiculoExistente) return { exito: false, errores: ['Vehículo no encontrado'] };
 
-    if (!vehiculoExistente) {
-      return {
-        exito: false,
-        errores: ['Vehículo no encontrado']
-      };
-    }
-
-    // Validar documento
     const validacion = validarDocumento(documento);
-    if (!validacion.valido) {
-      return {
-        exito: false,
-        errores: validacion.errores
-      };
-    }
+    if (!validacion.valido) return { exito: false, errores: validacion.errores };
 
-    // Generar ID
-    const nuevoId = generarDocumentoId();
+    // Obtener UUID de la DB a partir del codigo
+    const { data: vRow, error: vErr } = await supabase
+      .from('vehiculos')
+      .select('id')
+      .eq('codigo', vehiculoId)
+      .single();
 
-    // Crear documento con auditoría
-    const nuevoDocumento: VehiculoDocumento = {
-      ...documento,
-      id: nuevoId,
-      creadoPor: 'admin@kesa.com', // TODO: obtener de contexto de usuario
-      creadoEn: new Date().toISOString()
-    };
+    if (vErr || !vRow) return { exito: false, errores: ['Vehículo no encontrado en DB'] };
 
+    const docsExistentes = vehiculoExistente.documentosVehiculo ?? [];
+    const nuevoCodigo = `DOC-${Date.now().toString(36).toUpperCase()}`;
+
+    const { data: inserted, error } = await supabase
+      .from('vehiculo_documentos')
+      .insert({
+        tenant_id: tenantId,
+        vehiculo_id: vRow.id,
+        codigo: nuevoCodigo,
+        tipo: documento.tipo,
+        nombre: documento.nombre,
+        numero: documento.numero ?? null,
+        fecha_emision: documento.fechaEmision ?? null,
+        fecha_vencimiento: documento.fechaVencimiento,
+        archivo_nombre: documento.archivoNombre ?? null,
+        observaciones: documento.observaciones ?? null,
+        creado_por: user.id,
+      })
+      .select()
+      .single();
+
+    if (error) return { exito: false, errores: [error.message] };
+
+    const nuevoDoc = mapDocFromDB(inserted as VehiculoDocumentoDB);
     setVehiculos(prev =>
-      prev.map(v =>
-        v.id === vehiculoId
-          ? {
-              ...v,
-              documentos: [...v.documentos, nuevoDocumento]
-            }
-          : v
+      prev.map(v => v.id === vehiculoId
+        ? { ...v, documentosVehiculo: [...(v.documentosVehiculo ?? []), nuevoDoc] }
+        : v
       )
     );
-
-    logDebug('Documento agregado exitosamente:', nuevoId);
-
-    return {
-      exito: true,
-      documentoId: nuevoId
-    };
+    return { exito: true, documentoId: nuevoCodigo };
   };
 
-  /**
-   * Actualizar documento de vehículo
-   */
-  const actualizarDocumentoVehiculo = (
+  const actualizarDocumentoVehiculo = async (
     vehiculoId: string,
     documentoId: string,
     data: Partial<VehiculoDocumento>
-  ): { exito: boolean; errores?: string[] } => {
-    logDebug('Intentando actualizar documento:', vehiculoId, documentoId, data);
+  ): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
     const vehiculoExistente = vehiculos.find(v => v.id === vehiculoId);
+    if (!vehiculoExistente) return { exito: false, errores: ['Vehículo no encontrado'] };
 
-    if (!vehiculoExistente) {
-      return {
-        exito: false,
-        errores: ['Vehículo no encontrado']
-      };
-    }
+    const docExistente = vehiculoExistente.documentosVehiculo?.find(d => d.id === documentoId);
+    if (!docExistente) return { exito: false, errores: ['Documento no encontrado'] };
 
-    const documentoExistente = vehiculoExistente.documentos?.find(d => d.id === documentoId);
+    const validacion = validarDocumento({ ...docExistente, ...data });
+    if (!validacion.valido) return { exito: false, errores: validacion.errores };
 
-    if (!documentoExistente) {
-      return {
-        exito: false,
-        errores: ['Documento no encontrado']
-      };
-    }
+    const { error } = await supabase
+      .from('vehiculo_documentos')
+      .update({
+        tipo: data.tipo,
+        nombre: data.nombre,
+        numero: data.numero ?? null,
+        fecha_emision: data.fechaEmision ?? null,
+        fecha_vencimiento: data.fechaVencimiento,
+        observaciones: data.observaciones ?? null,
+        modificado_por: user.id,
+        modificado_en: new Date().toISOString(),
+      })
+      .eq('codigo', documentoId);
 
-    // Validar datos actualizados
-    const documentoActualizado = { ...documentoExistente, ...data };
-    
-    const validacion = validarDocumento(
-      documentoActualizado
-    );
+    if (error) return { exito: false, errores: [error.message] };
 
-    if (!validacion.valido) {
-      logDebug('Validación fallida:', validacion.errores);
-      return {
-        exito: false,
-        errores: validacion.errores
-      };
-    }
-
-    // Actualizar con auditoría
     setVehiculos(prev =>
-      prev.map(v =>
-        v.id === vehiculoId
-          ? {
-              ...v,
-              documentos: (v.documentos || []).map(d =>
-                d.id === documentoId
-                  ? {
-                      ...d,
-                      ...data,
-                      modificadoPor: 'admin@kesa.com', // TODO: obtener de contexto
-                      modificadoEn: new Date().toISOString()
-                    }
-                  : d
-              )
-            }
-          : v
+      prev.map(v => v.id === vehiculoId
+        ? {
+            ...v,
+            documentosVehiculo: (v.documentosVehiculo ?? []).map(d =>
+              d.id === documentoId ? { ...d, ...data } : d
+            )
+          }
+        : v
       )
     );
-
-    logDebug('Documento actualizado exitosamente:', documentoId);
-
     return { exito: true };
   };
 
-  /**
-   * Eliminar documento de vehículo
-   */
-  const eliminarDocumentoVehiculo = (
+  const eliminarDocumentoVehiculo = async (
     vehiculoId: string,
     documentoId: string
-  ): { exito: boolean; errores?: string[] } => {
-    logDebug('Intentando eliminar documento:', vehiculoId, documentoId);
-
+  ): Promise<CrudResult> => {
     const vehiculoExistente = vehiculos.find(v => v.id === vehiculoId);
+    if (!vehiculoExistente) return { exito: false, errores: ['Vehículo no encontrado'] };
 
-    if (!vehiculoExistente) {
-      return {
-        exito: false,
-        errores: ['Vehículo no encontrado']
-      };
-    }
+    const { error } = await supabase
+      .from('vehiculo_documentos')
+      .delete()
+      .eq('codigo', documentoId);
 
-    const documentoExistente = vehiculoExistente.documentos.find(d => d.id === documentoId);
+    if (error) return { exito: false, errores: [error.message] };
 
-    if (!documentoExistente) {
-      return {
-        exito: false,
-        errores: ['Documento no encontrado']
-      };
-    }
-
-    // Eliminar con auditoría
     setVehiculos(prev =>
-      prev.map(v =>
-        v.id === vehiculoId
-          ? {
-              ...v,
-              documentos: v.documentos.filter(d => d.id !== documentoId)
-            }
-          : v
+      prev.map(v => v.id === vehiculoId
+        ? { ...v, documentosVehiculo: (v.documentosVehiculo ?? []).filter(d => d.id !== documentoId) }
+        : v
       )
     );
-
-    logDebug('Documento eliminado exitosamente:', documentoId);
-
     return { exito: true };
   };
 
-  /**
-   * Obtener documentos de vehículo
-   */
-  const obtenerDocumentosVehiculo = (vehiculoId: string): VehiculoDocumento[] => {
-    const vehiculoExistente = vehiculos.find(v => v.id === vehiculoId);
-
-    if (!vehiculoExistente) {
-      return [];
-    }
-
-    return vehiculoExistente.documentos || [];
-  };
+  const obtenerDocumentosVehiculo = (vehiculoId: string): VehiculoDocumento[] =>
+    vehiculos.find(v => v.id === vehiculoId)?.documentosVehiculo ?? [];
 
   // ============================================================================
   // CONTEXT VALUE
@@ -831,6 +581,7 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
 
   const value: VehiculosContextType = {
     vehiculos,
+    loading,
     crearVehiculo,
     actualizarVehiculo,
     inactivarVehiculo,
@@ -841,86 +592,12 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
     obtenerVehiculosPorTipo,
     buscarVehiculos,
     ensurePublicToken,
-    // Contrato y Plan Preventivo
-    actualizarVinculoContrato: (vehiculoId: string, vinculo: VehiculoVinculoContrato) => {
-      const vehiculoExistente = vehiculos.find(v => v.id === vehiculoId);
-
-      if (!vehiculoExistente) {
-        return {
-          exito: false,
-          errores: ['Vehículo no encontrado']
-        };
-      }
-
-      // Validar vinculo
-      const validacion = validarVinculoContrato(vinculo);
-      if (!validacion.valido) {
-        return {
-          exito: false,
-          errores: validacion.errores
-        };
-      }
-
-      // Actualizar con auditoría
-      setVehiculos(prev =>
-        prev.map(v =>
-          v.id === vehiculoId
-            ? {
-                ...v,
-                vinculoContrato: vinculo,
-                modificadoPor: 'admin@kesa.com', // TODO: obtener de contexto
-                modificadoEn: new Date().toISOString()
-              }
-            : v
-        )
-      );
-
-      logDebug('Vinculo de contrato actualizado exitosamente:', vehiculoId);
-
-      return { exito: true };
-    },
-    actualizarPlanPreventivo: (vehiculoId: string, plan: PlanPreventivoContratado) => {
-      const vehiculoExistente = vehiculos.find(v => v.id === vehiculoId);
-
-      if (!vehiculoExistente) {
-        return {
-          exito: false,
-          errores: ['Vehículo no encontrado']
-        };
-      }
-
-      // Validar plan
-      const validacion = validarPlanPreventivo(plan);
-      if (!validacion.valido) {
-        return {
-          exito: false,
-          errores: validacion.errores
-        };
-      }
-
-      // Actualizar con auditoría
-      setVehiculos(prev =>
-        prev.map(v =>
-          v.id === vehiculoId
-            ? {
-                ...v,
-                planPreventivo: plan,
-                modificadoPor: 'admin@kesa.com', // TODO: obtener de contexto
-                modificadoEn: new Date().toISOString()
-              }
-            : v
-        )
-      );
-
-      logDebug('Plan preventivo actualizado exitosamente:', vehiculoId);
-
-      return { exito: true };
-    },
-    // Documentos
+    actualizarVinculoContrato,
+    actualizarPlanPreventivo,
     agregarDocumentoVehiculo,
     actualizarDocumentoVehiculo,
     eliminarDocumentoVehiculo,
-    obtenerDocumentosVehiculo
+    obtenerDocumentosVehiculo,
   };
 
   return (
@@ -936,10 +613,8 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
 
 export function useVehiculos() {
   const context = useContext(VehiculosContext);
-  
   if (context === undefined) {
     throw new Error('useVehiculos debe usarse dentro de VehiculosStoreProvider');
   }
-  
   return context;
 }
