@@ -69,12 +69,17 @@ export function MantenimientoDetalle({
   numeroOT,
   onBack
 }: MantenimientoDetalleProps) {
-  const { obtenerOTPorNumero, actualizarEstadoOT, anularOT, agregarExtra, eliminarExtra } = useOTStore();
-  
+  const { obtenerOTPorNumero, actualizarEstadoOT, cerrarOT, anularOT, agregarExtra, eliminarExtra } = useOTStore();
+
   const [ot, setOt] = useState<OrdenTrabajo | undefined>();
   const [showAnularDialog, setShowAnularDialog] = useState(false);
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
   const [isAnulando, setIsAnulando] = useState(false);
+
+  // Confirmar cierre de OT
+  const [showCerrarDialog, setShowCerrarDialog] = useState(false);
+  const [notasCierre, setNotasCierre] = useState('');
+  const [isCerrando, setIsCerrando] = useState(false);
 
   useEffect(() => {
     const otEncontrada = obtenerOTPorNumero(numeroOT);
@@ -124,6 +129,21 @@ export function MantenimientoDetalle({
     await actualizarEstadoOT(numeroOT, nuevoEstado);
     setOt(obtenerOTPorNumero(numeroOT));
     toast.success(`Estado actualizado a ${OT_ESTADO_CONFIG[nuevoEstado].label}`);
+  };
+
+  const handleCerrar = async () => {
+    setIsCerrando(true);
+    try {
+      await cerrarOT(numeroOT, notasCierre || undefined);
+      setOt(obtenerOTPorNumero(numeroOT));
+      toast.success('Orden de Trabajo cerrada exitosamente');
+      setShowCerrarDialog(false);
+      setNotasCierre('');
+    } catch (err) {
+      toast.error('Error al cerrar la Orden de Trabajo');
+    } finally {
+      setIsCerrando(false);
+    }
   };
 
   const handleAnular = async () => {
@@ -192,7 +212,7 @@ export function MantenimientoDetalle({
             </Button>
           )}
           {ot.estado === 'en_ejecucion' && (
-            <Button onClick={() => handleCambiarEstado('cerrada')}>
+            <Button onClick={() => setShowCerrarDialog(true)}>
               <CheckCircle className="size-4 mr-2" />
               Cerrar OT
             </Button>
@@ -624,6 +644,43 @@ export function MantenimientoDetalle({
               disabled={isAnulando || motivoAnulacion.trim().length < 30}
             >
               {isAnulando ? 'Anulando...' : 'Confirmar Anulación'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Confirmar Cierre de OT */}
+      <Dialog open={showCerrarDialog} onOpenChange={setShowCerrarDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cerrar Orden de Trabajo</DialogTitle>
+            <DialogDescription>
+              Estás a punto de cerrar la OT <strong>{ot?.numeroOT}</strong>. Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="text-sm font-medium">Notas de cierre (opcional)</label>
+            <Textarea
+              placeholder="Describe los trabajos realizados, observaciones finales, etc."
+              rows={4}
+              value={notasCierre}
+              onChange={(e) => setNotasCierre(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setShowCerrarDialog(false); setNotasCierre(''); }}
+              disabled={isCerrando}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCerrar}
+              disabled={isCerrando}
+            >
+              <CheckCircle className="size-4 mr-2" />
+              {isCerrando ? 'Cerrando...' : 'Confirmar Cierre'}
             </Button>
           </DialogFooter>
         </DialogContent>

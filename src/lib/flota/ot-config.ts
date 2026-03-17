@@ -19,7 +19,7 @@ import {
 // DEBUG FLAG
 // ============================================================================
 
-export const DEBUG_OT = true;
+export const DEBUG_OT = import.meta.env.DEV;
 
 // ============================================================================
 // TIPOS DE ESTADO DE OT - Estandarizados según SRS
