@@ -656,3 +656,364 @@ export interface RecepcionItem {
 }
 export type RecepcionItemInsert = Omit<RecepcionItem, 'id'>;
 export type RecepcionItemUpdate = Partial<Omit<RecepcionItemInsert, 'tenant_id' | 'recepcion_id'>>;
+
+// =============================================================================
+// BIOMÉDICO — CALIBRACIONES
+// =============================================================================
+
+export interface CalibracionBiomedica {
+  id: string;
+  tenant_id: string;
+  equipo_id: string;
+  numero: string;
+  tipo: 'interna' | 'externa' | 'verificacion';
+  estado: 'programada' | 'en_proceso' | 'aprobada' | 'rechazada' | 'vencida';
+  fecha_programada: string;
+  fecha_realizada?: string | null;
+  fecha_vencimiento?: string | null;
+  responsable?: string | null;
+  proveedor_calibracion?: string | null;
+  resultado?: 'aprobada' | 'rechazada' | 'con_observaciones' | null;
+  incertidumbre?: string | null;
+  certificado_numero?: string | null;
+  observaciones?: string | null;
+  creado_por?: string | null;
+  creado_en: string;
+  modificado_por?: string | null;
+  modificado_en?: string | null;
+  // joined
+  equipo?: { codigo: string; nombre: string; } | null;
+}
+
+// =============================================================================
+// BIOMÉDICO — INCIDENCIAS
+// =============================================================================
+
+export interface IncidenciaBiomedica {
+  id: string;
+  tenant_id: string;
+  equipo_id: string;
+  numero: string;
+  tipo: 'falla' | 'error_usuario' | 'accidente' | 'deterioro' | 'otro';
+  severidad: 'baja' | 'media' | 'alta' | 'critica';
+  estado: 'abierta' | 'en_investigacion' | 'resuelta' | 'cerrada';
+  fecha_ocurrencia: string;
+  descripcion: string;
+  acciones_tomadas?: string | null;
+  reportado_por?: string | null;
+  resuelto_por?: string | null;
+  fecha_resolucion?: string | null;
+  requiere_mantenimiento: boolean;
+  creado_por?: string | null;
+  creado_en: string;
+  modificado_por?: string | null;
+  modificado_en?: string | null;
+  // joined
+  equipo?: { codigo: string; nombre: string; } | null;
+}
+
+// =============================================================================
+// BIOMÉDICO — DOCUMENTOS
+// =============================================================================
+
+export interface DocumentoBiomedico {
+  id: string;
+  tenant_id: string;
+  equipo_id: string;
+  nombre: string;
+  tipo: 'manual' | 'certificado' | 'protocolo' | 'garantia' | 'ficha_tecnica' | 'otro';
+  descripcion?: string | null;
+  url_storage?: string | null;
+  nombre_archivo?: string | null;
+  tamano_bytes?: number | null;
+  mime_type?: string | null;
+  vigencia?: string | null;
+  subido_por?: string | null;
+  creado_en: string;
+  // joined
+  equipo?: { codigo: string; nombre: string; } | null;
+}
+
+// ── Evaluaciones de Proveedores ───────────────────────────
+export interface EvaluacionProveedor {
+  id: string;
+  tenant_id: string;
+  proveedor_id: string;
+  numero: string;
+  periodo: string;
+  tipo: 'mensual' | 'trimestral' | 'anual' | 'puntual';
+  estado: 'borrador' | 'en_revision' | 'aprobada' | 'rechazada';
+  calidad?: number | null;
+  entrega?: number | null;
+  precio?: number | null;
+  servicio?: number | null;
+  documentacion?: number | null;
+  puntaje_total?: number | null;
+  resultado?: 'excelente' | 'bueno' | 'regular' | 'deficiente' | null;
+  evaluador?: string | null;
+  comentarios?: string | null;
+  acciones_mejora?: string | null;
+  creado_por?: string | null;
+  creado_en: string;
+  modificado_por?: string | null;
+  modificado_en?: string | null;
+  proveedor?: { codigo: string; razon_social: string; } | null;
+}
+
+// ── Contratos de Proveedores ──────────────────────────────
+export interface ContratoProveedor {
+  id: string;
+  tenant_id: string;
+  proveedor_id: string;
+  numero: string;
+  tipo: 'servicio' | 'suministro' | 'mantenimiento' | 'consultoria' | 'otro';
+  estado: 'borrador' | 'activo' | 'vencido' | 'rescindido' | 'renovacion';
+  descripcion: string;
+  monto_total?: number | null;
+  moneda: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  fecha_firma?: string | null;
+  condiciones_pago?: string | null;
+  penalidades?: string | null;
+  url_documento?: string | null;
+  observaciones?: string | null;
+  creado_por?: string | null;
+  creado_en: string;
+  modificado_por?: string | null;
+  modificado_en?: string | null;
+  proveedor?: { codigo: string; razon_social: string; } | null;
+}
+
+// ── RBAC ─────────────────────────────────────────────────
+export interface RolDB {
+  id: string;
+  tenant_id: string;
+  nombre: string;
+  descripcion?: string | null;
+  es_sistema: boolean;
+  creado_en: string;
+  permisos?: PermisoDBRow[] | null;
+}
+
+export interface PermisoDBRow {
+  id: string;
+  modulo: string;
+  accion: string;
+  descripcion?: string | null;
+}
+
+export interface UsuarioRolDB {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  rol_id: string;
+  asignado_por?: string | null;
+  asignado_en: string;
+  rol?: RolDB | null;
+}
+
+export interface UsuarioTenantDB {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  nombre: string;
+  email: string;
+  cargo?: string | null;
+  departamento?: string | null;
+  telefono?: string | null;
+  avatar_url?: string | null;
+  estado: 'activo' | 'inactivo' | 'suspendido';
+  creado_en: string;
+  roles?: RolDB[] | null;
+}
+
+// ── Inventario ────────────────────────────────────────────
+export interface CategoriaInventarioDB {
+  id: string; tenant_id: string; nombre: string; descripcion?: string | null; codigo?: string | null; creado_en: string;
+}
+export interface AlmacenDB {
+  id: string; tenant_id: string; nombre: string; codigo: string;
+  tipo: 'general' | 'repuestos' | 'suministros' | 'herramientas' | 'consumibles';
+  ubicacion?: string | null; responsable?: string | null;
+  estado: 'activo' | 'inactivo'; creado_en: string;
+}
+export interface ArticuloDB {
+  id: string; tenant_id: string; categoria_id?: string | null; codigo: string; nombre: string; descripcion?: string | null;
+  unidad_medida: 'unidad' | 'kg' | 'litro' | 'metro' | 'caja' | 'par' | 'juego' | 'rollo' | 'galón';
+  tipo: 'repuesto' | 'suministro' | 'herramienta' | 'consumible' | 'equipo';
+  stock_actual: number; stock_minimo: number; stock_maximo?: number | null;
+  precio_unitario?: number | null; moneda: string;
+  marca?: string | null; modelo?: string | null; codigo_fabricante?: string | null; imagen_url?: string | null;
+  activo: boolean; creado_por?: string | null; creado_en: string; modificado_por?: string | null; modificado_en?: string | null;
+  categoria?: { nombre: string; codigo?: string | null } | null;
+}
+export interface MovimientoInventarioDB {
+  id: string; tenant_id: string; articulo_id: string; almacen_id: string; numero: string;
+  tipo: 'entrada' | 'salida' | 'ajuste' | 'transferencia';
+  motivo: 'compra' | 'devolucion' | 'consumo' | 'mantenimiento' | 'ajuste_positivo' | 'ajuste_negativo' | 'transferencia_entrada' | 'transferencia_salida' | 'merma' | 'inicial';
+  cantidad: number; stock_anterior: number; stock_nuevo: number;
+  precio_unitario?: number | null; costo_total?: number | null;
+  referencia_id?: string | null; referencia_tipo?: string | null;
+  notas?: string | null; realizado_por?: string | null;
+  fecha: string; creado_en: string;
+  articulo?: { codigo: string; nombre: string; unidad_medida: string } | null;
+  almacen?: { nombre: string; codigo: string } | null;
+}
+
+// ── Talleres ──────────────────────────────────────────────
+export interface TallerDB {
+  id: string;
+  tenant_id: string;
+  proveedor_id?: string | null;
+  codigo: string;
+  nombre: string;
+  tipo: 'mecanico' | 'electrico' | 'carroceria' | 'neumaticos' | 'aire_acondicionado' | 'general' | 'especializado';
+  estado: 'activo' | 'inactivo' | 'suspendido';
+  contacto_nombre?: string | null;
+  contacto_telefono?: string | null;
+  contacto_email?: string | null;
+  departamento?: string | null;
+  provincia?: string | null;
+  distrito?: string | null;
+  direccion?: string | null;
+  especialidades?: string[] | null;
+  marcas_autorizadas?: string[] | null;
+  horario_atencion?: string | null;
+  tiempo_respuesta_horas?: number | null;
+  moneda: string;
+  condiciones_pago?: string | null;
+  observaciones?: string | null;
+  creado_por?: string | null;
+  creado_en: string;
+  modificado_por?: string | null;
+  modificado_en?: string | null;
+  proveedor?: { codigo: string; razon_social: string; } | null;
+}
+
+// ── CRM ───────────────────────────────────────────────────
+export interface ClienteDB {
+  id: string; tenant_id: string; codigo: string; razon_social: string;
+  nombre_comercial?: string | null;
+  tipo: 'empresa' | 'persona_natural' | 'gobierno' | 'ong';
+  sector?: string | null;
+  estado: 'activo' | 'inactivo' | 'prospecto' | 'perdido';
+  contacto_nombre?: string | null; contacto_cargo?: string | null;
+  contacto_telefono?: string | null; contacto_email?: string | null;
+  departamento?: string | null; provincia?: string | null;
+  distrito?: string | null; direccion?: string | null;
+  ruc?: string | null; credito_limite?: number | null; credito_dias?: number | null;
+  moneda: string; categoria?: 'A' | 'B' | 'C' | null;
+  origen?: string | null; descripcion?: string | null; observaciones?: string | null;
+  ejecutivo_cuenta?: string | null;
+  creado_por?: string | null; creado_en: string;
+  modificado_por?: string | null; modificado_en?: string | null;
+}
+export interface OportunidadDB {
+  id: string; tenant_id: string; cliente_id: string; codigo: string; titulo: string;
+  descripcion?: string | null;
+  etapa: 'prospecto' | 'calificado' | 'propuesta' | 'negociacion' | 'cerrado_ganado' | 'cerrado_perdido';
+  probabilidad: number; monto_estimado?: number | null; moneda: string;
+  fecha_cierre_estimada?: string | null; fecha_cierre_real?: string | null;
+  motivo_cierre?: string | null;
+  prioridad: 'baja' | 'media' | 'alta' | 'urgente';
+  ejecutivo?: string | null;
+  creado_por?: string | null; creado_en: string;
+  modificado_por?: string | null; modificado_en?: string | null;
+  cliente?: { codigo: string; razon_social: string; } | null;
+}
+export interface ActividadCRMDB {
+  id: string; tenant_id: string; cliente_id: string; oportunidad_id?: string | null;
+  tipo: 'llamada' | 'reunion' | 'email' | 'visita' | 'propuesta' | 'seguimiento' | 'otro';
+  estado: 'pendiente' | 'realizada' | 'cancelada';
+  titulo: string; descripcion?: string | null;
+  fecha_programada: string; fecha_realizada?: string | null;
+  resultado?: string | null; proxima_accion?: string | null;
+  realizado_por?: string | null; creado_por?: string | null; creado_en: string;
+  cliente?: { codigo: string; razon_social: string; } | null;
+  oportunidad?: { codigo: string; titulo: string; } | null;
+}
+
+// ── Finanzas ──────────────────────────────────────────────
+export interface TransaccionDB {
+  id: string; tenant_id: string; numero: string;
+  tipo: 'ingreso' | 'egreso' | 'transferencia';
+  categoria: string; subcategoria?: string | null;
+  estado: 'pendiente' | 'aprobada' | 'rechazada' | 'pagada' | 'anulada';
+  monto: number; moneda: string; tipo_cambio?: number | null; monto_soles?: number | null;
+  fecha: string; fecha_pago?: string | null; descripcion: string;
+  cuenta_id?: string | null; centro_costo_id?: string | null;
+  referencia_numero?: string | null; referencia_tipo?: string | null;
+  proveedor_nombre?: string | null;
+  aprobado_por?: string | null; aprobado_en?: string | null;
+  comprobante_url?: string | null;
+  creado_por?: string | null; creado_en: string;
+  modificado_por?: string | null; modificado_en?: string | null;
+}
+export interface PresupuestoLineaDB {
+  id: string; tenant_id: string; presupuesto_id: string;
+  categoria: string; subcategoria?: string | null;
+  monto_presupuestado: number; monto_ejecutado: number;
+  centro_costo_id?: string | null;
+}
+export interface PresupuestoDB {
+  id: string; tenant_id: string; nombre: string; periodo: string;
+  tipo: 'mensual' | 'trimestral' | 'anual';
+  estado: 'borrador' | 'aprobado' | 'cerrado';
+  moneda: string; descripcion?: string | null;
+  creado_por?: string | null; creado_en: string;
+  lineas?: PresupuestoLineaDB[] | null;
+}
+export interface CajaChicaDB {
+  id: string; tenant_id: string; nombre: string; codigo: string;
+  responsable: string; monto_asignado: number; monto_disponible: number;
+  moneda: string; estado: 'activo' | 'en_reposicion' | 'cerrada'; creado_en: string;
+}
+export interface GastoCajaChicaDB {
+  id: string; tenant_id: string; caja_id: string; numero: string;
+  descripcion: string; categoria: string; monto: number; moneda: string;
+  fecha: string; beneficiario?: string | null;
+  comprobante_numero?: string | null;
+  comprobante_tipo?: 'boleta' | 'factura' | 'recibo' | 'sin_comprobante' | null;
+  estado: 'pendiente' | 'aprobado' | 'rechazado';
+  aprobado_por?: string | null; notas?: string | null;
+  realizado_por?: string | null; creado_en: string;
+  caja?: { nombre: string; codigo: string } | null;
+}
+
+// ── Proyectos ─────────────────────────────────────────────
+export interface ProyectoDB {
+  id: string; tenant_id: string; codigo: string; nombre: string; descripcion?: string | null;
+  tipo: 'interno' | 'cliente' | 'infraestructura' | 'mejora' | 'investigacion';
+  estado: 'planificacion' | 'en_ejecucion' | 'pausado' | 'completado' | 'cancelado';
+  prioridad: 'baja' | 'media' | 'alta' | 'critica';
+  fecha_inicio?: string | null; fecha_fin_estimada?: string | null; fecha_fin_real?: string | null;
+  presupuesto?: number | null; costo_real?: number | null; moneda: string;
+  gerente_proyecto?: string | null; cliente_id?: string | null;
+  porcentaje_avance: number;
+  creado_por?: string | null; creado_en: string;
+  modificado_por?: string | null; modificado_en?: string | null;
+  fases?: FaseProyectoDB[] | null;
+  tareas?: TareaProyectoDB[] | null;
+  miembros?: MiembroProyectoDB[] | null;
+}
+export interface FaseProyectoDB {
+  id: string; tenant_id: string; proyecto_id: string; nombre: string;
+  descripcion?: string | null; orden: number;
+  estado: 'pendiente' | 'en_progreso' | 'completada' | 'cancelada';
+  fecha_inicio?: string | null; fecha_fin?: string | null; porcentaje_avance: number;
+}
+export interface TareaProyectoDB {
+  id: string; tenant_id: string; proyecto_id: string; fase_id?: string | null;
+  titulo: string; descripcion?: string | null;
+  estado: 'pendiente' | 'en_progreso' | 'completada' | 'bloqueada' | 'cancelada';
+  prioridad: 'baja' | 'media' | 'alta' | 'critica';
+  asignado_a?: string | null;
+  fecha_inicio?: string | null; fecha_vencimiento?: string | null; fecha_completada?: string | null;
+  estimacion_horas?: number | null; horas_reales?: number | null;
+  orden: number; creado_por?: string | null; creado_en: string;
+}
+export interface MiembroProyectoDB {
+  id: string; tenant_id: string; proyecto_id: string; user_id?: string | null;
+  nombre: string; rol: string; horas_asignadas?: number | null;
+}
