@@ -146,14 +146,14 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
   };
 
   // Submit
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validarFormulario()) {
       return;
     }
 
     try {
       if (isEditing && ordenExistente) {
-        actualizarOrden(ordenExistente.id, {
+        const res = await actualizarOrden(ordenExistente.id, {
           proveedorNombre: proveedorNombre.trim(),
           moneda,
           fechaEntregaEstimada: fechaEntregaEstimada || undefined,
@@ -165,6 +165,10 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
             precioUnitario: item.precioUnitario
           }))
         });
+        if (!res.exito) {
+          console.error('Error al actualizar orden:', res.errores);
+          return;
+        }
         onSuccess(ordenExistente.id);
       } else {
         const nuevaOrdenInput: NuevaOrdenInput = {
@@ -182,8 +186,12 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
           condiciones: condiciones.trim() || undefined
         };
 
-        const nuevaOrden = crearOrdenDesdeCotizacion(nuevaOrdenInput);
-        onSuccess(nuevaOrden.id);
+        const res = await crearOrdenDesdeCotizacion(nuevaOrdenInput);
+        if (!res.exito || !res.orden) {
+          console.error('Error al crear orden:', res.errores);
+          return;
+        }
+        onSuccess(res.orden.id);
       }
     } catch (error) {
       console.error('Error al guardar orden:', error);

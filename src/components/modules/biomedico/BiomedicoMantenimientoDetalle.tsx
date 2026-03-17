@@ -76,14 +76,18 @@ export function BiomedicoMantenimientoDetalle({
   const TipoIcon = Activity;
   const PrioridadIcon = prioridadConfig.icon;
 
-  const handleCambiarEstado = () => {
+  const handleCambiarEstado = async () => {
     if (!nuevoEstado) {
       toast.error('Selecciona un estado');
       return;
     }
 
-    actualizarEstadoMantenimiento(numeroMantenimiento, nuevoEstado);
-    toast.success(`Estado actualizado a "${MANTENIMIENTO_ESTADO_CONFIG[nuevoEstado].label}"`);
+    const resultado = await actualizarEstadoMantenimiento(numeroMantenimiento, nuevoEstado);
+    if (resultado.exito) {
+      toast.success(`Estado actualizado a "${MANTENIMIENTO_ESTADO_CONFIG[nuevoEstado].label}"`);
+    } else {
+      toast.error(resultado.errores?.[0] ?? 'Error al actualizar estado');
+    }
     setNuevoEstado('');
   };
 

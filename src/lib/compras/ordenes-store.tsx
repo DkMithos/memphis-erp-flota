@@ -1,10 +1,17 @@
 /**
  * STORE DE ÓRDENES DE COMPRA Y SERVICIO
- * Context global para gestión de órdenes en el módulo Compras
- * Prototipo funcional - Reemplazar por backend real en producción
+ * v2.0.0 - Conectado a Supabase (reemplaza mock local)
+ * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { supabase } from '../supabase/client';
+import { dbOrdenesCompra } from '../supabase/helpers';
+import { useAuth } from '../../auth/AuthProvider';
+import type {
+  OrdenCompra as OrdenCompraDB,
+  OrdenItem as OrdenItemDB,
+} from '../supabase/types';
 import {
   generarIdOrden,
   extraerNumeroSecuencial,
@@ -17,60 +24,62 @@ import {
 } from './ordenes-config';
 
 // ============================================================================
-// TIPOS
+// TIPOS FRONTEND
 // ============================================================================
 
 export interface ItemOrden {
   id: string;
+  _dbId?: string;
   descripcion: string;
   cantidad: number;
   unidad: string;
   precioUnitario: number;
-  subtotal: number; // Calculado
+  subtotal: number;
 }
 
 export interface Orden {
-  // Identificación
+  // Identificación — id = numero (OC/OS-NNNN), _dbId = UUID interno
   id: string;
+  _dbId: string;
   tipo: TipoOrden;
   estado: EstadoOrden;
-  
+
   // Relaciones
-  cotizacionId: string; // Requerido - relación con Cotización
-  requerimientoId: string | null; // Derivado desde cotización
-  
+  cotizacionId: string;
+  requerimientoId: string | null;
+
   // Proveedor
   proveedorNombre: string;
-  
+
   // Clasificación
   moneda: MonedaOrden;
-  
+
   // Fechas
-  fechaEmision: string; // ISO date
-  fechaEntregaEstimada: string | null; // ISO date
-  
+  fechaEmision: string;
+  fechaEntregaEstimada: string | null;
+
   // Items
   items: ItemOrden[];
-  
+
   // Totales
-  subtotal: number; // Calculado
-  impuestos: number; // Calculado (18% IGV)
-  total: number; // Calculado
-  
+  subtotal: number;
+  impuestos: number;
+  total: number;
+
   // Condiciones
   condiciones: string | null;
-  
-  // Aprobación/Rechazo
+
+  // Aprobación
   aprobadoPor: string | null;
   aprobadoEn: string | null;
   rechazadoPor: string | null;
   rechazadoEn: string | null;
   motivoRechazo: string | null;
-  
+
   // Control de ejecución
   enEjecucionDesde: string | null;
-  
-  // Auditoría obligatoria
+
+  // Auditoría
   auditoria: {
     creadoPor: string;
     creadoEn: string;
@@ -88,29 +97,36 @@ export interface NuevaOrdenInput {
   requerimientoId?: string | null;
   proveedorNombre: string;
   moneda: MonedaOrden;
-  items: Omit<ItemOrden, 'id' | 'subtotal'>[];
+  items: Omit<ItemOrden, 'id' | '_dbId' | 'subtotal'>[];
   fechaEntregaEstimada?: string;
   condiciones?: string;
+  // DB FK: proveedor UUID and cotizacion UUID must be provided from calling context
+  proveedorDbId?: string;
+  cotizacionDbId?: string;
 }
 
-export interface ActualizarOrdenInput extends Partial<NuevaOrdenInput> {
-  // Solo campos editables
+export interface ActualizarOrdenInput extends Partial<NuevaOrdenInput> {}
+
+interface CrudResult {
+  exito: boolean;
+  errores?: string[];
 }
 
 interface OrdenStoreContext {
   ordenes: Orden[];
+  loading: boolean;
   obtenerOrdenPorId: (id: string) => Orden | undefined;
   obtenerOrdenesPorCotizacion: (cotizacionId: string) => Orden[];
-  crearOrdenDesdeCotizacion: (input: NuevaOrdenInput) => Orden;
-  actualizarOrden: (id: string, input: ActualizarOrdenInput) => void;
-  cambiarEstado: (id: string, nuevoEstado: EstadoOrden) => void;
-  aprobarOrden: (id: string, aprobadoPor: string) => void;
-  rechazarOrden: (id: string, rechazadoPor: string, motivo: string) => void;
-  marcarEnEjecucion: (id: string) => void;
-  anularOrden: (id: string, motivo: string) => void;
-  aplicarEstadoRecepcion: (ordenId: string, esCompleta: boolean) => void;
+  crearOrdenDesdeCotizacion: (input: NuevaOrdenInput) => Promise<CrudResult & { orden?: Orden }>;
+  actualizarOrden: (id: string, input: ActualizarOrdenInput) => Promise<CrudResult>;
+  cambiarEstado: (id: string, nuevoEstado: EstadoOrden) => Promise<CrudResult>;
+  aprobarOrden: (id: string, aprobadoPor: string) => Promise<CrudResult>;
+  rechazarOrden: (id: string, rechazadoPor: string, motivo: string) => Promise<CrudResult>;
+  marcarEnEjecucion: (id: string) => Promise<CrudResult>;
+  anularOrden: (id: string, motivo: string) => Promise<CrudResult>;
+  aplicarEstadoRecepcion: (ordenId: string, esCompleta: boolean) => Promise<CrudResult>;
   cargarOrdenesIniciales: () => void;
-  // Mock de usuario actual
+  // Usuario actual derivado de auth
   usuarioActual: { email: string; nombre: string; rol: RolUsuario };
 }
 
@@ -121,566 +137,621 @@ interface OrdenStoreContext {
 const OrdenContext = createContext<OrdenStoreContext | undefined>(undefined);
 
 // ============================================================================
-// DATA DE EJEMPLO - Seed inicial
+// MAPPER DB → FRONTEND
 // ============================================================================
 
-const ordenesSeed: Orden[] = [
-  {
-    id: 'OC-0001',
-    tipo: 'oc',
-    estado: 'aprobada',
-    cotizacionId: 'COT-0002',
-    requerimientoId: 'REQ-0001',
-    proveedorNombre: 'Autopartes Premium EIRL',
-    moneda: 'PEN',
-    fechaEmision: '2025-01-04T11:00:00Z',
-    fechaEntregaEstimada: '2025-01-11T11:00:00Z',
-    items: [
-      {
-        id: 'item-1',
-        descripcion: 'Pastillas de freno delanteras marca ACDelco',
-        cantidad: 2,
-        unidad: 'juego',
-        precioUnitario: 340,
-        subtotal: 680
-      },
-      {
-        id: 'item-2',
-        descripcion: 'Filtro de aceite',
-        cantidad: 4,
-        unidad: 'unidad',
-        precioUnitario: 42,
-        subtotal: 168
-      },
-      {
-        id: 'item-3',
-        descripcion: 'Aceite sintético Mobil 1 5W-30',
-        cantidad: 8,
-        unidad: 'litro',
-        precioUnitario: 62,
-        subtotal: 496
-      }
-    ],
-    subtotal: 1344,
-    impuestos: 241.92,
-    total: 1585.92,
-    condiciones: 'Pago a 30 días. Garantía 1 año en repuestos. Entrega en almacén central.',
-    aprobadoPor: 'gerencia@kesa.com',
-    aprobadoEn: '2025-01-04T14:00:00Z',
+type OrdenWithRelations = OrdenCompraDB & {
+  items: OrdenItemDB[];
+  proveedor?: { razon_social: string; ruc: string } | null;
+};
+
+function mapFromDB(row: OrdenWithRelations): Orden {
+  const items: ItemOrden[] = (row.items ?? []).map(item => ({
+    id: item.id,
+    _dbId: item.id,
+    descripcion: item.descripcion,
+    cantidad: item.cantidad,
+    unidad: item.unidad,
+    precioUnitario: item.precio_unitario,
+    subtotal: item.precio_total,
+  }));
+
+  // Derive estado mapping: DB states differ from frontend states
+  // DB: 'borrador' | 'enviada' | 'aprobada' | 'recibida_parcial' | 'recibida_total' | 'anulada'
+  // Frontend: borrador | pendiente_aprobacion | aprobada | en_ejecucion | recepcion_parcial | recepcion_completa | anulada
+  const estadoMap: Record<string, EstadoOrden> = {
+    borrador: 'borrador',
+    enviada: 'pendiente_aprobacion',
+    aprobada: 'aprobada',
+    recibida_parcial: 'recepcion_parcial',
+    recibida_total: 'recepcion_completa',
+    anulada: 'anulada',
+  };
+
+  const estadoFrontend = estadoMap[row.estado] ?? ('borrador' as EstadoOrden);
+
+  return {
+    id: row.numero,
+    _dbId: row.id,
+    tipo: row.tipo as TipoOrden,
+    estado: estadoFrontend,
+    cotizacionId: row.cotizacion_id ?? '',
+    requerimientoId: null, // Not stored directly on orden; derive from cotizacion if needed
+    proveedorNombre: row.proveedor?.razon_social ?? '',
+    moneda: row.moneda as MonedaOrden,
+    fechaEmision: row.fecha_emision,
+    fechaEntregaEstimada: row.fecha_entrega_esperada,
+    items,
+    subtotal: row.subtotal,
+    impuestos: row.igv,
+    total: row.total,
+    condiciones: row.condiciones_pago,
+    aprobadoPor: row.aprobado_por,
+    aprobadoEn: row.aprobado_en,
     rechazadoPor: null,
     rechazadoEn: null,
     motivoRechazo: null,
     enEjecucionDesde: null,
     auditoria: {
-      creadoPor: 'compras@kesa.com',
-      creadoEn: '2025-01-04T11:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: null,
-      anuladoEn: null,
-      motivoAnulacion: null
-    }
-  },
-  {
-    id: 'OC-0002',
-    tipo: 'oc',
-    estado: 'recepcion_parcial',
-    cotizacionId: 'COT-0003',
-    requerimientoId: 'REQ-0002',
-    proveedorNombre: 'Equipos Médicos del Perú SA',
-    moneda: 'USD',
-    fechaEmision: '2025-01-04T12:00:00Z',
-    fechaEntregaEstimada: '2025-01-20T12:00:00Z',
-    items: [
-      {
-        id: 'item-1',
-        descripcion: 'Monitor multiparamétrico GE Healthcare CARESCAPE B650',
-        cantidad: 1,
-        unidad: 'unidad',
-        precioUnitario: 3200,
-        subtotal: 3200
-      },
-      {
-        id: 'item-2',
-        descripcion: 'Cables ECG 5 derivaciones',
-        cantidad: 2,
-        unidad: 'juego',
-        precioUnitario: 115,
-        subtotal: 230
-      }
-    ],
-    subtotal: 3430,
-    impuestos: 617.40,
-    total: 4047.40,
-    condiciones: 'Pago 50% adelanto, 50% contraentrega. Garantía 2 años. Incluye capacitación.',
-    aprobadoPor: 'gerencia@kesa.com',
-    aprobadoEn: '2025-01-04T15:00:00Z',
-    rechazadoPor: null,
-    rechazadoEn: null,
-    motivoRechazo: null,
-    enEjecucionDesde: '2025-01-04T16:00:00Z',
-    auditoria: {
-      creadoPor: 'compras@kesa.com',
-      creadoEn: '2025-01-04T12:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: null,
-      anuladoEn: null,
-      motivoAnulacion: null
-    }
-  },
-  {
-    id: 'OS-0001',
-    tipo: 'os',
-    estado: 'pendiente_aprobacion',
-    cotizacionId: 'COT-0004',
-    requerimientoId: 'REQ-0003',
-    proveedorNombre: 'Distribuidora Microsoft Perú',
-    moneda: 'USD',
-    fechaEmision: '2025-01-05T13:00:00Z',
-    fechaEntregaEstimada: null,
-    items: [
-      {
-        id: 'item-1',
-        descripcion: 'Licencia Office 365 Business Premium - Renovación anual',
-        cantidad: 50,
-        unidad: 'licencia',
-        precioUnitario: 48,
-        subtotal: 2400
-      }
-    ],
-    subtotal: 2400,
-    impuestos: 432,
-    total: 2832,
-    condiciones: 'Pago anual anticipado. Soporte técnico incluido durante 1 año.',
-    aprobadoPor: null,
-    aprobadoEn: null,
-    rechazadoPor: null,
-    rechazadoEn: null,
-    motivoRechazo: null,
-    enEjecucionDesde: null,
-    auditoria: {
-      creadoPor: 'compras@kesa.com',
-      creadoEn: '2025-01-05T13:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: null,
-      anuladoEn: null,
-      motivoAnulacion: null
-    }
-  },
-  {
-    id: 'OC-0003',
-    tipo: 'oc',
-    estado: 'anulada',
-    cotizacionId: 'COT-0005',
-    requerimientoId: 'REQ-0005',
-    proveedorNombre: 'Herramientas Industriales SAC',
-    moneda: 'PEN',
-    fechaEmision: '2025-01-02T10:00:00Z',
-    fechaEntregaEstimada: '2025-01-10T10:00:00Z',
-    items: [
-      {
-        id: 'item-1',
-        descripcion: 'Juego de llaves combinadas métricas Stanley',
-        cantidad: 2,
-        unidad: 'juego',
-        precioUnitario: 920,
-        subtotal: 1840
-      }
-    ],
-    subtotal: 1840,
-    impuestos: 331.20,
-    total: 2171.20,
-    condiciones: 'Pago contraentrega.',
-    aprobadoPor: null,
-    aprobadoEn: null,
-    rechazadoPor: null,
-    rechazadoEn: null,
-    motivoRechazo: null,
-    enEjecucionDesde: null,
-    auditoria: {
-      creadoPor: 'compras@kesa.com',
-      creadoEn: '2025-01-02T10:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: 'admin@kesa.com',
-      anuladoEn: '2025-01-02T11:30:00Z',
-      motivoAnulacion: 'Orden anulada porque la cotización COT-0005 fue rechazada y el requerimiento REQ-0005 fue cancelado por duplicidad. No procede la compra.'
-    }
-  }
-];
+      creadoPor: row.creado_por ?? '',
+      creadoEn: row.creado_en,
+      modificadoPor: row.modificado_por,
+      modificadoEn: row.modificado_en,
+      anuladoPor: row.estado === 'anulada' ? row.modificado_por : null,
+      anuladoEn: row.estado === 'anulada' ? row.modificado_en : null,
+      motivoAnulacion: row.motivo_anulacion,
+    },
+  };
+}
+
+// Map frontend estado back to DB estado
+function estadoFrontendToDb(estadoFrontend: EstadoOrden): string {
+  const map: Record<EstadoOrden, string> = {
+    borrador: 'borrador',
+    pendiente_aprobacion: 'enviada',
+    aprobada: 'aprobada',
+    en_ejecucion: 'aprobada', // DB doesn't have en_ejecucion
+    recepcion_parcial: 'recibida_parcial',
+    recepcion_completa: 'recibida_total',
+    anulada: 'anulada',
+  };
+  return map[estadoFrontend] ?? 'borrador';
+}
 
 // ============================================================================
 // PROVIDER
 // ============================================================================
 
 export function OrdenStoreProvider({ children }: { children: React.ReactNode }) {
+  const { tenantId, user, profile } = useAuth();
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
-  
-  // Mock de usuario actual
+  const [loading, setLoading] = useState(true);
+
   const usuarioActual = {
-    email: 'admin@kesa.com',
-    nombre: 'Administrador',
-    rol: 'admin_sistemas' as RolUsuario
+    email: user?.email ?? profile?.email ?? 'admin@kesa.com',
+    nombre: profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Usuario',
+    rol: (profile?.rol as RolUsuario) ?? ('admin_sistemas' as RolUsuario),
   };
 
-  // Cargar órdenes iniciales SOLO una vez al montar
+  const fetchOrdenes = useCallback(async () => {
+    if (!tenantId) return;
+    setLoading(true);
+
+    const { data, error } = await dbOrdenesCompra.list();
+
+    if (error) {
+      console.error('[ORDENES] Error al cargar:', error.message);
+    } else if (data) {
+      const mapped = (data as OrdenWithRelations[]).map(mapFromDB);
+      setOrdenes(mapped);
+      if (DEBUG_ORDENES) {
+        console.log('[ORDENES] Cargadas desde Supabase:', mapped.length);
+      }
+    }
+    setLoading(false);
+  }, [tenantId]);
+
   useEffect(() => {
-    if (ordenes.length === 0) {
-      if (DEBUG_ORDENES) {
-        console.log('[ORD_SEED_LOADING]', { seedSize: ordenesSeed.length });
-      }
-      setOrdenes(ordenesSeed);
-    }
-  }, []);
+    fetchOrdenes();
+  }, [fetchOrdenes]);
 
-  // Cargar órdenes iniciales (con guard idempotente)
   const cargarOrdenesIniciales = useCallback(() => {
-    if (ordenes.length === 0) {
-      if (DEBUG_ORDENES) {
-        console.log('[ORD_SEED_MANUAL_LOADING]', { seedSize: ordenesSeed.length });
+    fetchOrdenes();
+  }, [fetchOrdenes]);
+
+  // ============================================================================
+  // QUERIES
+  // ============================================================================
+
+  const obtenerOrdenPorId = useCallback(
+    (id: string) => ordenes.find(o => o.id === id),
+    [ordenes]
+  );
+
+  const obtenerOrdenesPorCotizacion = useCallback(
+    (cotizacionId: string) => ordenes.filter(o => o.cotizacionId === cotizacionId),
+    [ordenes]
+  );
+
+  // ============================================================================
+  // CRUD
+  // ============================================================================
+
+  const crearOrdenDesdeCotizacion = useCallback(
+    async (input: NuevaOrdenInput): Promise<CrudResult & { orden?: Orden }> => {
+      if (!tenantId || !user) {
+        return { exito: false, errores: ['Sin sesión activa'] };
       }
-      setOrdenes(ordenesSeed);
-    } else if (DEBUG_ORDENES) {
-      console.log('[ORD_SEED_SKIP]', { 
-        reason: 'Ya hay órdenes en el store', 
-        currentSize: ordenes.length 
+
+      const proveedorDbId = input.proveedorDbId;
+      if (!proveedorDbId) {
+        return { exito: false, errores: ['Se requiere un proveedor válido con ID de BD'] };
+      }
+
+      const numeros = ordenes
+        .filter(o => o.tipo === input.tipo)
+        .map(o => extraerNumeroSecuencial(o.id))
+        .filter((n): n is number => n !== null);
+      const ultimoNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
+      const nuevoCodigo = generarIdOrden(input.tipo, ultimoNumero);
+
+      const timestamp = new Date().toISOString();
+
+      const itemsConSubtotal = input.items.map(item => ({
+        ...item,
+        subtotal: item.cantidad * item.precioUnitario,
+      }));
+
+      const { subtotal, impuestos, total } = calcularTotales(
+        itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal }))
+      );
+
+      const { data: inserted, error: errOrd } = await dbOrdenesCompra.create({
+        tenant_id: tenantId,
+        numero: nuevoCodigo,
+        tipo: input.tipo,
+        cotizacion_id: input.cotizacionDbId ?? null,
+        proveedor_id: proveedorDbId,
+        estado: 'borrador',
+        fecha_emision: timestamp,
+        fecha_entrega_esperada: input.fechaEntregaEstimada ?? null,
+        moneda: input.moneda,
+        subtotal,
+        igv: impuestos,
+        total,
+        condiciones_pago: input.condiciones?.trim() ?? null,
+        lugar_entrega: null,
+        observaciones: null,
+        aprobado_por: null,
+        aprobado_en: null,
+        motivo_anulacion: null,
+        creado_por: user.id,
+        modificado_por: null,
+        modificado_en: null,
       });
-    }
-  }, [ordenes.length]);
 
-  // Obtener orden por ID
-  const obtenerOrdenPorId = useCallback((id: string) => {
-    return ordenes.find(o => o.id === id);
-  }, [ordenes]);
-
-  // Obtener órdenes por cotización
-  const obtenerOrdenesPorCotizacion = useCallback((cotizacionId: string) => {
-    return ordenes.filter(o => o.cotizacionId === cotizacionId);
-  }, [ordenes]);
-
-  // Crear nueva orden desde cotización
-  const crearOrdenDesdeCotizacion = useCallback((input: NuevaOrdenInput): Orden => {
-    // Obtener el último número secuencial para el tipo de orden
-    const numeros = ordenes
-      .filter(o => o.tipo === input.tipo)
-      .map(o => extraerNumeroSecuencial(o.id))
-      .filter((n): n is number => n !== null);
-    const ultimoNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
-
-    // Generar nuevo ID
-    const id = generarIdOrden(input.tipo, ultimoNumero);
-    const timestamp = new Date().toISOString();
-
-    // Generar items con IDs y subtotales
-    const items: ItemOrden[] = input.items.map((item, idx) => ({
-      ...item,
-      id: `item-${idx + 1}`,
-      subtotal: item.cantidad * item.precioUnitario
-    }));
-
-    // Calcular totales
-    const { subtotal, impuestos, total } = calcularTotales(items);
-
-    // Crear objeto orden
-    const nuevaOrden: Orden = {
-      id,
-      tipo: input.tipo,
-      estado: 'borrador',
-      cotizacionId: input.cotizacionId,
-      requerimientoId: input.requerimientoId || null,
-      proveedorNombre: input.proveedorNombre,
-      moneda: input.moneda,
-      fechaEmision: timestamp,
-      fechaEntregaEstimada: input.fechaEntregaEstimada || null,
-      items,
-      subtotal,
-      impuestos,
-      total,
-      condiciones: input.condiciones?.trim() || null,
-      aprobadoPor: null,
-      aprobadoEn: null,
-      rechazadoPor: null,
-      rechazadoEn: null,
-      motivoRechazo: null,
-      enEjecucionDesde: null,
-      auditoria: {
-        creadoPor: usuarioActual.email,
-        creadoEn: timestamp,
-        modificadoPor: null,
-        modificadoEn: null,
-        anuladoPor: null,
-        anuladoEn: null,
-        motivoAnulacion: null
+      if (errOrd || !inserted) {
+        console.error('[ORDENES] Error al crear:', errOrd?.message);
+        return { exito: false, errores: [errOrd?.message ?? 'Error desconocido'] };
       }
-    };
 
-    // Agregar al INICIO del store
-    setOrdenes(prev => {
-      const newState = [nuevaOrden, ...prev];
-      
+      const dbRow = inserted as OrdenCompraDB;
+
+      const itemsInserted: OrdenItemDB[] = [];
+      for (const item of itemsConSubtotal) {
+        const { data: itemData, error: errItem } = await supabase
+          .from('orden_items')
+          .insert({
+            tenant_id: tenantId,
+            orden_id: dbRow.id,
+            descripcion: item.descripcion.trim(),
+            unidad: item.unidad,
+            cantidad: item.cantidad,
+            precio_unitario: item.precioUnitario,
+          })
+          .select()
+          .single();
+
+        if (errItem) {
+          console.error('[ORDENES] Error al crear item:', errItem.message);
+        } else if (itemData) {
+          itemsInserted.push(itemData as OrdenItemDB);
+        }
+      }
+
+      const nueva = mapFromDB({
+        ...dbRow,
+        items: itemsInserted,
+        proveedor: { razon_social: input.proveedorNombre, ruc: '' },
+      });
+      nueva.requerimientoId = input.requerimientoId ?? null;
+      nueva.cotizacionId = input.cotizacionId; // display code
+      setOrdenes(prev => [nueva, ...prev]);
+
       if (DEBUG_ORDENES) {
-        console.log('[ORD_CREATED]', {
-          id: nuevaOrden.id,
-          tipo: nuevaOrden.tipo,
-          cotizacionId: nuevaOrden.cotizacionId,
-          proveedor: nuevaOrden.proveedorNombre,
-          total: nuevaOrden.total,
-          sizeAfter: newState.length
-        });
+        console.log('[ORD_CREATED]', { id: nueva.id, tipo: nueva.tipo, total: nueva.total });
       }
-      
-      return newState;
-    });
 
-    return nuevaOrden;
-  }, [ordenes, usuarioActual.email]);
+      return { exito: true, orden: nueva };
+    },
+    [ordenes, tenantId, user]
+  );
 
-  // Actualizar orden
-  const actualizarOrden = useCallback((id: string, input: ActualizarOrdenInput) => {
-    const timestamp = new Date().toISOString();
-    
-    setOrdenes(prev => prev.map(o => {
-      if (o.id === id) {
-        // Recalcular items si cambiaron
-        let items = o.items;
-        let subtotal = o.subtotal;
-        let impuestos = o.impuestos;
-        let total = o.total;
-        
-        if (input.items) {
-          items = input.items.map((item, idx) => ({
-            ...item,
-            id: `item-${idx + 1}`,
-            subtotal: item.cantidad * item.precioUnitario
-          }));
-          const totales = calcularTotales(items);
-          subtotal = totales.subtotal;
-          impuestos = totales.impuestos;
-          total = totales.total;
+  const actualizarOrden = useCallback(
+    async (id: string, input: ActualizarOrdenInput): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+      let dbId: string | undefined;
+      setOrdenes(prev => {
+        dbId = prev.find(o => o.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
+
+      const ahora = new Date().toISOString();
+      const updatePayload: Record<string, unknown> = {
+        modificado_por: user.id,
+        modificado_en: ahora,
+      };
+
+      if (input.moneda !== undefined) updatePayload.moneda = input.moneda;
+      if (input.condiciones !== undefined) updatePayload.condiciones_pago = input.condiciones?.trim() ?? null;
+      if (input.fechaEntregaEstimada !== undefined) updatePayload.fecha_entrega_esperada = input.fechaEntregaEstimada ?? null;
+
+      if (input.items !== undefined) {
+        const itemsConSubtotal = input.items.map(item => ({
+          ...item,
+          subtotal: item.cantidad * item.precioUnitario,
+        }));
+        const { subtotal, impuestos, total } = calcularTotales(
+          itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal }))
+        );
+        updatePayload.subtotal = subtotal;
+        updatePayload.igv = impuestos;
+        updatePayload.total = total;
+      }
+
+      const { error } = await dbOrdenesCompra.update(dbId, updatePayload);
+
+      if (error) {
+        console.error('[ORDENES] Error al actualizar:', error.message);
+        return { exito: false, errores: [error.message] };
+      }
+
+      if (input.items !== undefined && tenantId) {
+        await supabase.from('orden_items').delete().eq('orden_id', dbId);
+
+        const newItemsInserted: OrdenItemDB[] = [];
+        for (const item of input.items) {
+          const { data: itemData } = await supabase
+            .from('orden_items')
+            .insert({
+              tenant_id: tenantId,
+              orden_id: dbId,
+              descripcion: item.descripcion.trim(),
+              unidad: item.unidad,
+              cantidad: item.cantidad,
+              precio_unitario: item.precioUnitario,
+            })
+            .select()
+            .single();
+
+          if (itemData) newItemsInserted.push(itemData as OrdenItemDB);
         }
 
-        const actualizado: Orden = {
-          ...o,
-          ...(input.proveedorNombre && { proveedorNombre: input.proveedorNombre }),
-          ...(input.moneda && { moneda: input.moneda }),
-          ...(input.fechaEntregaEstimada !== undefined && { fechaEntregaEstimada: input.fechaEntregaEstimada }),
-          ...(input.condiciones !== undefined && { condiciones: input.condiciones?.trim() || null }),
-          items,
-          subtotal,
-          impuestos,
-          total,
-          auditoria: {
-            ...o.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp
-          }
-        };
-
-        if (DEBUG_ORDENES) {
-          console.log('[ORD_UPDATED]', {
-            id: actualizado.id,
-            cambios: Object.keys(input)
-          });
-        }
-
-        return actualizado;
+        setOrdenes(prev =>
+          prev.map(o => {
+            if (o.id !== id) return o;
+            const newItems: ItemOrden[] = newItemsInserted.map(dbItem => ({
+              id: dbItem.id,
+              _dbId: dbItem.id,
+              descripcion: dbItem.descripcion,
+              cantidad: dbItem.cantidad,
+              unidad: dbItem.unidad,
+              precioUnitario: dbItem.precio_unitario,
+              subtotal: dbItem.precio_total,
+            }));
+            const { subtotal, impuestos, total } = calcularTotales(newItems);
+            return {
+              ...o,
+              ...(input.moneda !== undefined && { moneda: input.moneda }),
+              ...(input.condiciones !== undefined && { condiciones: input.condiciones?.trim() ?? null }),
+              ...(input.fechaEntregaEstimada !== undefined && { fechaEntregaEstimada: input.fechaEntregaEstimada ?? null }),
+              items: newItems,
+              subtotal,
+              impuestos,
+              total,
+              auditoria: { ...o.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+            };
+          })
+        );
+      } else {
+        setOrdenes(prev =>
+          prev.map(o => {
+            if (o.id !== id) return o;
+            return {
+              ...o,
+              ...(input.moneda !== undefined && { moneda: input.moneda }),
+              ...(input.condiciones !== undefined && { condiciones: input.condiciones?.trim() ?? null }),
+              ...(input.fechaEntregaEstimada !== undefined && { fechaEntregaEstimada: input.fechaEntregaEstimada ?? null }),
+              auditoria: { ...o.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+            };
+          })
+        );
       }
-      return o;
-    }));
-  }, [usuarioActual.email]);
 
-  // Cambiar estado
-  const cambiarEstado = useCallback((id: string, nuevoEstado: EstadoOrden) => {
-    const timestamp = new Date().toISOString();
-    
-    setOrdenes(prev => prev.map(o => {
-      if (o.id === id) {
-        const actualizado: Orden = {
-          ...o,
-          estado: nuevoEstado,
-          auditoria: {
-            ...o.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp
-          }
-        };
-
-        if (DEBUG_ORDENES) {
-          console.log('[ORD_ESTADO_CHANGED]', {
-            id: actualizado.id,
-            estadoAnterior: o.estado,
-            estadoNuevo: nuevoEstado
-          });
-        }
-
-        return actualizado;
+      if (DEBUG_ORDENES) {
+        console.log('[ORD_UPDATED]', { id, cambios: Object.keys(input) });
       }
-      return o;
-    }));
-  }, [usuarioActual.email]);
 
-  // Aprobar orden
-  const aprobarOrden = useCallback((id: string, aprobadoPor: string) => {
-    const timestamp = new Date().toISOString();
-    
-    setOrdenes(prev => prev.map(o => {
-      if (o.id === id) {
-        const aprobado: Orden = {
-          ...o,
-          estado: 'aprobada',
-          aprobadoPor,
-          aprobadoEn: timestamp,
-          auditoria: {
-            ...o.auditoria,
-            modificadoPor: aprobadoPor,
-            modificadoEn: timestamp
-          }
-        };
+      return { exito: true };
+    },
+    [user, tenantId]
+  );
 
-        if (DEBUG_ORDENES) {
-          console.log('[ORD_APPROVED]', {
-            id: aprobado.id,
-            aprobadoPor
-          });
-        }
+  const cambiarEstado = useCallback(
+    async (id: string, nuevoEstado: EstadoOrden): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-        return aprobado;
+      let dbId: string | undefined;
+      setOrdenes(prev => {
+        dbId = prev.find(o => o.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
+
+      const ahora = new Date().toISOString();
+      const { error } = await dbOrdenesCompra.update(dbId, {
+        estado: estadoFrontendToDb(nuevoEstado),
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[ORDENES] Error al cambiar estado:', error.message);
+        return { exito: false, errores: [error.message] };
       }
-      return o;
-    }));
-  }, []);
 
-  // Rechazar orden
-  const rechazarOrden = useCallback((id: string, rechazadoPor: string, motivo: string) => {
-    const timestamp = new Date().toISOString();
-    
-    setOrdenes(prev => prev.map(o => {
-      if (o.id === id) {
-        // Rechazar orden significa volver a borrador (para que pueda editarse)
-        const rechazado: Orden = {
-          ...o,
-          estado: 'borrador',
-          rechazadoPor,
-          rechazadoEn: timestamp,
-          motivoRechazo: motivo.trim(),
-          auditoria: {
-            ...o.auditoria,
-            modificadoPor: rechazadoPor,
-            modificadoEn: timestamp
-          }
-        };
+      setOrdenes(prev =>
+        prev.map(o =>
+          o.id === id
+            ? { ...o, estado: nuevoEstado, auditoria: { ...o.auditoria, modificadoPor: user.id, modificadoEn: ahora } }
+            : o
+        )
+      );
 
-        if (DEBUG_ORDENES) {
-          console.log('[ORD_REJECTED]', {
-            id: rechazado.id,
-            rechazadoPor,
-            motivo: motivo.substring(0, 50) + '...'
-          });
-        }
+      return { exito: true };
+    },
+    [user]
+  );
 
-        return rechazado;
+  const aprobarOrden = useCallback(
+    async (id: string, aprobadoPor: string): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+      let dbId: string | undefined;
+      setOrdenes(prev => {
+        dbId = prev.find(o => o.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
+
+      const ahora = new Date().toISOString();
+      const { error } = await dbOrdenesCompra.update(dbId, {
+        estado: 'aprobada',
+        aprobado_por: aprobadoPor,
+        aprobado_en: ahora,
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[ORDENES] Error al aprobar:', error.message);
+        return { exito: false, errores: [error.message] };
       }
-      return o;
-    }));
-  }, []);
 
-  // Marcar en ejecución
-  const marcarEnEjecucion = useCallback((id: string) => {
-    const timestamp = new Date().toISOString();
-    
-    setOrdenes(prev => prev.map(o => {
-      if (o.id === id) {
-        const enEjecucion: Orden = {
-          ...o,
-          estado: 'en_ejecucion',
-          enEjecucionDesde: timestamp,
-          auditoria: {
-            ...o.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp
-          }
-        };
+      setOrdenes(prev =>
+        prev.map(o =>
+          o.id === id
+            ? {
+                ...o,
+                estado: 'aprobada' as EstadoOrden,
+                aprobadoPor,
+                aprobadoEn: ahora,
+                auditoria: { ...o.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+              }
+            : o
+        )
+      );
 
-        if (DEBUG_ORDENES) {
-          console.log('[ORD_EN_EJECUCION]', {
-            id: enEjecucion.id
-          });
-        }
-
-        return enEjecucion;
+      if (DEBUG_ORDENES) {
+        console.log('[ORD_APPROVED]', { id, aprobadoPor });
       }
-      return o;
-    }));
-  }, [usuarioActual.email]);
 
-  // Anular orden
-  const anularOrden = useCallback((id: string, motivo: string) => {
-    const timestamp = new Date().toISOString();
-    
-    setOrdenes(prev => prev.map(o => {
-      if (o.id === id) {
-        const anulado: Orden = {
-          ...o,
-          estado: 'anulada',
-          auditoria: {
-            ...o.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp,
-            anuladoPor: usuarioActual.email,
-            anuladoEn: timestamp,
-            motivoAnulacion: motivo.trim()
-          }
-        };
+      return { exito: true };
+    },
+    [user]
+  );
 
-        if (DEBUG_ORDENES) {
-          console.log('[ORD_CANCELLED]', {
-            id: anulado.id,
-            motivo: motivo.substring(0, 50) + '...'
-          });
-        }
+  const rechazarOrden = useCallback(
+    async (id: string, rechazadoPor: string, motivo: string): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-        return anulado;
+      let dbId: string | undefined;
+      setOrdenes(prev => {
+        dbId = prev.find(o => o.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
+
+      const ahora = new Date().toISOString();
+      const { error } = await dbOrdenesCompra.update(dbId, {
+        estado: 'borrador', // rejected goes back to draft
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[ORDENES] Error al rechazar:', error.message);
+        return { exito: false, errores: [error.message] };
       }
-      return o;
-    }));
-  }, [usuarioActual.email]);
 
-  // Aplicar estado de recepción (llamado desde recepciones-store)
-  const aplicarEstadoRecepcion = useCallback((ordenId: string, esCompleta: boolean) => {
-    const timestamp = new Date().toISOString();
-    
-    setOrdenes(prev => prev.map(o => {
-      if (o.id === ordenId) {
-        const nuevoEstado: EstadoOrden = esCompleta ? 'recepcion_completa' : 'recepcion_parcial';
-        
-        const actualizado: Orden = {
-          ...o,
-          estado: nuevoEstado,
-          auditoria: {
-            ...o.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp
-          }
-        };
+      setOrdenes(prev =>
+        prev.map(o =>
+          o.id === id
+            ? {
+                ...o,
+                estado: 'borrador' as EstadoOrden,
+                rechazadoPor,
+                rechazadoEn: ahora,
+                motivoRechazo: motivo.trim(),
+                auditoria: { ...o.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+              }
+            : o
+        )
+      );
 
-        if (DEBUG_ORDENES) {
-          console.log('[ORD_RECEPCION_APLICADA]', {
-            id: actualizado.id,
-            estadoNuevo: nuevoEstado,
-            esCompleta
-          });
-        }
+      return { exito: true };
+    },
+    [user]
+  );
 
-        return actualizado;
+  const marcarEnEjecucion = useCallback(
+    async (id: string): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+      let dbId: string | undefined;
+      setOrdenes(prev => {
+        dbId = prev.find(o => o.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
+
+      const ahora = new Date().toISOString();
+      // Map en_ejecucion to aprobada in DB (DB doesn't have en_ejecucion)
+      const { error } = await dbOrdenesCompra.update(dbId, {
+        estado: 'aprobada',
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[ORDENES] Error al marcar en ejecución:', error.message);
+        return { exito: false, errores: [error.message] };
       }
-      return o;
-    }));
-  }, [usuarioActual.email]);
+
+      setOrdenes(prev =>
+        prev.map(o =>
+          o.id === id
+            ? {
+                ...o,
+                estado: 'en_ejecucion' as EstadoOrden,
+                enEjecucionDesde: ahora,
+                auditoria: { ...o.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+              }
+            : o
+        )
+      );
+
+      return { exito: true };
+    },
+    [user]
+  );
+
+  const anularOrden = useCallback(
+    async (id: string, motivo: string): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+      let dbId: string | undefined;
+      setOrdenes(prev => {
+        dbId = prev.find(o => o.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
+
+      const ahora = new Date().toISOString();
+      const { error } = await dbOrdenesCompra.update(dbId, {
+        estado: 'anulada',
+        motivo_anulacion: motivo.trim(),
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[ORDENES] Error al anular:', error.message);
+        return { exito: false, errores: [error.message] };
+      }
+
+      setOrdenes(prev =>
+        prev.map(o =>
+          o.id === id
+            ? {
+                ...o,
+                estado: 'anulada' as EstadoOrden,
+                auditoria: {
+                  ...o.auditoria,
+                  modificadoPor: user.id,
+                  modificadoEn: ahora,
+                  anuladoPor: user.id,
+                  anuladoEn: ahora,
+                  motivoAnulacion: motivo.trim(),
+                },
+              }
+            : o
+        )
+      );
+
+      return { exito: true };
+    },
+    [user]
+  );
+
+  const aplicarEstadoRecepcion = useCallback(
+    async (ordenId: string, esCompleta: boolean): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+      let dbId: string | undefined;
+      setOrdenes(prev => {
+        dbId = prev.find(o => o.id === ordenId)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
+
+      const nuevoEstado: EstadoOrden = esCompleta ? 'recepcion_completa' : 'recepcion_parcial';
+      const dbEstado = esCompleta ? 'recibida_total' : 'recibida_parcial';
+      const ahora = new Date().toISOString();
+
+      const { error } = await dbOrdenesCompra.update(dbId, {
+        estado: dbEstado,
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[ORDENES] Error al aplicar estado recepción:', error.message);
+        return { exito: false, errores: [error.message] };
+      }
+
+      setOrdenes(prev =>
+        prev.map(o =>
+          o.id === ordenId
+            ? { ...o, estado: nuevoEstado, auditoria: { ...o.auditoria, modificadoPor: user.id, modificadoEn: ahora } }
+            : o
+        )
+      );
+
+      if (DEBUG_ORDENES) {
+        console.log('[ORD_RECEPCION_APLICADA]', { ordenId, nuevoEstado });
+      }
+
+      return { exito: true };
+    },
+    [user]
+  );
 
   const value: OrdenStoreContext = {
     ordenes,
+    loading,
     obtenerOrdenPorId,
     obtenerOrdenesPorCotizacion,
     crearOrdenDesdeCotizacion,
@@ -692,7 +763,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
     anularOrden,
     aplicarEstadoRecepcion,
     cargarOrdenesIniciales,
-    usuarioActual
+    usuarioActual,
   };
 
   return <OrdenContext.Provider value={value}>{children}</OrdenContext.Provider>;
