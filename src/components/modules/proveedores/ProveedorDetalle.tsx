@@ -18,13 +18,15 @@ import { Textarea } from '../../ui/textarea';
 import { Label } from '../../ui/label';
 import { Separator } from '../../ui/separator';
 import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
+import { useAuth } from '../../../auth/AuthProvider';
 import {
   PROVEEDOR_ESTADO_CONFIG,
   PROVEEDOR_CONDICION_CONFIG,
   PROVEEDOR_TIPO_CONFIG,
   PROVEEDOR_CATEGORIA_LABELS,
   tienePermiso,
-  validarMotivoInactivacion
+  validarMotivoInactivacion,
+  type RolUsuario
 } from '../../../lib/proveedores/proveedores-config';
 import { toast } from 'sonner';
 
@@ -34,7 +36,9 @@ interface ProveedorDetalleProps {
 }
 
 export function ProveedorDetalle({ proveedorId, onNavigate }: ProveedorDetalleProps) {
-  const { obtenerProveedorPorId, inactivarProveedor, activarProveedor, usuarioActual } = useProveedorStore();
+  const { obtenerProveedorPorId, inactivarProveedor, activarProveedor } = useProveedorStore();
+  const { profile } = useAuth();
+  const rolActual = (profile?.rol ?? 'operaciones') as RolUsuario;
   const proveedor = obtenerProveedorPorId(proveedorId);
 
   const [showInactivarDialog, setShowInactivarDialog] = useState(false);
@@ -62,26 +66,34 @@ export function ProveedorDetalle({ proveedorId, onNavigate }: ProveedorDetallePr
   const condicionConfig = PROVEEDOR_CONDICION_CONFIG[proveedor.condicion];
   const tipoConfig = PROVEEDOR_TIPO_CONFIG[proveedor.tipo];
 
-  const puedeEditar = tienePermiso(usuarioActual.rol, 'editar') && proveedor.estado !== 'inactivo';
-  const puedeInactivar = tienePermiso(usuarioActual.rol, 'inactivar') && proveedor.estado === 'activo';
-  const puedeActivar = tienePermiso(usuarioActual.rol, 'inactivar') && proveedor.estado === 'inactivo';
+  const puedeEditar = tienePermiso(rolActual, 'editar') && proveedor.estado !== 'inactivo';
+  const puedeInactivar = tienePermiso(rolActual, 'inactivar') && proveedor.estado === 'activo';
+  const puedeActivar = tienePermiso(rolActual, 'inactivar') && proveedor.estado === 'inactivo';
 
-  const handleInactivar = () => {
+  const handleInactivar = async () => {
     const validacion = validarMotivoInactivacion(motivoInactivacion);
     if (!validacion.valid) {
       setErrorMotivo(validacion.error!);
       return;
     }
 
-    inactivarProveedor(proveedorId, motivoInactivacion);
-    toast.success('Proveedor inactivado correctamente');
-    setShowInactivarDialog(false);
-    setMotivoInactivacion('');
+    const resultado = await inactivarProveedor(proveedorId, motivoInactivacion);
+    if (resultado.exito) {
+      toast.success('Proveedor inactivado correctamente');
+      setShowInactivarDialog(false);
+      setMotivoInactivacion('');
+    } else {
+      toast.error(resultado.errores?.[0] ?? 'Error al inactivar proveedor');
+    }
   };
 
-  const handleActivar = () => {
-    activarProveedor(proveedorId);
-    toast.success('Proveedor activado correctamente');
+  const handleActivar = async () => {
+    const resultado = await activarProveedor(proveedorId);
+    if (resultado.exito) {
+      toast.success('Proveedor activado correctamente');
+    } else {
+      toast.error(resultado.errores?.[0] ?? 'Error al activar proveedor');
+    }
   };
 
   return (

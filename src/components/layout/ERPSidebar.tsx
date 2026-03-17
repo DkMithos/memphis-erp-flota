@@ -119,8 +119,10 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       href: '/finanzas',
       subItems: [
         { label: 'Dashboard', href: '/finanzas' },
+        { label: 'Transacciones', href: '/finanzas/transacciones' },
         { label: 'Presupuestos', href: '/finanzas/presupuestos' },
         { label: 'Cuentas por Pagar', href: '/finanzas/cuentas-pagar' },
+        { label: 'Caja Chica', href: '/finanzas/caja-chica' },
         { label: 'Flujo de Caja', href: '/finanzas/flujo-caja' },
         { label: 'Reportes', href: '/finanzas/reportes' }
       ]
@@ -132,8 +134,9 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       href: '/proyectos',
       subItems: [
         { label: 'Dashboard', href: '/proyectos' },
-        { label: 'Cronograma', href: '/proyectos/cronograma' },
+        { label: 'Lista de Proyectos', href: '/proyectos/lista' },
         { label: 'Tareas', href: '/proyectos/tareas' },
+        { label: 'Cronograma', href: '/proyectos/cronograma' },
         { label: 'Valorizaciones', href: '/proyectos/valorizaciones' },
         { label: 'Riesgos', href: '/proyectos/riesgos' },
         { label: 'Documentos', href: '/proyectos/documentos' }
@@ -206,6 +209,15 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         { label: 'Clientes', href: '/crm/clientes' },
         { label: 'Oportunidades', href: '/crm/oportunidades' },
         { label: 'Actividades', href: '/crm/actividades' }
+      ]
+    },
+    {
+      id: 'admin',
+      label: 'Administración',
+      icon: <Settings className="size-5" />,
+      href: '/admin',
+      subItems: [
+        { label: 'Usuarios y Roles', href: '/admin/usuarios', id: 'admin-usuarios' }
       ]
     }
   ];

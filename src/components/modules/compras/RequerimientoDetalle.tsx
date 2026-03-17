@@ -93,31 +93,43 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
   const puedeAprobar = tienePermiso(usuarioActual.rol, 'aprobar') && puedeRevisarRequerimiento(requerimiento.estado);
   const puedeRechazar = tienePermiso(usuarioActual.rol, 'rechazar') && puedeRevisarRequerimiento(requerimiento.estado);
 
-  const handleAnular = () => {
+  const handleAnular = async () => {
     const validacion = validarMotivoAnulacion(motivoAnulacion);
     if (!validacion.valid) {
       setErrorMotivo(validacion.error!);
       return;
     }
 
-    anularRequerimiento(requerimientoId, motivoAnulacion);
+    const res = await anularRequerimiento(requerimientoId, motivoAnulacion);
+    if (!res.exito) {
+      toast.error(res.errores?.[0] ?? 'Error al anular el requerimiento');
+      return;
+    }
     toast.success('Requerimiento anulado correctamente');
     setShowAnularDialog(false);
     setMotivoAnulacion('');
   };
 
-  const handleAprobar = () => {
-    aprobarRequerimiento(requerimientoId, usuarioActual.email);
+  const handleAprobar = async () => {
+    const res = await aprobarRequerimiento(requerimientoId, usuarioActual.email);
+    if (!res.exito) {
+      toast.error(res.errores?.[0] ?? 'Error al aprobar el requerimiento');
+      return;
+    }
     toast.success('Requerimiento aprobado correctamente');
   };
 
-  const handleRechazar = () => {
+  const handleRechazar = async () => {
     if (motivoRechazo.trim().length < 10) {
       setErrorRechazo('El motivo debe tener al menos 10 caracteres');
       return;
     }
 
-    rechazarRequerimiento(requerimientoId, usuarioActual.email, motivoRechazo);
+    const res = await rechazarRequerimiento(requerimientoId, usuarioActual.email, motivoRechazo);
+    if (!res.exito) {
+      toast.error(res.errores?.[0] ?? 'Error al rechazar el requerimiento');
+      return;
+    }
     toast.success('Requerimiento rechazado');
     setShowRechazarDialog(false);
     setMotivoRechazo('');

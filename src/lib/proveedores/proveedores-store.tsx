@@ -1,10 +1,13 @@
 /**
- * STORE DE PROVEEDORES
- * Context global para gestión de proveedores en el módulo
- * Prototipo funcional - Reemplazar por backend real en producción
+ * KESA ERP - Proveedores Store
+ * v2.0.0 - Conectado a Supabase (reemplaza mock local)
+ * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { dbProveedores } from '../supabase/helpers';
+import { useAuth } from '../../auth/AuthProvider';
+import type { Proveedor as ProveedorDB } from '../supabase/types';
 import {
   generarIdProveedor,
   extraerNumeroSecuencial,
@@ -16,58 +19,53 @@ import {
   type CondicionProveedor,
   type TipoProveedor,
   type CategoriaProveedor,
-  type RolUsuario
 } from './proveedores-config';
 
 // ============================================================================
-// TIPOS
+// TIPOS FRONTEND
 // ============================================================================
 
 export interface Proveedor {
-  // Identificación
+  // Identificación — id = codigo (PROV-NNNN), _dbId = UUID interno
   id: string;
+  _dbId: string;
   ruc: string;
   razonSocial: string;
   nombreComercial: string | null;
-  
+
   // Clasificación
   tipo: TipoProveedor;
-  categorias: CategoriaProveedor[];
+  categorias: CategoriaProveedor[];   // plural en frontend, singular en DB
   estado: EstadoProveedor;
   condicion: CondicionProveedor;
-  
+
   // Contacto
-  email: string;
-  telefono: string;
+  email: string | null;
+  telefono: string | null;
   telefonoAlternativo: string | null;
-  direccion: string;
-  ciudad: string;
+  direccion: string | null;
+  ciudad: string | null;   // maps from DB departamento
   pais: string;
-  
-  // Contacto Principal
-  contactoPrincipal: {
-    nombre: string;
-    cargo: string;
-    email: string;
-    telefono: string;
-  } | null;
-  
-  // Datos Bancarios
+
+  // Contacto principal — no almacenado en DB todavía
+  contactoPrincipal: null;
+
+  // Datos bancarios — no almacenados en columnas separadas todavía
   bancos: Array<{
     banco: string;
     numeroCuenta: string;
     tipoCuenta: 'corriente' | 'ahorros';
     moneda: 'PEN' | 'USD';
   }>;
-  
+
   // Evaluación
-  calificacion: number; // 0-100
-  totalCompras: number; // monto acumulado
-  numeroOrdenes: number; // cantidad de OC/OS
-  
-  // Auditoría obligatoria
+  calificacion: number;   // maps from DB score
+  totalCompras: number;   // no en DB, default 0
+  numeroOrdenes: number;  // no en DB, default 0
+
+  // Auditoría
   auditoria: {
-    creadoPor: string;
+    creadoPor: string | null;
     creadoEn: string;
     modificadoPor: string | null;
     modificadoEn: string | null;
@@ -75,15 +73,9 @@ export interface Proveedor {
     inactivadoEn: string | null;
     motivoInactivacion: string | null;
   };
-  
-  // Observaciones
+
   observaciones: string | null;
-  documentosAdjuntos: Array<{
-    nombre: string;
-    tipo: string;
-    url: string;
-    fechaSubida: string;
-  }>;
+  documentosAdjuntos: [];
 }
 
 export interface NuevoProveedorInput {
@@ -107,21 +99,22 @@ export interface NuevoProveedorInput {
   observaciones?: string;
 }
 
-export interface ActualizarProveedorInput extends Partial<NuevoProveedorInput> {
-  // Solo campos editables
+export interface ActualizarProveedorInput extends Partial<NuevoProveedorInput> {}
+
+interface CrudResult {
+  exito: boolean;
+  errores?: string[];
 }
 
 interface ProveedorStoreContext {
   proveedores: Proveedor[];
+  loading: boolean;
   obtenerProveedorPorId: (id: string) => Proveedor | undefined;
   obtenerProveedorPorRUC: (ruc: string) => Proveedor | undefined;
-  crearProveedor: (input: NuevoProveedorInput) => Proveedor;
-  actualizarProveedor: (id: string, input: ActualizarProveedorInput) => void;
-  inactivarProveedor: (id: string, motivo: string) => void;
-  activarProveedor: (id: string) => void;
-  cargarProveedoresIniciales: () => void;
-  // Mock de usuario actual (en producción vendría de auth context)
-  usuarioActual: { email: string; rol: RolUsuario };
+  crearProveedor: (input: NuevoProveedorInput) => Promise<Proveedor>;
+  actualizarProveedor: (id: string, input: ActualizarProveedorInput) => Promise<CrudResult>;
+  inactivarProveedor: (id: string, motivo: string) => Promise<CrudResult>;
+  activarProveedor: (id: string) => Promise<CrudResult>;
 }
 
 // ============================================================================
@@ -131,469 +124,329 @@ interface ProveedorStoreContext {
 const ProveedorContext = createContext<ProveedorStoreContext | undefined>(undefined);
 
 // ============================================================================
-// DATA DE EJEMPLO - Seed inicial
+// MAPPER DB → FRONTEND
 // ============================================================================
 
-const proveedoresSeed: Proveedor[] = [
-  {
-    id: 'PROV-0001',
-    ruc: '20512345678',
-    razonSocial: 'Repuestos Automotrices SAC',
-    nombreComercial: 'Auto Repuestos Lima',
-    tipo: 'bienes',
-    categorias: ['repuestos'],
-    estado: 'activo',
-    condicion: 'excelente',
-    email: 'ventas@autorepuestos.com',
-    telefono: '987654321',
-    telefonoAlternativo: '987654322',
-    direccion: 'Av. Grau 1234, Cercado de Lima',
-    ciudad: 'Lima',
-    pais: 'Perú',
-    contactoPrincipal: {
-      nombre: 'Juan Pérez García',
-      cargo: 'Gerente Comercial',
-      email: 'jperez@autorepuestos.com',
-      telefono: '987654321'
-    },
-    bancos: [
-      {
-        banco: 'BCP',
-        numeroCuenta: '1234567890123456',
-        tipoCuenta: 'corriente',
-        moneda: 'PEN'
-      }
-    ],
-    calificacion: 96,
-    totalCompras: 450000,
-    numeroOrdenes: 45,
-    auditoria: {
-      creadoPor: 'admin@kesa.com',
-      creadoEn: '2024-01-15 10:00:00',
-      modificadoPor: null,
-      modificadoEn: null,
-      inactivadoPor: null,
-      inactivadoEn: null,
-      motivoInactivacion: null
-    },
-    observaciones: 'Proveedor certificado ISO 9001. Entregas puntuales.',
-    documentosAdjuntos: []
-  },
-  {
-    id: 'PROV-0002',
-    ruc: '20523456789',
-    razonSocial: 'Taller Mecánico Rodriguez EIRL',
-    nombreComercial: 'Taller Rodriguez',
-    tipo: 'servicios',
-    categorias: ['taller'],
-    estado: 'activo',
-    condicion: 'bueno',
-    email: 'contacto@tallerrodriguez.com',
-    telefono: '912345678',
-    telefonoAlternativo: null,
-    direccion: 'Jr. Los Pinos 456, San Juan de Lurigancho',
-    ciudad: 'Lima',
-    pais: 'Perú',
-    contactoPrincipal: {
-      nombre: 'Carlos Rodriguez',
-      cargo: 'Propietario',
-      email: 'crodriguez@tallerrodriguez.com',
-      telefono: '912345678'
-    },
-    bancos: [
-      {
-        banco: 'BBVA',
-        numeroCuenta: '0011234567890123',
-        tipoCuenta: 'corriente',
-        moneda: 'PEN'
-      }
-    ],
-    calificacion: 88,
-    totalCompras: 180000,
-    numeroOrdenes: 32,
-    auditoria: {
-      creadoPor: 'compras@kesa.com',
-      creadoEn: '2024-02-10 14:30:00',
-      modificadoPor: 'admin@kesa.com',
-      modificadoEn: '2024-03-15 09:00:00',
-      inactivadoPor: null,
-      inactivadoEn: null,
-      motivoInactivacion: null
-    },
-    observaciones: 'Especialista en vehículos Mercedes Benz',
-    documentosAdjuntos: []
-  },
-  {
-    id: 'PROV-0003',
-    ruc: '20534567890',
-    razonSocial: 'Equipos Médicos del Perú SA',
-    nombreComercial: 'EMEPSA',
-    tipo: 'mixto',
-    categorias: ['equipos_medicos', 'insumos'],
-    estado: 'activo',
-    condicion: 'excelente',
-    email: 'ventas@emepsa.com.pe',
-    telefono: '998765432',
-    telefonoAlternativo: '998765433',
-    direccion: 'Av. Arequipa 2345, Lince',
-    ciudad: 'Lima',
-    pais: 'Perú',
-    contactoPrincipal: {
-      nombre: 'María Torres Vega',
-      cargo: 'Gerente de Ventas',
-      email: 'mtorres@emepsa.com.pe',
-      telefono: '998765432'
-    },
-    bancos: [
-      {
-        banco: 'Interbank',
-        numeroCuenta: '2001234567890123',
-        tipoCuenta: 'corriente',
-        moneda: 'USD'
-      },
-      {
-        banco: 'BCP',
-        numeroCuenta: '1919234567890123',
-        tipoCuenta: 'corriente',
-        moneda: 'PEN'
-      }
-    ],
-    calificacion: 98,
-    totalCompras: 850000,
-    numeroOrdenes: 67,
-    auditoria: {
-      creadoPor: 'admin@kesa.com',
-      creadoEn: '2023-11-20 11:00:00',
-      modificadoPor: null,
-      modificadoEn: null,
-      inactivadoPor: null,
-      inactivadoEn: null,
-      motivoInactivacion: null
-    },
-    observaciones: 'Distribuidor autorizado de equipos GE Healthcare. Garantía extendida.',
-    documentosAdjuntos: []
-  },
-  {
-    id: 'PROV-0004',
-    ruc: '20545678901',
-    razonSocial: 'Combustibles y Lubricantes del Norte SAC',
-    nombreComercial: 'Petro Norte',
-    tipo: 'bienes',
-    categorias: ['combustible'],
-    estado: 'observado',
-    condicion: 'regular',
-    email: 'atencion@petronorte.com',
-    telefono: '923456789',
-    telefonoAlternativo: null,
-    direccion: 'Carretera Panamericana Norte Km 45',
-    ciudad: 'Lima',
-    pais: 'Perú',
-    contactoPrincipal: {
-      nombre: 'Luis Mendoza',
-      cargo: 'Jefe de Operaciones',
-      email: 'lmendoza@petronorte.com',
-      telefono: '923456789'
-    },
-    bancos: [
-      {
-        banco: 'Scotiabank',
-        numeroCuenta: '3001234567890123',
-        tipoCuenta: 'corriente',
-        moneda: 'PEN'
-      }
-    ],
-    calificacion: 72,
-    totalCompras: 320000,
-    numeroOrdenes: 28,
-    auditoria: {
-      creadoPor: 'compras@kesa.com',
-      creadoEn: '2024-03-05 16:00:00',
-      modificadoPor: 'admin@kesa.com',
-      modificadoEn: '2024-11-20 10:30:00',
-      inactivadoPor: null,
-      inactivadoEn: null,
-      motivoInactivacion: null
-    },
-    observaciones: 'OBSERVADO: Retrasos en entregas los últimos 3 meses. En evaluación.',
-    documentosAdjuntos: []
-  },
-  {
-    id: 'PROV-0005',
-    ruc: '20556789012',
-    razonSocial: 'Servicios TI Global SAC',
-    nombreComercial: null,
-    tipo: 'servicios',
-    categorias: ['tecnologia', 'servicios_profesionales'],
-    estado: 'inactivo',
-    condicion: 'deficiente',
-    email: 'contacto@tiglobal.com',
-    telefono: '934567890',
-    telefonoAlternativo: null,
-    direccion: 'Av. Javier Prado Este 3456, San Isidro',
-    ciudad: 'Lima',
-    pais: 'Perú',
+function mapFromDB(row: ProveedorDB): Proveedor {
+  return {
+    id: row.codigo,
+    _dbId: row.id,
+    ruc: row.ruc,
+    razonSocial: row.razon_social,
+    nombreComercial: row.nombre_comercial,
+    tipo: row.tipo as TipoProveedor,
+    categorias: [row.categoria as CategoriaProveedor],
+    estado: row.estado as EstadoProveedor,
+    condicion: row.condicion as CondicionProveedor,
+    email: row.email,
+    telefono: row.telefono,
+    telefonoAlternativo: row.celular,
+    direccion: row.direccion,
+    ciudad: row.departamento,
+    pais: row.pais,
     contactoPrincipal: null,
-    bancos: [],
-    calificacion: 45,
-    totalCompras: 85000,
-    numeroOrdenes: 8,
+    bancos: row.banco && row.cuenta_bancaria
+      ? [{ banco: row.banco, numeroCuenta: row.cuenta_bancaria, tipoCuenta: 'corriente', moneda: 'PEN' }]
+      : [],
+    calificacion: row.score,
+    totalCompras: 0,
+    numeroOrdenes: 0,
     auditoria: {
-      creadoPor: 'compras@kesa.com',
-      creadoEn: '2024-06-10 09:00:00',
-      modificadoPor: 'compras@kesa.com',
-      modificadoEn: '2024-09-15 14:00:00',
-      inactivadoPor: 'admin@kesa.com',
-      inactivadoEn: '2024-12-01 11:00:00',
-      motivoInactivacion: 'Incumplimiento reiterado de plazos de entrega y soporte técnico deficiente. Última orden presentó fallas críticas no resueltas en 30 días.'
+      creadoPor: row.creado_por,
+      creadoEn: row.creado_en,
+      modificadoPor: row.modificado_por,
+      modificadoEn: row.modificado_en,
+      inactivadoPor: null,
+      inactivadoEn: null,
+      motivoInactivacion: null,
     },
-    observaciones: 'Proveedor inactivado por bajo desempeño.',
-    documentosAdjuntos: []
-  }
-];
+    observaciones: null,
+    documentosAdjuntos: [],
+  };
+}
 
 // ============================================================================
 // PROVIDER
 // ============================================================================
 
-export function ProveedorStoreProvider({ children }: { children: React.ReactNode }) {
+export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
+  const { tenantId, user } = useAuth();
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
-  
-  // Mock de usuario actual (en producción vendría de auth context)
-  const usuarioActual = {
-    email: 'admin@kesa.com',
-    rol: 'admin' as RolUsuario
-  };
+  const [loading, setLoading] = useState(true);
 
-  // Cargar proveedores iniciales SOLO una vez al montar
+  // Carga inicial desde Supabase
+  const fetchProveedores = useCallback(async () => {
+    if (!tenantId) return;
+    setLoading(true);
+
+    const { data, error } = await dbProveedores.list();
+
+    if (error) {
+      console.error('[PROVEEDORES] Error al cargar:', error.message);
+    } else if (data) {
+      const mapped = (data as ProveedorDB[]).map(mapFromDB);
+      setProveedores(mapped);
+      if (DEBUG_PROVEEDORES) {
+        console.log('[PROVEEDORES] Cargados desde Supabase:', mapped.length);
+      }
+    }
+    setLoading(false);
+  }, [tenantId]);
+
   useEffect(() => {
-    if (proveedores.length === 0) {
-      if (DEBUG_PROVEEDORES) {
-        console.log('[PROV_SEED_LOADING]', { seedSize: proveedoresSeed.length });
-      }
-      setProveedores(proveedoresSeed);
-    }
-  }, []);
+    fetchProveedores();
+  }, [fetchProveedores]);
 
-  // Cargar proveedores iniciales (con guard idempotente)
-  const cargarProveedoresIniciales = useCallback(() => {
-    if (proveedores.length === 0) {
-      if (DEBUG_PROVEEDORES) {
-        console.log('[PROV_SEED_MANUAL_LOADING]', { seedSize: proveedoresSeed.length });
-      }
-      setProveedores(proveedoresSeed);
-    } else if (DEBUG_PROVEEDORES) {
-      console.log('[PROV_SEED_SKIP]', { 
-        reason: 'Ya hay proveedores en el store', 
-        currentSize: proveedores.length 
-      });
-    }
-  }, [proveedores.length]);
+  // ============================================================================
+  // QUERIES (síncronas — operan sobre estado local ya cargado)
+  // ============================================================================
 
-  // Obtener proveedor por ID
-  const obtenerProveedorPorId = useCallback((id: string) => {
-    return proveedores.find(p => p.id === id);
-  }, [proveedores]);
+  const obtenerProveedorPorId = (id: string) =>
+    proveedores.find(p => p.id === id);
 
-  // Obtener proveedor por RUC
-  const obtenerProveedorPorRUC = useCallback((ruc: string) => {
+  const obtenerProveedorPorRUC = (ruc: string) => {
     const rucNormalizado = normalizeRUC(ruc);
     return proveedores.find(p => p.ruc === rucNormalizado);
-  }, [proveedores]);
+  };
 
-  // Crear nuevo proveedor
-  const crearProveedor = useCallback((input: NuevoProveedorInput): Proveedor => {
-    // Obtener el último número secuencial
+  // ============================================================================
+  // CRUD
+  // ============================================================================
+
+  const crearProveedor = async (input: NuevoProveedorInput): Promise<Proveedor> => {
+    if (!tenantId || !user) {
+      throw new Error('Sin sesión activa');
+    }
+
+    // Determinar siguiente número secuencial
     const numeros = proveedores
       .map(p => extraerNumeroSecuencial(p.id))
       .filter((n): n is number => n !== null);
     const ultimoNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
+    const nuevoCodigo = generarIdProveedor(ultimoNumero);
 
-    // Generar nuevo ID
-    const id = generarIdProveedor(ultimoNumero);
-    const timestamp = new Date().toISOString();
-
-    // Crear objeto proveedor
-    const nuevoProveedor: Proveedor = {
-      id,
+    const { data: inserted, error } = await dbProveedores.create({
+      tenant_id: tenantId,
+      codigo: nuevoCodigo,
+      razon_social: input.razonSocial.trim(),
+      nombre_comercial: input.nombreComercial?.trim() ?? null,
       ruc: normalizeRUC(input.ruc),
-      razonSocial: input.razonSocial.trim(),
-      nombreComercial: input.nombreComercial?.trim() || null,
       tipo: input.tipo,
-      categorias: input.categorias,
-      estado: 'activo',
-      condicion: 'sin_evaluar',
+      categoria: input.categorias[0] ?? 'otros',
+      estado: 'activo' as EstadoProveedor,
+      condicion: 'sin_evaluar' as CondicionProveedor,
+      score: 0,
       email: normalizeEmail(input.email),
       telefono: normalizeTelefono(input.telefono),
-      telefonoAlternativo: input.telefonoAlternativo ? normalizeTelefono(input.telefonoAlternativo) : null,
-      direccion: input.direccion.trim(),
-      ciudad: input.ciudad.trim(),
+      celular: input.telefonoAlternativo ? normalizeTelefono(input.telefonoAlternativo) : null,
+      web: null,
       pais: input.pais.trim(),
-      contactoPrincipal: input.contactoPrincipal ? {
-        nombre: input.contactoPrincipal.nombre.trim(),
-        cargo: input.contactoPrincipal.cargo.trim(),
-        email: normalizeEmail(input.contactoPrincipal.email),
-        telefono: normalizeTelefono(input.contactoPrincipal.telefono)
-      } : null,
-      bancos: [],
-      calificacion: 0,
-      totalCompras: 0,
-      numeroOrdenes: 0,
-      auditoria: {
-        creadoPor: usuarioActual.email,
-        creadoEn: timestamp,
-        modificadoPor: null,
-        modificadoEn: null,
-        inactivadoPor: null,
-        inactivadoEn: null,
-        motivoInactivacion: null
-      },
-      observaciones: input.observaciones?.trim() || null,
-      documentosAdjuntos: []
-    };
-
-    // Agregar al INICIO del store para visibilidad inmediata
-    const sizeBeforeAdd = proveedores.length;
-    setProveedores(prev => {
-      const newState = [nuevoProveedor, ...prev];
-      
-      if (DEBUG_PROVEEDORES) {
-        console.log('[PROV_CREATED]', {
-          id: nuevoProveedor.id,
-          ruc: nuevoProveedor.ruc,
-          razonSocial: nuevoProveedor.razonSocial,
-          sizeAfter: newState.length,
-          sizeBefore: sizeBeforeAdd,
-          position: 'FIRST'
-        });
-      }
-      
-      return newState;
+      departamento: input.ciudad.trim(),
+      provincia: null,
+      distrito: null,
+      direccion: input.direccion.trim(),
+      banco: null,
+      cuenta_bancaria: null,
+      cci: null,
+      creado_por: user.id,
+      modificado_por: null,
+      modificado_en: null,
     });
 
-    return nuevoProveedor;
-  }, [proveedores, usuarioActual.email]);
+    if (error) {
+      console.error('[PROVEEDORES] Error al crear:', error.message);
+      throw new Error(error.message);
+    }
 
-  // Actualizar proveedor
-  const actualizarProveedor = useCallback((id: string, input: ActualizarProveedorInput) => {
-    const timestamp = new Date().toISOString();
-    
-    setProveedores(prev => prev.map(p => {
-      if (p.id === id) {
-        const actualizado: Proveedor = {
+    const nuevo = mapFromDB(inserted as ProveedorDB);
+    setProveedores(prev => [nuevo, ...prev]);
+
+    if (DEBUG_PROVEEDORES) {
+      console.log('[PROV_CREATED]', { id: nuevo.id, ruc: nuevo.ruc, razonSocial: nuevo.razonSocial });
+    }
+
+    return nuevo;
+  };
+
+  const actualizarProveedor = async (
+    id: string,
+    input: ActualizarProveedorInput
+  ): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+    // Use functional setState to avoid stale closure when reading _dbId
+    let dbId: string | undefined;
+    setProveedores(prev => {
+      const existing = prev.find(p => p.id === id);
+      dbId = existing?._dbId;
+      return prev;
+    });
+
+    if (!dbId) return { exito: false, errores: ['Proveedor no encontrado'] };
+
+    const ahora = new Date().toISOString();
+    const updatePayload: Record<string, unknown> = {
+      modificado_por: user.id,
+      modificado_en: ahora,
+    };
+
+    if (input.razonSocial !== undefined) updatePayload.razon_social = input.razonSocial.trim();
+    if (input.nombreComercial !== undefined) updatePayload.nombre_comercial = input.nombreComercial?.trim() ?? null;
+    if (input.tipo !== undefined) updatePayload.tipo = input.tipo;
+    if (input.categorias !== undefined) updatePayload.categoria = input.categorias[0] ?? 'otros';
+    if (input.email !== undefined) updatePayload.email = normalizeEmail(input.email);
+    if (input.telefono !== undefined) updatePayload.telefono = normalizeTelefono(input.telefono);
+    if (input.telefonoAlternativo !== undefined) {
+      updatePayload.celular = input.telefonoAlternativo ? normalizeTelefono(input.telefonoAlternativo) : null;
+    }
+    if (input.direccion !== undefined) updatePayload.direccion = input.direccion.trim();
+    if (input.ciudad !== undefined) updatePayload.departamento = input.ciudad.trim();
+    if (input.pais !== undefined) updatePayload.pais = input.pais.trim();
+    if (input.observaciones !== undefined) {
+      // observaciones not in DB yet; no-op — kept for interface compatibility
+    }
+
+    const { error } = await dbProveedores.update(dbId, updatePayload);
+
+    if (error) {
+      console.error('[PROVEEDORES] Error al actualizar:', error.message);
+      return { exito: false, errores: [error.message] };
+    }
+
+    setProveedores(prev =>
+      prev.map(p => {
+        if (p.id !== id) return p;
+        return {
           ...p,
-          ...(input.razonSocial && { razonSocial: input.razonSocial.trim() }),
-          ...(input.nombreComercial !== undefined && { nombreComercial: input.nombreComercial?.trim() || null }),
-          ...(input.tipo && { tipo: input.tipo }),
-          ...(input.categorias && { categorias: input.categorias }),
-          ...(input.email && { email: normalizeEmail(input.email) }),
-          ...(input.telefono && { telefono: normalizeTelefono(input.telefono) }),
-          ...(input.telefonoAlternativo !== undefined && { 
-            telefonoAlternativo: input.telefonoAlternativo ? normalizeTelefono(input.telefonoAlternativo) : null 
+          ...(input.razonSocial !== undefined && { razonSocial: input.razonSocial.trim() }),
+          ...(input.nombreComercial !== undefined && { nombreComercial: input.nombreComercial?.trim() ?? null }),
+          ...(input.tipo !== undefined && { tipo: input.tipo }),
+          ...(input.categorias !== undefined && { categorias: input.categorias }),
+          ...(input.email !== undefined && { email: normalizeEmail(input.email) }),
+          ...(input.telefono !== undefined && { telefono: normalizeTelefono(input.telefono) }),
+          ...(input.telefonoAlternativo !== undefined && {
+            telefonoAlternativo: input.telefonoAlternativo ? normalizeTelefono(input.telefonoAlternativo) : null,
           }),
-          ...(input.direccion && { direccion: input.direccion.trim() }),
-          ...(input.ciudad && { ciudad: input.ciudad.trim() }),
-          ...(input.pais && { pais: input.pais.trim() }),
-          ...(input.contactoPrincipal && {
-            contactoPrincipal: {
-              nombre: input.contactoPrincipal.nombre.trim(),
-              cargo: input.contactoPrincipal.cargo.trim(),
-              email: normalizeEmail(input.contactoPrincipal.email),
-              telefono: normalizeTelefono(input.contactoPrincipal.telefono)
+          ...(input.direccion !== undefined && { direccion: input.direccion.trim() }),
+          ...(input.ciudad !== undefined && { ciudad: input.ciudad.trim() }),
+          ...(input.pais !== undefined && { pais: input.pais.trim() }),
+          ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() ?? null }),
+          auditoria: {
+            ...p.auditoria,
+            modificadoPor: user.id,
+            modificadoEn: ahora,
+          },
+        };
+      })
+    );
+
+    if (DEBUG_PROVEEDORES) {
+      console.log('[PROV_UPDATED]', { id, cambios: Object.keys(input) });
+    }
+
+    return { exito: true };
+  };
+
+  const inactivarProveedor = async (id: string, motivo: string): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+    const proveedor = proveedores.find(p => p.id === id);
+    if (!proveedor) return { exito: false, errores: ['Proveedor no encontrado'] };
+    if (proveedor.estado === 'inactivo') return { exito: false, errores: ['El proveedor ya está inactivo'] };
+
+    const ahora = new Date().toISOString();
+    const { error } = await dbProveedores.update(proveedor._dbId, {
+      estado: 'inactivo',
+      modificado_por: user.id,
+      modificado_en: ahora,
+    });
+
+    if (error) {
+      console.error('[PROVEEDORES] Error al inactivar:', error.message);
+      return { exito: false, errores: [error.message] };
+    }
+
+    setProveedores(prev =>
+      prev.map(p =>
+        p.id === id
+          ? {
+              ...p,
+              estado: 'inactivo' as EstadoProveedor,
+              auditoria: {
+                ...p.auditoria,
+                modificadoPor: user.id,
+                modificadoEn: ahora,
+                inactivadoPor: user.id,
+                inactivadoEn: ahora,
+                motivoInactivacion: motivo.trim(),
+              },
             }
-          }),
-          ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() || null }),
-          auditoria: {
-            ...p.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp
-          }
-        };
+          : p
+      )
+    );
 
-        if (DEBUG_PROVEEDORES) {
-          console.log('[PROV_UPDATED]', {
-            id: actualizado.id,
-            cambios: Object.keys(input)
-          });
-        }
+    if (DEBUG_PROVEEDORES) {
+      console.log('[PROV_INACTIVATED]', { id, motivo: motivo.substring(0, 50) });
+    }
 
-        return actualizado;
-      }
-      return p;
-    }));
-  }, [usuarioActual.email]);
+    return { exito: true };
+  };
 
-  // Inactivar proveedor (con motivo obligatorio)
-  const inactivarProveedor = useCallback((id: string, motivo: string) => {
-    const timestamp = new Date().toISOString();
-    
-    setProveedores(prev => prev.map(p => {
-      if (p.id === id) {
-        const inactivado: Proveedor = {
-          ...p,
-          estado: 'inactivo',
-          auditoria: {
-            ...p.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp,
-            inactivadoPor: usuarioActual.email,
-            inactivadoEn: timestamp,
-            motivoInactivacion: motivo.trim()
-          }
-        };
+  const activarProveedor = async (id: string): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-        if (DEBUG_PROVEEDORES) {
-          console.log('[PROV_INACTIVATED]', {
-            id: inactivado.id,
-            razonSocial: inactivado.razonSocial,
-            motivo: motivo.substring(0, 50) + '...'
-          });
-        }
+    const proveedor = proveedores.find(p => p.id === id);
+    if (!proveedor) return { exito: false, errores: ['Proveedor no encontrado'] };
+    if (proveedor.estado !== 'inactivo') return { exito: false, errores: ['El proveedor no está inactivo'] };
 
-        return inactivado;
-      }
-      return p;
-    }));
-  }, [usuarioActual.email]);
+    const ahora = new Date().toISOString();
+    const { error } = await dbProveedores.update(proveedor._dbId, {
+      estado: 'activo',
+      modificado_por: user.id,
+      modificado_en: ahora,
+    });
 
-  // Activar proveedor
-  const activarProveedor = useCallback((id: string) => {
-    const timestamp = new Date().toISOString();
-    
-    setProveedores(prev => prev.map(p => {
-      if (p.id === id) {
-        const activado: Proveedor = {
-          ...p,
-          estado: 'activo',
-          auditoria: {
-            ...p.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp
-          }
-        };
+    if (error) {
+      console.error('[PROVEEDORES] Error al activar:', error.message);
+      return { exito: false, errores: [error.message] };
+    }
 
-        if (DEBUG_PROVEEDORES) {
-          console.log('[PROV_ACTIVATED]', {
-            id: activado.id,
-            razonSocial: activado.razonSocial
-          });
-        }
+    setProveedores(prev =>
+      prev.map(p =>
+        p.id === id
+          ? {
+              ...p,
+              estado: 'activo' as EstadoProveedor,
+              auditoria: {
+                ...p.auditoria,
+                modificadoPor: user.id,
+                modificadoEn: ahora,
+              },
+            }
+          : p
+      )
+    );
 
-        return activado;
-      }
-      return p;
-    }));
-  }, [usuarioActual.email]);
+    if (DEBUG_PROVEEDORES) {
+      console.log('[PROV_ACTIVATED]', { id });
+    }
+
+    return { exito: true };
+  };
+
+  // ============================================================================
+  // CONTEXT VALUE
+  // ============================================================================
 
   const value: ProveedorStoreContext = {
     proveedores,
+    loading,
     obtenerProveedorPorId,
     obtenerProveedorPorRUC,
     crearProveedor,
     actualizarProveedor,
     inactivarProveedor,
     activarProveedor,
-    cargarProveedoresIniciales,
-    usuarioActual
   };
 
   return <ProveedorContext.Provider value={value}>{children}</ProveedorContext.Provider>;

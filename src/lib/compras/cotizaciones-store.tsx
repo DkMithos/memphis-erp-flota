@@ -1,10 +1,17 @@
 /**
  * STORE DE COTIZACIONES DE COMPRA
- * Context global para gestión de cotizaciones en el módulo Compras
- * Prototipo funcional - Reemplazar por backend real en producción
+ * v2.0.0 - Conectado a Supabase (reemplaza mock local)
+ * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { supabase } from '../supabase/client';
+import { dbCotizaciones } from '../supabase/helpers';
+import { useAuth } from '../../auth/AuthProvider';
+import type {
+  Cotizacion as CotizacionDB,
+  CotizacionItem as CotizacionItemDB,
+} from '../supabase/types';
 import {
   generarIdCotizacion,
   extraerNumeroSecuencial,
@@ -18,57 +25,59 @@ import {
 } from './cotizaciones-config';
 
 // ============================================================================
-// TIPOS
+// TIPOS FRONTEND
 // ============================================================================
 
 export interface ItemCotizacion {
   id: string;
+  _dbId?: string;
   descripcion: string;
   cantidad: number;
   unidad: string;
   precioUnitario: number;
-  subtotal: number; // Calculado
+  subtotal: number;
 }
 
 export interface Cotizacion {
-  // Identificación
+  // Identificación — id = numero (COT-NNNN), _dbId = UUID interno
   id: string;
-  requerimientoId: string; // Requerido - relación con Requerimiento
-  
+  _dbId: string;
+  requerimientoId: string;
+
   // Proveedor
-  proveedorId: string | null; // Opcional - puede integrarse con Directorio
+  proveedorId: string | null;
   proveedorNombre: string;
-  
+
   // Clasificación
   tipo: TipoCotizacion;
   moneda: MonedaCotizacion;
   estado: EstadoCotizacion;
-  
+
   // Validez
-  validezDias: number; // 7, 15, 30, 45, 60, 90
-  fechaEmision: string; // ISO date
-  fechaVencimiento: string; // ISO date (calculado)
-  
+  validezDias: number;
+  fechaEmision: string;
+  fechaVencimiento: string;
+
   // Items
   items: ItemCotizacion[];
-  
+
   // Totales
-  subtotal: number; // Calculado
-  impuestos: number; // Calculado (18% IGV)
-  total: number; // Calculado
-  
-  // Términos y condiciones
+  subtotal: number;
+  impuestos: number;
+  total: number;
+
+  // Términos
   terminos: string | null;
   observaciones: string | null;
-  
-  // Aprobación/Rechazo
+
+  // Aprobación
   aprobadoPor: string | null;
   aprobadoEn: string | null;
   rechazadoPor: string | null;
   rechazadoEn: string | null;
   motivoRechazo: string | null;
-  
-  // Auditoría obligatoria
+
+  // Auditoría
   auditoria: {
     creadoPor: string;
     creadoEn: string;
@@ -87,27 +96,31 @@ export interface NuevaCotizacionInput {
   tipo: TipoCotizacion;
   moneda: MonedaCotizacion;
   validezDias: number;
-  items: Omit<ItemCotizacion, 'id' | 'subtotal'>[];
+  items: Omit<ItemCotizacion, 'id' | '_dbId' | 'subtotal'>[];
   terminos?: string;
   observaciones?: string;
 }
 
-export interface ActualizarCotizacionInput extends Partial<NuevaCotizacionInput> {
-  // Solo campos editables
+export interface ActualizarCotizacionInput extends Partial<NuevaCotizacionInput> {}
+
+interface CrudResult {
+  exito: boolean;
+  errores?: string[];
 }
 
 interface CotizacionStoreContext {
   cotizaciones: Cotizacion[];
+  loading: boolean;
   obtenerCotizacionPorId: (id: string) => Cotizacion | undefined;
   obtenerCotizacionesPorRequerimiento: (requerimientoId: string) => Cotizacion[];
-  crearCotizacion: (input: NuevaCotizacionInput) => Cotizacion;
-  actualizarCotizacion: (id: string, input: ActualizarCotizacionInput) => void;
-  cambiarEstado: (id: string, nuevoEstado: EstadoCotizacion) => void;
-  aprobarCotizacion: (id: string, aprobadoPor: string) => void;
-  rechazarCotizacion: (id: string, rechazadoPor: string, motivo: string) => void;
-  anularCotizacion: (id: string, motivo: string) => void;
+  crearCotizacion: (input: NuevaCotizacionInput) => Promise<CrudResult & { cotizacion?: Cotizacion }>;
+  actualizarCotizacion: (id: string, input: ActualizarCotizacionInput) => Promise<CrudResult>;
+  cambiarEstado: (id: string, nuevoEstado: EstadoCotizacion) => Promise<CrudResult>;
+  aprobarCotizacion: (id: string, aprobadoPor: string) => Promise<CrudResult>;
+  rechazarCotizacion: (id: string, rechazadoPor: string, motivo: string) => Promise<CrudResult>;
+  anularCotizacion: (id: string, motivo: string) => Promise<CrudResult>;
   cargarCotizacionesIniciales: () => void;
-  // Mock de usuario actual
+  // Usuario actual derivado de auth
   usuarioActual: { email: string; nombre: string; rol: RolUsuario };
 }
 
@@ -118,588 +131,530 @@ interface CotizacionStoreContext {
 const CotizacionContext = createContext<CotizacionStoreContext | undefined>(undefined);
 
 // ============================================================================
-// DATA DE EJEMPLO - Seed inicial
+// MAPPER DB → FRONTEND
 // ============================================================================
 
-const cotizacionesSeed: Cotizacion[] = [
-  {
-    id: 'COT-0001',
-    requerimientoId: 'REQ-0001',
-    proveedorId: null,
-    proveedorNombre: 'Repuestos Automotrices SAC',
-    tipo: 'bienes',
-    moneda: 'PEN',
-    estado: 'enviada',
-    validezDias: 15,
-    fechaEmision: '2025-01-03T10:00:00Z',
-    fechaVencimiento: '2025-01-18T10:00:00Z',
-    items: [
-      {
-        id: 'item-1',
-        descripcion: 'Pastillas de freno delanteras Brembo',
-        cantidad: 2,
-        unidad: 'juego',
-        precioUnitario: 380,
-        subtotal: 760
-      },
-      {
-        id: 'item-2',
-        descripcion: 'Filtro de aceite premium',
-        cantidad: 4,
-        unidad: 'unidad',
-        precioUnitario: 48,
-        subtotal: 192
-      },
-      {
-        id: 'item-3',
-        descripcion: 'Aceite sintético Shell Helix Ultra 5W-30',
-        cantidad: 8,
-        unidad: 'litro',
-        precioUnitario: 68,
-        subtotal: 544
-      }
-    ],
-    subtotal: 1496,
-    impuestos: 269.28, // 18% IGV
-    total: 1765.28,
-    terminos: 'Pago contraentrega. Garantía 6 meses en repuestos.',
-    observaciones: 'Entrega en 48 horas.',
-    aprobadoPor: null,
-    aprobadoEn: null,
-    rechazadoPor: null,
-    rechazadoEn: null,
-    motivoRechazo: null,
-    auditoria: {
-      creadoPor: 'compras@kesa.com',
-      creadoEn: '2025-01-03T10:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: null,
-      anuladoEn: null,
-      motivoAnulacion: null
-    }
-  },
-  {
-    id: 'COT-0002',
-    requerimientoId: 'REQ-0001',
-    proveedorId: null,
-    proveedorNombre: 'Autopartes Premium EIRL',
-    tipo: 'bienes',
-    moneda: 'PEN',
-    estado: 'aprobada',
-    validezDias: 15,
-    fechaEmision: '2025-01-03T14:00:00Z',
-    fechaVencimiento: '2025-01-18T14:00:00Z',
-    items: [
-      {
-        id: 'item-1',
-        descripcion: 'Pastillas de freno delanteras marca ACDelco',
-        cantidad: 2,
-        unidad: 'juego',
-        precioUnitario: 340,
-        subtotal: 680
-      },
-      {
-        id: 'item-2',
-        descripcion: 'Filtro de aceite',
-        cantidad: 4,
-        unidad: 'unidad',
-        precioUnitario: 42,
-        subtotal: 168
-      },
-      {
-        id: 'item-3',
-        descripcion: 'Aceite sintético Mobil 1 5W-30',
-        cantidad: 8,
-        unidad: 'litro',
-        precioUnitario: 62,
-        subtotal: 496
-      }
-    ],
-    subtotal: 1344,
-    impuestos: 241.92,
-    total: 1585.92,
-    terminos: 'Pago a 30 días. Garantía 1 año en repuestos.',
-    observaciones: 'Entrega inmediata, stock disponible.',
-    aprobadoPor: 'gerencia@kesa.com',
-    aprobadoEn: '2025-01-04T09:00:00Z',
-    rechazadoPor: null,
-    rechazadoEn: null,
-    motivoRechazo: null,
-    auditoria: {
-      creadoPor: 'compras@kesa.com',
-      creadoEn: '2025-01-03T14:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: null,
-      anuladoEn: null,
-      motivoAnulacion: null
-    }
-  },
-  {
-    id: 'COT-0003',
-    requerimientoId: 'REQ-0002',
-    proveedorId: null,
-    proveedorNombre: 'Equipos Médicos del Perú SA',
-    tipo: 'bienes',
-    moneda: 'USD',
-    estado: 'aprobada',
-    validezDias: 30,
-    fechaEmision: '2025-01-03T09:00:00Z',
-    fechaVencimiento: '2025-02-02T09:00:00Z',
-    items: [
-      {
-        id: 'item-1',
-        descripcion: 'Monitor multiparamétrico GE Healthcare CARESCAPE B650',
-        cantidad: 1,
-        unidad: 'unidad',
-        precioUnitario: 3200,
-        subtotal: 3200
-      },
-      {
-        id: 'item-2',
-        descripcion: 'Cables ECG 5 derivaciones',
-        cantidad: 2,
-        unidad: 'juego',
-        precioUnitario: 115,
-        subtotal: 230
-      }
-    ],
-    subtotal: 3430,
-    impuestos: 617.40,
-    total: 4047.40,
-    terminos: 'Pago 50% adelanto, 50% contraentrega. Garantía 2 años.',
-    observaciones: 'Incluye capacitación y servicio técnico por 1 año.',
-    aprobadoPor: 'gerencia@kesa.com',
-    aprobadoEn: '2025-01-04T10:00:00Z',
-    rechazadoPor: null,
-    rechazadoEn: null,
-    motivoRechazo: null,
-    auditoria: {
-      creadoPor: 'compras@kesa.com',
-      creadoEn: '2025-01-03T09:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: null,
-      anuladoEn: null,
-      motivoAnulacion: null
-    }
-  },
-  {
-    id: 'COT-0004',
-    requerimientoId: 'REQ-0003',
-    proveedorId: null,
-    proveedorNombre: 'Distribuidora Microsoft Perú',
-    tipo: 'servicios',
-    moneda: 'USD',
-    estado: 'borrador',
-    validezDias: 30,
-    fechaEmision: '2025-01-05T11:00:00Z',
-    fechaVencimiento: '2025-02-04T11:00:00Z',
-    items: [
-      {
-        id: 'item-1',
-        descripcion: 'Licencia Office 365 Business Premium - Renovación anual',
-        cantidad: 50,
-        unidad: 'licencia',
-        precioUnitario: 48,
-        subtotal: 2400
-      }
-    ],
-    subtotal: 2400,
-    impuestos: 432,
-    total: 2832,
-    terminos: 'Pago anual anticipado. Soporte técnico incluido.',
-    observaciones: null,
-    aprobadoPor: null,
-    aprobadoEn: null,
-    rechazadoPor: null,
-    rechazadoEn: null,
-    motivoRechazo: null,
-    auditoria: {
-      creadoPor: 'compras@kesa.com',
-      creadoEn: '2025-01-05T11:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: null,
-      anuladoEn: null,
-      motivoAnulacion: null
-    }
-  },
-  {
-    id: 'COT-0005',
-    requerimientoId: 'REQ-0005',
-    proveedorId: null,
-    proveedorNombre: 'Herramientas Industriales SAC',
-    tipo: 'bienes',
-    moneda: 'PEN',
-    estado: 'anulada',
-    validezDias: 15,
-    fechaEmision: '2024-12-29T10:00:00Z',
-    fechaVencimiento: '2025-01-13T10:00:00Z',
-    items: [
-      {
-        id: 'item-1',
-        descripcion: 'Juego de llaves combinadas métricas Stanley',
-        cantidad: 2,
-        unidad: 'juego',
-        precioUnitario: 920,
-        subtotal: 1840
-      }
-    ],
-    subtotal: 1840,
-    impuestos: 331.20,
-    total: 2171.20,
-    terminos: 'Pago contraentrega.',
-    observaciones: null,
-    aprobadoPor: null,
-    aprobadoEn: null,
-    rechazadoPor: null,
-    rechazadoEn: null,
-    motivoRechazo: null,
-    auditoria: {
-      creadoPor: 'compras@kesa.com',
-      creadoEn: '2024-12-29T10:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: 'admin@kesa.com',
-      anuladoEn: '2025-01-02T09:45:00Z',
-      motivoAnulacion: 'Cotización anulada porque el requerimiento asociado REQ-0005 fue cancelado por solicitud duplicada. No se procesará orden de compra.'
-    }
+type CotizacionWithRelations = CotizacionDB & {
+  items: CotizacionItemDB[];
+  proveedor?: { razon_social: string; ruc: string } | null;
+};
+
+function mapFromDB(row: CotizacionWithRelations): Cotizacion {
+  const items: ItemCotizacion[] = (row.items ?? []).map(item => ({
+    id: item.id,
+    _dbId: item.id,
+    descripcion: item.descripcion,
+    cantidad: item.cantidad,
+    unidad: item.unidad,
+    precioUnitario: item.precio_unitario,
+    subtotal: item.precio_total,
+  }));
+
+  // Parse validez días from fecha_validez
+  let validezDias = 30;
+  if (row.fecha_validez) {
+    const emision = new Date(row.fecha_emision);
+    const validez = new Date(row.fecha_validez);
+    const diff = Math.round((validez.getTime() - emision.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff > 0) validezDias = diff;
   }
-];
+
+  return {
+    id: row.numero,
+    _dbId: row.id,
+    requerimientoId: row.requerimiento_id ?? '',
+    proveedorId: row.proveedor_id,
+    proveedorNombre: row.proveedor?.razon_social ?? '',
+    tipo: 'bienes' as TipoCotizacion, // DB doesn't store tipo — default
+    moneda: row.moneda as MonedaCotizacion,
+    estado: row.estado as EstadoCotizacion,
+    validezDias,
+    fechaEmision: row.fecha_emision,
+    fechaVencimiento: row.fecha_validez ?? row.fecha_emision,
+    items,
+    subtotal: row.subtotal,
+    impuestos: row.igv,
+    total: row.total,
+    terminos: row.condiciones_pago,
+    observaciones: row.observaciones,
+    aprobadoPor: null,
+    aprobadoEn: null,
+    rechazadoPor: null,
+    rechazadoEn: null,
+    motivoRechazo: null,
+    auditoria: {
+      creadoPor: row.creado_por ?? '',
+      creadoEn: row.creado_en,
+      modificadoPor: row.modificado_por,
+      modificadoEn: row.modificado_en,
+      anuladoPor: row.estado === 'anulada' ? row.modificado_por : null,
+      anuladoEn: row.estado === 'anulada' ? row.modificado_en : null,
+      motivoAnulacion: null,
+    },
+  };
+}
 
 // ============================================================================
 // PROVIDER
 // ============================================================================
 
 export function CotizacionStoreProvider({ children }: { children: React.ReactNode }) {
+  const { tenantId, user, profile } = useAuth();
   const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([]);
-  
-  // Mock de usuario actual
+  const [loading, setLoading] = useState(true);
+
   const usuarioActual = {
-    email: 'admin@kesa.com',
-    nombre: 'Administrador',
-    rol: 'admin_empresa' as RolUsuario
+    email: user?.email ?? profile?.email ?? 'admin@kesa.com',
+    nombre: profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Usuario',
+    rol: (profile?.rol as RolUsuario) ?? ('admin_empresa' as RolUsuario),
   };
 
-  // Cargar cotizaciones iniciales SOLO una vez al montar
+  const fetchCotizaciones = useCallback(async () => {
+    if (!tenantId) return;
+    setLoading(true);
+
+    const { data, error } = await dbCotizaciones.list();
+
+    if (error) {
+      console.error('[COTIZACIONES] Error al cargar:', error.message);
+    } else if (data) {
+      const mapped = (data as CotizacionWithRelations[]).map(mapFromDB);
+      setCotizaciones(mapped);
+      if (DEBUG_COTIZACIONES) {
+        console.log('[COTIZACIONES] Cargadas desde Supabase:', mapped.length);
+      }
+    }
+    setLoading(false);
+  }, [tenantId]);
+
   useEffect(() => {
-    if (cotizaciones.length === 0) {
-      if (DEBUG_COTIZACIONES) {
-        console.log('[COT_SEED_LOADING]', { seedSize: cotizacionesSeed.length });
-      }
-      setCotizaciones(cotizacionesSeed);
-    }
-  }, []);
+    fetchCotizaciones();
+  }, [fetchCotizaciones]);
 
-  // Cargar cotizaciones iniciales (con guard idempotente)
   const cargarCotizacionesIniciales = useCallback(() => {
-    if (cotizaciones.length === 0) {
-      if (DEBUG_COTIZACIONES) {
-        console.log('[COT_SEED_MANUAL_LOADING]', { seedSize: cotizacionesSeed.length });
-      }
-      setCotizaciones(cotizacionesSeed);
-    } else if (DEBUG_COTIZACIONES) {
-      console.log('[COT_SEED_SKIP]', { 
-        reason: 'Ya hay cotizaciones en el store', 
-        currentSize: cotizaciones.length 
-      });
-    }
-  }, [cotizaciones.length]);
+    fetchCotizaciones();
+  }, [fetchCotizaciones]);
 
-  // Obtener cotización por ID
-  const obtenerCotizacionPorId = useCallback((id: string) => {
-    return cotizaciones.find(c => c.id === id);
-  }, [cotizaciones]);
+  // ============================================================================
+  // QUERIES
+  // ============================================================================
 
-  // Obtener cotizaciones por requerimiento
-  const obtenerCotizacionesPorRequerimiento = useCallback((requerimientoId: string) => {
-    return cotizaciones.filter(c => c.requerimientoId === requerimientoId);
-  }, [cotizaciones]);
+  const obtenerCotizacionPorId = useCallback(
+    (id: string) => cotizaciones.find(c => c.id === id),
+    [cotizaciones]
+  );
 
-  // Calcular fecha de vencimiento
+  const obtenerCotizacionesPorRequerimiento = useCallback(
+    (requerimientoId: string) => cotizaciones.filter(c => c.requerimientoId === requerimientoId),
+    [cotizaciones]
+  );
+
+  // ============================================================================
+  // HELPERS
+  // ============================================================================
+
   const calcularFechaVencimiento = (fechaEmision: string, validezDias: number): string => {
     const fecha = new Date(fechaEmision);
     fecha.setDate(fecha.getDate() + validezDias);
     return fecha.toISOString();
   };
 
-  // Crear nueva cotización
-  const crearCotizacion = useCallback((input: NuevaCotizacionInput): Cotizacion => {
-    // Obtener el último número secuencial
-    const numeros = cotizaciones
-      .map(c => extraerNumeroSecuencial(c.id))
-      .filter((n): n is number => n !== null);
-    const ultimoNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
+  // ============================================================================
+  // CRUD
+  // ============================================================================
 
-    // Generar nuevo ID
-    const id = generarIdCotizacion(ultimoNumero);
-    const timestamp = new Date().toISOString();
-
-    // Generar items con IDs y subtotales
-    const items: ItemCotizacion[] = input.items.map((item, idx) => ({
-      ...item,
-      id: `item-${idx + 1}`,
-      subtotal: item.cantidad * item.precioUnitario
-    }));
-
-    // Calcular totales
-    const { subtotal, impuestos, total } = calcularTotales(items);
-
-    // Calcular fecha de vencimiento
-    const fechaVencimiento = calcularFechaVencimiento(timestamp, input.validezDias);
-
-    // Crear objeto cotización
-    const nuevaCotizacion: Cotizacion = {
-      id,
-      requerimientoId: input.requerimientoId,
-      proveedorId: input.proveedorId || null,
-      proveedorNombre: normalizeProveedorNombre(input.proveedorNombre),
-      tipo: input.tipo,
-      moneda: input.moneda,
-      estado: 'borrador',
-      validezDias: input.validezDias,
-      fechaEmision: timestamp,
-      fechaVencimiento,
-      items,
-      subtotal,
-      impuestos,
-      total,
-      terminos: input.terminos?.trim() || null,
-      observaciones: input.observaciones?.trim() || null,
-      aprobadoPor: null,
-      aprobadoEn: null,
-      rechazadoPor: null,
-      rechazadoEn: null,
-      motivoRechazo: null,
-      auditoria: {
-        creadoPor: usuarioActual.email,
-        creadoEn: timestamp,
-        modificadoPor: null,
-        modificadoEn: null,
-        anuladoPor: null,
-        anuladoEn: null,
-        motivoAnulacion: null
+  const crearCotizacion = useCallback(
+    async (input: NuevaCotizacionInput): Promise<CrudResult & { cotizacion?: Cotizacion }> => {
+      if (!tenantId || !user) {
+        return { exito: false, errores: ['Sin sesión activa'] };
       }
-    };
 
-    // Agregar al INICIO del store
-    const sizeBeforeAdd = cotizaciones.length;
-    setCotizaciones(prev => {
-      const newState = [nuevaCotizacion, ...prev];
-      
+      // Determine proveedor_id: if proveedorId provided use it, otherwise we need an existing proveedor
+      const proveedorDbId = input.proveedorId;
+      if (!proveedorDbId) {
+        return { exito: false, errores: ['Se requiere un proveedor válido con ID de BD'] };
+      }
+
+      const numeros = cotizaciones
+        .map(c => extraerNumeroSecuencial(c.id))
+        .filter((n): n is number => n !== null);
+      const ultimoNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
+      const nuevoCodigo = generarIdCotizacion(ultimoNumero);
+
+      const timestamp = new Date().toISOString();
+
+      // Calculate items with subtotals
+      const itemsConSubtotal = input.items.map(item => ({
+        ...item,
+        subtotal: item.cantidad * item.precioUnitario,
+      }));
+
+      const { subtotal, impuestos, total } = calcularTotales(
+        itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal }))
+      );
+
+      const fechaVencimiento = calcularFechaVencimiento(timestamp, input.validezDias);
+
+      // Look up requerimiento _dbId from local state
+      // input.requerimientoId is the display code like REQ-0001
+
+      const { data: inserted, error: errCot } = await dbCotizaciones.create({
+        tenant_id: tenantId,
+        numero: nuevoCodigo,
+        requerimiento_id: input.requerimientoId || null, // This is the display code; caller should pass _dbId
+        proveedor_id: proveedorDbId,
+        estado: 'borrador' as EstadoCotizacion,
+        fecha_emision: timestamp,
+        fecha_validez: fechaVencimiento,
+        moneda: input.moneda,
+        subtotal,
+        igv: impuestos,
+        total,
+        plazo_entrega: null,
+        condiciones_pago: input.terminos?.trim() ?? null,
+        observaciones: input.observaciones?.trim() ?? null,
+        creado_por: user.id,
+        modificado_por: null,
+        modificado_en: null,
+      });
+
+      if (errCot || !inserted) {
+        console.error('[COTIZACIONES] Error al crear:', errCot?.message);
+        return { exito: false, errores: [errCot?.message ?? 'Error desconocido'] };
+      }
+
+      const dbRow = inserted as CotizacionDB;
+
+      // Insert items
+      const itemsInserted: CotizacionItemDB[] = [];
+      for (const item of itemsConSubtotal) {
+        const { data: itemData, error: errItem } = await supabase
+          .from('cotizacion_items')
+          .insert({
+            tenant_id: tenantId,
+            cotizacion_id: dbRow.id,
+            descripcion: item.descripcion.trim(),
+            unidad: item.unidad,
+            cantidad: item.cantidad,
+            precio_unitario: item.precioUnitario,
+          })
+          .select()
+          .single();
+
+        if (errItem) {
+          console.error('[COTIZACIONES] Error al crear item:', errItem.message);
+        } else if (itemData) {
+          itemsInserted.push(itemData as CotizacionItemDB);
+        }
+      }
+
+      const nueva = mapFromDB({ ...dbRow, items: itemsInserted, proveedor: { razon_social: normalizeProveedorNombre(input.proveedorNombre), ruc: '' } });
+      setCotizaciones(prev => [nueva, ...prev]);
+
       if (DEBUG_COTIZACIONES) {
-        console.log('[COT_CREATED]', {
-          id: nuevaCotizacion.id,
-          requerimientoId: nuevaCotizacion.requerimientoId,
-          proveedor: nuevaCotizacion.proveedorNombre,
-          items: nuevaCotizacion.items.length,
-          total: nuevaCotizacion.total,
-          sizeAfter: newState.length,
-          sizeBefore: sizeBeforeAdd,
-          position: 'FIRST'
-        });
+        console.log('[COT_CREATED]', { id: nueva.id, proveedor: nueva.proveedorNombre });
       }
-      
-      return newState;
-    });
 
-    return nuevaCotizacion;
-  }, [cotizaciones, usuarioActual.email]);
+      return { exito: true, cotizacion: nueva };
+    },
+    [cotizaciones, tenantId, user]
+  );
 
-  // Actualizar cotización
-  const actualizarCotizacion = useCallback((id: string, input: ActualizarCotizacionInput) => {
-    const timestamp = new Date().toISOString();
-    
-    setCotizaciones(prev => prev.map(c => {
-      if (c.id === id) {
-        // Recalcular items si cambiaron
-        let items = c.items;
-        let subtotal = c.subtotal;
-        let impuestos = c.impuestos;
-        let total = c.total;
-        
-        if (input.items) {
-          items = input.items.map((item, idx) => ({
-            ...item,
-            id: `item-${idx + 1}`,
-            subtotal: item.cantidad * item.precioUnitario
-          }));
-          const totales = calcularTotales(items);
-          subtotal = totales.subtotal;
-          impuestos = totales.impuestos;
-          total = totales.total;
+  const actualizarCotizacion = useCallback(
+    async (id: string, input: ActualizarCotizacionInput): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+      let dbId: string | undefined;
+      setCotizaciones(prev => {
+        dbId = prev.find(c => c.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Cotización no encontrada'] };
+
+      const ahora = new Date().toISOString();
+      const updatePayload: Record<string, unknown> = {
+        modificado_por: user.id,
+        modificado_en: ahora,
+      };
+
+      if (input.moneda !== undefined) updatePayload.moneda = input.moneda;
+      if (input.terminos !== undefined) updatePayload.condiciones_pago = input.terminos?.trim() ?? null;
+      if (input.observaciones !== undefined) updatePayload.observaciones = input.observaciones?.trim() ?? null;
+      if (input.validezDias !== undefined) {
+        const cot = cotizaciones.find(c => c.id === id);
+        if (cot) {
+          updatePayload.fecha_validez = calcularFechaVencimiento(cot.fechaEmision, input.validezDias);
         }
-
-        // Recalcular fecha vencimiento si cambió validezDias
-        let fechaVencimiento = c.fechaVencimiento;
-        if (input.validezDias) {
-          fechaVencimiento = calcularFechaVencimiento(c.fechaEmision, input.validezDias);
-        }
-
-        const actualizado: Cotizacion = {
-          ...c,
-          ...(input.proveedorNombre && { proveedorNombre: normalizeProveedorNombre(input.proveedorNombre) }),
-          ...(input.proveedorId !== undefined && { proveedorId: input.proveedorId }),
-          ...(input.tipo && { tipo: input.tipo }),
-          ...(input.moneda && { moneda: input.moneda }),
-          ...(input.validezDias && { validezDias: input.validezDias }),
-          ...(input.terminos !== undefined && { terminos: input.terminos?.trim() || null }),
-          ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() || null }),
-          items,
-          subtotal,
-          impuestos,
-          total,
-          fechaVencimiento,
-          auditoria: {
-            ...c.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp
-          }
-        };
-
-        if (DEBUG_COTIZACIONES) {
-          console.log('[COT_UPDATED]', {
-            id: actualizado.id,
-            cambios: Object.keys(input)
-          });
-        }
-
-        return actualizado;
       }
-      return c;
-    }));
-  }, [usuarioActual.email]);
 
-  // Cambiar estado
-  const cambiarEstado = useCallback((id: string, nuevoEstado: EstadoCotizacion) => {
-    const timestamp = new Date().toISOString();
-    
-    setCotizaciones(prev => prev.map(c => {
-      if (c.id === id) {
-        const actualizado: Cotizacion = {
-          ...c,
-          estado: nuevoEstado,
-          auditoria: {
-            ...c.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp
-          }
-        };
+      if (input.items !== undefined) {
+        const itemsConSubtotal = input.items.map(item => ({
+          ...item,
+          subtotal: item.cantidad * item.precioUnitario,
+        }));
+        const { subtotal, impuestos, total } = calcularTotales(
+          itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal }))
+        );
+        updatePayload.subtotal = subtotal;
+        updatePayload.igv = impuestos;
+        updatePayload.total = total;
+      }
 
-        if (DEBUG_COTIZACIONES) {
-          console.log('[COT_ESTADO_CHANGED]', {
-            id: actualizado.id,
-            estadoAnterior: c.estado,
-            estadoNuevo: nuevoEstado
-          });
+      const { error } = await dbCotizaciones.update(dbId, updatePayload);
+
+      if (error) {
+        console.error('[COTIZACIONES] Error al actualizar:', error.message);
+        return { exito: false, errores: [error.message] };
+      }
+
+      if (input.items !== undefined && tenantId) {
+        await supabase.from('cotizacion_items').delete().eq('cotizacion_id', dbId);
+
+        const newItemsInserted: CotizacionItemDB[] = [];
+        for (const item of input.items) {
+          const { data: itemData } = await supabase
+            .from('cotizacion_items')
+            .insert({
+              tenant_id: tenantId,
+              cotizacion_id: dbId,
+              descripcion: item.descripcion.trim(),
+              unidad: item.unidad,
+              cantidad: item.cantidad,
+              precio_unitario: item.precioUnitario,
+            })
+            .select()
+            .single();
+
+          if (itemData) newItemsInserted.push(itemData as CotizacionItemDB);
         }
 
-        return actualizado;
+        setCotizaciones(prev =>
+          prev.map(c => {
+            if (c.id !== id) return c;
+            const newItems: ItemCotizacion[] = newItemsInserted.map(dbItem => ({
+              id: dbItem.id,
+              _dbId: dbItem.id,
+              descripcion: dbItem.descripcion,
+              cantidad: dbItem.cantidad,
+              unidad: dbItem.unidad,
+              precioUnitario: dbItem.precio_unitario,
+              subtotal: dbItem.precio_total,
+            }));
+            const { subtotal, impuestos, total } = calcularTotales(newItems);
+            return {
+              ...c,
+              ...(input.moneda !== undefined && { moneda: input.moneda }),
+              ...(input.validezDias !== undefined && { validezDias: input.validezDias }),
+              ...(input.terminos !== undefined && { terminos: input.terminos?.trim() ?? null }),
+              ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() ?? null }),
+              items: newItems,
+              subtotal,
+              impuestos,
+              total,
+              auditoria: { ...c.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+            };
+          })
+        );
+      } else {
+        setCotizaciones(prev =>
+          prev.map(c => {
+            if (c.id !== id) return c;
+            return {
+              ...c,
+              ...(input.moneda !== undefined && { moneda: input.moneda }),
+              ...(input.validezDias !== undefined && { validezDias: input.validezDias }),
+              ...(input.terminos !== undefined && { terminos: input.terminos?.trim() ?? null }),
+              ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() ?? null }),
+              auditoria: { ...c.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+            };
+          })
+        );
       }
-      return c;
-    }));
-  }, [usuarioActual.email]);
 
-  // Aprobar cotización
-  const aprobarCotizacion = useCallback((id: string, aprobadoPor: string) => {
-    const timestamp = new Date().toISOString();
-    
-    setCotizaciones(prev => prev.map(c => {
-      if (c.id === id) {
-        const aprobado: Cotizacion = {
-          ...c,
-          estado: 'aprobada',
-          aprobadoPor,
-          aprobadoEn: timestamp,
-          auditoria: {
-            ...c.auditoria,
-            modificadoPor: aprobadoPor,
-            modificadoEn: timestamp
-          }
-        };
-
-        if (DEBUG_COTIZACIONES) {
-          console.log('[COT_APPROVED]', {
-            id: aprobado.id,
-            aprobadoPor
-          });
-        }
-
-        return aprobado;
+      if (DEBUG_COTIZACIONES) {
+        console.log('[COT_UPDATED]', { id, cambios: Object.keys(input) });
       }
-      return c;
-    }));
-  }, []);
 
-  // Rechazar cotización
-  const rechazarCotizacion = useCallback((id: string, rechazadoPor: string, motivo: string) => {
-    const timestamp = new Date().toISOString();
-    
-    setCotizaciones(prev => prev.map(c => {
-      if (c.id === id) {
-        const rechazado: Cotizacion = {
-          ...c,
-          estado: 'rechazada',
-          rechazadoPor,
-          rechazadoEn: timestamp,
-          motivoRechazo: motivo.trim(),
-          auditoria: {
-            ...c.auditoria,
-            modificadoPor: rechazadoPor,
-            modificadoEn: timestamp
-          }
-        };
+      return { exito: true };
+    },
+    [cotizaciones, user, tenantId]
+  );
 
-        if (DEBUG_COTIZACIONES) {
-          console.log('[COT_REJECTED]', {
-            id: rechazado.id,
-            rechazadoPor,
-            motivo: motivo.substring(0, 50) + '...'
-          });
-        }
+  const cambiarEstado = useCallback(
+    async (id: string, nuevoEstado: EstadoCotizacion): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-        return rechazado;
+      let dbId: string | undefined;
+      setCotizaciones(prev => {
+        dbId = prev.find(c => c.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Cotización no encontrada'] };
+
+      const ahora = new Date().toISOString();
+      const { error } = await dbCotizaciones.update(dbId, {
+        estado: nuevoEstado,
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[COTIZACIONES] Error al cambiar estado:', error.message);
+        return { exito: false, errores: [error.message] };
       }
-      return c;
-    }));
-  }, []);
 
-  // Anular cotización
-  const anularCotizacion = useCallback((id: string, motivo: string) => {
-    const timestamp = new Date().toISOString();
-    
-    setCotizaciones(prev => prev.map(c => {
-      if (c.id === id) {
-        const anulado: Cotizacion = {
-          ...c,
-          estado: 'anulada',
-          auditoria: {
-            ...c.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp,
-            anuladoPor: usuarioActual.email,
-            anuladoEn: timestamp,
-            motivoAnulacion: motivo.trim()
-          }
-        };
+      setCotizaciones(prev =>
+        prev.map(c =>
+          c.id === id
+            ? { ...c, estado: nuevoEstado, auditoria: { ...c.auditoria, modificadoPor: user.id, modificadoEn: ahora } }
+            : c
+        )
+      );
 
-        if (DEBUG_COTIZACIONES) {
-          console.log('[COT_CANCELLED]', {
-            id: anulado.id,
-            motivo: motivo.substring(0, 50) + '...'
-          });
-        }
+      return { exito: true };
+    },
+    [user]
+  );
 
-        return anulado;
+  const aprobarCotizacion = useCallback(
+    async (id: string, aprobadoPor: string): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+      let dbId: string | undefined;
+      setCotizaciones(prev => {
+        dbId = prev.find(c => c.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Cotización no encontrada'] };
+
+      const ahora = new Date().toISOString();
+      const { error } = await dbCotizaciones.update(dbId, {
+        estado: 'aprobada' as EstadoCotizacion,
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[COTIZACIONES] Error al aprobar:', error.message);
+        return { exito: false, errores: [error.message] };
       }
-      return c;
-    }));
-  }, [usuarioActual.email]);
+
+      setCotizaciones(prev =>
+        prev.map(c =>
+          c.id === id
+            ? {
+                ...c,
+                estado: 'aprobada' as EstadoCotizacion,
+                aprobadoPor,
+                aprobadoEn: ahora,
+                auditoria: { ...c.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+              }
+            : c
+        )
+      );
+
+      if (DEBUG_COTIZACIONES) {
+        console.log('[COT_APPROVED]', { id, aprobadoPor });
+      }
+
+      return { exito: true };
+    },
+    [user]
+  );
+
+  const rechazarCotizacion = useCallback(
+    async (id: string, rechazadoPor: string, motivo: string): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+      let dbId: string | undefined;
+      setCotizaciones(prev => {
+        dbId = prev.find(c => c.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Cotización no encontrada'] };
+
+      const ahora = new Date().toISOString();
+      const { error } = await dbCotizaciones.update(dbId, {
+        estado: 'rechazada' as EstadoCotizacion,
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[COTIZACIONES] Error al rechazar:', error.message);
+        return { exito: false, errores: [error.message] };
+      }
+
+      setCotizaciones(prev =>
+        prev.map(c =>
+          c.id === id
+            ? {
+                ...c,
+                estado: 'rechazada' as EstadoCotizacion,
+                rechazadoPor,
+                rechazadoEn: ahora,
+                motivoRechazo: motivo.trim(),
+                auditoria: { ...c.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+              }
+            : c
+        )
+      );
+
+      return { exito: true };
+    },
+    [user]
+  );
+
+  const anularCotizacion = useCallback(
+    async (id: string, motivo: string): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+      let dbId: string | undefined;
+      setCotizaciones(prev => {
+        dbId = prev.find(c => c.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Cotización no encontrada'] };
+
+      const ahora = new Date().toISOString();
+      const { error } = await dbCotizaciones.update(dbId, {
+        estado: 'anulada' as EstadoCotizacion,
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[COTIZACIONES] Error al anular:', error.message);
+        return { exito: false, errores: [error.message] };
+      }
+
+      setCotizaciones(prev =>
+        prev.map(c =>
+          c.id === id
+            ? {
+                ...c,
+                estado: 'anulada' as EstadoCotizacion,
+                auditoria: {
+                  ...c.auditoria,
+                  modificadoPor: user.id,
+                  modificadoEn: ahora,
+                  anuladoPor: user.id,
+                  anuladoEn: ahora,
+                  motivoAnulacion: motivo.trim(),
+                },
+              }
+            : c
+        )
+      );
+
+      return { exito: true };
+    },
+    [user]
+  );
 
   const value: CotizacionStoreContext = {
     cotizaciones,
+    loading,
     obtenerCotizacionPorId,
     obtenerCotizacionesPorRequerimiento,
     crearCotizacion,
@@ -709,7 +664,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
     rechazarCotizacion,
     anularCotizacion,
     cargarCotizacionesIniciales,
-    usuarioActual
+    usuarioActual,
   };
 
   return <CotizacionContext.Provider value={value}>{children}</CotizacionContext.Provider>;

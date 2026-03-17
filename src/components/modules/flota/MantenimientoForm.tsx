@@ -37,6 +37,7 @@ import {
   OT_TIPO_CONFIG
 } from '../../../lib/flota/ot-config';
 import { useOTStore, type NuevaOrdenTrabajoInput } from '../../../lib/flota/ot-store';
+import { useVehiculos } from '../../../lib/flota/vehiculos-store';
 import { toast } from 'sonner@2.0.3';
 
 interface MantenimientoFormProps {
@@ -45,19 +46,23 @@ interface MantenimientoFormProps {
   onSuccess: (numeroOT: string) => void;
 }
 
-export function MantenimientoForm({ 
-  tipoInicial, 
-  onCancel, 
-  onSuccess 
+export function MantenimientoForm({
+  tipoInicial,
+  onCancel,
+  onSuccess
 }: MantenimientoFormProps) {
   const { crearOrdenTrabajo } = useOTStore();
-  
+  const { vehiculos } = useVehiculos();
+
+  // Filter only active vehicles
+  const vehiculosActivos = vehiculos.filter(v => v.estado === 'activo' || v.estado === 'en_taller');
+
   // Form state
   const [tipo, setTipo] = useState<TipoOT>(tipoInicial || 'correctivo');
   const [criticidad, setCriticidad] = useState<CriticidadOT>('media');
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [vehiculoPlaca] = useState('ABC-123'); // Mock - en producción viene del contexto
+  const [selectedVehiculoId, setSelectedVehiculoId] = useState<string>('');
   const [fechaProgramada, setFechaProgramada] = useState('');
   const [kilometrajeRegistro, setKilometrajeRegistro] = useState<number>(48500);
   const [tallerId, setTallerId] = useState('TALLER-002');
@@ -93,8 +98,14 @@ export function MantenimientoForm({
   
   const tallerSeleccionado = talleres.find(t => t.id === tallerId);
 
+  const selectedVehiculo = vehiculosActivos.find(v => v.id === selectedVehiculoId);
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
+
+    if (!selectedVehiculoId) {
+      newErrors.vehiculo = 'Selecciona un vehículo';
+    }
 
     if (!titulo.trim()) {
       newErrors.titulo = 'El título es obligatorio';
@@ -131,8 +142,8 @@ export function MantenimientoForm({
 
     try {
       const input: NuevaOrdenTrabajoInput = {
-        vehiculoId: 'VH-001', // Mock
-        vehiculoPlaca,
+        vehiculoId: selectedVehiculo!.id,
+        vehiculoPlaca: selectedVehiculo!.placa,
         tipo,
         criticidad,
         titulo,
@@ -154,7 +165,7 @@ export function MantenimientoForm({
         observaciones: observaciones || undefined
       };
 
-      const nuevaOT = crearOrdenTrabajo(input);
+      const nuevaOT = await crearOrdenTrabajo(input);
       
       toast.success(`Orden de Trabajo ${nuevaOT.numeroOT} creada exitosamente`, {
         description: requiereAprobacion 
@@ -273,12 +284,26 @@ export function MantenimientoForm({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="vehiculoPlaca">Placa del Vehículo</Label>
-                  <Input 
-                    id="vehiculoPlaca"
-                    value={vehiculoPlaca}
-                    disabled
-                  />
+                  <Label htmlFor="vehiculo">Vehículo *</Label>
+                  <Select value={selectedVehiculoId} onValueChange={setSelectedVehiculoId}>
+                    <SelectTrigger id="vehiculo">
+                      <SelectValue placeholder="Seleccionar vehículo..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vehiculosActivos.length === 0 ? (
+                        <SelectItem value="_empty" disabled>Sin vehículos disponibles</SelectItem>
+                      ) : (
+                        vehiculosActivos.map(v => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.placa} — {v.marca} {v.modelo}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {errors.vehiculo && (
+                    <p className="text-sm text-destructive mt-1">{errors.vehiculo}</p>
+                  )}
                 </div>
 
                 <div>

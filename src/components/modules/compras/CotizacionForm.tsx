@@ -136,9 +136,9 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
   };
 
   // Manejar submit
-  const handleSubmit = (e: React.FormEvent, enviar: boolean = false) => {
+  const handleSubmit = async (e: React.FormEvent, enviar: boolean = false) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       toast.error('Por favor, corrige los errores del formulario');
       return;
@@ -149,9 +149,13 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
     try {
       if (isEditing) {
         // Actualizar cotización
-        actualizarCotizacion(cotizacionId, formData);
+        const resActualizar = await actualizarCotizacion(cotizacionId, formData);
+        if (!resActualizar.exito) {
+          toast.error(resActualizar.errores?.[0] ?? 'Error al actualizar la cotización');
+          return;
+        }
         if (enviar) {
-          cambiarEstado(cotizacionId, 'enviada');
+          await cambiarEstado(cotizacionId, 'enviada');
           toast.success('Cotización actualizada y enviada al proveedor');
         } else {
           toast.success('Cotización actualizada correctamente');
@@ -159,9 +163,14 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
         onSuccess(cotizacionId);
       } else {
         // Crear cotización
-        const nuevaCot = crearCotizacion(formData as NuevaCotizacionInput);
+        const resCrear = await crearCotizacion(formData as NuevaCotizacionInput);
+        if (!resCrear.exito || !resCrear.cotizacion) {
+          toast.error(resCrear.errores?.[0] ?? 'Error al crear la cotización');
+          return;
+        }
+        const nuevaCot = resCrear.cotizacion;
         if (enviar) {
-          cambiarEstado(nuevaCot.id, 'enviada');
+          await cambiarEstado(nuevaCot.id, 'enviada');
           toast.success(`Cotización ${nuevaCot.id} creada y enviada`);
         } else {
           toast.success(`Cotización ${nuevaCot.id} guardada como borrador`);

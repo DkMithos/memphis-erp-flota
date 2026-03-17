@@ -1,45 +1,49 @@
 /**
  * STORE DE EQUIPOS BIOMÉDICOS
- * Context global para gestión de equipos en el módulo Biomédico
- * Prototipo funcional - Reemplazar por backend real en producción
+ * v2.0.0 - Conectado a Supabase (reemplaza mock local)
+ * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { 
-  generarCodigoEquipo, 
+import { dbEquiposBiomedicos } from '../supabase/helpers';
+import { useAuth } from '../../auth/AuthProvider';
+import type { EquipoBiomedico as EquipoDBRow } from '../supabase/types';
+import {
+  generarCodigoEquipo,
   extraerNumeroSecuencial,
   DEBUG_BIOMEDICO,
-  type EstadoEquipoBiomedico, 
-  type CategoriaEquipoBiomedico, 
-  type RiesgoBiomedico 
+  type EstadoEquipoBiomedico,
+  type CategoriaEquipoBiomedico,
+  type RiesgoBiomedico,
 } from './equipos-config';
 
 // ============================================================================
-// TIPOS
+// TIPOS FRONTEND
 // ============================================================================
 
 export interface EquipoBiomedico {
-  // Identificación
+  // Identificación — id = codigo legible (EB-YYYY-NNN), _dbId = UUID interno
   id: string;
+  _dbId: string;
   codigo: string;
   nombre: string;
   marca: string;
   modelo: string;
   serie: string;
-  
+
   // Clasificación
   categoria: CategoriaEquipoBiomedico;
   riesgo: RiesgoBiomedico;
   estado: EstadoEquipoBiomedico;
-  
-  // Ubicación
+
+  // Ubicación (mapeada desde campos planos de DB)
   ubicacion: {
     area: string;
     subarea: string;
     responsable: string;
   };
-  
-  // Características técnicas
+
+  // Especificaciones técnicas (almacenadas como string serializado — no en DB todavía)
   especificaciones: {
     voltaje?: string;
     potencia?: string;
@@ -47,7 +51,7 @@ export interface EquipoBiomedico {
     dimensiones?: string;
     peso?: string;
   };
-  
+
   // Fechas importantes
   fechaAdquisicion: string;
   fechaInstalacion: string;
@@ -55,15 +59,15 @@ export interface EquipoBiomedico {
   fechaProximoMantenimiento: string;
   fechaUltimaCalibracion: string | null;
   fechaProximaCalibracion: string | null;
-  
-  // Garantía
+
+  // Garantía (mapeada desde campos planos de DB)
   garantia: {
     proveedor: string;
     fechaInicio: string;
     fechaVencimiento: string;
     vigente: boolean;
   };
-  
+
   // Costos
   costos: {
     adquisicion: number;
@@ -71,16 +75,15 @@ export interface EquipoBiomedico {
     mantenimientoCorrectivo: number;
     calibracion: number;
   };
-  
-  // Auditoría obligatoria
+
+  // Auditoría
   auditoria: {
-    creadoPor: string;
+    creadoPor: string | null;
     creadoEn: string;
     modificadoPor: string | null;
     modificadoEn: string | null;
   };
-  
-  // Observaciones
+
   observaciones: string | null;
 }
 
@@ -117,15 +120,21 @@ export interface NuevoEquipoBiomedicoInput {
   observaciones?: string;
 }
 
+interface CrudResult {
+  exito: boolean;
+  errores?: string[];
+}
+
 interface EquiposStoreContext {
   equipos: EquipoBiomedico[];
+  loading: boolean;
   obtenerEquipoPorCodigo: (codigo: string) => EquipoBiomedico | undefined;
   obtenerEquipoPorId: (id: string) => EquipoBiomedico | undefined;
   obtenerEquiposPorCategoria: (categoria: CategoriaEquipoBiomedico) => EquipoBiomedico[];
   obtenerEquiposPorEstado: (estado: EstadoEquipoBiomedico) => EquipoBiomedico[];
-  crearEquipo: (input: NuevoEquipoBiomedicoInput) => EquipoBiomedico;
-  actualizarEquipo: (codigo: string, input: Partial<NuevoEquipoBiomedicoInput>) => void;
-  actualizarEstadoEquipo: (codigo: string, nuevoEstado: EstadoEquipoBiomedico) => void;
+  crearEquipo: (input: NuevoEquipoBiomedicoInput) => Promise<EquipoBiomedico>;
+  actualizarEquipo: (codigo: string, input: Partial<NuevoEquipoBiomedicoInput>) => Promise<CrudResult>;
+  actualizarEstadoEquipo: (codigo: string, nuevoEstado: EstadoEquipoBiomedico) => Promise<CrudResult>;
   cargarEquiposIniciales: () => void;
 }
 
@@ -136,433 +145,364 @@ interface EquiposStoreContext {
 const EquiposContext = createContext<EquiposStoreContext | undefined>(undefined);
 
 // ============================================================================
-// DATA DE EJEMPLO - Seed inicial
+// MAPPER DB → FRONTEND
 // ============================================================================
 
-const equiposSeed: EquipoBiomedico[] = [
-  {
-    id: 'EB-001',
-    codigo: 'EB-2024-001',
-    nombre: 'Ventilador Mecánico',
-    marca: 'Dräger',
-    modelo: 'Savina 300',
-    serie: 'SN-VM-2024-001',
-    categoria: 'soporte_vital',
-    riesgo: 'critico',
-    estado: 'operativo',
-    ubicacion: {
-      area: 'UCI',
-      subarea: 'Cama 3',
-      responsable: 'Dr. Carlos Mendoza'
-    },
-    especificaciones: {
-      voltaje: '220V',
-      potencia: '150W',
-      frecuencia: '50/60Hz',
-      dimensiones: '35x40x120cm',
-      peso: '25kg'
-    },
-    fechaAdquisicion: '2024-01-15',
-    fechaInstalacion: '2024-02-01',
-    fechaUltimoMantenimiento: '2024-11-01',
-    fechaProximoMantenimiento: '2025-01-15',
-    fechaUltimaCalibracion: '2024-11-01',
-    fechaProximaCalibracion: '2025-01-15',
-    garantia: {
-      proveedor: 'Dräger Medical Perú',
-      fechaInicio: '2024-02-01',
-      fechaVencimiento: '2027-02-01',
-      vigente: true
-    },
-    costos: {
-      adquisicion: 45000.00,
-      mantenimientoPreventivoAnual: 2500.00,
-      mantenimientoCorrectivo: 0,
-      calibracion: 800.00
-    },
-    auditoria: {
-      creadoPor: 'sistema.automatico@kesa.com',
-      creadoEn: '2024-01-15 10:00:00',
-      modificadoPor: null,
-      modificadoEn: null
-    },
-    observaciones: 'Equipo crítico para soporte vital en UCI'
-  },
-  {
-    id: 'EB-002',
-    codigo: 'EB-2024-002',
-    nombre: 'Ecógrafo',
-    marca: 'GE Healthcare',
-    modelo: 'Voluson E10',
-    serie: 'SN-ECO-2024-002',
-    categoria: 'diagnostico',
-    riesgo: 'medio',
-    estado: 'operativo',
-    ubicacion: {
-      area: 'Radiología',
-      subarea: 'Sala de Ecografía',
-      responsable: 'Dra. Ana García'
-    },
-    especificaciones: {
-      voltaje: '220V',
-      potencia: '300W',
-      frecuencia: '50/60Hz',
-      dimensiones: '60x80x150cm',
-      peso: '85kg'
-    },
-    fechaAdquisicion: '2024-03-20',
-    fechaInstalacion: '2024-04-05',
-    fechaUltimoMantenimiento: '2024-10-05',
-    fechaProximoMantenimiento: '2025-04-05',
-    fechaUltimaCalibracion: '2024-10-05',
-    fechaProximaCalibracion: '2025-04-05',
-    garantia: {
-      proveedor: 'GE Healthcare Perú',
-      fechaInicio: '2024-04-05',
-      fechaVencimiento: '2026-04-05',
-      vigente: true
-    },
-    costos: {
-      adquisicion: 85000.00,
-      mantenimientoPreventivoAnual: 3500.00,
-      mantenimientoCorrectivo: 0,
-      calibracion: 1200.00
-    },
-    auditoria: {
-      creadoPor: 'juan.perez@kesa.com',
-      creadoEn: '2024-03-20 14:30:00',
-      modificadoPor: null,
-      modificadoEn: null
-    },
-    observaciones: null
-  },
-  {
-    id: 'EB-003',
-    codigo: 'EB-2024-003',
-    nombre: 'Monitor de Signos Vitales',
-    marca: 'Philips',
-    modelo: 'IntelliVue MX450',
-    serie: 'SN-MSV-2024-003',
-    categoria: 'diagnostico',
-    riesgo: 'alto',
-    estado: 'mantenimiento',
-    ubicacion: {
-      area: 'Emergencia',
-      subarea: 'Trauma Shock',
-      responsable: 'Dr. Luis Torres'
-    },
-    especificaciones: {
-      voltaje: '220V',
-      potencia: '100W',
-      frecuencia: '50/60Hz',
-      dimensiones: '30x25x35cm',
-      peso: '5kg'
-    },
-    fechaAdquisicion: '2024-02-10',
-    fechaInstalacion: '2024-02-15',
-    fechaUltimoMantenimiento: '2024-12-20',
-    fechaProximoMantenimiento: '2025-01-05',
-    fechaUltimaCalibracion: '2024-08-15',
-    fechaProximaCalibracion: '2025-02-15',
-    garantia: {
-      proveedor: 'Philips Medical Perú',
-      fechaInicio: '2024-02-15',
-      fechaVencimiento: '2027-02-15',
-      vigente: true
-    },
-    costos: {
-      adquisicion: 12000.00,
-      mantenimientoPreventivoAnual: 1200.00,
-      mantenimientoCorrectivo: 450.00,
-      calibracion: 300.00
-    },
-    auditoria: {
-      creadoPor: 'ana.garcia@kesa.com',
-      creadoEn: '2024-02-10 09:00:00',
-      modificadoPor: 'carlos.mendoza@kesa.com',
-      modificadoEn: '2024-12-20 11:30:00'
-    },
-    observaciones: 'En mantenimiento preventivo programado - Reemplazo de sensor de temperatura'
-  },
-  {
-    id: 'EB-004',
-    codigo: 'EB-2024-004',
-    nombre: 'Desfibrilador',
-    marca: 'ZOLL',
-    modelo: 'R Series Plus',
-    serie: 'SN-DEF-2024-004',
-    categoria: 'terapeutico',
-    riesgo: 'critico',
-    estado: 'operativo',
-    ubicacion: {
-      area: 'Emergencia',
-      subarea: 'Reanimación',
-      responsable: 'Dr. Roberto Jiménez'
-    },
-    especificaciones: {
-      voltaje: '220V',
-      potencia: '200W',
-      frecuencia: '50/60Hz',
-      dimensiones: '28x32x38cm',
-      peso: '8.5kg'
-    },
-    fechaAdquisicion: '2024-05-12',
-    fechaInstalacion: '2024-05-20',
-    fechaUltimoMantenimiento: '2024-11-20',
-    fechaProximoMantenimiento: '2025-01-10',
-    fechaUltimaCalibracion: '2024-11-20',
-    fechaProximaCalibracion: '2025-01-10',
-    garantia: {
-      proveedor: 'ZOLL Medical Perú',
-      fechaInicio: '2024-05-20',
-      fechaVencimiento: '2029-05-20',
-      vigente: true
-    },
-    costos: {
-      adquisicion: 28000.00,
-      mantenimientoPreventivoAnual: 1800.00,
-      mantenimientoCorrectivo: 0,
-      calibracion: 600.00
-    },
-    auditoria: {
-      creadoPor: 'juan.perez@kesa.com',
-      creadoEn: '2024-05-12 16:00:00',
-      modificadoPor: null,
-      modificadoEn: null
-    },
-    observaciones: 'Equipo crítico de emergencia - Inspección diaria obligatoria'
-  },
-  {
-    id: 'EB-005',
-    codigo: 'EB-2024-005',
-    nombre: 'Bomba de Infusión',
-    marca: 'B. Braun',
-    modelo: 'Infusomat Space',
-    serie: 'SN-INF-2024-005',
-    categoria: 'terapeutico',
-    riesgo: 'alto',
-    estado: 'calibracion',
-    ubicacion: {
-      area: 'UCI',
-      subarea: 'Cama 7',
-      responsable: 'Dr. Carlos Mendoza'
-    },
-    especificaciones: {
-      voltaje: '220V',
-      potencia: '50W',
-      frecuencia: '50/60Hz',
-      dimensiones: '18x22x28cm',
-      peso: '2.5kg'
-    },
-    fechaAdquisicion: '2024-06-01',
-    fechaInstalacion: '2024-06-10',
-    fechaUltimoMantenimiento: '2024-12-10',
-    fechaProximoMantenimiento: '2025-03-10',
-    fechaUltimaCalibracion: '2024-09-10',
-    fechaProximaCalibracion: '2025-01-02',
-    garantia: {
-      proveedor: 'B. Braun Medical Perú',
-      fechaInicio: '2024-06-10',
-      fechaVencimiento: '2027-06-10',
-      vigente: true
-    },
-    costos: {
-      adquisicion: 8500.00,
-      mantenimientoPreventivoAnual: 850.00,
-      mantenimientoCorrectivo: 0,
-      calibracion: 250.00
-    },
-    auditoria: {
-      creadoPor: 'ana.garcia@kesa.com',
-      creadoEn: '2024-06-01 11:00:00',
-      modificadoPor: 'carlos.mendoza@kesa.com',
-      modificadoEn: '2024-12-26 08:00:00'
-    },
-    observaciones: 'En proceso de calibración programada - Laboratorio externo'
+function mapFromDB(row: EquipoDBRow): EquipoBiomedico {
+  // La DB tiene campos planos; reconstruimos los objetos anidados del frontend.
+  // Los campos de ubicación se mapean desde: ubicacion (área), servicio_clinico (subárea/responsable).
+  // Para compatibilidad, parse de un string JSON serializado si está disponible en el futuro,
+  // o usamos los campos disponibles con defaults sensatos.
+  const ubicacionStr = row.ubicacion ?? '';
+  // Intentar parsear como JSON por si se almacenó serializado
+  let area = ubicacionStr;
+  let subarea = row.servicio_clinico ?? '';
+  let responsable = '';
+  try {
+    const parsed = JSON.parse(ubicacionStr);
+    if (parsed && typeof parsed === 'object') {
+      area = parsed.area ?? ubicacionStr;
+      subarea = parsed.subarea ?? subarea;
+      responsable = parsed.responsable ?? '';
+    }
+  } catch {
+    // No es JSON — campo plano, usar como area
   }
-];
+
+  const garantiaVence = row.garantia_vence ?? null;
+  const hoy = new Date();
+  const garantiaVigente = garantiaVence ? hoy < new Date(garantiaVence) : false;
+
+  return {
+    id: row.codigo,
+    _dbId: row.id,
+    codigo: row.codigo,
+    nombre: row.nombre,
+    marca: row.marca,
+    modelo: row.modelo,
+    serie: row.serie ?? '',
+    categoria: row.categoria as CategoriaEquipoBiomedico,
+    riesgo: row.riesgo as RiesgoBiomedico,
+    estado: row.estado as EstadoEquipoBiomedico,
+    ubicacion: { area, subarea, responsable },
+    especificaciones: {},  // no almacenado en DB; campo para compatibilidad UI
+    fechaAdquisicion: row.fecha_adquisicion ?? '',
+    fechaInstalacion: row.fecha_adquisicion ?? '',  // no existe fecha_instalacion en DB
+    fechaUltimoMantenimiento: row.ultimo_mantenimiento ?? null,
+    fechaProximoMantenimiento: row.proximo_mantenimiento ?? '',
+    fechaUltimaCalibracion: null,
+    fechaProximaCalibracion: null,
+    garantia: {
+      proveedor: '',  // no almacenado en columna separada en DB
+      fechaInicio: '',
+      fechaVencimiento: garantiaVence ?? '',
+      vigente: garantiaVigente,
+    },
+    costos: {
+      adquisicion: row.costo_adquisicion ?? 0,
+      mantenimientoPreventivoAnual: 0,
+      mantenimientoCorrectivo: 0,
+      calibracion: 0,
+    },
+    auditoria: {
+      creadoPor: row.creado_por,
+      creadoEn: row.creado_en,
+      modificadoPor: row.modificado_por,
+      modificadoEn: row.modificado_en,
+    },
+    observaciones: null,
+  };
+}
 
 // ============================================================================
 // PROVIDER
 // ============================================================================
 
 export function EquiposStoreProvider({ children }: { children: React.ReactNode }) {
+  const { tenantId, user } = useAuth();
   const [equipos, setEquipos] = useState<EquipoBiomedico[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Carga inicial desde Supabase
+  const fetchEquipos = useCallback(async () => {
+    if (!tenantId) return;
+    setLoading(true);
+
+    const { data, error } = await dbEquiposBiomedicos.list();
+
+    if (error) {
+      console.error('[EQUIPOS_BIO] Error al cargar:', error.message);
+    } else if (data) {
+      const mapped = (data as EquipoDBRow[]).map(mapFromDB);
+      setEquipos(mapped);
+      if (DEBUG_BIOMEDICO) {
+        console.log('[EQUIPOS_BIO] Cargados desde Supabase:', mapped.length);
+      }
+    }
+    setLoading(false);
+  }, [tenantId]);
 
   useEffect(() => {
-    if (equipos.length === 0) {
-      if (DEBUG_BIOMEDICO) {
-        console.log('[EQUIPOS_SEED_LOADING]', { seedSize: equiposSeed.length });
-      }
-      setEquipos(equiposSeed);
-    }
-  }, []);
+    fetchEquipos();
+  }, [fetchEquipos]);
 
+  // cargarEquiposIniciales: legacy shim, triggers re-fetch
   const cargarEquiposIniciales = useCallback(() => {
-    if (equipos.length === 0) {
-      if (DEBUG_BIOMEDICO) {
-        console.log('[EQUIPOS_SEED_MANUAL_LOADING]', { seedSize: equiposSeed.length });
-      }
-      setEquipos(equiposSeed);
-    } else if (DEBUG_BIOMEDICO) {
-      console.log('[EQUIPOS_SEED_SKIP]', { reason: 'Ya hay equipos en el store', currentSize: equipos.length });
-    }
-  }, [equipos.length]);
+    fetchEquipos();
+  }, [fetchEquipos]);
 
-  // Obtener equipo por código
+  // ============================================================================
+  // QUERIES (síncronas — operan sobre estado local ya cargado)
+  // ============================================================================
+
   const obtenerEquipoPorCodigo = useCallback((codigo: string) => {
     return equipos.find(eq => eq.codigo === codigo);
   }, [equipos]);
 
-  // Obtener equipo por ID
   const obtenerEquipoPorId = useCallback((id: string) => {
     return equipos.find(eq => eq.id === id);
   }, [equipos]);
 
-  // Obtener equipos por categoría
   const obtenerEquiposPorCategoria = useCallback((categoria: CategoriaEquipoBiomedico) => {
     return equipos.filter(eq => eq.categoria === categoria);
   }, [equipos]);
 
-  // Obtener equipos por estado
   const obtenerEquiposPorEstado = useCallback((estado: EstadoEquipoBiomedico) => {
     return equipos.filter(eq => eq.estado === estado);
   }, [equipos]);
 
-  // Crear nuevo equipo
-  const crearEquipo = useCallback((input: NuevoEquipoBiomedicoInput): EquipoBiomedico => {
-    // Obtener el último número secuencial
+  // ============================================================================
+  // CRUD
+  // ============================================================================
+
+  const crearEquipo = useCallback(async (input: NuevoEquipoBiomedicoInput): Promise<EquipoBiomedico> => {
+    if (!tenantId || !user) {
+      throw new Error('Sin sesión activa');
+    }
+
+    // Determinar siguiente número secuencial
     const numeros = equipos
       .map(eq => extraerNumeroSecuencial(eq.codigo))
       .filter((n): n is number => n !== null);
     const ultimoNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
+    const nuevoCodigo = generarCodigoEquipo(ultimoNumero);
 
-    // Generar nuevo código
-    const codigo = generarCodigoEquipo(ultimoNumero);
-    const id = `EB-${(ultimoNumero + 1).toString().padStart(3, '0')}`;
+    // Calcular frecuencia MP por defecto (180 días)
+    const frecuenciaMP = 180;
 
-    // Usuario actual (mock - en producción viene del auth context)
-    const usuarioActual = 'admin@kesa.com';
-    const timestamp = new Date().toISOString();
+    // Calcular proximo mantenimiento
+    const fechaProxMant = new Date(input.fechaInstalacion);
+    fechaProxMant.setDate(fechaProxMant.getDate() + frecuenciaMP);
 
-    // Calcular fecha próximo mantenimiento (180 días por defecto)
-    const fechaProximoMant = new Date(input.fechaInstalacion);
-    fechaProximoMant.setDate(fechaProximoMant.getDate() + 180);
+    // Serializar ubicación como JSON para almacenar en campo `ubicacion` (texto)
+    const ubicacionJson = JSON.stringify({
+      area: input.ubicacion.area,
+      subarea: input.ubicacion.subarea,
+      responsable: input.ubicacion.responsable,
+    });
 
-    // Calcular vigencia de garantía
-    const hoy = new Date();
-    const vencimientoGarantia = new Date(input.garantia.fechaVencimiento);
-    const garantiaVigente = hoy < vencimientoGarantia;
-
-    // Crear objeto equipo
-    const nuevoEquipo: EquipoBiomedico = {
-      id,
-      codigo,
+    const { data: inserted, error } = await dbEquiposBiomedicos.create({
+      tenant_id: tenantId,
+      codigo: nuevoCodigo,
       nombre: input.nombre,
       marca: input.marca,
       modelo: input.modelo,
       serie: input.serie,
+      anio_fabricacion: null,
       categoria: input.categoria,
       riesgo: input.riesgo,
-      estado: 'operativo',
+      estado: 'operativo' as EstadoEquipoBiomedico,
+      ubicacion: ubicacionJson,
+      servicio_clinico: input.ubicacion.subarea,
+      fecha_adquisicion: input.fechaAdquisicion,
+      proveedor_id: null,
+      costo_adquisicion: input.costos.adquisicion,
+      garantia_vence: input.garantia.fechaVencimiento || null,
+      frecuencia_mp_dias: frecuenciaMP,
+      ultimo_mantenimiento: null,
+      proximo_mantenimiento: fechaProxMant.toISOString().split('T')[0],
+      motivo_baja: null,
+      dado_de_baja_por: null,
+      dado_de_baja_en: null,
+      creado_por: user.id,
+      modificado_por: null,
+      modificado_en: null,
+    });
+
+    if (error) {
+      console.error('[EQUIPOS_BIO] Error al crear:', error.message);
+      throw new Error(error.message);
+    }
+
+    const nuevo = mapFromDB(inserted as EquipoDBRow);
+    // Override with full frontend data that wasn't stored in flat DB columns
+    const nuevoConDatos: EquipoBiomedico = {
+      ...nuevo,
       ubicacion: input.ubicacion,
       especificaciones: input.especificaciones || {},
-      fechaAdquisicion: input.fechaAdquisicion,
       fechaInstalacion: input.fechaInstalacion,
-      fechaUltimoMantenimiento: null,
-      fechaProximoMantenimiento: fechaProximoMant.toISOString().split('T')[0],
-      fechaUltimaCalibracion: null,
-      fechaProximaCalibracion: null,
       garantia: {
-        ...input.garantia,
-        vigente: garantiaVigente
+        proveedor: input.garantia.proveedor,
+        fechaInicio: input.garantia.fechaInicio,
+        fechaVencimiento: input.garantia.fechaVencimiento,
+        vigente: nuevo.garantia.vigente,
       },
       costos: {
         adquisicion: input.costos.adquisicion,
         mantenimientoPreventivoAnual: input.costos.mantenimientoPreventivoAnual,
         mantenimientoCorrectivo: 0,
-        calibracion: 0
+        calibracion: 0,
       },
-      auditoria: {
-        creadoPor: usuarioActual,
-        creadoEn: timestamp,
-        modificadoPor: null,
-        modificadoEn: null
-      },
-      observaciones: input.observaciones || null
+      observaciones: input.observaciones ?? null,
     };
 
-    // Agregar al INICIO del store para visibilidad inmediata
+    setEquipos(prev => [nuevoConDatos, ...prev]);
+
+    if (DEBUG_BIOMEDICO) {
+      console.log('[EQUIPO_BIO_CREATED]', { codigo: nuevoConDatos.codigo, nombre: nuevoConDatos.nombre });
+    }
+
+    return nuevoConDatos;
+  }, [equipos, tenantId, user]);
+
+  const actualizarEquipo = useCallback(async (
+    codigo: string,
+    input: Partial<NuevoEquipoBiomedicoInput>
+  ): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+    // Read _dbId without stale closure
+    let dbId: string | undefined;
     setEquipos(prev => {
-      const newState = [nuevoEquipo, ...prev];
-      
-      if (DEBUG_BIOMEDICO) {
-        console.log('[EQUIPO_CREATED]', {
-          codigo: nuevoEquipo.codigo,
-          nombre: nuevoEquipo.nombre,
-          estado: nuevoEquipo.estado,
-          sizeAfter: newState.length
-        });
-      }
-      
-      return newState;
+      dbId = prev.find(e => e.codigo === codigo)?._dbId;
+      return prev;
     });
 
-    return nuevoEquipo;
-  }, [equipos]);
+    if (!dbId) return { exito: false, errores: ['Equipo no encontrado'] };
 
-  // Actualizar equipo
-  const actualizarEquipo = useCallback((codigo: string, input: Partial<NuevoEquipoBiomedicoInput>) => {
+    const ahora = new Date().toISOString();
+    const updatePayload: Record<string, unknown> = {
+      modificado_por: user.id,
+      modificado_en: ahora,
+    };
+
+    if (input.nombre !== undefined) updatePayload.nombre = input.nombre;
+    if (input.marca !== undefined) updatePayload.marca = input.marca;
+    if (input.modelo !== undefined) updatePayload.modelo = input.modelo;
+    if (input.serie !== undefined) updatePayload.serie = input.serie;
+    if (input.categoria !== undefined) updatePayload.categoria = input.categoria;
+    if (input.riesgo !== undefined) updatePayload.riesgo = input.riesgo;
+    if (input.ubicacion !== undefined) {
+      updatePayload.ubicacion = JSON.stringify(input.ubicacion);
+      updatePayload.servicio_clinico = input.ubicacion.subarea;
+    }
+    if (input.fechaAdquisicion !== undefined) updatePayload.fecha_adquisicion = input.fechaAdquisicion;
+    if (input.garantia?.fechaVencimiento !== undefined) {
+      updatePayload.garantia_vence = input.garantia.fechaVencimiento;
+    }
+    if (input.costos?.adquisicion !== undefined) {
+      updatePayload.costo_adquisicion = input.costos.adquisicion;
+    }
+
+    const { error } = await dbEquiposBiomedicos.update(dbId, updatePayload);
+
+    if (error) {
+      console.error('[EQUIPOS_BIO] Error al actualizar:', error.message);
+      return { exito: false, errores: [error.message] };
+    }
+
     setEquipos(prev => prev.map(eq => {
-      if (eq.codigo === codigo) {
-        const timestamp = new Date().toISOString();
-        const usuarioActual = 'admin@kesa.com';
-
-        return {
-          ...eq,
-          ...(input.nombre && { nombre: input.nombre }),
-          ...(input.marca && { marca: input.marca }),
-          ...(input.modelo && { modelo: input.modelo }),
-          ...(input.serie && { serie: input.serie }),
-          ...(input.categoria && { categoria: input.categoria }),
-          ...(input.riesgo && { riesgo: input.riesgo }),
-          ...(input.ubicacion && { ubicacion: input.ubicacion }),
-          ...(input.especificaciones && { especificaciones: input.especificaciones }),
-          ...(input.observaciones !== undefined && { observaciones: input.observaciones }),
-          auditoria: {
-            ...eq.auditoria,
-            modificadoPor: usuarioActual,
-            modificadoEn: timestamp
-          }
-        };
-      }
-      return eq;
+      if (eq.codigo !== codigo) return eq;
+      return {
+        ...eq,
+        ...(input.nombre !== undefined && { nombre: input.nombre }),
+        ...(input.marca !== undefined && { marca: input.marca }),
+        ...(input.modelo !== undefined && { modelo: input.modelo }),
+        ...(input.serie !== undefined && { serie: input.serie }),
+        ...(input.categoria !== undefined && { categoria: input.categoria }),
+        ...(input.riesgo !== undefined && { riesgo: input.riesgo }),
+        ...(input.ubicacion !== undefined && { ubicacion: input.ubicacion }),
+        ...(input.especificaciones !== undefined && { especificaciones: input.especificaciones }),
+        ...(input.garantia !== undefined && {
+          garantia: {
+            ...eq.garantia,
+            proveedor: input.garantia.proveedor ?? eq.garantia.proveedor,
+            fechaInicio: input.garantia.fechaInicio ?? eq.garantia.fechaInicio,
+            fechaVencimiento: input.garantia.fechaVencimiento ?? eq.garantia.fechaVencimiento,
+            vigente: input.garantia.fechaVencimiento
+              ? new Date() < new Date(input.garantia.fechaVencimiento)
+              : eq.garantia.vigente,
+          },
+        }),
+        ...(input.costos !== undefined && {
+          costos: {
+            ...eq.costos,
+            adquisicion: input.costos.adquisicion ?? eq.costos.adquisicion,
+            mantenimientoPreventivoAnual: input.costos.mantenimientoPreventivoAnual ?? eq.costos.mantenimientoPreventivoAnual,
+          },
+        }),
+        ...(input.observaciones !== undefined && { observaciones: input.observaciones ?? null }),
+        auditoria: {
+          ...eq.auditoria,
+          modificadoPor: user.id,
+          modificadoEn: ahora,
+        },
+      };
     }));
-  }, []);
 
-  // Actualizar estado de equipo
-  const actualizarEstadoEquipo = useCallback((codigo: string, nuevoEstado: EstadoEquipoBiomedico) => {
-    setEquipos(prev => prev.map(eq => {
-      if (eq.codigo === codigo) {
-        const timestamp = new Date().toISOString();
-        const usuarioActual = 'admin@kesa.com';
+    if (DEBUG_BIOMEDICO) {
+      console.log('[EQUIPO_BIO_UPDATED]', { codigo, cambios: Object.keys(input) });
+    }
 
-        return {
-          ...eq,
-          estado: nuevoEstado,
-          auditoria: {
-            ...eq.auditoria,
-            modificadoPor: usuarioActual,
-            modificadoEn: timestamp
+    return { exito: true };
+  }, [user]);
+
+  const actualizarEstadoEquipo = useCallback(async (
+    codigo: string,
+    nuevoEstado: EstadoEquipoBiomedico
+  ): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+    let dbId: string | undefined;
+    setEquipos(prev => {
+      dbId = prev.find(e => e.codigo === codigo)?._dbId;
+      return prev;
+    });
+
+    if (!dbId) return { exito: false, errores: ['Equipo no encontrado'] };
+
+    const ahora = new Date().toISOString();
+    const { error } = await dbEquiposBiomedicos.update(dbId, {
+      estado: nuevoEstado,
+      modificado_por: user.id,
+      modificado_en: ahora,
+    });
+
+    if (error) {
+      console.error('[EQUIPOS_BIO] Error al actualizar estado:', error.message);
+      return { exito: false, errores: [error.message] };
+    }
+
+    setEquipos(prev => prev.map(eq =>
+      eq.codigo === codigo
+        ? {
+            ...eq,
+            estado: nuevoEstado,
+            auditoria: { ...eq.auditoria, modificadoPor: user.id, modificadoEn: ahora },
           }
-        };
-      }
-      return eq;
-    }));
-  }, []);
+        : eq
+    ));
+
+    return { exito: true };
+  }, [user]);
+
+  // ============================================================================
+  // CONTEXT VALUE
+  // ============================================================================
 
   const value: EquiposStoreContext = {
     equipos,
+    loading,
     obtenerEquipoPorCodigo,
     obtenerEquipoPorId,
     obtenerEquiposPorCategoria,
@@ -570,7 +510,7 @@ export function EquiposStoreProvider({ children }: { children: React.ReactNode }
     crearEquipo,
     actualizarEquipo,
     actualizarEstadoEquipo,
-    cargarEquiposIniciales
+    cargarEquiposIniciales,
   };
 
   return <EquiposContext.Provider value={value}>{children}</EquiposContext.Provider>;

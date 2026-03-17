@@ -167,7 +167,7 @@ export function DocumentosTab({ vehiculoId, vehiculo }: DocumentosTabProps) {
 
     if (modoEdicion && documentoEditando) {
       // Actualizar
-      const resultado = actualizarDocumentoVehiculo(vehiculoId, documentoEditando.id, formData);
+      const resultado = await actualizarDocumentoVehiculo(vehiculoId, documentoEditando.id, formData);
 
       if (resultado.exito) {
         toast.success('Documento actualizado', {
@@ -183,7 +183,7 @@ export function DocumentosTab({ vehiculoId, vehiculo }: DocumentosTabProps) {
       }
     } else {
       // Crear
-      const resultado = agregarDocumentoVehiculo(vehiculoId, formData);
+      const resultado = await agregarDocumentoVehiculo(vehiculoId, formData);
 
       if (resultado.exito) {
         toast.success('Documento agregado', {
@@ -205,7 +205,7 @@ export function DocumentosTab({ vehiculoId, vehiculo }: DocumentosTabProps) {
   const confirmarEliminar = async () => {
     if (!documentoEditando) return;
 
-    const resultado = eliminarDocumentoVehiculo(vehiculoId, documentoEditando.id);
+    const resultado = await eliminarDocumentoVehiculo(vehiculoId, documentoEditando.id);
 
     if (resultado.exito) {
       toast.success('Documento eliminado', {
