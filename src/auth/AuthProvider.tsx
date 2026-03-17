@@ -8,6 +8,7 @@ type AuthContextValue = {
   user: User | null;
   profile: Profile | null;
   tenantId: string | null;
+  tenantName: string | null;
   loading: boolean;
 
   signInWithPassword: (email: string, password: string) => Promise<void>;
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [tenantName, setTenantName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function loadProfile(userId: string) {
@@ -31,8 +33,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       console.error("[auth.loadProfile]", error.message);
       setProfile(null);
+      setTenantName(null);
     } else {
       setProfile(data);
+      // Cargar nombre del tenant
+      if (data?.tenant_id) {
+        const { data: tenantData } = await supabase
+          .from("tenants")
+          .select("nombre")
+          .eq("id", data.tenant_id)
+          .single();
+        setTenantName(tenantData?.nombre ?? null);
+      }
     }
   }
 
@@ -57,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await loadProfile(newSession.user.id);
       } else {
         setProfile(null);
+        setTenantName(null);
       }
       setLoading(false);
     });
@@ -72,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: session?.user ?? null,
     profile,
     tenantId: profile?.tenant_id ?? null,
+    tenantName,
     loading,
 
     signInWithPassword: async (email, password) => {
@@ -83,8 +97,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setProfile(null);
+      setTenantName(null);
     },
-  }), [session, profile, loading]);
+  }), [session, profile, tenantName, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

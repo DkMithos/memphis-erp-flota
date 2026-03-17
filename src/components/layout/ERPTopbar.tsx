@@ -11,6 +11,7 @@ import {
 } from '../ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Badge } from '../ui/badge';
+import { useAuth } from '../../auth/AuthProvider';
 
 interface ERPTopbarProps {
   darkMode: boolean;
@@ -20,6 +21,16 @@ interface ERPTopbarProps {
 }
 
 export function ERPTopbar({ darkMode, onToggleDarkMode, tenantName, userName }: ERPTopbarProps) {
+  const { signOut, user } = useAuth();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (err) {
+      console.error('[ERPTopbar] Error al cerrar sesión:', err);
+    }
+  };
+
   return (
     <div className="flex items-center justify-end gap-2 flex-1">
       {/* Search Bar - Hidden on mobile */}
@@ -106,20 +117,24 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, tenantName, userName }: 
             <DropdownMenuLabel>
               <div>
                 <p>{userName}</p>
-                <p className="text-xs text-muted-foreground font-normal">admin@kesa.com</p>
+                <p className="text-xs text-muted-foreground font-normal">{user?.email}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <Avatar className="size-4 mr-2">
-                <AvatarFallback className="bg-muted text-xs">A</AvatarFallback>
+                <AvatarFallback className="bg-muted text-xs">
+                  {userName.charAt(0).toUpperCase()}
+                </AvatarFallback>
               </Avatar>
               Mi Perfil
             </DropdownMenuItem>
             <DropdownMenuItem>Configuración</DropdownMenuItem>
-            <DropdownMenuItem>Cambiar Tenant</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={handleSignOut}
+            >
               <LogOut className="size-4 mr-2" />
               Cerrar Sesión
             </DropdownMenuItem>

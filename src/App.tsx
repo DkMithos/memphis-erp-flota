@@ -114,7 +114,7 @@ import { Toaster } from './components/ui/sonner';
 const ENABLE_PUBLIC_LEGACY_ROUTES = false;
 
 export default function App() {
-  const { user, loading } = useAuth();
+  const { user, profile, tenantName, loading } = useAuth();
 
   const [currentModule, setCurrentModule] = useState('dashboard');
   const [currentRoute, setCurrentRoute] = useState('/dashboard');
@@ -620,8 +620,8 @@ export default function App() {
                             <ERPTopbar
                               darkMode={darkMode}
                               onToggleDarkMode={handleToggleDarkMode}
-                              tenantName="Hospital Regional"
-                              userName="Admin Usuario"
+                              tenantName={tenantName ?? 'KESA ERP'}
+                              userName={profile?.nombre ?? user?.email ?? 'Usuario'}
                             />
                           </header>
                         )}
@@ -633,7 +633,7 @@ export default function App() {
                         </main>
 
                         <Toaster />
-                        <ResponsiveIndicator />
+                        {import.meta.env.DEV && <ResponsiveIndicator />}
                       </div>
                     </MantenimientosStoreProvider>
                   </EquiposStoreProvider>
