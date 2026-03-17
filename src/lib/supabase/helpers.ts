@@ -5,6 +5,7 @@
  */
 
 import { supabase } from "./client";
+import type { EvaluacionProveedor, ContratoProveedor, TallerDB, RolDB, UsuarioTenantDB, ArticuloDB, AlmacenDB, CategoriaInventarioDB, MovimientoInventarioDB, ClienteDB, OportunidadDB, ActividadCRMDB, TransaccionDB, PresupuestoDB, CajaChicaDB, GastoCajaChicaDB, ProyectoDB, FaseProyectoDB, TareaProyectoDB, MiembroProyectoDB } from "./types";
 
 // =============================================================================
 // HELPER BASE — obtiene tenant_id del usuario autenticado
@@ -275,6 +276,271 @@ export const dbOrdenesCompra = {
 };
 
 // =============================================================================
+// BIOMÉDICO — CALIBRACIONES
+// =============================================================================
+
+export const dbCalibraciones = {
+  list: (tenantId: string) =>
+    supabase
+      .from('calibraciones_biomedicas')
+      .select('*, equipo:equipos_biomedicos(codigo, nombre)')
+      .eq('tenant_id', tenantId)
+      .order('creado_en', { ascending: false }),
+
+  insert: (data: object) =>
+    supabase.from('calibraciones_biomedicas').insert(data).select().single(),
+
+  update: (id: string, data: object) =>
+    supabase.from('calibraciones_biomedicas').update(data).eq('id', id).select().single(),
+
+  delete: (id: string) =>
+    supabase.from('calibraciones_biomedicas').delete().eq('id', id),
+};
+
+// =============================================================================
+// BIOMÉDICO — INCIDENCIAS
+// =============================================================================
+
+export const dbIncidencias = {
+  list: (tenantId: string) =>
+    supabase
+      .from('incidencias_biomedicas')
+      .select('*, equipo:equipos_biomedicos(codigo, nombre)')
+      .eq('tenant_id', tenantId)
+      .order('creado_en', { ascending: false }),
+
+  insert: (data: object) =>
+    supabase.from('incidencias_biomedicas').insert(data).select().single(),
+
+  update: (id: string, data: object) =>
+    supabase.from('incidencias_biomedicas').update(data).eq('id', id).select().single(),
+
+  delete: (id: string) =>
+    supabase.from('incidencias_biomedicas').delete().eq('id', id),
+};
+
+// =============================================================================
+// BIOMÉDICO — DOCUMENTOS
+// =============================================================================
+
+export const dbDocumentosBiomedicos = {
+  list: (tenantId: string) =>
+    supabase
+      .from('documentos_biomedicos')
+      .select('*, equipo:equipos_biomedicos(codigo, nombre)')
+      .eq('tenant_id', tenantId)
+      .order('creado_en', { ascending: false }),
+
+  insert: (data: object) =>
+    supabase.from('documentos_biomedicos').insert(data).select().single(),
+
+  delete: (id: string) =>
+    supabase.from('documentos_biomedicos').delete().eq('id', id),
+};
+
+// =============================================================================
+// PROVEEDORES — EVALUACIONES
+// =============================================================================
+
+export const dbEvaluaciones = {
+  list: (tenantId: string) =>
+    supabase
+      .from('evaluaciones_proveedores')
+      .select('*, proveedor:proveedores(codigo, razon_social)')
+      .eq('tenant_id', tenantId)
+      .order('creado_en', { ascending: false }),
+  insert: (data: Omit<EvaluacionProveedor, 'id' | 'creado_en' | 'proveedor'>) =>
+    supabase.from('evaluaciones_proveedores').insert(data).select().single(),
+  update: (id: string, data: Partial<EvaluacionProveedor>) =>
+    supabase.from('evaluaciones_proveedores').update(data).eq('id', id).select().single(),
+  delete: (id: string) =>
+    supabase.from('evaluaciones_proveedores').delete().eq('id', id),
+};
+
+// =============================================================================
+// PROVEEDORES — CONTRATOS
+// =============================================================================
+
+export const dbContratos = {
+  list: (tenantId: string) =>
+    supabase
+      .from('contratos_proveedores')
+      .select('*, proveedor:proveedores(codigo, razon_social)')
+      .eq('tenant_id', tenantId)
+      .order('creado_en', { ascending: false }),
+  insert: (data: Omit<ContratoProveedor, 'id' | 'creado_en' | 'proveedor'>) =>
+    supabase.from('contratos_proveedores').insert(data).select().single(),
+  update: (id: string, data: Partial<ContratoProveedor>) =>
+    supabase.from('contratos_proveedores').update(data).eq('id', id).select().single(),
+  delete: (id: string) =>
+    supabase.from('contratos_proveedores').delete().eq('id', id),
+};
+
+// =============================================================================
+// PROVEEDORES — TALLERES
+// =============================================================================
+
+export const dbTalleres = {
+  list: (tenantId: string) =>
+    supabase
+      .from('talleres')
+      .select('*, proveedor:proveedores(codigo, razon_social)')
+      .eq('tenant_id', tenantId)
+      .order('creado_en', { ascending: false }),
+  insert: (data: Omit<TallerDB, 'id' | 'creado_en' | 'proveedor'>) =>
+    supabase.from('talleres').insert(data).select().single(),
+  update: (id: string, data: Partial<TallerDB>) =>
+    supabase.from('talleres').update(data).eq('id', id).select().single(),
+  delete: (id: string) =>
+    supabase.from('talleres').delete().eq('id', id),
+};
+
+// =============================================================================
+// RBAC — ROLES
+// =============================================================================
+
+export const dbRoles = {
+  list: (tenantId: string) =>
+    supabase
+      .from('roles')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('nombre'),
+
+  listWithPermisos: (tenantId: string) =>
+    supabase
+      .from('roles')
+      .select('*, roles_permisos(permiso_id, permisos(*))')
+      .eq('tenant_id', tenantId),
+
+  insert: (data: Omit<RolDB, 'id' | 'creado_en' | 'permisos'>) =>
+    supabase.from('roles').insert(data).select().single(),
+
+  update: (id: string, data: Partial<RolDB>) =>
+    supabase.from('roles').update(data).eq('id', id).select().single(),
+
+  delete: (id: string) =>
+    supabase.from('roles').delete().eq('id', id),
+};
+
+// =============================================================================
+// RBAC — PERMISOS
+// =============================================================================
+
+export const dbPermisos = {
+  listAll: () =>
+    supabase.from('permisos').select('*').order('modulo').order('accion'),
+};
+
+// =============================================================================
+// RBAC — ROLES_PERMISOS
+// =============================================================================
+
+export const dbRolesPermisos = {
+  setForRol: async (rolId: string, permisoIds: string[]) => {
+    await supabase.from('roles_permisos').delete().eq('rol_id', rolId);
+    if (permisoIds.length === 0) return { error: null };
+    return supabase.from('roles_permisos').insert(
+      permisoIds.map(pid => ({ rol_id: rolId, permiso_id: pid }))
+    );
+  },
+};
+
+// =============================================================================
+// RBAC — USUARIOS_TENANT
+// =============================================================================
+
+export const dbUsuariosTenant = {
+  list: (tenantId: string) =>
+    supabase
+      .from('usuarios_tenant')
+      .select('*, usuarios_roles(rol_id, roles(*))')
+      .eq('tenant_id', tenantId)
+      .order('nombre'),
+
+  upsert: (data: Omit<UsuarioTenantDB, 'id' | 'creado_en' | 'roles'>) =>
+    supabase.from('usuarios_tenant').upsert(data, { onConflict: 'tenant_id,user_id' }).select().single(),
+
+  updateEstado: (id: string, estado: string) =>
+    supabase.from('usuarios_tenant').update({ estado }).eq('id', id),
+};
+
+// =============================================================================
+// RBAC — USUARIOS_ROLES
+// =============================================================================
+
+export const dbUsuariosRoles = {
+  assign: (tenantId: string, userId: string, rolId: string, asignadoPor: string) =>
+    supabase.from('usuarios_roles').upsert(
+      { tenant_id: tenantId, user_id: userId, rol_id: rolId, asignado_por: asignadoPor },
+      { onConflict: 'tenant_id,user_id,rol_id' }
+    ),
+
+  remove: (tenantId: string, userId: string, rolId: string) =>
+    supabase.from('usuarios_roles').delete()
+      .eq('tenant_id', tenantId)
+      .eq('user_id', userId)
+      .eq('rol_id', rolId),
+};
+
+// =============================================================================
+// INVENTARIO — ARTÍCULOS
+// =============================================================================
+
+export const dbArticulos = {
+  list: (tenantId: string) =>
+    supabase.from('articulos').select('*, categoria:categorias_inventario(nombre, codigo)')
+      .eq('tenant_id', tenantId).order('nombre'),
+  insert: (data: Omit<ArticuloDB, 'id' | 'creado_en' | 'categoria'>) =>
+    supabase.from('articulos').insert(data).select().single(),
+  update: (id: string, data: Partial<ArticuloDB>) =>
+    supabase.from('articulos').update(data).eq('id', id).select().single(),
+  delete: (id: string) => supabase.from('articulos').delete().eq('id', id),
+};
+
+// =============================================================================
+// INVENTARIO — ALMACENES
+// =============================================================================
+
+export const dbAlmacenes = {
+  list: (tenantId: string) =>
+    supabase.from('almacenes').select('*').eq('tenant_id', tenantId).order('nombre'),
+  insert: (data: Omit<AlmacenDB, 'id' | 'creado_en'>) =>
+    supabase.from('almacenes').insert(data).select().single(),
+  update: (id: string, data: Partial<AlmacenDB>) =>
+    supabase.from('almacenes').update(data).eq('id', id).select().single(),
+};
+
+// =============================================================================
+// INVENTARIO — CATEGORÍAS
+// =============================================================================
+
+export const dbCategoriasInventario = {
+  list: (tenantId: string) =>
+    supabase.from('categorias_inventario').select('*').eq('tenant_id', tenantId).order('nombre'),
+  insert: (data: Omit<CategoriaInventarioDB, 'id' | 'creado_en'>) =>
+    supabase.from('categorias_inventario').insert(data).select().single(),
+};
+
+// =============================================================================
+// INVENTARIO — MOVIMIENTOS
+// =============================================================================
+
+export const dbMovimientos = {
+  list: (tenantId: string, limit = 200) =>
+    supabase.from('movimientos_inventario')
+      .select('*, articulo:articulos(codigo, nombre, unidad_medida), almacen:almacenes(nombre, codigo)')
+      .eq('tenant_id', tenantId).order('fecha', { ascending: false }).limit(limit),
+  listByArticulo: (tenantId: string, articuloId: string) =>
+    supabase.from('movimientos_inventario')
+      .select('*, almacen:almacenes(nombre, codigo)')
+      .eq('tenant_id', tenantId).eq('articulo_id', articuloId)
+      .order('fecha', { ascending: false }),
+  insert: (data: Omit<MovimientoInventarioDB, 'id' | 'creado_en' | 'articulo' | 'almacen'>) =>
+    supabase.from('movimientos_inventario').insert(data).select().single(),
+};
+
+// =============================================================================
 // COMPRAS — RECEPCIONES
 // =============================================================================
 
@@ -297,4 +563,153 @@ export const dbRecepciones = {
 
   update: (id: string, data: object) =>
     supabase.from("recepciones").update(data).eq("id", id).select().single(),
+};
+
+// =============================================================================
+// CRM — CLIENTES
+// =============================================================================
+
+export const dbClientes = {
+  list: (tenantId: string) =>
+    supabase.from('clientes').select('*').eq('tenant_id', tenantId).order('razon_social'),
+  insert: (data: Omit<ClienteDB, 'id' | 'creado_en'>) =>
+    supabase.from('clientes').insert(data).select().single(),
+  update: (id: string, data: Partial<ClienteDB>) =>
+    supabase.from('clientes').update(data).eq('id', id).select().single(),
+};
+
+// =============================================================================
+// CRM — OPORTUNIDADES
+// =============================================================================
+
+export const dbOportunidades = {
+  list: (tenantId: string) =>
+    supabase.from('oportunidades')
+      .select('*, cliente:clientes(codigo, razon_social)')
+      .eq('tenant_id', tenantId).order('creado_en', { ascending: false }),
+  insert: (data: Omit<OportunidadDB, 'id' | 'creado_en' | 'cliente'>) =>
+    supabase.from('oportunidades').insert(data).select().single(),
+  update: (id: string, data: Partial<OportunidadDB>) =>
+    supabase.from('oportunidades').update(data).eq('id', id).select().single(),
+};
+
+// =============================================================================
+// CRM — ACTIVIDADES
+// =============================================================================
+
+export const dbActividadesCRM = {
+  list: (tenantId: string) =>
+    supabase.from('actividades_crm')
+      .select('*, cliente:clientes(codigo, razon_social), oportunidad:oportunidades(codigo, titulo)')
+      .eq('tenant_id', tenantId).order('fecha_programada', { ascending: false }),
+  insert: (data: Omit<ActividadCRMDB, 'id' | 'creado_en' | 'cliente' | 'oportunidad'>) =>
+    supabase.from('actividades_crm').insert(data).select().single(),
+  update: (id: string, data: Partial<ActividadCRMDB>) =>
+    supabase.from('actividades_crm').update(data).eq('id', id).select().single(),
+};
+
+// =============================================================================
+// FINANZAS — TRANSACCIONES
+// =============================================================================
+
+export const dbTransacciones = {
+  list: (tenantId: string) =>
+    supabase.from('transacciones').select('*').eq('tenant_id', tenantId)
+      .order('fecha', { ascending: false }),
+  insert: (data: Omit<TransaccionDB, 'id' | 'creado_en'>) =>
+    supabase.from('transacciones').insert(data).select().single(),
+  update: (id: string, data: Partial<TransaccionDB>) =>
+    supabase.from('transacciones').update(data).eq('id', id).select().single(),
+};
+
+// =============================================================================
+// FINANZAS — PRESUPUESTOS
+// =============================================================================
+
+export const dbPresupuestos = {
+  list: (tenantId: string) =>
+    supabase.from('presupuestos').select('*, lineas:presupuesto_lineas(*)')
+      .eq('tenant_id', tenantId).order('periodo', { ascending: false }),
+  insert: (data: Omit<PresupuestoDB, 'id' | 'creado_en' | 'lineas'>) =>
+    supabase.from('presupuestos').insert(data).select().single(),
+  update: (id: string, data: Partial<PresupuestoDB>) =>
+    supabase.from('presupuestos').update(data).eq('id', id).select().single(),
+  insertLinea: (data: { tenant_id: string; presupuesto_id: string; categoria: string; subcategoria?: string; monto_presupuestado: number; monto_ejecutado?: number }) =>
+    supabase.from('presupuesto_lineas').insert(data).select().single(),
+  updateLinea: (id: string, data: { categoria?: string; subcategoria?: string; monto_presupuestado?: number; monto_ejecutado?: number }) =>
+    supabase.from('presupuesto_lineas').update(data).eq('id', id).select().single(),
+  deleteLinea: (id: string) =>
+    supabase.from('presupuesto_lineas').delete().eq('id', id),
+};
+
+// =============================================================================
+// FINANZAS — CAJAS CHICAS
+// =============================================================================
+
+export const dbCajasChicas = {
+  list: (tenantId: string) =>
+    supabase.from('cajas_chicas').select('*').eq('tenant_id', tenantId).order('nombre'),
+  insert: (data: Omit<CajaChicaDB, 'id' | 'creado_en'>) =>
+    supabase.from('cajas_chicas').insert(data).select().single(),
+  update: (id: string, data: Partial<CajaChicaDB>) =>
+    supabase.from('cajas_chicas').update(data).eq('id', id).select().single(),
+};
+
+// =============================================================================
+// FINANZAS — GASTOS CAJA CHICA
+// =============================================================================
+
+export const dbGastosCajaChica = {
+  list: (tenantId: string) =>
+    supabase.from('gastos_caja_chica')
+      .select('*, caja:cajas_chicas(nombre, codigo)')
+      .eq('tenant_id', tenantId).order('fecha', { ascending: false }),
+  insert: (data: Omit<GastoCajaChicaDB, 'id' | 'creado_en' | 'caja'>) =>
+    supabase.from('gastos_caja_chica').insert(data).select().single(),
+  update: (id: string, data: Partial<GastoCajaChicaDB>) =>
+    supabase.from('gastos_caja_chica').update(data).eq('id', id).select().single(),
+};
+
+// =============================================================================
+// PROYECTOS
+// =============================================================================
+
+export const dbProyectos = {
+  list: (tenantId: string) =>
+    supabase.from('proyectos').select('*').eq('tenant_id', tenantId)
+      .order('creado_en', { ascending: false }),
+  getWithDetails: (id: string) =>
+    supabase.from('proyectos')
+      .select('*, fases:fases_proyecto(*), tareas:tareas_proyecto(*), miembros:miembros_proyecto(*)')
+      .eq('id', id).single(),
+  insert: (data: Omit<ProyectoDB, 'id' | 'creado_en' | 'fases' | 'tareas' | 'miembros'>) =>
+    supabase.from('proyectos').insert(data).select().single(),
+  update: (id: string, data: Partial<Omit<ProyectoDB, 'fases' | 'tareas' | 'miembros'>>) =>
+    supabase.from('proyectos').update(data).eq('id', id).select().single(),
+};
+
+export const dbFasesProyecto = {
+  insert: (data: Omit<FaseProyectoDB, 'id'>) =>
+    supabase.from('fases_proyecto').insert(data).select().single(),
+  update: (id: string, data: Partial<FaseProyectoDB>) =>
+    supabase.from('fases_proyecto').update(data).eq('id', id).select().single(),
+  delete: (id: string) => supabase.from('fases_proyecto').delete().eq('id', id),
+};
+
+export const dbTareasProyecto = {
+  listByProyecto: (proyectoId: string) =>
+    supabase.from('tareas_proyecto').select('*').eq('proyecto_id', proyectoId).order('orden'),
+  insert: (data: Omit<TareaProyectoDB, 'id' | 'creado_en'>) =>
+    supabase.from('tareas_proyecto').insert(data).select().single(),
+  update: (id: string, data: Partial<TareaProyectoDB>) =>
+    supabase.from('tareas_proyecto').update(data).eq('id', id).select().single(),
+  delete: (id: string) => supabase.from('tareas_proyecto').delete().eq('id', id),
+};
+
+export const dbMiembrosProyecto = {
+  insert: (data: Omit<MiembroProyectoDB, 'id'>) =>
+    supabase.from('miembros_proyecto').insert(data).select().single(),
+  update: (id: string, data: Partial<MiembroProyectoDB>) =>
+    supabase.from('miembros_proyecto').update(data).eq('id', id).select().single(),
+  delete: (id: string) => supabase.from('miembros_proyecto').delete().eq('id', id),
 };
