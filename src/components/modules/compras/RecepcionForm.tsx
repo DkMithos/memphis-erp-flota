@@ -91,7 +91,7 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
   };
 
   // Submit
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validarFormulario()) return;
 
     if (!orden) {
@@ -113,12 +113,16 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
       };
 
       // Callback para actualizar el estado de la orden
-      const onOrdenUpdated = (ordenId: string, esCompleta: boolean) => {
-        aplicarEstadoRecepcion(ordenId, esCompleta);
+      const onOrdenUpdated = async (ordenId: string, esCompleta: boolean) => {
+        await aplicarEstadoRecepcion(ordenId, esCompleta);
       };
 
-      const nuevaRecepcion = crearRecepcion(input, onOrdenUpdated);
-      onSuccess(nuevaRecepcion.id);
+      const res = await crearRecepcion(input, onOrdenUpdated);
+      if (!res.exito || !res.recepcion) {
+        console.error('Error al crear recepción:', res.errores);
+        return;
+      }
+      onSuccess(res.recepcion.id);
     } catch (error) {
       console.error('Error al crear recepción:', error);
     }

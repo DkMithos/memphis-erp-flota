@@ -111,7 +111,7 @@ export function BiomedicoMantenimientoForm({
     );
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validarFormulario()) {
       toast.error('Por favor completa todos los campos obligatorios');
       return;
@@ -124,7 +124,8 @@ export function BiomedicoMantenimientoForm({
 
     try {
       const input: NuevoMantenimientoBiomedicoInput = {
-        equipoId: formData.equipoId,
+        equipoId: equipoSeleccionado.id,
+        equipoDbId: equipoSeleccionado._dbId,
         equipoCodigo: equipoSeleccionado.codigo,
         equipoNombre: equipoSeleccionado.nombre,
         tipo: formData.tipo as TipoMantenimientoBio,
@@ -140,7 +141,7 @@ export function BiomedicoMantenimientoForm({
         observaciones: formData.observaciones || undefined
       };
 
-      const mantenimiento = crearMantenimiento(input);
+      const mantenimiento = await crearMantenimiento(input);
       toast.success(`Mantenimiento ${mantenimiento.numeroMantenimiento} creado exitosamente`);
       onSuccess?.(mantenimiento.numeroMantenimiento);
     } catch (error) {

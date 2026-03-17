@@ -141,9 +141,9 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
   };
 
   // Manejar submit
-  const handleSubmit = (e: React.FormEvent, enviar: boolean = false) => {
+  const handleSubmit = async (e: React.FormEvent, enviar: boolean = false) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       toast.error('Por favor, corrige los errores del formulario');
       return;
@@ -154,9 +154,13 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
     try {
       if (isEditing) {
         // Actualizar requerimiento
-        actualizarRequerimiento(requerimientoId, formData);
+        const resActualizar = await actualizarRequerimiento(requerimientoId, formData);
+        if (!resActualizar.exito) {
+          toast.error(resActualizar.errores?.[0] ?? 'Error al actualizar el requerimiento');
+          return;
+        }
         if (enviar) {
-          cambiarEstado(requerimientoId, 'enviado');
+          await cambiarEstado(requerimientoId, 'enviado');
           toast.success('Requerimiento actualizado y enviado para aprobación');
         } else {
           toast.success('Requerimiento actualizado correctamente');
@@ -164,9 +168,14 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
         onSuccess(requerimientoId);
       } else {
         // Crear requerimiento
-        const nuevoReq = crearRequerimiento(formData as NuevoRequerimientoInput);
+        const resCrear = await crearRequerimiento(formData as NuevoRequerimientoInput);
+        if (!resCrear.exito || !resCrear.requerimiento) {
+          toast.error(resCrear.errores?.[0] ?? 'Error al crear el requerimiento');
+          return;
+        }
+        const nuevoReq = resCrear.requerimiento;
         if (enviar) {
-          cambiarEstado(nuevoReq.id, 'enviado');
+          await cambiarEstado(nuevoReq.id, 'enviado');
           toast.success(`Requerimiento ${nuevoReq.id} creado y enviado para aprobación`);
         } else {
           toast.success(`Requerimiento ${nuevoReq.id} guardado como borrador`);

@@ -21,15 +21,17 @@ import {
 } from '../../ui/select';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
-import { 
-  PROVEEDOR_ESTADO_CONFIG, 
+import { useAuth } from '../../../auth/AuthProvider';
+import {
+  PROVEEDOR_ESTADO_CONFIG,
   PROVEEDOR_CONDICION_CONFIG,
   PROVEEDOR_TIPO_CONFIG,
   PROVEEDOR_CATEGORIA_LABELS,
   tienePermiso,
   type EstadoProveedor,
   type TipoProveedor,
-  type CategoriaProveedor
+  type CategoriaProveedor,
+  type RolUsuario
 } from '../../../lib/proveedores/proveedores-config';
 
 interface ProveedoresDirectorioProps {
@@ -37,7 +39,9 @@ interface ProveedoresDirectorioProps {
 }
 
 export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps) {
-  const { proveedores, usuarioActual } = useProveedorStore();
+  const { proveedores } = useProveedorStore();
+  const { profile } = useAuth();
+  const rolActual = (profile?.rol ?? 'operaciones') as RolUsuario;
   
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,7 +81,7 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
     observados: proveedores.filter(p => p.estado === 'observado').length
   }), [proveedores]);
 
-  const puedeCrear = tienePermiso(usuarioActual.rol, 'crear');
+  const puedeCrear = tienePermiso(rolActual, 'crear');
 
   return (
     <div className="space-y-6">
@@ -283,7 +287,7 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
                   const estadoConfig = PROVEEDOR_ESTADO_CONFIG[proveedor.estado];
                   const condicionConfig = PROVEEDOR_CONDICION_CONFIG[proveedor.condicion];
                   const tipoConfig = PROVEEDOR_TIPO_CONFIG[proveedor.tipo];
-                  const puedeEditar = tienePermiso(usuarioActual.rol, 'editar');
+                  const puedeEditar = tienePermiso(rolActual, 'editar');
 
                   return (
                     <TableRow key={proveedor.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onNavigate?.(`/proveedores/directorio/${proveedor.id}`)}>

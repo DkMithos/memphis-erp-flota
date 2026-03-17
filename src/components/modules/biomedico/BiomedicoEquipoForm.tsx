@@ -191,7 +191,7 @@ export function BiomedicoEquipoForm({
     setPasoActual(prev => Math.max(prev - 1, 1));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validarPaso3()) {
       toast.error('Por favor completa todos los campos obligatorios');
       return;
@@ -232,11 +232,11 @@ export function BiomedicoEquipoForm({
       };
 
       if (modo === 'crear') {
-        const equipo = crearEquipo(input);
+        const equipo = await crearEquipo(input);
         toast.success(`Equipo ${equipo.codigo} creado exitosamente`);
         onSuccess?.(equipo.codigo);
       } else if (codigoEquipo) {
-        actualizarEquipo(codigoEquipo, input);
+        await actualizarEquipo(codigoEquipo, input);
         toast.success(`Equipo ${codigoEquipo} actualizado exitosamente`);
         onSuccess?.(codigoEquipo);
       }

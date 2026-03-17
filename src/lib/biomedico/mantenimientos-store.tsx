@@ -1,53 +1,58 @@
 /**
  * STORE DE MANTENIMIENTOS BIOMÉDICOS
- * Context global para gestión de mantenimientos en el módulo Biomédico
- * Prototipo funcional - Reemplazar por backend real en producción
+ * v2.0.0 - Conectado a Supabase (reemplaza mock local)
+ * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { 
-  generarNumeroMantenimiento, 
+import { dbMantenimientosBiomedicos } from '../supabase/helpers';
+import { useAuth } from '../../auth/AuthProvider';
+import type { MantenimientoBiomedico as MantenimientoDBRow } from '../supabase/types';
+import {
+  generarNumeroMantenimiento,
   extraerNumeroSecuencial,
   DEBUG_MANTENIMIENTO_BIO,
-  type EstadoMantenimientoBio, 
-  type TipoMantenimientoBio, 
-  type PrioridadMantenimientoBio 
+  type EstadoMantenimientoBio,
+  type TipoMantenimientoBio,
+  type PrioridadMantenimientoBio,
 } from './mantenimientos-config';
 
 // ============================================================================
-// TIPOS
+// TIPOS FRONTEND
 // ============================================================================
 
 export interface MantenimientoBiomedico {
   // Identificación
   id: string;
+  _dbId: string;
   numeroMantenimiento: string;
-  equipoId: string;
+  equipoId: string;     // ID frontend (codigo del equipo, ej: EB-2024-001)
+  equipoDbId: string;   // UUID interno del equipo en DB (para FK)
   equipoCodigo: string;
   equipoNombre: string;
-  
+
   // Clasificación
   tipo: TipoMantenimientoBio;
   prioridad: PrioridadMantenimientoBio;
   estado: EstadoMantenimientoBio;
-  
+
   // Descripción
   titulo: string;
   descripcion: string;
-  
+
   // Fechas
   fechaCreacion: string;
   fechaProgramada: string;
   fechaInicio: string | null;
   fechaCompletado: string | null;
-  
+
   // Responsables
   tecnico: {
     id: string;
     nombre: string;
-    empresa: string; // 'Interno' o nombre proveedor
+    empresa: string;
   };
-  
+
   // Actividades realizadas
   actividadesRealizadas: string | null;
   repuestosUtilizados: Array<{
@@ -55,23 +60,23 @@ export interface MantenimientoBiomedico {
     cantidad: number;
     observacion?: string;
   }>;
-  
-  // Auditoría obligatoria
+
+  // Auditoría
   auditoria: {
-    creadoPor: string;
+    creadoPor: string | null;
     creadoEn: string;
     modificadoPor: string | null;
     modificadoEn: string | null;
     completadoPor: string | null;
     completadoEn: string | null;
   };
-  
-  // Observaciones
+
   observaciones: string | null;
 }
 
 export interface NuevoMantenimientoBiomedicoInput {
-  equipoId: string;
+  equipoId: string;       // ID frontend (codigo, ej: EB-2024-001) — también se acepta el _dbId
+  equipoDbId?: string;    // UUID del equipo en DB (si disponible)
   equipoCodigo: string;
   equipoNombre: string;
   tipo: TipoMantenimientoBio;
@@ -87,12 +92,18 @@ export interface NuevoMantenimientoBiomedicoInput {
   observaciones?: string;
 }
 
+interface CrudResult {
+  exito: boolean;
+  errores?: string[];
+}
+
 interface MantenimientosStoreContext {
   mantenimientos: MantenimientoBiomedico[];
+  loading: boolean;
   obtenerMantenimientoPorNumero: (numero: string) => MantenimientoBiomedico | undefined;
   obtenerMantenimientosPorEquipo: (equipoId: string) => MantenimientoBiomedico[];
-  crearMantenimiento: (input: NuevoMantenimientoBiomedicoInput) => MantenimientoBiomedico;
-  actualizarEstadoMantenimiento: (numero: string, nuevoEstado: EstadoMantenimientoBio) => void;
+  crearMantenimiento: (input: NuevoMantenimientoBiomedicoInput) => Promise<MantenimientoBiomedico>;
+  actualizarEstadoMantenimiento: (numero: string, nuevoEstado: EstadoMantenimientoBio) => Promise<CrudResult>;
   cargarMantenimientosIniciales: () => void;
 }
 
@@ -103,293 +114,325 @@ interface MantenimientosStoreContext {
 const MantenimientosContext = createContext<MantenimientosStoreContext | undefined>(undefined);
 
 // ============================================================================
-// DATA DE EJEMPLO - Seed inicial
+// HELPERS — mapeo entre tipos DB y frontend
 // ============================================================================
 
-const mantenimientosSeed: MantenimientoBiomedico[] = [
-  {
-    id: 'MB-001',
-    numeroMantenimiento: 'MB-2024-001',
-    equipoId: 'EB-001',
-    equipoCodigo: 'EB-2024-001',
-    equipoNombre: 'Ventilador Mecánico',
-    tipo: 'preventivo',
-    prioridad: 'alta',
-    estado: 'completado',
-    titulo: 'Mantenimiento Preventivo Trimestral',
-    descripcion: 'Revisión general de sistema neumático, sensores y calibración de parámetros ventilatorios',
-    fechaCreacion: '2024-10-15 09:00',
-    fechaProgramada: '2024-11-01 08:00',
-    fechaInicio: '2024-11-01 08:15',
-    fechaCompletado: '2024-11-01 12:30',
-    tecnico: {
-      id: 'TEC-001',
-      nombre: 'Ing. Roberto Vega',
-      empresa: 'Dräger Medical Perú'
-    },
-    actividadesRealizadas: 'Limpieza de circuitos neumáticos, verificación de fugas, calibración de sensores de presión y flujo, actualización de firmware a v3.2.1',
-    repuestosUtilizados: [
-      {
-        nombre: 'Filtro HEPA',
-        cantidad: 2,
-        observacion: 'Reemplazo programado'
-      },
-      {
-        nombre: 'Sensor de O2',
-        cantidad: 1,
-        observacion: 'Por desgaste'
-      }
-    ],
-    auditoria: {
-      creadoPor: 'sistema.automatico@kesa.com',
-      creadoEn: '2024-10-15 09:00:00',
-      modificadoPor: 'carlos.mendoza@kesa.com',
-      modificadoEn: '2024-11-01 08:15:00',
-      completadoPor: 'carlos.mendoza@kesa.com',
-      completadoEn: '2024-11-01 12:30:00'
-    },
-    observaciones: 'Equipo funcionando correctamente. Próximo mantenimiento en 90 días'
-  },
-  {
-    id: 'MB-002',
-    numeroMantenimiento: 'MB-2024-002',
-    equipoId: 'EB-003',
-    equipoCodigo: 'EB-2024-003',
-    equipoNombre: 'Monitor de Signos Vitales',
-    tipo: 'correctivo',
-    prioridad: 'urgente',
-    estado: 'en_ejecucion',
-    titulo: 'Falla en sensor de temperatura',
-    descripcion: 'Reemplazo de sensor de temperatura defectuoso - Lecturas erráticas detectadas',
-    fechaCreacion: '2024-12-20 14:30',
-    fechaProgramada: '2024-12-21 08:00',
-    fechaInicio: '2024-12-21 08:10',
-    fechaCompletado: null,
-    tecnico: {
-      id: 'TEC-002',
-      nombre: 'Ing. María Campos',
-      empresa: 'Interno'
-    },
-    actividadesRealizadas: null,
-    repuestosUtilizados: [],
-    auditoria: {
-      creadoPor: 'ana.garcia@kesa.com',
-      creadoEn: '2024-12-20 14:30:00',
-      modificadoPor: 'carlos.mendoza@kesa.com',
-      modificadoEn: '2024-12-21 08:10:00',
-      completadoPor: null,
-      completadoEn: null
-    },
-    observaciones: 'Sensor en tránsito desde proveedor - ETA 24 horas'
-  },
-  {
-    id: 'MB-003',
-    numeroMantenimiento: 'MB-2024-003',
-    equipoId: 'EB-005',
-    equipoCodigo: 'EB-2024-005',
-    equipoNombre: 'Bomba de Infusión',
-    tipo: 'calibracion',
-    prioridad: 'media',
-    estado: 'programado',
-    titulo: 'Calibración Semestral',
-    descripcion: 'Calibración metrológica programada según normativa - Verificación de precisión de flujo',
-    fechaCreacion: '2024-12-15 10:00',
-    fechaProgramada: '2025-01-02 09:00',
-    fechaInicio: null,
-    fechaCompletado: null,
-    tecnico: {
-      id: 'TEC-003',
-      nombre: 'Lab. Metrología INDECOPI',
-      empresa: 'INDECOPI Perú'
-    },
-    actividadesRealizadas: null,
-    repuestosUtilizados: [],
-    auditoria: {
-      creadoPor: 'sistema.automatico@kesa.com',
-      creadoEn: '2024-12-15 10:00:00',
-      modificadoPor: null,
-      modificadoEn: null,
-      completadoPor: null,
-      completadoEn: null
-    },
-    observaciones: 'Calibración en laboratorio externo acreditado - Duración estimada 2 días'
-  },
-  {
-    id: 'MB-004',
-    numeroMantenimiento: 'MB-2024-004',
-    equipoId: 'EB-002',
-    equipoCodigo: 'EB-2024-002',
-    equipoNombre: 'Ecógrafo',
-    tipo: 'preventivo',
-    prioridad: 'media',
-    estado: 'completado',
-    titulo: 'Mantenimiento Preventivo Semestral',
-    descripcion: 'Revisión general de transductores, sistema de imagen y limpieza profunda',
-    fechaCreacion: '2024-09-20 11:00',
-    fechaProgramada: '2024-10-05 08:00',
-    fechaInicio: '2024-10-05 08:20',
-    fechaCompletado: '2024-10-05 14:30',
-    tecnico: {
-      id: 'TEC-004',
-      nombre: 'Ing. Luis Fernández',
-      empresa: 'GE Healthcare Perú'
-    },
-    actividadesRealizadas: 'Limpieza y desinfección de transductores, verificación de conectores, actualización de software, calibración de parámetros de imagen',
-    repuestosUtilizados: [
-      {
-        nombre: 'Gel conductor',
-        cantidad: 5,
-        observacion: 'Stock de consumibles'
-      }
-    ],
-    auditoria: {
-      creadoPor: 'sistema.automatico@kesa.com',
-      creadoEn: '2024-09-20 11:00:00',
-      modificadoPor: 'juan.perez@kesa.com',
-      modificadoEn: '2024-10-05 08:20:00',
-      completadoPor: 'juan.perez@kesa.com',
-      completadoEn: '2024-10-05 14:30:00'
-    },
-    observaciones: 'Equipo en óptimas condiciones - Sin observaciones'
+/**
+ * La DB usa CriticidadOTDB ('baja' | 'media' | 'alta' | 'critica')
+ * El frontend usa PrioridadMantenimientoBio ('baja' | 'media' | 'alta' | 'urgente')
+ * Mapeamos 'critica' ↔ 'urgente'
+ */
+function dbPrioridadToFrontend(p: string): PrioridadMantenimientoBio {
+  if (p === 'critica') return 'urgente';
+  return p as PrioridadMantenimientoBio;
+}
+
+function frontendPrioridadToDB(p: PrioridadMantenimientoBio): string {
+  if (p === 'urgente') return 'critica';
+  return p;
+}
+
+/**
+ * La DB usa EstadoMantenimientoBio del types.ts: 'programado' | 'en_ejecucion' | 'completado' | 'anulado'
+ * El frontend usa: 'programado' | 'en_ejecucion' | 'completado' | 'cancelado'
+ * Mapeamos 'anulado' ↔ 'cancelado'
+ */
+function dbEstadoToFrontend(e: string): EstadoMantenimientoBio {
+  if (e === 'anulado') return 'cancelado';
+  return e as EstadoMantenimientoBio;
+}
+
+function frontendEstadoToDB(e: EstadoMantenimientoBio): string {
+  if (e === 'cancelado') return 'anulado';
+  return e;
+}
+
+// ============================================================================
+// MAPPER DB → FRONTEND
+// ============================================================================
+
+function mapFromDB(row: MantenimientoDBRow): MantenimientoBiomedico {
+  // Intentar parsear tecnico desde acciones_realizadas o hallazgos si están serializados
+  let tecnicoNombre = row.tecnico_nombre ?? '';
+  let tecnicoEmpresa = '';
+  let tecnicoId = 'TEC-DB';
+
+  // Deserializar tecnico de tecnico_nombre si está en formato JSON
+  try {
+    const parsed = JSON.parse(tecnicoNombre);
+    if (parsed && typeof parsed === 'object') {
+      tecnicoNombre = parsed.nombre ?? tecnicoNombre;
+      tecnicoEmpresa = parsed.empresa ?? '';
+      tecnicoId = parsed.id ?? tecnicoId;
+    }
+  } catch {
+    // No es JSON — usar como nombre simple
   }
-];
+
+  return {
+    id: row.numero,
+    _dbId: row.id,
+    numeroMantenimiento: row.numero,
+    equipoId: row.equipo_codigo,   // usamos codigo como ID frontend
+    equipoDbId: row.equipo_id,
+    equipoCodigo: row.equipo_codigo,
+    equipoNombre: '',  // no en DB directamente (puede venir del join)
+    tipo: row.tipo as TipoMantenimientoBio,
+    prioridad: dbPrioridadToFrontend(row.prioridad),
+    estado: dbEstadoToFrontend(row.estado),
+    titulo: row.titulo,
+    descripcion: row.descripcion ?? '',
+    fechaCreacion: row.creado_en,
+    fechaProgramada: row.fecha_programada,
+    fechaInicio: row.fecha_inicio ?? null,
+    fechaCompletado: row.fecha_cierre ?? null,
+    tecnico: {
+      id: tecnicoId,
+      nombre: tecnicoNombre,
+      empresa: tecnicoEmpresa,
+    },
+    actividadesRealizadas: row.acciones_realizadas ?? null,
+    repuestosUtilizados: [],
+    auditoria: {
+      creadoPor: row.creado_por,
+      creadoEn: row.creado_en,
+      modificadoPor: row.modificado_por,
+      modificadoEn: row.modificado_en,
+      completadoPor: null,
+      completadoEn: row.fecha_cierre ?? null,
+    },
+    observaciones: row.recomendaciones ?? null,
+  };
+}
 
 // ============================================================================
 // PROVIDER
 // ============================================================================
 
 export function MantenimientosStoreProvider({ children }: { children: React.ReactNode }) {
+  const { tenantId, user } = useAuth();
   const [mantenimientos, setMantenimientos] = useState<MantenimientoBiomedico[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Carga inicial desde Supabase
+  const fetchMantenimientos = useCallback(async () => {
+    if (!tenantId) return;
+    setLoading(true);
+
+    const { data, error } = await dbMantenimientosBiomedicos.list();
+
+    if (error) {
+      console.error('[MANTENIMIENTOS_BIO] Error al cargar:', error.message);
+    } else if (data) {
+      // data puede incluir join `equipo` gracias al select en helpers
+      const mapped = (data as Array<MantenimientoDBRow & { equipo?: { codigo: string; nombre: string; categoria: string } }>)
+        .map(row => {
+          const m = mapFromDB(row);
+          // Enriquecer con datos del join de equipo si existe
+          if (row.equipo) {
+            m.equipoNombre = row.equipo.nombre ?? '';
+            m.equipoCodigo = row.equipo.codigo ?? m.equipoCodigo;
+          }
+          return m;
+        });
+      setMantenimientos(mapped);
+      if (DEBUG_MANTENIMIENTO_BIO) {
+        console.log('[MANTENIMIENTOS_BIO] Cargados desde Supabase:', mapped.length);
+      }
+    }
+    setLoading(false);
+  }, [tenantId]);
 
   useEffect(() => {
-    if (mantenimientos.length === 0) {
-      if (DEBUG_MANTENIMIENTO_BIO) {
-        console.log('[MANTENIMIENTOS_SEED_LOADING]', { seedSize: mantenimientosSeed.length });
-      }
-      setMantenimientos(mantenimientosSeed);
-    }
-  }, []);
+    fetchMantenimientos();
+  }, [fetchMantenimientos]);
 
+  // cargarMantenimientosIniciales: legacy shim, triggers re-fetch
   const cargarMantenimientosIniciales = useCallback(() => {
-    if (mantenimientos.length === 0) {
-      if (DEBUG_MANTENIMIENTO_BIO) {
-        console.log('[MANTENIMIENTOS_SEED_MANUAL_LOADING]', { seedSize: mantenimientosSeed.length });
-      }
-      setMantenimientos(mantenimientosSeed);
-    } else if (DEBUG_MANTENIMIENTO_BIO) {
-      console.log('[MANTENIMIENTOS_SEED_SKIP]', { reason: 'Ya hay mantenimientos en el store', currentSize: mantenimientos.length });
-    }
-  }, [mantenimientos.length]);
+    fetchMantenimientos();
+  }, [fetchMantenimientos]);
 
-  // Obtener mantenimiento por número
+  // ============================================================================
+  // QUERIES (síncronas)
+  // ============================================================================
+
   const obtenerMantenimientoPorNumero = useCallback((numero: string) => {
-    return mantenimientos.find(mant => mant.numeroMantenimiento === numero);
+    return mantenimientos.find(m => m.numeroMantenimiento === numero);
   }, [mantenimientos]);
 
-  // Obtener mantenimientos por equipo
   const obtenerMantenimientosPorEquipo = useCallback((equipoId: string) => {
-    return mantenimientos.filter(mant => mant.equipoId === equipoId);
+    // Buscar por equipoId (codigo), equipoDbId (UUID) o equipoCodigo
+    return mantenimientos.filter(m =>
+      m.equipoId === equipoId || m.equipoDbId === equipoId || m.equipoCodigo === equipoId
+    );
   }, [mantenimientos]);
 
-  // Crear nuevo mantenimiento
-  const crearMantenimiento = useCallback((input: NuevoMantenimientoBiomedicoInput): MantenimientoBiomedico => {
-    // Obtener el último número secuencial
+  // ============================================================================
+  // CRUD
+  // ============================================================================
+
+  const crearMantenimiento = useCallback(async (
+    input: NuevoMantenimientoBiomedicoInput
+  ): Promise<MantenimientoBiomedico> => {
+    if (!tenantId || !user) {
+      throw new Error('Sin sesión activa');
+    }
+
+    // Determinar siguiente número secuencial
     const numeros = mantenimientos
-      .map(mant => extraerNumeroSecuencial(mant.numeroMantenimiento))
+      .map(m => extraerNumeroSecuencial(m.numeroMantenimiento))
       .filter((n): n is number => n !== null);
     const ultimoNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
+    const nuevoNumero = generarNumeroMantenimiento(ultimoNumero);
 
-    // Generar nuevo número
-    const numeroMantenimiento = generarNumeroMantenimiento(ultimoNumero);
-    const id = `MB-${(ultimoNumero + 1).toString().padStart(3, '0')}`;
-
-    // Usuario actual (mock - en producción viene del auth context)
-    const usuarioActual = 'admin@kesa.com';
-    const timestamp = new Date().toISOString();
-
-    // Crear objeto mantenimiento
-    const nuevoMantenimiento: MantenimientoBiomedico = {
-      id,
-      numeroMantenimiento,
-      equipoId: input.equipoId,
-      equipoCodigo: input.equipoCodigo,
-      equipoNombre: input.equipoNombre,
-      tipo: input.tipo,
-      prioridad: input.prioridad,
-      estado: 'programado',
-      titulo: input.titulo,
-      descripcion: input.descripcion,
-      fechaCreacion: timestamp,
-      fechaProgramada: input.fechaProgramada,
-      fechaInicio: null,
-      fechaCompletado: null,
-      tecnico: input.tecnico,
-      actividadesRealizadas: null,
-      repuestosUtilizados: [],
-      auditoria: {
-        creadoPor: usuarioActual,
-        creadoEn: timestamp,
-        modificadoPor: null,
-        modificadoEn: null,
-        completadoPor: null,
-        completadoEn: null
-      },
-      observaciones: input.observaciones || null
-    };
-
-    // Agregar al INICIO del store para visibilidad inmediata
-    setMantenimientos(prev => {
-      const newState = [nuevoMantenimiento, ...prev];
-      
-      if (DEBUG_MANTENIMIENTO_BIO) {
-        console.log('[MANTENIMIENTO_CREATED]', {
-          numero: nuevoMantenimiento.numeroMantenimiento,
-          equipoCodigo: nuevoMantenimiento.equipoCodigo,
-          tipo: nuevoMantenimiento.tipo,
-          sizeAfter: newState.length
-        });
-      }
-      
-      return newState;
+    // Serializar tecnico en tecnico_nombre (JSON) para preservar datos completos
+    const tecnicoJson = JSON.stringify({
+      id: input.tecnico.id,
+      nombre: input.tecnico.nombre,
+      empresa: input.tecnico.empresa,
     });
 
-    return nuevoMantenimiento;
-  }, [mantenimientos]);
+    // FK a equipo: usar equipoDbId si fue pasado, sino equipoId asumiendo que es el UUID
+    const equipoDbId = input.equipoDbId ?? input.equipoId;
 
-  // Actualizar estado de mantenimiento
-  const actualizarEstadoMantenimiento = useCallback((numero: string, nuevoEstado: EstadoMantenimientoBio) => {
-    setMantenimientos(prev => prev.map(mant => {
-      if (mant.numeroMantenimiento === numero) {
-        const timestamp = new Date().toISOString();
-        const usuarioActual = 'admin@kesa.com';
+    const { data: inserted, error } = await dbMantenimientosBiomedicos.create({
+      tenant_id: tenantId,
+      numero: nuevoNumero,
+      equipo_id: equipoDbId,
+      equipo_codigo: input.equipoCodigo,
+      tipo: input.tipo,
+      estado: 'programado',
+      prioridad: frontendPrioridadToDB(input.prioridad),
+      titulo: input.titulo,
+      descripcion: input.descripcion,
+      hallazgos: null,
+      acciones_realizadas: null,
+      recomendaciones: input.observaciones ?? null,
+      fecha_programada: input.fechaProgramada,
+      fecha_inicio: null,
+      fecha_cierre: null,
+      tecnico_nombre: tecnicoJson,
+      proveedor_id: null,
+      costo_mano_obra: 0,
+      costo_repuestos: 0,
+      proxima_fecha: null,
+      creado_por: user.id,
+      modificado_por: null,
+      modificado_en: null,
+    });
 
-        return {
-          ...mant,
-          estado: nuevoEstado,
-          ...(nuevoEstado === 'en_ejecucion' && !mant.fechaInicio ? { fechaInicio: timestamp } : {}),
-          ...(nuevoEstado === 'completado' ? { fechaCompletado: timestamp } : {}),
-          auditoria: {
-            ...mant.auditoria,
-            modificadoPor: usuarioActual,
-            modificadoEn: timestamp,
-            ...(nuevoEstado === 'completado' ? {
-              completadoPor: usuarioActual,
-              completadoEn: timestamp
-            } : {})
-          }
-        };
+    if (error) {
+      console.error('[MANTENIMIENTOS_BIO] Error al crear:', error.message);
+      throw new Error(error.message);
+    }
+
+    const nuevo = mapFromDB(inserted as MantenimientoDBRow);
+    // Enriquecer con datos que no están en DB
+    const nuevoCompleto: MantenimientoBiomedico = {
+      ...nuevo,
+      equipoNombre: input.equipoNombre,
+      equipoCodigo: input.equipoCodigo,
+      equipoId: input.equipoId,
+      equipoDbId: equipoDbId,
+      tecnico: input.tecnico,
+      observaciones: input.observaciones ?? null,
+    };
+
+    setMantenimientos(prev => [nuevoCompleto, ...prev]);
+
+    if (DEBUG_MANTENIMIENTO_BIO) {
+      console.log('[MANTENIMIENTO_BIO_CREATED]', {
+        numero: nuevoCompleto.numeroMantenimiento,
+        equipoCodigo: nuevoCompleto.equipoCodigo,
+        tipo: nuevoCompleto.tipo,
+      });
+    }
+
+    return nuevoCompleto;
+  }, [mantenimientos, tenantId, user]);
+
+  const actualizarEstadoMantenimiento = useCallback(async (
+    numero: string,
+    nuevoEstado: EstadoMantenimientoBio
+  ): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+    // Read _dbId without stale closure
+    let dbId: string | undefined;
+    setMantenimientos(prev => {
+      dbId = prev.find(m => m.numeroMantenimiento === numero)?._dbId;
+      return prev;
+    });
+
+    if (!dbId) return { exito: false, errores: ['Mantenimiento no encontrado'] };
+
+    const ahora = new Date().toISOString();
+    const updatePayload: Record<string, unknown> = {
+      estado: frontendEstadoToDB(nuevoEstado),
+      modificado_por: user.id,
+      modificado_en: ahora,
+    };
+
+    // Actualizar fechas según estado
+    let fechaInicio: string | undefined;
+    let fechaCierre: string | undefined;
+
+    setMantenimientos(prev => {
+      const actual = prev.find(m => m.numeroMantenimiento === numero);
+      if (actual) {
+        if (nuevoEstado === 'en_ejecucion' && !actual.fechaInicio) {
+          fechaInicio = ahora;
+          updatePayload.fecha_inicio = ahora;
+        }
+        if (nuevoEstado === 'completado') {
+          fechaCierre = ahora;
+          updatePayload.fecha_cierre = ahora;
+        }
       }
-      return mant;
+      return prev;
+    });
+
+    const { error } = await dbMantenimientosBiomedicos.update(dbId, updatePayload);
+
+    if (error) {
+      console.error('[MANTENIMIENTOS_BIO] Error al actualizar estado:', error.message);
+      return { exito: false, errores: [error.message] };
+    }
+
+    setMantenimientos(prev => prev.map(m => {
+      if (m.numeroMantenimiento !== numero) return m;
+      return {
+        ...m,
+        estado: nuevoEstado,
+        ...(fechaInicio && !m.fechaInicio ? { fechaInicio } : {}),
+        ...(fechaCierre ? { fechaCompletado: fechaCierre } : {}),
+        auditoria: {
+          ...m.auditoria,
+          modificadoPor: user.id,
+          modificadoEn: ahora,
+          ...(nuevoEstado === 'completado' ? {
+            completadoPor: user.id,
+            completadoEn: ahora,
+          } : {}),
+        },
+      };
     }));
-  }, []);
+
+    return { exito: true };
+  }, [user]);
+
+  // ============================================================================
+  // CONTEXT VALUE
+  // ============================================================================
 
   const value: MantenimientosStoreContext = {
     mantenimientos,
+    loading,
     obtenerMantenimientoPorNumero,
     obtenerMantenimientosPorEquipo,
     crearMantenimiento,
     actualizarEstadoMantenimiento,
-    cargarMantenimientosIniciales
+    cargarMantenimientosIniciales,
   };
 
   return <MantenimientosContext.Provider value={value}>{children}</MantenimientosContext.Provider>;
