@@ -1,10 +1,17 @@
 /**
  * STORE DE REQUERIMIENTOS DE COMPRA
- * Context global para gestión de requerimientos en el módulo Compras
- * Prototipo funcional - Reemplazar por backend real en producción
+ * v2.0.0 - Conectado a Supabase (reemplaza mock local)
+ * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { supabase } from '../supabase/client';
+import { dbRequerimientos } from '../supabase/helpers';
+import { useAuth } from '../../auth/AuthProvider';
+import type {
+  RequerimientoCompra,
+  RequerimientoItem as RequerimientoItemDB,
+} from '../supabase/types';
 import {
   generarIdRequerimiento,
   extraerNumeroSecuencial,
@@ -17,11 +24,12 @@ import {
 } from './requerimientos-config';
 
 // ============================================================================
-// TIPOS
+// TIPOS FRONTEND
 // ============================================================================
 
 export interface ItemRequerimiento {
   id: string;
+  _dbId?: string; // UUID interno de Supabase
   descripcion: string;
   cantidad: number;
   unidad: string;
@@ -30,35 +38,36 @@ export interface ItemRequerimiento {
 }
 
 export interface Requerimiento {
-  // Identificación
+  // Identificación — id = numero (REQ-NNNN), _dbId = UUID interno
   id: string;
+  _dbId: string;
   titulo: string;
   descripcion: string;
-  
+
   // Clasificación
   centroCosto: CentroCosto;
   prioridad: PrioridadRequerimiento;
   estado: EstadoRequerimiento;
-  
+
   // Solicitante
   solicitanteNombre: string;
   solicitanteEmail: string;
-  
+
   // Temporal
-  fechaRequerida: string | null; // ISO date
-  
+  fechaRequerida: string | null;
+
   // Items
   items: ItemRequerimiento[];
-  totalEstimado: number; // Calculado
-  
+  totalEstimado: number;
+
   // Aprobación
   aprobadoPor: string | null;
   aprobadoEn: string | null;
   rechazadoPor: string | null;
   rechazadoEn: string | null;
   motivoRechazo: string | null;
-  
-  // Auditoría obligatoria
+
+  // Auditoría
   auditoria: {
     creadoPor: string;
     creadoEn: string;
@@ -78,24 +87,28 @@ export interface NuevoRequerimientoInput {
   solicitanteNombre: string;
   solicitanteEmail: string;
   fechaRequerida?: string;
-  items: Omit<ItemRequerimiento, 'id'>[];
+  items: Omit<ItemRequerimiento, 'id' | '_dbId'>[];
 }
 
-export interface ActualizarRequerimientoInput extends Partial<NuevoRequerimientoInput> {
-  // Solo campos editables
+export interface ActualizarRequerimientoInput extends Partial<NuevoRequerimientoInput> {}
+
+interface CrudResult {
+  exito: boolean;
+  errores?: string[];
 }
 
 interface RequerimientoStoreContext {
   requerimientos: Requerimiento[];
+  loading: boolean;
   obtenerRequerimientoPorId: (id: string) => Requerimiento | undefined;
-  crearRequerimiento: (input: NuevoRequerimientoInput) => Requerimiento;
-  actualizarRequerimiento: (id: string, input: ActualizarRequerimientoInput) => void;
-  cambiarEstado: (id: string, nuevoEstado: EstadoRequerimiento) => void;
-  aprobarRequerimiento: (id: string, aprobadoPor: string) => void;
-  rechazarRequerimiento: (id: string, rechazadoPor: string, motivo: string) => void;
-  anularRequerimiento: (id: string, motivo: string) => void;
+  crearRequerimiento: (input: NuevoRequerimientoInput) => Promise<CrudResult & { requerimiento?: Requerimiento }>;
+  actualizarRequerimiento: (id: string, input: ActualizarRequerimientoInput) => Promise<CrudResult>;
+  cambiarEstado: (id: string, nuevoEstado: EstadoRequerimiento) => Promise<CrudResult>;
+  aprobarRequerimiento: (id: string, aprobadoPor: string) => Promise<CrudResult>;
+  rechazarRequerimiento: (id: string, rechazadoPor: string, motivo: string) => Promise<CrudResult>;
+  anularRequerimiento: (id: string, motivo: string) => Promise<CrudResult>;
   cargarRequerimientosIniciales: () => void;
-  // Mock de usuario actual
+  // Usuario actual derivado de auth
   usuarioActual: { email: string; nombre: string; rol: RolUsuario };
 }
 
@@ -106,520 +119,502 @@ interface RequerimientoStoreContext {
 const RequerimientoContext = createContext<RequerimientoStoreContext | undefined>(undefined);
 
 // ============================================================================
-// DATA DE EJEMPLO - Seed inicial
+// MAPPER DB → FRONTEND
 // ============================================================================
 
-const requerimientosSeed: Requerimiento[] = [
-  {
-    id: 'REQ-0001',
-    titulo: 'Repuestos urgentes para ambulancia AMB-001',
-    descripcion: 'Se requieren repuestos críticos para la ambulancia AMB-001 que está fuera de servicio. Incluye pastillas de freno, filtros y aceite.',
-    centroCosto: 'flota',
-    prioridad: 'alta',
-    estado: 'enviado',
-    solicitanteNombre: 'Carlos Mendoza',
-    solicitanteEmail: 'cmendoza@kesa.com',
-    fechaRequerida: '2025-01-08',
-    items: [
-      {
-        id: 'item-1',
-        descripcion: 'Pastillas de freno delanteras',
-        cantidad: 2,
-        unidad: 'juego',
-        precioEstimado: 350,
-        comentario: 'Marca Brembo o equivalente'
-      },
-      {
-        id: 'item-2',
-        descripcion: 'Filtro de aceite',
-        cantidad: 4,
-        unidad: 'unidad',
-        precioEstimado: 45,
-        comentario: null
-      },
-      {
-        id: 'item-3',
-        descripcion: 'Aceite sintético 5W-30',
-        cantidad: 8,
-        unidad: 'litro',
-        precioEstimado: 65,
-        comentario: 'Shell Helix Ultra'
-      }
-    ],
-    totalEstimado: 1400,
-    aprobadoPor: null,
-    aprobadoEn: null,
+type RequerimientoWithItems = RequerimientoCompra & {
+  items: RequerimientoItemDB[];
+};
+
+function mapFromDB(row: RequerimientoWithItems): Requerimiento {
+  const items: ItemRequerimiento[] = (row.items ?? []).map(item => ({
+    id: item.id,
+    _dbId: item.id,
+    descripcion: item.descripcion,
+    cantidad: item.cantidad,
+    unidad: item.unidad,
+    precioEstimado: item.costo_estimado_unitario,
+    comentario: item.observaciones,
+  }));
+
+  const totalEstimado = items.reduce(
+    (sum, item) => sum + item.cantidad * item.precioEstimado,
+    0
+  );
+
+  return {
+    id: row.numero,
+    _dbId: row.id,
+    titulo: row.titulo,
+    descripcion: row.descripcion ?? '',
+    centroCosto: row.centro_costo as CentroCosto,
+    prioridad: row.prioridad as PrioridadRequerimiento,
+    estado: row.estado as EstadoRequerimiento,
+    solicitanteNombre: row.creado_por ?? '',
+    solicitanteEmail: row.creado_por ?? '',
+    fechaRequerida: row.fecha_requerida,
+    items,
+    totalEstimado,
+    aprobadoPor: row.aprobado_por,
+    aprobadoEn: row.aprobado_en,
     rechazadoPor: null,
     rechazadoEn: null,
-    motivoRechazo: null,
+    motivoRechazo: row.motivo_rechazo,
     auditoria: {
-      creadoPor: 'cmendoza@kesa.com',
-      creadoEn: '2025-01-02T10:30:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: null,
-      anuladoEn: null,
-      motivoAnulacion: null
-    }
-  },
-  {
-    id: 'REQ-0002',
-    titulo: 'Equipamiento médico - Monitor de signos vitales',
-    descripcion: 'Compra de monitor de signos vitales para área de emergencias. Debe incluir módulos de ECG, SpO2, NIBP y temperatura.',
-    centroCosto: 'biomedico',
-    prioridad: 'media',
-    estado: 'aprobado',
-    solicitanteNombre: 'Dra. Ana Torres',
-    solicitanteEmail: 'atorres@kesa.com',
-    fechaRequerida: '2025-01-15',
-    items: [
-      {
-        id: 'item-1',
-        descripcion: 'Monitor de signos vitales multiparamétrico',
-        cantidad: 1,
-        unidad: 'unidad',
-        precioEstimado: 12500,
-        comentario: 'Marca GE Healthcare o Philips, con pantalla táctil 15"'
-      },
-      {
-        id: 'item-2',
-        descripcion: 'Cables de ECG',
-        cantidad: 2,
-        unidad: 'juego',
-        precioEstimado: 450,
-        comentario: '5 derivaciones'
-      }
-    ],
-    totalEstimado: 13400,
-    aprobadoPor: 'gerencia@kesa.com',
-    aprobadoEn: '2025-01-03T14:00:00Z',
-    rechazadoPor: null,
-    rechazadoEn: null,
-    motivoRechazo: null,
-    auditoria: {
-      creadoPor: 'atorres@kesa.com',
-      creadoEn: '2025-01-02T09:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: null,
-      anuladoEn: null,
-      motivoAnulacion: null
-    }
-  },
-  {
-    id: 'REQ-0003',
-    titulo: 'Licencias de software Office 365',
-    descripcion: 'Renovación de licencias Office 365 Business Premium para 50 usuarios del área administrativa.',
-    centroCosto: 'ti',
-    prioridad: 'media',
-    estado: 'borrador',
-    solicitanteNombre: 'Luis García',
-    solicitanteEmail: 'lgarcia@kesa.com',
-    fechaRequerida: null,
-    items: [
-      {
-        id: 'item-1',
-        descripcion: 'Licencia Office 365 Business Premium',
-        cantidad: 50,
-        unidad: 'licencia',
-        precioEstimado: 180,
-        comentario: 'Renovación anual'
-      }
-    ],
-    totalEstimado: 9000,
-    aprobadoPor: null,
-    aprobadoEn: null,
-    rechazadoPor: null,
-    rechazadoEn: null,
-    motivoRechazo: null,
-    auditoria: {
-      creadoPor: 'lgarcia@kesa.com',
-      creadoEn: '2025-01-04T11:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: null,
-      anuladoEn: null,
-      motivoAnulacion: null
-    }
-  },
-  {
-    id: 'REQ-0004',
-    titulo: 'Material de oficina - Trimestre Q1 2025',
-    descripcion: 'Compra de material de oficina para el primer trimestre 2025. Incluye papel, tóner, útiles varios.',
-    centroCosto: 'administracion',
-    prioridad: 'baja',
-    estado: 'rechazado',
-    solicitanteNombre: 'María Rodríguez',
-    solicitanteEmail: 'mrodriguez@kesa.com',
-    fechaRequerida: '2025-01-20',
-    items: [
-      {
-        id: 'item-1',
-        descripcion: 'Papel bond A4 75g',
-        cantidad: 50,
-        unidad: 'paquete',
-        precioEstimado: 18,
-        comentario: null
-      },
-      {
-        id: 'item-2',
-        descripcion: 'Tóner HP LaserJet',
-        cantidad: 10,
-        unidad: 'unidad',
-        precioEstimado: 220,
-        comentario: 'Modelo 85A'
-      }
-    ],
-    totalEstimado: 3100,
-    aprobadoPor: null,
-    aprobadoEn: null,
-    rechazadoPor: 'gerencia@kesa.com',
-    rechazadoEn: '2025-01-04T16:00:00Z',
-    motivoRechazo: 'El presupuesto para material de oficina ya fue asignado en diciembre. Revisar con el responsable de compras.',
-    auditoria: {
-      creadoPor: 'mrodriguez@kesa.com',
-      creadoEn: '2025-01-03T10:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: null,
-      anuladoEn: null,
-      motivoAnulacion: null
-    }
-  },
-  {
-    id: 'REQ-0005',
-    titulo: 'Herramientas para taller mecánico',
-    descripcion: 'Set de herramientas especializadas para mantenimiento de flota pesada.',
-    centroCosto: 'mantenimiento',
-    prioridad: 'media',
-    estado: 'anulado',
-    solicitanteNombre: 'Jorge Silva',
-    solicitanteEmail: 'jsilva@kesa.com',
-    fechaRequerida: null,
-    items: [
-      {
-        id: 'item-1',
-        descripcion: 'Juego de llaves combinadas métricas',
-        cantidad: 2,
-        unidad: 'juego',
-        precioEstimado: 850,
-        comentario: 'De 8mm a 32mm'
-      }
-    ],
-    totalEstimado: 1700,
-    aprobadoPor: null,
-    aprobadoEn: null,
-    rechazadoPor: null,
-    rechazadoEn: null,
-    motivoRechazo: null,
-    auditoria: {
-      creadoPor: 'jsilva@kesa.com',
-      creadoEn: '2024-12-28T14:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: 'admin@kesa.com',
-      anuladoEn: '2025-01-02T09:30:00Z',
-      motivoAnulacion: 'Solicitud duplicada. Ya existe REQ-0012 para el mismo propósito aprobado en diciembre. Se anula para evitar compra duplicada.'
-    }
-  }
-];
+      creadoPor: row.creado_por ?? '',
+      creadoEn: row.creado_en,
+      modificadoPor: row.modificado_por,
+      modificadoEn: row.modificado_en,
+      anuladoPor: row.estado === 'anulado' ? row.modificado_por : null,
+      anuladoEn: row.estado === 'anulado' ? row.modificado_en : null,
+      motivoAnulacion: row.motivo_anulacion,
+    },
+  };
+}
 
 // ============================================================================
 // PROVIDER
 // ============================================================================
 
 export function RequerimientoStoreProvider({ children }: { children: React.ReactNode }) {
+  const { tenantId, user, profile } = useAuth();
   const [requerimientos, setRequerimientos] = useState<Requerimiento[]>([]);
-  
-  // Mock de usuario actual
+  const [loading, setLoading] = useState(true);
+
+  // Usuario actual derivado del perfil autenticado
   const usuarioActual = {
-    email: 'admin@kesa.com',
-    nombre: 'Administrador',
-    rol: 'admin_empresa' as RolUsuario
+    email: user?.email ?? profile?.email ?? 'admin@kesa.com',
+    nombre: profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Usuario',
+    rol: (profile?.rol as RolUsuario) ?? ('admin_empresa' as RolUsuario),
   };
 
-  // Cargar requerimientos iniciales SOLO una vez al montar
+  // Carga inicial desde Supabase
+  const fetchRequerimientos = useCallback(async () => {
+    if (!tenantId) return;
+    setLoading(true);
+
+    const { data, error } = await dbRequerimientos.list();
+
+    if (error) {
+      console.error('[REQUERIMIENTOS] Error al cargar:', error.message);
+    } else if (data) {
+      const mapped = (data as RequerimientoWithItems[]).map(mapFromDB);
+      setRequerimientos(mapped);
+      if (DEBUG_REQUERIMIENTOS) {
+        console.log('[REQUERIMIENTOS] Cargados desde Supabase:', mapped.length);
+      }
+    }
+    setLoading(false);
+  }, [tenantId]);
+
   useEffect(() => {
-    if (requerimientos.length === 0) {
-      if (DEBUG_REQUERIMIENTOS) {
-        console.log('[REQ_SEED_LOADING]', { seedSize: requerimientosSeed.length });
-      }
-      setRequerimientos(requerimientosSeed);
-    }
-  }, []);
+    fetchRequerimientos();
+  }, [fetchRequerimientos]);
 
-  // Cargar requerimientos iniciales (con guard idempotente)
+  // cargarRequerimientosIniciales — compatibilidad con UI existente
   const cargarRequerimientosIniciales = useCallback(() => {
-    if (requerimientos.length === 0) {
-      if (DEBUG_REQUERIMIENTOS) {
-        console.log('[REQ_SEED_MANUAL_LOADING]', { seedSize: requerimientosSeed.length });
+    fetchRequerimientos();
+  }, [fetchRequerimientos]);
+
+  // ============================================================================
+  // QUERIES (síncronas)
+  // ============================================================================
+
+  const obtenerRequerimientoPorId = useCallback(
+    (id: string) => requerimientos.find(r => r.id === id),
+    [requerimientos]
+  );
+
+  // ============================================================================
+  // HELPERS
+  // ============================================================================
+
+  const calcularTotal = (items: Omit<ItemRequerimiento, 'id' | '_dbId'>[]): number =>
+    items.reduce((sum, item) => sum + item.cantidad * item.precioEstimado, 0);
+
+  // ============================================================================
+  // CRUD
+  // ============================================================================
+
+  const crearRequerimiento = useCallback(
+    async (input: NuevoRequerimientoInput): Promise<CrudResult & { requerimiento?: Requerimiento }> => {
+      if (!tenantId || !user) {
+        return { exito: false, errores: ['Sin sesión activa'] };
       }
-      setRequerimientos(requerimientosSeed);
-    } else if (DEBUG_REQUERIMIENTOS) {
-      console.log('[REQ_SEED_SKIP]', { 
-        reason: 'Ya hay requerimientos en el store', 
-        currentSize: requerimientos.length 
+
+      // Determinar siguiente número secuencial
+      const numeros = requerimientos
+        .map(r => extraerNumeroSecuencial(r.id))
+        .filter((n): n is number => n !== null);
+      const ultimoNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
+      const nuevoCodigo = generarIdRequerimiento(ultimoNumero);
+
+      const totalEstimado = calcularTotal(input.items);
+
+      // Insertar cabecera
+      const { data: inserted, error: errReq } = await dbRequerimientos.create({
+        tenant_id: tenantId,
+        numero: nuevoCodigo,
+        titulo: input.titulo.trim(),
+        descripcion: input.descripcion.trim(),
+        estado: 'borrador' as EstadoRequerimiento,
+        prioridad: input.prioridad,
+        centro_costo: input.centroCosto,
+        fecha_requerida: input.fechaRequerida || null,
+        motivo_rechazo: null,
+        motivo_anulacion: null,
+        aprobado_por: null,
+        aprobado_en: null,
+        creado_por: normalizeEmail(input.solicitanteEmail),
+        modificado_por: null,
+        modificado_en: null,
       });
-    }
-  }, [requerimientos.length]);
 
-  // Obtener requerimiento por ID
-  const obtenerRequerimientoPorId = useCallback((id: string) => {
-    return requerimientos.find(r => r.id === id);
-  }, [requerimientos]);
-
-  // Calcular total estimado
-  const calcularTotal = (items: ItemRequerimiento[]): number => {
-    return items.reduce((sum, item) => sum + (item.cantidad * item.precioEstimado), 0);
-  };
-
-  // Crear nuevo requerimiento
-  const crearRequerimiento = useCallback((input: NuevoRequerimientoInput): Requerimiento => {
-    // Obtener el último número secuencial
-    const numeros = requerimientos
-      .map(r => extraerNumeroSecuencial(r.id))
-      .filter((n): n is number => n !== null);
-    const ultimoNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
-
-    // Generar nuevo ID
-    const id = generarIdRequerimiento(ultimoNumero);
-    const timestamp = new Date().toISOString();
-
-    // Generar items con IDs
-    const items: ItemRequerimiento[] = input.items.map((item, idx) => ({
-      ...item,
-      id: `item-${idx + 1}`
-    }));
-
-    // Crear objeto requerimiento
-    const nuevoRequerimiento: Requerimiento = {
-      id,
-      titulo: input.titulo.trim(),
-      descripcion: input.descripcion.trim(),
-      centroCosto: input.centroCosto,
-      prioridad: input.prioridad,
-      estado: 'borrador',
-      solicitanteNombre: input.solicitanteNombre.trim(),
-      solicitanteEmail: normalizeEmail(input.solicitanteEmail),
-      fechaRequerida: input.fechaRequerida || null,
-      items,
-      totalEstimado: calcularTotal(items),
-      aprobadoPor: null,
-      aprobadoEn: null,
-      rechazadoPor: null,
-      rechazadoEn: null,
-      motivoRechazo: null,
-      auditoria: {
-        creadoPor: usuarioActual.email,
-        creadoEn: timestamp,
-        modificadoPor: null,
-        modificadoEn: null,
-        anuladoPor: null,
-        anuladoEn: null,
-        motivoAnulacion: null
+      if (errReq || !inserted) {
+        console.error('[REQUERIMIENTOS] Error al crear:', errReq?.message);
+        return { exito: false, errores: [errReq?.message ?? 'Error desconocido'] };
       }
-    };
 
-    // Agregar al INICIO del store
-    const sizeBeforeAdd = requerimientos.length;
-    setRequerimientos(prev => {
-      const newState = [nuevoRequerimiento, ...prev];
-      
+      const dbRow = inserted as RequerimientoCompra;
+
+      // Insertar items
+      const itemsInserted: RequerimientoItemDB[] = [];
+      for (const item of input.items) {
+        const { data: itemData, error: errItem } = await supabase
+          .from('requerimiento_items')
+          .insert({
+            tenant_id: tenantId,
+            requerimiento_id: dbRow.id,
+            descripcion: item.descripcion.trim(),
+            unidad: item.unidad,
+            cantidad: item.cantidad,
+            costo_estimado_unitario: item.precioEstimado,
+            observaciones: item.comentario ?? null,
+          })
+          .select()
+          .single();
+
+        if (errItem) {
+          console.error('[REQUERIMIENTOS] Error al crear item:', errItem.message);
+        } else if (itemData) {
+          itemsInserted.push(itemData as RequerimientoItemDB);
+        }
+      }
+
+      const nuevo = mapFromDB({ ...dbRow, items: itemsInserted });
+      // Override totalEstimado since it is computed from local items
+      nuevo.totalEstimado = totalEstimado;
+      setRequerimientos(prev => [nuevo, ...prev]);
+
       if (DEBUG_REQUERIMIENTOS) {
-        console.log('[REQ_CREATED]', {
-          id: nuevoRequerimiento.id,
-          titulo: nuevoRequerimiento.titulo,
-          items: nuevoRequerimiento.items.length,
-          total: nuevoRequerimiento.totalEstimado,
-          sizeAfter: newState.length,
-          sizeBefore: sizeBeforeAdd,
-          position: 'FIRST'
-        });
+        console.log('[REQ_CREATED]', { id: nuevo.id, titulo: nuevo.titulo, items: itemsInserted.length });
       }
-      
-      return newState;
-    });
 
-    return nuevoRequerimiento;
-  }, [requerimientos, usuarioActual.email]);
+      return { exito: true, requerimiento: nuevo };
+    },
+    [requerimientos, tenantId, user]
+  );
 
-  // Actualizar requerimiento
-  const actualizarRequerimiento = useCallback((id: string, input: ActualizarRequerimientoInput) => {
-    const timestamp = new Date().toISOString();
-    
-    setRequerimientos(prev => prev.map(r => {
-      if (r.id === id) {
-        // Recalcular items si cambiaron
-        let items = r.items;
-        let totalEstimado = r.totalEstimado;
-        
-        if (input.items) {
-          items = input.items.map((item, idx) => ({
-            ...item,
-            id: `item-${idx + 1}`
-          }));
-          totalEstimado = calcularTotal(items);
+  const actualizarRequerimiento = useCallback(
+    async (id: string, input: ActualizarRequerimientoInput): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+      let dbId: string | undefined;
+      setRequerimientos(prev => {
+        dbId = prev.find(r => r.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Requerimiento no encontrado'] };
+
+      const ahora = new Date().toISOString();
+      const updatePayload: Record<string, unknown> = {
+        modificado_por: user.id,
+        modificado_en: ahora,
+      };
+
+      if (input.titulo !== undefined) updatePayload.titulo = input.titulo.trim();
+      if (input.descripcion !== undefined) updatePayload.descripcion = input.descripcion.trim();
+      if (input.centroCosto !== undefined) updatePayload.centro_costo = input.centroCosto;
+      if (input.prioridad !== undefined) updatePayload.prioridad = input.prioridad;
+      if (input.fechaRequerida !== undefined) updatePayload.fecha_requerida = input.fechaRequerida || null;
+
+      const { error } = await dbRequerimientos.update(dbId, updatePayload);
+
+      if (error) {
+        console.error('[REQUERIMIENTOS] Error al actualizar:', error.message);
+        return { exito: false, errores: [error.message] };
+      }
+
+      // If items changed, delete old and insert new
+      if (input.items !== undefined && tenantId) {
+        // Delete all existing items for this requerimiento
+        await supabase.from('requerimiento_items').delete().eq('requerimiento_id', dbId);
+
+        const newItemsInserted: RequerimientoItemDB[] = [];
+        for (const item of input.items) {
+          const { data: itemData } = await supabase
+            .from('requerimiento_items')
+            .insert({
+              tenant_id: tenantId,
+              requerimiento_id: dbId,
+              descripcion: item.descripcion.trim(),
+              unidad: item.unidad,
+              cantidad: item.cantidad,
+              costo_estimado_unitario: item.precioEstimado,
+              observaciones: item.comentario ?? null,
+            })
+            .select()
+            .single();
+
+          if (itemData) newItemsInserted.push(itemData as RequerimientoItemDB);
         }
 
-        const actualizado: Requerimiento = {
-          ...r,
-          ...(input.titulo && { titulo: input.titulo.trim() }),
-          ...(input.descripcion && { descripcion: input.descripcion.trim() }),
-          ...(input.centroCosto && { centroCosto: input.centroCosto }),
-          ...(input.prioridad && { prioridad: input.prioridad }),
-          ...(input.solicitanteNombre && { solicitanteNombre: input.solicitanteNombre.trim() }),
-          ...(input.solicitanteEmail && { solicitanteEmail: normalizeEmail(input.solicitanteEmail) }),
-          ...(input.fechaRequerida !== undefined && { fechaRequerida: input.fechaRequerida || null }),
-          items,
-          totalEstimado,
-          auditoria: {
-            ...r.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp
-          }
-        };
-
-        if (DEBUG_REQUERIMIENTOS) {
-          console.log('[REQ_UPDATED]', {
-            id: actualizado.id,
-            cambios: Object.keys(input)
-          });
-        }
-
-        return actualizado;
+        setRequerimientos(prev =>
+          prev.map(r => {
+            if (r.id !== id) return r;
+            const newItems: ItemRequerimiento[] = newItemsInserted.map(dbItem => ({
+              id: dbItem.id,
+              _dbId: dbItem.id,
+              descripcion: dbItem.descripcion,
+              cantidad: dbItem.cantidad,
+              unidad: dbItem.unidad,
+              precioEstimado: dbItem.costo_estimado_unitario,
+              comentario: dbItem.observaciones,
+            }));
+            return {
+              ...r,
+              ...(input.titulo !== undefined && { titulo: input.titulo.trim() }),
+              ...(input.descripcion !== undefined && { descripcion: input.descripcion.trim() }),
+              ...(input.centroCosto !== undefined && { centroCosto: input.centroCosto }),
+              ...(input.prioridad !== undefined && { prioridad: input.prioridad }),
+              ...(input.fechaRequerida !== undefined && { fechaRequerida: input.fechaRequerida || null }),
+              ...(input.solicitanteNombre !== undefined && { solicitanteNombre: input.solicitanteNombre.trim() }),
+              ...(input.solicitanteEmail !== undefined && { solicitanteEmail: normalizeEmail(input.solicitanteEmail) }),
+              items: newItems,
+              totalEstimado: newItems.reduce((s, i) => s + i.cantidad * i.precioEstimado, 0),
+              auditoria: { ...r.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+            };
+          })
+        );
+      } else {
+        setRequerimientos(prev =>
+          prev.map(r => {
+            if (r.id !== id) return r;
+            return {
+              ...r,
+              ...(input.titulo !== undefined && { titulo: input.titulo.trim() }),
+              ...(input.descripcion !== undefined && { descripcion: input.descripcion.trim() }),
+              ...(input.centroCosto !== undefined && { centroCosto: input.centroCosto }),
+              ...(input.prioridad !== undefined && { prioridad: input.prioridad }),
+              ...(input.fechaRequerida !== undefined && { fechaRequerida: input.fechaRequerida || null }),
+              ...(input.solicitanteNombre !== undefined && { solicitanteNombre: input.solicitanteNombre.trim() }),
+              ...(input.solicitanteEmail !== undefined && { solicitanteEmail: normalizeEmail(input.solicitanteEmail) }),
+              auditoria: { ...r.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+            };
+          })
+        );
       }
-      return r;
-    }));
-  }, [usuarioActual.email]);
 
-  // Cambiar estado
-  const cambiarEstado = useCallback((id: string, nuevoEstado: EstadoRequerimiento) => {
-    const timestamp = new Date().toISOString();
-    
-    setRequerimientos(prev => prev.map(r => {
-      if (r.id === id) {
-        const actualizado: Requerimiento = {
-          ...r,
-          estado: nuevoEstado,
-          auditoria: {
-            ...r.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp
-          }
-        };
-
-        if (DEBUG_REQUERIMIENTOS) {
-          console.log('[REQ_ESTADO_CHANGED]', {
-            id: actualizado.id,
-            estadoAnterior: r.estado,
-            estadoNuevo: nuevoEstado
-          });
-        }
-
-        return actualizado;
+      if (DEBUG_REQUERIMIENTOS) {
+        console.log('[REQ_UPDATED]', { id, cambios: Object.keys(input) });
       }
-      return r;
-    }));
-  }, [usuarioActual.email]);
 
-  // Aprobar requerimiento
-  const aprobarRequerimiento = useCallback((id: string, aprobadoPor: string) => {
-    const timestamp = new Date().toISOString();
-    
-    setRequerimientos(prev => prev.map(r => {
-      if (r.id === id) {
-        const aprobado: Requerimiento = {
-          ...r,
-          estado: 'aprobado',
-          aprobadoPor,
-          aprobadoEn: timestamp,
-          auditoria: {
-            ...r.auditoria,
-            modificadoPor: aprobadoPor,
-            modificadoEn: timestamp
-          }
-        };
+      return { exito: true };
+    },
+    [user, tenantId]
+  );
 
-        if (DEBUG_REQUERIMIENTOS) {
-          console.log('[REQ_APPROVED]', {
-            id: aprobado.id,
-            aprobadoPor
-          });
-        }
+  const cambiarEstado = useCallback(
+    async (id: string, nuevoEstado: EstadoRequerimiento): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-        return aprobado;
+      let dbId: string | undefined;
+      setRequerimientos(prev => {
+        dbId = prev.find(r => r.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Requerimiento no encontrado'] };
+
+      const ahora = new Date().toISOString();
+      const { error } = await dbRequerimientos.update(dbId, {
+        estado: nuevoEstado,
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[REQUERIMIENTOS] Error al cambiar estado:', error.message);
+        return { exito: false, errores: [error.message] };
       }
-      return r;
-    }));
-  }, []);
 
-  // Rechazar requerimiento
-  const rechazarRequerimiento = useCallback((id: string, rechazadoPor: string, motivo: string) => {
-    const timestamp = new Date().toISOString();
-    
-    setRequerimientos(prev => prev.map(r => {
-      if (r.id === id) {
-        const rechazado: Requerimiento = {
-          ...r,
-          estado: 'rechazado',
-          rechazadoPor,
-          rechazadoEn: timestamp,
-          motivoRechazo: motivo.trim(),
-          auditoria: {
-            ...r.auditoria,
-            modificadoPor: rechazadoPor,
-            modificadoEn: timestamp
-          }
-        };
+      setRequerimientos(prev =>
+        prev.map(r =>
+          r.id === id
+            ? { ...r, estado: nuevoEstado, auditoria: { ...r.auditoria, modificadoPor: user.id, modificadoEn: ahora } }
+            : r
+        )
+      );
 
-        if (DEBUG_REQUERIMIENTOS) {
-          console.log('[REQ_REJECTED]', {
-            id: rechazado.id,
-            rechazadoPor,
-            motivo: motivo.substring(0, 50) + '...'
-          });
-        }
-
-        return rechazado;
+      if (DEBUG_REQUERIMIENTOS) {
+        console.log('[REQ_ESTADO_CHANGED]', { id, estadoNuevo: nuevoEstado });
       }
-      return r;
-    }));
-  }, []);
 
-  // Anular requerimiento
-  const anularRequerimiento = useCallback((id: string, motivo: string) => {
-    const timestamp = new Date().toISOString();
-    
-    setRequerimientos(prev => prev.map(r => {
-      if (r.id === id) {
-        const anulado: Requerimiento = {
-          ...r,
-          estado: 'anulado',
-          auditoria: {
-            ...r.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp,
-            anuladoPor: usuarioActual.email,
-            anuladoEn: timestamp,
-            motivoAnulacion: motivo.trim()
-          }
-        };
+      return { exito: true };
+    },
+    [user]
+  );
 
-        if (DEBUG_REQUERIMIENTOS) {
-          console.log('[REQ_CANCELLED]', {
-            id: anulado.id,
-            motivo: motivo.substring(0, 50) + '...'
-          });
-        }
+  const aprobarRequerimiento = useCallback(
+    async (id: string, aprobadoPor: string): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-        return anulado;
+      let dbId: string | undefined;
+      setRequerimientos(prev => {
+        dbId = prev.find(r => r.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Requerimiento no encontrado'] };
+
+      const ahora = new Date().toISOString();
+      const { error } = await dbRequerimientos.update(dbId, {
+        estado: 'aprobado' as EstadoRequerimiento,
+        aprobado_por: aprobadoPor,
+        aprobado_en: ahora,
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[REQUERIMIENTOS] Error al aprobar:', error.message);
+        return { exito: false, errores: [error.message] };
       }
-      return r;
-    }));
-  }, [usuarioActual.email]);
+
+      setRequerimientos(prev =>
+        prev.map(r =>
+          r.id === id
+            ? {
+                ...r,
+                estado: 'aprobado' as EstadoRequerimiento,
+                aprobadoPor,
+                aprobadoEn: ahora,
+                auditoria: { ...r.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+              }
+            : r
+        )
+      );
+
+      if (DEBUG_REQUERIMIENTOS) {
+        console.log('[REQ_APPROVED]', { id, aprobadoPor });
+      }
+
+      return { exito: true };
+    },
+    [user]
+  );
+
+  const rechazarRequerimiento = useCallback(
+    async (id: string, rechazadoPor: string, motivo: string): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+      let dbId: string | undefined;
+      setRequerimientos(prev => {
+        dbId = prev.find(r => r.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Requerimiento no encontrado'] };
+
+      const ahora = new Date().toISOString();
+      const { error } = await dbRequerimientos.update(dbId, {
+        estado: 'rechazado' as EstadoRequerimiento,
+        motivo_rechazo: motivo.trim(),
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[REQUERIMIENTOS] Error al rechazar:', error.message);
+        return { exito: false, errores: [error.message] };
+      }
+
+      setRequerimientos(prev =>
+        prev.map(r =>
+          r.id === id
+            ? {
+                ...r,
+                estado: 'rechazado' as EstadoRequerimiento,
+                rechazadoPor,
+                rechazadoEn: ahora,
+                motivoRechazo: motivo.trim(),
+                auditoria: { ...r.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+              }
+            : r
+        )
+      );
+
+      if (DEBUG_REQUERIMIENTOS) {
+        console.log('[REQ_REJECTED]', { id, rechazadoPor });
+      }
+
+      return { exito: true };
+    },
+    [user]
+  );
+
+  const anularRequerimiento = useCallback(
+    async (id: string, motivo: string): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+      let dbId: string | undefined;
+      setRequerimientos(prev => {
+        dbId = prev.find(r => r.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Requerimiento no encontrado'] };
+
+      const ahora = new Date().toISOString();
+      const { error } = await dbRequerimientos.update(dbId, {
+        estado: 'anulado' as EstadoRequerimiento,
+        motivo_anulacion: motivo.trim(),
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[REQUERIMIENTOS] Error al anular:', error.message);
+        return { exito: false, errores: [error.message] };
+      }
+
+      setRequerimientos(prev =>
+        prev.map(r =>
+          r.id === id
+            ? {
+                ...r,
+                estado: 'anulado' as EstadoRequerimiento,
+                auditoria: {
+                  ...r.auditoria,
+                  modificadoPor: user.id,
+                  modificadoEn: ahora,
+                  anuladoPor: user.id,
+                  anuladoEn: ahora,
+                  motivoAnulacion: motivo.trim(),
+                },
+              }
+            : r
+        )
+      );
+
+      if (DEBUG_REQUERIMIENTOS) {
+        console.log('[REQ_CANCELLED]', { id });
+      }
+
+      return { exito: true };
+    },
+    [user]
+  );
 
   const value: RequerimientoStoreContext = {
     requerimientos,
+    loading,
     obtenerRequerimientoPorId,
     crearRequerimiento,
     actualizarRequerimiento,
@@ -628,7 +623,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
     rechazarRequerimiento,
     anularRequerimiento,
     cargarRequerimientosIniciales,
-    usuarioActual
+    usuarioActual,
   };
 
   return <RequerimientoContext.Provider value={value}>{children}</RequerimientoContext.Provider>;

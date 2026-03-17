@@ -93,32 +93,44 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
   const puedeAprobar = tienePermiso(usuarioActual.rol, 'aprobar') && puedeRevisarCotizacion(cotizacion.estado);
   const puedeRechazar = tienePermiso(usuarioActual.rol, 'rechazar') && puedeRevisarCotizacion(cotizacion.estado);
 
-  const handleAnular = () => {
+  const handleAnular = async () => {
     const validacion = validarMotivo(motivoAnulacion, 'anulación');
     if (!validacion.valid) {
       setErrorMotivo(validacion.error!);
       return;
     }
 
-    anularCotizacion(cotizacionId, motivoAnulacion);
+    const res = await anularCotizacion(cotizacionId, motivoAnulacion);
+    if (!res.exito) {
+      toast.error(res.errores?.[0] ?? 'Error al anular la cotización');
+      return;
+    }
     toast.success('Cotización anulada correctamente');
     setShowAnularDialog(false);
     setMotivoAnulacion('');
   };
 
-  const handleAprobar = () => {
-    aprobarCotizacion(cotizacionId, usuarioActual.email);
+  const handleAprobar = async () => {
+    const res = await aprobarCotizacion(cotizacionId, usuarioActual.email);
+    if (!res.exito) {
+      toast.error(res.errores?.[0] ?? 'Error al aprobar la cotización');
+      return;
+    }
     toast.success('Cotización aprobada correctamente');
   };
 
-  const handleRechazar = () => {
+  const handleRechazar = async () => {
     const validacion = validarMotivo(motivoRechazo, 'rechazo');
     if (!validacion.valid) {
       setErrorRechazo(validacion.error!);
       return;
     }
 
-    rechazarCotizacion(cotizacionId, usuarioActual.email, motivoRechazo);
+    const res = await rechazarCotizacion(cotizacionId, usuarioActual.email, motivoRechazo);
+    if (!res.exito) {
+      toast.error(res.errores?.[0] ?? 'Error al rechazar la cotización');
+      return;
+    }
     toast.success('Cotización rechazada');
     setShowRechazarDialog(false);
     setMotivoRechazo('');

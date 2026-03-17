@@ -1,25 +1,32 @@
 /**
  * STORE DE RECEPCIONES Y CONFORMIDAD
- * Context global para gestión de recepciones en el módulo Compras
- * Prototipo funcional - Reemplazar por backend real en producción
+ * v2.0.0 - Conectado a Supabase (reemplaza mock local)
+ * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { supabase } from '../supabase/client';
+import { dbRecepciones } from '../supabase/helpers';
+import { useAuth } from '../../auth/AuthProvider';
+import type {
+  Recepcion as RecepcionDB,
+  RecepcionItem as RecepcionItemDB,
+} from '../supabase/types';
 import {
   generarIdRecepcion,
   extraerNumeroSecuencial,
-  calcularResumenRecepcion,
   DEBUG_RECEPCIONES,
   type EstadoRecepcion,
   type RolUsuario
 } from './recepciones-config';
 
 // ============================================================================
-// TIPOS
+// TIPOS FRONTEND
 // ============================================================================
 
 export interface ItemRecibido {
   id: string;
+  _dbId?: string;
   descripcion: string;
   cantidadRecibida: number;
   unidad: string;
@@ -27,22 +34,23 @@ export interface ItemRecibido {
 }
 
 export interface Recepcion {
-  // Identificación
+  // Identificación — id = numero (REC-NNNN), _dbId = UUID interno
   id: string;
-  ordenId: string; // Requerido - relación con Orden
+  _dbId: string;
+  ordenId: string;
   estado: EstadoRecepcion;
-  
+
   // Items recibidos
   itemsRecibidos: ItemRecibido[];
-  
+
   // Conformidad
-  conforme: boolean; // Derivado: true si estado === 'conforme'
+  conforme: boolean;
   observaciones: string | null;
-  
+
   // Fechas
-  fechaRecepcion: string; // ISO date
-  
-  // Auditoría obligatoria
+  fechaRecepcion: string;
+
+  // Auditoría
   auditoria: {
     creadoPor: string;
     creadoEn: string;
@@ -56,24 +64,34 @@ export interface Recepcion {
 
 export interface NuevaRecepcionInput {
   ordenId: string;
-  itemsRecibidos: Omit<ItemRecibido, 'id'>[];
-  estado: EstadoRecepcion; // 'conforme' o 'observada'
+  itemsRecibidos: Omit<ItemRecibido, 'id' | '_dbId'>[];
+  estado: EstadoRecepcion;
   observaciones?: string;
+  // DB FK: proveedor UUID and orden UUID must be provided from calling context
+  ordenDbId?: string;
+  proveedorDbId?: string;
 }
 
-export interface ActualizarRecepcionInput extends Partial<NuevaRecepcionInput> {
-  // Solo campos editables
+export interface ActualizarRecepcionInput extends Partial<NuevaRecepcionInput> {}
+
+interface CrudResult {
+  exito: boolean;
+  errores?: string[];
 }
 
 interface RecepcionStoreContext {
   recepciones: Recepcion[];
+  loading: boolean;
   obtenerRecepcionPorId: (id: string) => Recepcion | undefined;
   obtenerRecepcionesPorOrden: (ordenId: string) => Recepcion[];
-  crearRecepcion: (input: NuevaRecepcionInput, onOrdenUpdated: (ordenId: string, esCompleta: boolean) => void) => Recepcion;
-  actualizarRecepcion: (id: string, input: ActualizarRecepcionInput) => void;
-  anularRecepcion: (id: string, motivo: string) => void;
+  crearRecepcion: (
+    input: NuevaRecepcionInput,
+    onOrdenUpdated: (ordenId: string, esCompleta: boolean) => void
+  ) => Promise<CrudResult & { recepcion?: Recepcion }>;
+  actualizarRecepcion: (id: string, input: ActualizarRecepcionInput) => Promise<CrudResult>;
+  anularRecepcion: (id: string, motivo: string) => Promise<CrudResult>;
   cargarRecepcionesIniciales: () => void;
-  // Mock de usuario actual
+  // Usuario actual derivado de auth
   usuarioActual: { email: string; nombre: string; rol: RolUsuario };
 }
 
@@ -84,331 +102,380 @@ interface RecepcionStoreContext {
 const RecepcionContext = createContext<RecepcionStoreContext | undefined>(undefined);
 
 // ============================================================================
-// DATA DE EJEMPLO - Seed inicial
+// MAPPER DB → FRONTEND
 // ============================================================================
 
-const recepcionesSeed: Recepcion[] = [
-  {
-    id: 'REC-0001',
-    ordenId: 'OC-0002',
-    estado: 'conforme',
-    itemsRecibidos: [
-      {
-        id: 'item-1',
-        descripcion: 'Monitor multiparamétrico GE Healthcare CARESCAPE B650',
-        cantidadRecibida: 0, // Aún no recibido
-        unidad: 'unidad',
-        observacionItem: 'Pendiente de entrega'
-      },
-      {
-        id: 'item-2',
-        descripcion: 'Cables ECG 5 derivaciones',
-        cantidadRecibida: 2, // Recibido completo
-        unidad: 'juego',
-        observacionItem: null
-      }
-    ],
-    conforme: true,
-    observaciones: 'Recepción parcial - cables entregados en buenas condiciones. Monitor pendiente de entrega por parte del proveedor.',
-    fechaRecepcion: '2025-01-05T10:00:00Z',
+type RecepcionWithRelations = RecepcionDB & {
+  items: RecepcionItemDB[];
+  orden?: { numero: string; tipo: string } | null;
+  proveedor?: { razon_social: string } | null;
+};
+
+function mapFromDB(row: RecepcionWithRelations): Recepcion {
+  const items: ItemRecibido[] = (row.items ?? []).map(item => ({
+    id: item.id,
+    _dbId: item.id,
+    descripcion: item.descripcion,
+    cantidadRecibida: item.cantidad_recibida,
+    unidad: item.unidad,
+    observacionItem: item.observaciones,
+  }));
+
+  const conforme = row.estado === 'conforme';
+
+  // Map DB estado to frontend EstadoRecepcion
+  // DB: 'pendiente' | 'conforme' | 'observado' | 'rechazado'
+  // Frontend: 'pendiente' | 'conforme' | 'observada' | 'anulada'
+  const estadoMap: Record<string, EstadoRecepcion> = {
+    pendiente: 'pendiente',
+    conforme: 'conforme',
+    observado: 'observada',
+    rechazado: 'anulada',
+  };
+
+  const estadoFrontend = estadoMap[row.estado] ?? ('conforme' as EstadoRecepcion);
+
+  return {
+    id: row.numero,
+    _dbId: row.id,
+    ordenId: row.orden?.numero ?? row.orden_id, // use display numero if available
+    estado: estadoFrontend,
+    itemsRecibidos: items,
+    conforme,
+    observaciones: row.observaciones,
+    fechaRecepcion: row.fecha_recepcion,
     auditoria: {
-      creadoPor: 'operaciones@kesa.com',
-      creadoEn: '2025-01-05T10:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
+      creadoPor: row.creado_por ?? '',
+      creadoEn: row.creado_en,
+      modificadoPor: row.modificado_por,
+      modificadoEn: row.modificado_en,
       anuladoPor: null,
       anuladoEn: null,
-      motivoAnulacion: null
-    }
-  },
-  {
-    id: 'REC-0002',
-    ordenId: 'OC-0001',
-    estado: 'conforme',
-    itemsRecibidos: [
-      {
-        id: 'item-1',
-        descripcion: 'Pastillas de freno delanteras marca ACDelco',
-        cantidadRecibida: 2,
-        unidad: 'juego',
-        observacionItem: null
-      },
-      {
-        id: 'item-2',
-        descripcion: 'Filtro de aceite',
-        cantidadRecibida: 4,
-        unidad: 'unidad',
-        observacionItem: null
-      },
-      {
-        id: 'item-3',
-        descripcion: 'Aceite sintético Mobil 1 5W-30',
-        cantidadRecibida: 8,
-        unidad: 'litro',
-        observacionItem: null
-      }
-    ],
-    conforme: true,
-    observaciones: 'Recepción completa y conforme. Todos los productos en perfecto estado.',
-    fechaRecepcion: '2025-01-05T14:00:00Z',
-    auditoria: {
-      creadoPor: 'operaciones@kesa.com',
-      creadoEn: '2025-01-05T14:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: null,
-      anuladoEn: null,
-      motivoAnulacion: null
-    }
-  },
-  {
-    id: 'REC-0003',
-    ordenId: 'OC-0001',
-    estado: 'observada',
-    itemsRecibidos: [
-      {
-        id: 'item-1',
-        descripcion: 'Pastillas de freno delanteras marca ACDelco',
-        cantidadRecibida: 1, // Solo recibió 1 de 2
-        unidad: 'juego',
-        observacionItem: 'Falta 1 juego'
-      }
-    ],
-    conforme: false,
-    observaciones: 'Recepción con observaciones - falta 1 juego de pastillas de freno. Se coordina reposición con proveedor.',
-    fechaRecepcion: '2025-01-04T16:00:00Z',
-    auditoria: {
-      creadoPor: 'operaciones@kesa.com',
-      creadoEn: '2025-01-04T16:00:00Z',
-      modificadoPor: null,
-      modificadoEn: null,
-      anuladoPor: null,
-      anuladoEn: null,
-      motivoAnulacion: null
-    }
-  }
-];
+      motivoAnulacion: null,
+    },
+  };
+}
+
+// Map frontend estado to DB estado
+function estadoFrontendToDb(estado: EstadoRecepcion): string {
+  const map: Record<EstadoRecepcion, string> = {
+    pendiente: 'pendiente',
+    conforme: 'conforme',
+    observada: 'observado',
+    anulada: 'rechazado',
+  };
+  return map[estado] ?? 'conforme';
+}
 
 // ============================================================================
 // PROVIDER
 // ============================================================================
 
 export function RecepcionStoreProvider({ children }: { children: React.ReactNode }) {
+  const { tenantId, user, profile } = useAuth();
   const [recepciones, setRecepciones] = useState<Recepcion[]>([]);
-  
-  // Mock de usuario actual
+  const [loading, setLoading] = useState(true);
+
   const usuarioActual = {
-    email: 'operaciones@kesa.com',
-    nombre: 'Operaciones',
-    rol: 'operaciones' as RolUsuario
+    email: user?.email ?? profile?.email ?? 'operaciones@kesa.com',
+    nombre: profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Operaciones',
+    rol: (profile?.rol as RolUsuario) ?? ('operaciones' as RolUsuario),
   };
 
-  // Cargar recepciones iniciales SOLO una vez al montar
+  const fetchRecepciones = useCallback(async () => {
+    if (!tenantId) return;
+    setLoading(true);
+
+    const { data, error } = await dbRecepciones.list();
+
+    if (error) {
+      console.error('[RECEPCIONES] Error al cargar:', error.message);
+    } else if (data) {
+      const mapped = (data as RecepcionWithRelations[]).map(mapFromDB);
+      setRecepciones(mapped);
+      if (DEBUG_RECEPCIONES) {
+        console.log('[RECEPCIONES] Cargadas desde Supabase:', mapped.length);
+      }
+    }
+    setLoading(false);
+  }, [tenantId]);
+
   useEffect(() => {
-    if (recepciones.length === 0) {
-      if (DEBUG_RECEPCIONES) {
-        console.log('[REC_SEED_LOADING]', { seedSize: recepcionesSeed.length });
-      }
-      setRecepciones(recepcionesSeed);
-    }
-  }, []);
+    fetchRecepciones();
+  }, [fetchRecepciones]);
 
-  // Cargar recepciones iniciales (con guard idempotente)
   const cargarRecepcionesIniciales = useCallback(() => {
-    if (recepciones.length === 0) {
-      if (DEBUG_RECEPCIONES) {
-        console.log('[REC_SEED_MANUAL_LOADING]', { seedSize: recepcionesSeed.length });
+    fetchRecepciones();
+  }, [fetchRecepciones]);
+
+  // ============================================================================
+  // QUERIES
+  // ============================================================================
+
+  const obtenerRecepcionPorId = useCallback(
+    (id: string) => recepciones.find(r => r.id === id),
+    [recepciones]
+  );
+
+  const obtenerRecepcionesPorOrden = useCallback(
+    (ordenId: string) => recepciones.filter(r => r.ordenId === ordenId),
+    [recepciones]
+  );
+
+  // ============================================================================
+  // CRUD
+  // ============================================================================
+
+  const crearRecepcion = useCallback(
+    async (
+      input: NuevaRecepcionInput,
+      onOrdenUpdated: (ordenId: string, esCompleta: boolean) => void
+    ): Promise<CrudResult & { recepcion?: Recepcion }> => {
+      if (!tenantId || !user) {
+        return { exito: false, errores: ['Sin sesión activa'] };
       }
-      setRecepciones(recepcionesSeed);
-    } else if (DEBUG_RECEPCIONES) {
-      console.log('[REC_SEED_SKIP]', { 
-        reason: 'Ya hay recepciones en el store', 
-        currentSize: recepciones.length 
+
+      const ordenDbId = input.ordenDbId;
+      const proveedorDbId = input.proveedorDbId;
+
+      if (!ordenDbId || !proveedorDbId) {
+        return { exito: false, errores: ['Se requieren IDs de BD para orden y proveedor'] };
+      }
+
+      const numeros = recepciones
+        .map(r => extraerNumeroSecuencial(r.id))
+        .filter((n): n is number => n !== null);
+      const ultimoNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
+      const nuevoCodigo = generarIdRecepcion(ultimoNumero);
+
+      const timestamp = new Date().toISOString();
+      const conforme = input.estado === 'conforme';
+
+      const { data: inserted, error: errRec } = await dbRecepciones.create({
+        tenant_id: tenantId,
+        numero: nuevoCodigo,
+        orden_id: ordenDbId,
+        proveedor_id: proveedorDbId,
+        estado: estadoFrontendToDb(input.estado),
+        fecha_recepcion: timestamp,
+        numero_guia: null,
+        numero_factura: null,
+        observaciones: input.observaciones?.trim() ?? null,
+        creado_por: user.id,
+        modificado_por: null,
+        modificado_en: null,
       });
-    }
-  }, [recepciones.length]);
 
-  // Obtener recepción por ID
-  const obtenerRecepcionPorId = useCallback((id: string) => {
-    return recepciones.find(r => r.id === id);
-  }, [recepciones]);
-
-  // Obtener recepciones por orden
-  const obtenerRecepcionesPorOrden = useCallback((ordenId: string) => {
-    return recepciones.filter(r => r.ordenId === ordenId);
-  }, [recepciones]);
-
-  // Crear nueva recepción
-  const crearRecepcion = useCallback((
-    input: NuevaRecepcionInput, 
-    onOrdenUpdated: (ordenId: string, esCompleta: boolean) => void
-  ): Recepcion => {
-    // Obtener el último número secuencial
-    const numeros = recepciones
-      .map(r => extraerNumeroSecuencial(r.id))
-      .filter((n): n is number => n !== null);
-    const ultimoNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
-
-    // Generar nuevo ID
-    const id = generarIdRecepcion(ultimoNumero);
-    const timestamp = new Date().toISOString();
-
-    // Generar items recibidos con IDs
-    const itemsRecibidos: ItemRecibido[] = input.itemsRecibidos.map((item, idx) => ({
-      ...item,
-      id: `item-${idx + 1}`
-    }));
-
-    // Determinar si es conforme
-    const conforme = input.estado === 'conforme';
-
-    // Crear objeto recepción
-    const nuevaRecepcion: Recepcion = {
-      id,
-      ordenId: input.ordenId,
-      estado: input.estado,
-      itemsRecibidos,
-      conforme,
-      observaciones: input.observaciones?.trim() || null,
-      fechaRecepcion: timestamp,
-      auditoria: {
-        creadoPor: usuarioActual.email,
-        creadoEn: timestamp,
-        modificadoPor: null,
-        modificadoEn: null,
-        anuladoPor: null,
-        anuladoEn: null,
-        motivoAnulacion: null
+      if (errRec || !inserted) {
+        console.error('[RECEPCIONES] Error al crear:', errRec?.message);
+        return { exito: false, errores: [errRec?.message ?? 'Error desconocido'] };
       }
-    };
 
-    // Agregar al INICIO del store
-    setRecepciones(prev => {
-      const newState = [nuevaRecepcion, ...prev];
-      
-      if (DEBUG_RECEPCIONES) {
-        console.log('[REC_CREATED]', {
-          id: nuevaRecepcion.id,
-          ordenId: nuevaRecepcion.ordenId,
-          estado: nuevaRecepcion.estado,
-          itemsCount: nuevaRecepcion.itemsRecibidos.length,
-          sizeAfter: newState.length
-        });
+      const dbRow = inserted as RecepcionDB;
+
+      // Insert items
+      const itemsInserted: RecepcionItemDB[] = [];
+      for (const item of input.itemsRecibidos) {
+        const { data: itemData, error: errItem } = await supabase
+          .from('recepcion_items')
+          .insert({
+            tenant_id: tenantId,
+            recepcion_id: dbRow.id,
+            descripcion: item.descripcion.trim(),
+            unidad: item.unidad,
+            cantidad_pedida: item.cantidadRecibida, // We only track received in frontend
+            cantidad_recibida: item.cantidadRecibida,
+            conforme,
+            observaciones: item.observacionItem ?? null,
+          })
+          .select()
+          .single();
+
+        if (errItem) {
+          console.error('[RECEPCIONES] Error al crear item:', errItem.message);
+        } else if (itemData) {
+          itemsInserted.push(itemData as RecepcionItemDB);
+        }
       }
-      
-      return newState;
-    });
 
-    // IMPORTANTE: Actualizar estado de la orden (parcial/completa)
-    // Esto se calcula comparando cantidades recibidas vs ordenadas
-    // La lógica de comparación debe hacerse externamente (en el componente)
-    // porque necesitamos los datos de la orden original
-    
-    // Por ahora, llamamos al callback que actualizará el estado de la orden
-    // El callback vendrá del store de órdenes
-    const totalRecibido = itemsRecibidos.reduce((sum, item) => sum + item.cantidadRecibida, 0);
-    const esCompleta = totalRecibido > 0; // Simplificado - en producción comparar con cantidades ordenadas
-    
-    if (DEBUG_RECEPCIONES) {
-      console.log('[REC_ORDEN_UPDATE_TRIGGER]', {
-        ordenId: input.ordenId,
-        esCompleta,
-        totalRecibido
+      const nueva = mapFromDB({
+        ...dbRow,
+        items: itemsInserted,
+        orden: { numero: input.ordenId, tipo: 'oc' },
+        proveedor: null,
       });
-    }
-    
-    onOrdenUpdated(input.ordenId, esCompleta);
+      setRecepciones(prev => [nueva, ...prev]);
 
-    return nuevaRecepcion;
-  }, [recepciones, usuarioActual.email]);
-
-  // Actualizar recepción
-  const actualizarRecepcion = useCallback((id: string, input: ActualizarRecepcionInput) => {
-    const timestamp = new Date().toISOString();
-    
-    setRecepciones(prev => prev.map(r => {
-      if (r.id === id) {
-        // Recalcular items si cambiaron
-        let itemsRecibidos = r.itemsRecibidos;
-        
-        if (input.itemsRecibidos) {
-          itemsRecibidos = input.itemsRecibidos.map((item, idx) => ({
-            ...item,
-            id: `item-${idx + 1}`
-          }));
-        }
-
-        // Determinar conforme
-        const estado = input.estado || r.estado;
-        const conforme = estado === 'conforme';
-
-        const actualizado: Recepcion = {
-          ...r,
-          ...(input.estado && { estado: input.estado }),
-          ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() || null }),
-          itemsRecibidos,
-          conforme,
-          auditoria: {
-            ...r.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp
-          }
-        };
-
-        if (DEBUG_RECEPCIONES) {
-          console.log('[REC_UPDATED]', {
-            id: actualizado.id,
-            cambios: Object.keys(input)
-          });
-        }
-
-        return actualizado;
+      if (DEBUG_RECEPCIONES) {
+        console.log('[REC_CREATED]', { id: nueva.id, ordenId: nueva.ordenId, estado: nueva.estado });
       }
-      return r;
-    }));
-  }, [usuarioActual.email]);
 
-  // Anular recepción
-  const anularRecepcion = useCallback((id: string, motivo: string) => {
-    const timestamp = new Date().toISOString();
-    
-    setRecepciones(prev => prev.map(r => {
-      if (r.id === id) {
-        const anulado: Recepcion = {
-          ...r,
-          estado: 'anulada',
-          auditoria: {
-            ...r.auditoria,
-            modificadoPor: usuarioActual.email,
-            modificadoEn: timestamp,
-            anuladoPor: usuarioActual.email,
-            anuladoEn: timestamp,
-            motivoAnulacion: motivo.trim()
-          }
-        };
+      // Trigger order state update
+      const totalRecibido = input.itemsRecibidos.reduce((sum, item) => sum + item.cantidadRecibida, 0);
+      const esCompleta = totalRecibido > 0;
+      onOrdenUpdated(input.ordenId, esCompleta);
 
-        if (DEBUG_RECEPCIONES) {
-          console.log('[REC_CANCELLED]', {
-            id: anulado.id,
-            motivo: motivo.substring(0, 50) + '...'
-          });
+      return { exito: true, recepcion: nueva };
+    },
+    [recepciones, tenantId, user]
+  );
+
+  const actualizarRecepcion = useCallback(
+    async (id: string, input: ActualizarRecepcionInput): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+      let dbId: string | undefined;
+      setRecepciones(prev => {
+        dbId = prev.find(r => r.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Recepción no encontrada'] };
+
+      const ahora = new Date().toISOString();
+      const updatePayload: Record<string, unknown> = {
+        modificado_por: user.id,
+        modificado_en: ahora,
+      };
+
+      if (input.estado !== undefined) updatePayload.estado = estadoFrontendToDb(input.estado);
+      if (input.observaciones !== undefined) updatePayload.observaciones = input.observaciones?.trim() ?? null;
+
+      const { error } = await dbRecepciones.update(dbId, updatePayload);
+
+      if (error) {
+        console.error('[RECEPCIONES] Error al actualizar:', error.message);
+        return { exito: false, errores: [error.message] };
+      }
+
+      if (input.itemsRecibidos !== undefined && tenantId) {
+        await supabase.from('recepcion_items').delete().eq('recepcion_id', dbId);
+
+        const conforme = (input.estado ?? 'conforme') === 'conforme';
+        const newItemsInserted: RecepcionItemDB[] = [];
+        for (const item of input.itemsRecibidos) {
+          const { data: itemData } = await supabase
+            .from('recepcion_items')
+            .insert({
+              tenant_id: tenantId,
+              recepcion_id: dbId,
+              descripcion: item.descripcion.trim(),
+              unidad: item.unidad,
+              cantidad_pedida: item.cantidadRecibida,
+              cantidad_recibida: item.cantidadRecibida,
+              conforme,
+              observaciones: item.observacionItem ?? null,
+            })
+            .select()
+            .single();
+
+          if (itemData) newItemsInserted.push(itemData as RecepcionItemDB);
         }
 
-        return anulado;
+        setRecepciones(prev =>
+          prev.map(r => {
+            if (r.id !== id) return r;
+            const newItems: ItemRecibido[] = newItemsInserted.map(dbItem => ({
+              id: dbItem.id,
+              _dbId: dbItem.id,
+              descripcion: dbItem.descripcion,
+              cantidadRecibida: dbItem.cantidad_recibida,
+              unidad: dbItem.unidad,
+              observacionItem: dbItem.observaciones,
+            }));
+            const estado = input.estado ?? r.estado;
+            return {
+              ...r,
+              ...(input.estado !== undefined && { estado }),
+              ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() ?? null }),
+              itemsRecibidos: newItems,
+              conforme: estado === 'conforme',
+              auditoria: { ...r.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+            };
+          })
+        );
+      } else {
+        setRecepciones(prev =>
+          prev.map(r => {
+            if (r.id !== id) return r;
+            const estado = input.estado ?? r.estado;
+            return {
+              ...r,
+              ...(input.estado !== undefined && { estado }),
+              ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() ?? null }),
+              conforme: estado === 'conforme',
+              auditoria: { ...r.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+            };
+          })
+        );
       }
-      return r;
-    }));
-  }, [usuarioActual.email]);
+
+      return { exito: true };
+    },
+    [user, tenantId]
+  );
+
+  const anularRecepcion = useCallback(
+    async (id: string, motivo: string): Promise<CrudResult> => {
+      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+      let dbId: string | undefined;
+      setRecepciones(prev => {
+        dbId = prev.find(r => r.id === id)?._dbId;
+        return prev;
+      });
+      if (!dbId) return { exito: false, errores: ['Recepción no encontrada'] };
+
+      const ahora = new Date().toISOString();
+      const { error } = await dbRecepciones.update(dbId, {
+        estado: 'rechazado', // Use rechazado as DB equivalent for anulada
+        observaciones: motivo.trim(),
+        modificado_por: user.id,
+        modificado_en: ahora,
+      });
+
+      if (error) {
+        console.error('[RECEPCIONES] Error al anular:', error.message);
+        return { exito: false, errores: [error.message] };
+      }
+
+      setRecepciones(prev =>
+        prev.map(r =>
+          r.id === id
+            ? {
+                ...r,
+                estado: 'anulada' as EstadoRecepcion,
+                auditoria: {
+                  ...r.auditoria,
+                  modificadoPor: user.id,
+                  modificadoEn: ahora,
+                  anuladoPor: user.id,
+                  anuladoEn: ahora,
+                  motivoAnulacion: motivo.trim(),
+                },
+              }
+            : r
+        )
+      );
+
+      if (DEBUG_RECEPCIONES) {
+        console.log('[REC_CANCELLED]', { id });
+      }
+
+      return { exito: true };
+    },
+    [user]
+  );
 
   const value: RecepcionStoreContext = {
     recepciones,
+    loading,
     obtenerRecepcionPorId,
     obtenerRecepcionesPorOrden,
     crearRecepcion,
     actualizarRecepcion,
     anularRecepcion,
     cargarRecepcionesIniciales,
-    usuarioActual
+    usuarioActual,
   };
 
   return <RecepcionContext.Provider value={value}>{children}</RecepcionContext.Provider>;

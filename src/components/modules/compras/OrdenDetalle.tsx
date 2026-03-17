@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { ArrowLeft, Edit, CheckCircle, XCircle, Ban, Truck, Package, FileText, Calendar, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -70,37 +71,57 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
     && puedeRecibirOrden(orden.estado);
 
   // Handlers
-  const handleAprobar = () => {
-    aprobarOrden(orden.id, usuarioActual.email);
+  const handleAprobar = async () => {
+    const res = await aprobarOrden(orden.id, usuarioActual.email);
+    if (!res.exito) {
+      toast.error(res.errores?.[0] ?? 'Error al aprobar la orden');
+      return;
+    }
     setShowAprobarDialog(false);
+    toast.success('Orden aprobada correctamente');
   };
 
-  const handleRechazar = () => {
+  const handleRechazar = async () => {
     const validacion = validarMotivo(motivoRechazo, 'rechazo');
     if (!validacion.valid) {
       setErrorMotivo(validacion.error!);
       return;
     }
-    rechazarOrden(orden.id, usuarioActual.email, motivoRechazo);
+    const res = await rechazarOrden(orden.id, usuarioActual.email, motivoRechazo);
+    if (!res.exito) {
+      toast.error(res.errores?.[0] ?? 'Error al rechazar la orden');
+      return;
+    }
     setShowRechazarDialog(false);
     setMotivoRechazo('');
     setErrorMotivo('');
+    toast.success('Orden rechazada');
   };
 
-  const handleAnular = () => {
+  const handleAnular = async () => {
     const validacion = validarMotivo(motivoAnulacion, 'anulación');
     if (!validacion.valid) {
       setErrorMotivo(validacion.error!);
       return;
     }
-    anularOrden(orden.id, motivoAnulacion);
+    const res = await anularOrden(orden.id, motivoAnulacion);
+    if (!res.exito) {
+      toast.error(res.errores?.[0] ?? 'Error al anular la orden');
+      return;
+    }
     setShowAnularDialog(false);
     setMotivoAnulacion('');
     setErrorMotivo('');
+    toast.success('Orden anulada correctamente');
   };
 
-  const handleIniciarEjecucion = () => {
-    marcarEnEjecucion(orden.id);
+  const handleIniciarEjecucion = async () => {
+    const res = await marcarEnEjecucion(orden.id);
+    if (!res.exito) {
+      toast.error(res.errores?.[0] ?? 'Error al iniciar la ejecución');
+      return;
+    }
+    toast.success('Orden marcada en ejecución');
   };
 
   return (

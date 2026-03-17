@@ -13,12 +13,8 @@ import { ResponsiveIndicator } from './components/shared/ResponsiveIndicator';
 
 // Main Modules
 import { Dashboard } from './components/modules/Dashboard';
-import { Proyectos } from './components/modules/Proyectos';
-import { Finanzas } from './components/modules/Finanzas';
-import { Inventario } from './components/modules/Inventario';
 import { Compras } from './components/modules/Compras';
 import { Proveedores } from './components/modules/Proveedores';
-import { CRM } from './components/modules/CRM';
 
 // Flota
 import { FlotaDashboard } from './components/modules/flota/FlotaDashboard';
@@ -48,6 +44,9 @@ import { BiomedicoEquipoForm } from './components/modules/biomedico/BiomedicoEqu
 import { BiomedicoMantenimientos } from './components/modules/biomedico/BiomedicoMantenimientos';
 import { BiomedicoMantenimientoDetalle } from './components/modules/biomedico/BiomedicoMantenimientoDetalle';
 import { BiomedicoMantenimientoForm } from './components/modules/biomedico/BiomedicoMantenimientoForm';
+import { BiomedicoCalibraciones } from './components/modules/biomedico/BiomedicoCalibraciones';
+import { BiomedicoIncidencias } from './components/modules/biomedico/BiomedicoIncidencias';
+import { BiomedicoDocumentos } from './components/modules/biomedico/BiomedicoDocumentos';
 
 // Compras
 import { RequerimientosLista } from './components/modules/compras/RequerimientosLista';
@@ -67,32 +66,49 @@ import { RecepcionForm } from './components/modules/compras/RecepcionForm';
 import { ProveedoresDirectorio } from './components/modules/proveedores/ProveedoresDirectorio';
 import { ProveedorDetalle } from './components/modules/proveedores/ProveedorDetalle';
 import { ProveedorForm } from './components/modules/proveedores/ProveedorForm';
+import { ProveedoresEvaluaciones } from './components/modules/proveedores/ProveedoresEvaluaciones';
+import { ProveedoresContratos } from './components/modules/proveedores/ProveedoresContratos';
+import { ProveedoresTalleres } from './components/modules/proveedores/ProveedoresTalleres';
+
+// Proyectos
+import { ProyectosDashboard } from './components/modules/proyectos/ProyectosDashboard';
+import { ProyectosLista } from './components/modules/proyectos/ProyectosLista';
+import { ProyectoDetalle } from './components/modules/proyectos/ProyectoDetalle';
+import { ProyectosTareasGlobal } from './components/modules/proyectos/ProyectosTareasGlobal';
+import { ProyectosProvider } from './lib/proyectos/proyectos-store';
 
 // Placeholders
 import {
-  BiomedicoCalibraciones,
-  BiomedicoIncidencias,
-  BiomedicoDocumentos,
   ProyectosCronograma,
-  ProyectosTareas,
   ProyectosValorizaciones,
   ProyectosRiesgos,
   ProyectosDocumentos,
-  FinanzasPresupuestos,
-  FinanzasCuentasPagar,
   FinanzasFlujoCaja,
   FinanzasReportes,
-  InventarioProductos,
-  InventarioMovimientos,
-  InventarioOrdenes,
-  InventarioStockCritico,
-  ProveedoresEvaluaciones,
-  ProveedoresContratos,
-  ProveedoresTalleres,
-  CRMClientes,
-  CRMOportunidades,
-  CRMActividades,
 } from './components/modules/placeholders';
+
+// Finanzas
+import { FinanzasDashboard } from './components/modules/finanzas/FinanzasDashboard';
+import { FinanzasTransacciones } from './components/modules/finanzas/FinanzasTransacciones';
+import { FinanzasPresupuestosModule } from './components/modules/finanzas/FinanzasPresupuestosModule';
+import { FinanzasCajaChica } from './components/modules/finanzas/FinanzasCajaChica';
+import { FinanzasProvider } from './lib/finanzas/finanzas-store';
+
+// CRM
+import { CRMDashboard } from './components/modules/crm/CRMDashboard';
+import { CRMClientes } from './components/modules/crm/CRMClientes';
+import { CRMOportunidades } from './components/modules/crm/CRMOportunidades';
+import { CRMActividades } from './components/modules/crm/CRMActividades';
+import { CRMProvider } from './lib/crm/crm-store';
+
+// Inventario
+import { InventarioDashboard } from './components/modules/inventario/InventarioDashboard';
+import { InventarioArticulos } from './components/modules/inventario/InventarioArticulos';
+import { InventarioMovimientos } from './components/modules/inventario/InventarioMovimientos';
+import { InventarioAlmacenes } from './components/modules/inventario/InventarioAlmacenes';
+
+// Admin
+import { GestionUsuarios } from './components/modules/admin/GestionUsuarios';
 
 // Stores
 import { OTStoreProvider } from './lib/flota/ot-store';
@@ -104,6 +120,14 @@ import { OrdenStoreProvider } from './lib/compras/ordenes-store';
 import { RecepcionStoreProvider } from './lib/compras/recepciones-store';
 import { EquiposStoreProvider } from './lib/biomedico/equipos-store';
 import { MantenimientosStoreProvider } from './lib/biomedico/mantenimientos-store';
+import { CalibracionesProvider } from './lib/biomedico/calibraciones-store';
+import { IncidenciasProvider } from './lib/biomedico/incidencias-store';
+import { DocumentosBioProvider } from './lib/biomedico/documentos-bio-store';
+import { EvaluacionesProvider } from './lib/proveedores/evaluaciones-store';
+import { ContratosProvider } from './lib/proveedores/contratos-store';
+import { TalleresProvider } from './lib/proveedores/talleres-store';
+import { RolesProvider } from './lib/rbac/roles-store';
+import { InventarioProvider } from './lib/inventario/inventario-store';
 
 // UI
 import { Menu } from 'lucide-react';
@@ -114,7 +138,7 @@ import { Toaster } from './components/ui/sonner';
 const ENABLE_PUBLIC_LEGACY_ROUTES = false;
 
 export default function App() {
-  const { user, loading } = useAuth();
+  const { user, profile, tenantName, loading } = useAuth();
 
   const [currentModule, setCurrentModule] = useState('dashboard');
   const [currentRoute, setCurrentRoute] = useState('/dashboard');
@@ -295,30 +319,55 @@ export default function App() {
 
     // Proyectos
     if (currentRoute.startsWith('/proyectos')) {
+      // Detalle de proyecto por dbId: /proyectos/detalle/:dbId
+      if (currentRoute.startsWith('/proyectos/detalle/')) {
+        const segments = currentRoute.split('/');
+        const dbId = segments[3];
+        if (dbId) {
+          return (
+            <ProyectoDetalle
+              proyectoDbId={dbId}
+              onBack={() => navigateTo('/proyectos/lista')}
+            />
+          );
+        }
+      }
+      if (currentRoute === '/proyectos/lista') {
+        return (
+          <ProyectosLista
+            onNavigate={navigateTo}
+            onVerDetalle={(dbId) => navigateTo(`/proyectos/detalle/${dbId}`)}
+          />
+        );
+      }
+      if (currentRoute === '/proyectos/tareas') return <ProyectosTareasGlobal onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/cronograma') return <ProyectosCronograma onNavigate={navigateTo} />;
-      if (currentRoute === '/proyectos/tareas') return <ProyectosTareas onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/valorizaciones') return <ProyectosValorizaciones onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/riesgos') return <ProyectosRiesgos onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/documentos') return <ProyectosDocumentos onNavigate={navigateTo} />;
-      return <Proyectos />;
+      return <ProyectosDashboard onNavigate={navigateTo} />;
     }
 
     // Finanzas
     if (currentRoute.startsWith('/finanzas')) {
-      if (currentRoute === '/finanzas/presupuestos') return <FinanzasPresupuestos onNavigate={navigateTo} />;
-      if (currentRoute === '/finanzas/cuentas-pagar') return <FinanzasCuentasPagar onNavigate={navigateTo} />;
+      if (currentRoute === '/finanzas/transacciones') return <FinanzasTransacciones onNavigate={navigateTo} />;
+      if (currentRoute === '/finanzas/presupuestos') return <FinanzasPresupuestosModule onNavigate={navigateTo} />;
+      if (currentRoute === '/finanzas/cuentas-pagar') return <FinanzasTransacciones onNavigate={navigateTo} />;
+      if (currentRoute === '/finanzas/caja-chica') return <FinanzasCajaChica onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/flujo-caja') return <FinanzasFlujoCaja onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/reportes') return <FinanzasReportes onNavigate={navigateTo} />;
-      return <Finanzas />;
+      return <FinanzasDashboard onNavigate={navigateTo} />;
     }
 
     // Inventario
     if (currentRoute.startsWith('/inventario')) {
-      if (currentRoute === '/inventario/productos') return <InventarioProductos onNavigate={navigateTo} />;
+      if (currentRoute === '/inventario/articulos') return <InventarioArticulos onNavigate={navigateTo} />;
+      if (currentRoute === '/inventario/productos') return <InventarioArticulos onNavigate={navigateTo} />;
       if (currentRoute === '/inventario/movimientos') return <InventarioMovimientos onNavigate={navigateTo} />;
-      if (currentRoute === '/inventario/ordenes') return <InventarioOrdenes onNavigate={navigateTo} />;
-      if (currentRoute === '/inventario/stock-critico') return <InventarioStockCritico onNavigate={navigateTo} />;
-      return <Inventario />;
+      if (currentRoute === '/inventario/almacenes') return <InventarioAlmacenes onNavigate={navigateTo} />;
+      if (currentRoute === '/inventario/ordenes') return <InventarioAlmacenes onNavigate={navigateTo} />;
+      if (currentRoute === '/inventario/stock-critico') return <InventarioDashboard onNavigate={navigateTo} />;
+      return <InventarioDashboard onNavigate={navigateTo} />;
     }
 
     // Compras
@@ -483,7 +532,7 @@ export default function App() {
       if (currentRoute === '/crm/clientes') return <CRMClientes onNavigate={navigateTo} />;
       if (currentRoute === '/crm/oportunidades') return <CRMOportunidades onNavigate={navigateTo} />;
       if (currentRoute === '/crm/actividades') return <CRMActividades onNavigate={navigateTo} />;
-      return <CRM />;
+      return <CRMDashboard onNavigate={navigateTo} />;
     }
 
     // Flota
@@ -565,19 +614,36 @@ export default function App() {
       return <FlotaDashboard onNavigate={navigateTo} />;
     }
 
+    // Admin
+    if (currentRoute.startsWith('/admin')) {
+      if (currentRoute === '/admin/usuarios') return <GestionUsuarios />;
+      return <GestionUsuarios />;
+    }
+
     return <Dashboard />;
   };
 
   return (
+    <ProyectosProvider>
+    <FinanzasProvider>
+    <CRMProvider>
+    <RolesProvider>
+    <InventarioProvider>
     <OTStoreProvider>
       <VehiculosStoreProvider>
         <ProveedorStoreProvider>
+          <EvaluacionesProvider>
+          <ContratosProvider>
+          <TalleresProvider>
           <RequerimientoStoreProvider>
             <CotizacionStoreProvider>
               <OrdenStoreProvider>
                 <RecepcionStoreProvider>
                   <EquiposStoreProvider>
                     <MantenimientosStoreProvider>
+                      <CalibracionesProvider>
+                        <IncidenciasProvider>
+                          <DocumentosBioProvider>
                       <div className="min-h-screen bg-background">
                         {/* Desktop Sidebar */}
                         {!isSpecialRoute() && user && (
@@ -620,8 +686,8 @@ export default function App() {
                             <ERPTopbar
                               darkMode={darkMode}
                               onToggleDarkMode={handleToggleDarkMode}
-                              tenantName="Hospital Regional"
-                              userName="Admin Usuario"
+                              tenantName={tenantName ?? 'KESA ERP'}
+                              userName={profile?.nombre ?? user?.email ?? 'Usuario'}
                             />
                           </header>
                         )}
@@ -633,16 +699,27 @@ export default function App() {
                         </main>
 
                         <Toaster />
-                        <ResponsiveIndicator />
+                        {import.meta.env.DEV && <ResponsiveIndicator />}
                       </div>
+                          </DocumentosBioProvider>
+                        </IncidenciasProvider>
+                      </CalibracionesProvider>
                     </MantenimientosStoreProvider>
                   </EquiposStoreProvider>
                 </RecepcionStoreProvider>
               </OrdenStoreProvider>
             </CotizacionStoreProvider>
           </RequerimientoStoreProvider>
+          </TalleresProvider>
+          </ContratosProvider>
+          </EvaluacionesProvider>
         </ProveedorStoreProvider>
       </VehiculosStoreProvider>
     </OTStoreProvider>
+    </InventarioProvider>
+    </RolesProvider>
+    </CRMProvider>
+    </FinanzasProvider>
+    </ProyectosProvider>
   );
 }

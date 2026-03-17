@@ -50,13 +50,17 @@ export function RecepcionDetalle({ recepcionId, onNavigate }: RecepcionDetallePr
   const estadoConfig = RECEPCION_ESTADO_CONFIG[recepcion.estado];
   const puedeAnular = tienePermisoRecepcion(usuarioActual.rol, 'anular') && puedeAnularRecepcion(recepcion.estado);
 
-  const handleAnular = () => {
+  const handleAnular = async () => {
     const validacion = validarMotivoAnulacion(motivoAnulacion);
     if (!validacion.valid) {
       setErrorMotivo(validacion.error!);
       return;
     }
-    anularRecepcion(recepcion.id, motivoAnulacion);
+    const res = await anularRecepcion(recepcion.id, motivoAnulacion);
+    if (!res.exito) {
+      console.error('Error al anular recepción:', res.errores);
+      return;
+    }
     setShowAnularDialog(false);
     setMotivoAnulacion('');
     setErrorMotivo('');
