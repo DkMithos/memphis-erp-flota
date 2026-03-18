@@ -276,6 +276,29 @@ export const dbOrdenesCompra = {
 };
 
 // =============================================================================
+// FLOTA — GPS POSICIONES
+// =============================================================================
+
+export const dbGpsPosiciones = {
+  listUltimasPorVehiculo: (tenantId: string) =>
+    supabase
+      .from('gps_posiciones')
+      .select('*, vehiculo:vehiculos(codigo, placa, marca, modelo)')
+      .eq('tenant_id', tenantId)
+      .order('fecha_dispositivo', { ascending: false })
+      .limit(500),
+
+  listHistorial: (vehiculoId: string, desde: string, hasta: string) =>
+    supabase
+      .from('gps_posiciones')
+      .select('latitud, longitud, velocidad, evento, ignicion, fecha_dispositivo')
+      .eq('vehiculo_id', vehiculoId)
+      .gte('fecha_dispositivo', desde)
+      .lte('fecha_dispositivo', hasta)
+      .order('fecha_dispositivo', { ascending: true }),
+};
+
+// =============================================================================
 // BIOMÉDICO — CALIBRACIONES
 // =============================================================================
 
