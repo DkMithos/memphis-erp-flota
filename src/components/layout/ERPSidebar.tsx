@@ -35,7 +35,8 @@ import {
   Star,
   Handshake,
   Target,
-  PhoneCall
+  PhoneCall,
+  MapPin
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useState } from 'react';
@@ -163,12 +164,17 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
           href: '/flota/mantenimientos',
           id: 'flota-mantenimientos',
         },
-        { 
-          label: 'Análisis Preventivo', 
+        {
+          label: 'Análisis Preventivo',
           href: '/flota/analisis-preventivo',
           id: 'flota-analisis-preventivo',
         },
-        { 
+        {
+          label: 'Monitoreo GPS',
+          href: '/flota/gps',
+          id: 'flota-gps',
+        },
+        {
           label: 'Reporte Vehículos',
           href: '/flota/reportes/vehiculos',
           id: 'flota-reportes-vehiculos',
@@ -212,6 +218,12 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       ]
     },
     {
+      id: 'bi',
+      label: 'BI & Reportería',
+      icon: <BarChart3 className="size-5" />,
+      href: '/bi'
+    },
+    {
       id: 'admin',
       label: 'Administración',
       icon: <Settings className="size-5" />,
@@ -234,6 +246,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
     if (href.includes('dashboard')) return <LayoutDashboard className="size-4" />;
     if (href.includes('vehiculos')) return <Car className="size-4" />;
     if (href.includes('mantenimientos')) return <Wrench className="size-4" />;
+    if (href.includes('gps')) return <MapPin className="size-4" />;
     return null;
   };
 

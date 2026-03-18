@@ -25,6 +25,7 @@ import { MantenimientosLista } from './components/modules/flota/MantenimientosLi
 import { MantenimientoDetalle } from './components/modules/flota/MantenimientoDetalle';
 import { MantenimientoForm } from './components/modules/flota/MantenimientoForm';
 import { FlotaPreventiveAnalytics } from './components/modules/flota/FlotaPreventiveAnalytics';
+import { FlotaGPS } from './components/modules/flota/FlotaGPS';
 
 // Flota - Reportes
 import { FlotaReporteVehiculos } from './components/modules/flota/reportes/FlotaReporteVehiculos';
@@ -107,11 +108,16 @@ import { InventarioArticulos } from './components/modules/inventario/InventarioA
 import { InventarioMovimientos } from './components/modules/inventario/InventarioMovimientos';
 import { InventarioAlmacenes } from './components/modules/inventario/InventarioAlmacenes';
 
+// BI
+import { BIDashboard } from './components/modules/bi/BIDashboard';
+import { BIProvider } from './lib/bi/bi-store';
+
 // Admin
 import { GestionUsuarios } from './components/modules/admin/GestionUsuarios';
 
 // Stores
 import { OTStoreProvider } from './lib/flota/ot-store';
+import { GPSProvider } from './lib/flota/gps-store';
 import { VehiculosStoreProvider } from './lib/flota/vehiculos-store';
 import { ProveedorStoreProvider } from './lib/proveedores/proveedores-store';
 import { RequerimientoStoreProvider } from './lib/compras/requerimientos-store';
@@ -609,9 +615,15 @@ export default function App() {
       if (submodulo === 'reportes' && param === 'documentos') return <FlotaReporteDocumentos onNavigate={navigateTo} />;
 
       if (submodulo === 'analisis-preventivo') return <FlotaPreventiveAnalytics onNavigate={navigateTo} />;
+      if (submodulo === 'gps') return <FlotaGPS onNavigate={navigateTo} />;
       if (submodulo === 'dashboard' || !submodulo) return <FlotaDashboard onNavigate={navigateTo} />;
 
       return <FlotaDashboard onNavigate={navigateTo} />;
+    }
+
+    // BI
+    if (currentRoute.startsWith('/bi')) {
+      return <BIDashboard onNavigate={navigateTo} />;
     }
 
     // Admin
@@ -624,12 +636,14 @@ export default function App() {
   };
 
   return (
+    <BIProvider>
     <ProyectosProvider>
     <FinanzasProvider>
     <CRMProvider>
     <RolesProvider>
     <InventarioProvider>
     <OTStoreProvider>
+      <GPSProvider>
       <VehiculosStoreProvider>
         <ProveedorStoreProvider>
           <EvaluacionesProvider>
@@ -715,11 +729,13 @@ export default function App() {
           </EvaluacionesProvider>
         </ProveedorStoreProvider>
       </VehiculosStoreProvider>
+      </GPSProvider>
     </OTStoreProvider>
     </InventarioProvider>
     </RolesProvider>
     </CRMProvider>
     </FinanzasProvider>
     </ProyectosProvider>
+    </BIProvider>
   );
 }

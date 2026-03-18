@@ -388,6 +388,28 @@ export type OTExtraUpdate = Partial<Omit<OTExtraInsert, 'tenant_id' | 'orden_tra
 // FLOTA — GPS
 // =============================================================================
 
+export interface GpsPosicionDB {
+  id: string;
+  tenant_id: string;
+  vehiculo_id: string;
+  dispositivo_id?: string | null;
+  latitud: number;
+  longitud: number;
+  velocidad?: number | null;
+  rumbo?: number | null;
+  altitud?: number | null;
+  odometro?: number | null;
+  evento?: string | null;
+  ignicion?: boolean | null;
+  bateria_voltaje?: number | null;
+  satelites?: number | null;
+  precision_gps?: number | null;
+  direccion_texto?: string | null;
+  fecha_dispositivo: string;
+  recibido_en: string;
+  vehiculo?: { codigo: string; placa: string; marca?: string; modelo?: string; } | null;
+}
+
 export type EstadoGps = 'activo' | 'inactivo';
 
 export interface GpsDispositivo {
