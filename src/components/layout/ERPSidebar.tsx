@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useState } from 'react';
+import { useAuth } from '../../auth/AuthProvider';
 
 interface NavItem {
   id: string;
@@ -64,6 +65,7 @@ interface ERPSidebarProps {
 }
 
 export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }: ERPSidebarProps) {
+  const { user, profile } = useAuth();
   const [expandedItems, setExpandedItems] = useState<string[]>(['flota']);
 
   const navItems: NavItem[] = [
@@ -91,7 +93,6 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       label: 'Compras',
       icon: <ShoppingCart className="size-5" />,
       href: '/compras',
-      badge: '3',
       subItems: [
         { label: 'Dashboard', href: '/compras' },
         { label: 'Requerimientos', href: '/compras/requerimientos' },
@@ -265,9 +266,16 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
   return (
     <aside className="w-64 bg-card border-r border-border h-screen flex flex-col lg:fixed lg:left-0 lg:top-0">
       {/* Logo */}
-      <div className="h-16 flex items-center px-6 border-b border-border shrink-0">
-        <Building2 className="size-8 text-primary" />
-        <span className="ml-3 text-xl font-semibold">KESA ERP</span>
+      <div className="h-16 flex items-center px-6 border-b border-border shrink-0 bg-gradient-to-r from-primary/5 to-transparent">
+        <div className="flex items-center gap-3">
+          <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
+            <Building2 className="size-5 text-primary-foreground" />
+          </div>
+          <div>
+            <span className="text-base font-bold text-foreground">KESA ERP</span>
+            <p className="text-xs text-muted-foreground leading-none">Sistema Integrado</p>
+          </div>
+        </div>
       </div>
 
       {/* Navigation */}
@@ -275,20 +283,22 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         <div className="px-3 space-y-1">
           {navItems.map((item) => (
             <div key={item.id}>
+              {item.id === 'admin' && (
+                <div className="my-2 px-1">
+                  <div className="border-t border-border/60" />
+                </div>
+              )}
               <Button
-                variant={currentModule === item.id && !item.subItems ? 'secondary' : 'ghost'}
+                variant="ghost"
                 className={`w-full justify-start ${
-                  currentModule === item.id && !item.subItems
-                    ? 'bg-accent text-accent-foreground' 
+                  currentModule === item.id
+                    ? 'bg-primary/10 text-primary font-medium hover:bg-primary/15 hover:text-primary'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                 }`}
                 onClick={() => {
                   if (item.subItems) {
                     toggleExpand(item.id);
-                    // Expandir y navegar al primer subitem por defecto
-                    if (!expandedItems.includes(item.id)) {
-                      onModuleChange(item.id, item.subItems[0].href);
-                    }
+                    onModuleChange(item.id, item.subItems[0].href);
                   } else {
                     onModuleChange(item.id);
                   }
@@ -302,28 +312,28 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
                   </span>
                 )}
                 {item.subItems && (
-                  <ChevronDown 
+                  <ChevronDown
                     className={`ml-auto size-4 transition-transform ${
                       expandedItems.includes(item.id) ? 'rotate-180' : ''
                     }`}
                   />
                 )}
               </Button>
-              
+
               {item.subItems && expandedItems.includes(item.id) && (
                 <div className="ml-4 mt-1 space-y-1">
                   {item.subItems.map((subItem) => (
                     <Button
                       key={subItem.href}
                       variant="ghost"
-                      className={`w-full justify-start text-sm ${
-                        isSubItemActive(subItem.href)
-                          ? 'bg-accent/50 text-accent-foreground font-medium'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-accent/30'
+                      className={`w-full justify-start text-sm pl-3 ${
+                        isSubItemActive(subItem.href ?? '')
+                          ? 'bg-primary/8 text-primary font-medium border-l-2 border-primary'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-accent/30 border-l-2 border-transparent'
                       }`}
                       onClick={() => onModuleChange(item.id, subItem.href)}
                     >
-                      {getSubItemIcon(subItem.href)}
+                      {getSubItemIcon(subItem.href ?? '')}
                       <span className="ml-2">{subItem.label}</span>
                     </Button>
                   ))}
@@ -334,10 +344,20 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         </div>
       </nav>
 
-      {/* Settings */}
-      <div className="p-3 border-t border-border">
-        <Button 
-          variant="ghost" 
+      {/* User info + Settings */}
+      <div className="p-3 border-t border-border space-y-1">
+        {user?.email && (
+          <div className="px-3 py-2 mb-1">
+            <p className="text-xs font-medium text-foreground truncate">
+              {profile ? `${profile.nombre}${profile.apellido ? ' ' + profile.apellido : ''}` : user.email}
+            </p>
+            {profile && (
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+            )}
+          </div>
+        )}
+        <Button
+          variant="ghost"
           className="w-full justify-start text-muted-foreground hover:text-foreground"
         >
           <Settings className="size-5" />

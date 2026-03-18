@@ -275,7 +275,8 @@ export const PERMISOS_POR_ROL: Record<RolUsuario, PermisosCotizacion> = {
 };
 
 export function tienePermiso(rol: RolUsuario, accion: keyof PermisosCotizacion): boolean {
-  return PERMISOS_POR_ROL[rol][accion];
+  const permisos = PERMISOS_POR_ROL[rol] ?? PERMISOS_POR_ROL.admin_empresa;
+  return permisos[accion];
 }
 
 /**

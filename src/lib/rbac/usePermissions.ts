@@ -44,6 +44,14 @@ export function usePermissions() {
     const load = async () => {
       setLoading(true);
       try {
+        // Fast path: admin role in JWT bypasses DB query
+        const jwtRole = user?.app_metadata?.role;
+        if (jwtRole === 'admin') {
+          setIsAdmin(true);
+          setPermisos([]);
+          return;
+        }
+
         // Cargar roles del usuario
         const { data: userRoles } = await supabase
           .from('usuarios_roles')

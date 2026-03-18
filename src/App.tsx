@@ -78,15 +78,15 @@ import { ProyectoDetalle } from './components/modules/proyectos/ProyectoDetalle'
 import { ProyectosTareasGlobal } from './components/modules/proyectos/ProyectosTareasGlobal';
 import { ProyectosProvider } from './lib/proyectos/proyectos-store';
 
-// Placeholders
-import {
-  ProyectosCronograma,
-  ProyectosValorizaciones,
-  ProyectosRiesgos,
-  ProyectosDocumentos,
-  FinanzasFlujoCaja,
-  FinanzasReportes,
-} from './components/modules/placeholders';
+// Finanzas - módulos adicionales
+import { FinanzasFlujoCaja } from './components/modules/finanzas/FinanzasFlujoCaja';
+import { FinanzasReportes } from './components/modules/finanzas/FinanzasReportes';
+
+// Proyectos - módulos adicionales
+import { ProyectosCronograma } from './components/modules/proyectos/ProyectosCronograma';
+import { ProyectosValorizaciones } from './components/modules/proyectos/ProyectosValorizaciones';
+import { ProyectosRiesgos } from './components/modules/proyectos/ProyectosRiesgos';
+import { ProyectosDocumentos } from './components/modules/proyectos/ProyectosDocumentos';
 
 // Finanzas
 import { FinanzasDashboard } from './components/modules/finanzas/FinanzasDashboard';
