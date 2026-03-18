@@ -248,7 +248,8 @@ export const PERMISOS_RECEPCION_POR_ROL: Record<RolUsuario, PermisosRecepcion> =
 };
 
 export function tienePermisoRecepcion(rol: RolUsuario, accion: keyof PermisosRecepcion): boolean {
-  return PERMISOS_RECEPCION_POR_ROL[rol][accion];
+  const permisos = PERMISOS_RECEPCION_POR_ROL[rol] ?? PERMISOS_RECEPCION_POR_ROL.admin_sistemas;
+  return permisos[accion];
 }
 
 /**
