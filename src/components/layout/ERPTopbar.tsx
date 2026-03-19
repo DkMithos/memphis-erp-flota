@@ -1,4 +1,4 @@
-import { Bell, Search, Moon, Sun, ChevronDown, LogOut } from 'lucide-react';
+import { Bell, Search, Moon, Sun, ChevronDown, LogOut, User, Settings } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
@@ -10,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '../ui/avatar';
-import { Badge } from '../ui/badge';
 import { useAuth } from '../../auth/AuthProvider';
 
 interface ERPTopbarProps {
@@ -18,17 +17,14 @@ interface ERPTopbarProps {
   onToggleDarkMode: () => void;
   tenantName: string;
   userName: string;
+  onNavigate?: (route: string) => void;
 }
 
-export function ERPTopbar({ darkMode, onToggleDarkMode, tenantName, userName }: ERPTopbarProps) {
+export function ERPTopbar({ darkMode, onToggleDarkMode, tenantName, userName, onNavigate }: ERPTopbarProps) {
   const { signOut, user } = useAuth();
 
   const handleSignOut = async () => {
-    try {
-      await signOut();
-    } catch (err) {
-      console.error('[ERPTopbar] Error al cerrar sesión:', err);
-    }
+    await signOut();
   };
 
   return (
@@ -121,18 +117,23 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, tenantName, userName }: 
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Avatar className="size-4 mr-2">
-                <AvatarFallback className="bg-muted text-xs">
-                  {userName.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => onNavigate?.('/perfil')}
+            >
+              <User className="size-4 mr-2" />
               Mi Perfil
             </DropdownMenuItem>
-            <DropdownMenuItem>Configuración</DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => onNavigate?.('/admin/usuarios')}
+            >
+              <Settings className="size-4 mr-2" />
+              Configuración
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
+              className="text-destructive focus:text-destructive cursor-pointer"
               onClick={handleSignOut}
             >
               <LogOut className="size-4 mr-2" />
