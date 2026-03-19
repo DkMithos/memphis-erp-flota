@@ -19,8 +19,9 @@ export function GestionModulos() {
 
   const handleSave = () => {
     saveModulesConfig(modules);
+    window.dispatchEvent(new Event('kesa-modules-updated'));
     toast.success('Configuración guardada', {
-      description: 'Recarga la página para ver los cambios en el menú.',
+      description: 'Los módulos del menú se actualizaron.',
     });
   };
 

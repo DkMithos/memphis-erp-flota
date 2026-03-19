@@ -39,9 +39,9 @@ import {
   MapPin
 } from 'lucide-react';
 import { Button } from '../ui/button';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../auth/AuthProvider';
-import { loadModulesConfig } from '../../lib/config/modules-config';
+import { loadModulesConfig, type ModuleConfig } from '../../lib/config/modules-config';
 
 interface NavItem {
   id: string;
@@ -68,7 +68,18 @@ interface ERPSidebarProps {
 export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }: ERPSidebarProps) {
   const { user, profile } = useAuth();
   const [expandedItems, setExpandedItems] = useState<string[]>(['flota']);
-  const modulesConfig = loadModulesConfig();
+  const [modulesConfig, setModulesConfig] = useState<ModuleConfig[]>(loadModulesConfig);
+
+  // Re-leer config cuando GestionModulos guarda cambios
+  useEffect(() => {
+    const handler = () => setModulesConfig(loadModulesConfig());
+    window.addEventListener('kesa-modules-updated', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('kesa-modules-updated', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, []);
 
   const navItems: NavItem[] = [
     {
