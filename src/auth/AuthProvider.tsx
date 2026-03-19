@@ -51,13 +51,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Timeout de seguridad: si Supabase tarda >8s, desbloquear la app
+    // Timeout de seguridad: si Supabase tarda >3s, desbloquear la app
     const safetyTimer = setTimeout(() => {
       if (mounted) {
         console.warn('[auth] getSession timeout — unblocking app');
         setLoading(false);
       }
-    }, 8000);
+    }, 3000);
 
     (async () => {
       try {
@@ -79,13 +79,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       if (!mounted) return;
       setSession(newSession);
-      if (newSession?.user) {
-        await loadProfile(newSession.user.id);
-      } else {
+      try {
+        if (newSession?.user) {
+          await loadProfile(newSession.user.id);
+        } else {
+          setProfile(null);
+          setTenantName(null);
+        }
+      } catch (err) {
+        console.error('[auth] Error en onAuthStateChange:', err);
         setProfile(null);
         setTenantName(null);
+      } finally {
+        if (mounted) setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {
@@ -109,10 +116,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
 
     signOut: async () => {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      setProfile(null);
-      setTenantName(null);
+      // Limpiar estado local SIEMPRE, independientemente del resultado de Supabase
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn('[auth] signOut API error (ignorando):', err);
+      } finally {
+        setSession(null);
+        setProfile(null);
+        setTenantName(null);
+      }
     },
   }), [session, profile, tenantName, loading]);
 

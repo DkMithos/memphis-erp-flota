@@ -115,6 +115,9 @@ import { BIProvider } from './lib/bi/bi-store';
 // Admin
 import { GestionUsuarios } from './components/modules/admin/GestionUsuarios';
 
+// Perfil
+import { UserProfile } from './components/modules/perfil/UserProfile';
+
 // Stores
 import { OTStoreProvider } from './lib/flota/ot-store';
 import { GPSProvider } from './lib/flota/gps-store';
@@ -626,6 +629,11 @@ export default function App() {
       return <BIDashboard onNavigate={navigateTo} />;
     }
 
+    // Perfil de usuario
+    if (currentRoute === '/perfil') {
+      return <UserProfile />;
+    }
+
     // Admin
     if (currentRoute.startsWith('/admin')) {
       if (currentRoute === '/admin/usuarios') return <GestionUsuarios />;
@@ -702,6 +710,7 @@ export default function App() {
                               onToggleDarkMode={handleToggleDarkMode}
                               tenantName={tenantName ?? 'KESA ERP'}
                               userName={profile?.nombre ?? user?.email ?? 'Usuario'}
+                              onNavigate={navigateTo}
                             />
                           </header>
                         )}
