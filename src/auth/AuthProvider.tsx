@@ -51,15 +51,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    (async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (!mounted) return;
-      if (error) console.error("[auth.getSession]", error);
+    // Timeout de seguridad: si Supabase tarda >8s, desbloquear la app
+    const safetyTimer = setTimeout(() => {
+      if (mounted) {
+        console.warn('[auth] getSession timeout — unblocking app');
+        setLoading(false);
+      }
+    }, 8000);
 
-      const s = data.session ?? null;
-      setSession(s);
-      if (s?.user) await loadProfile(s.user.id);
-      setLoading(false);
+    (async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (!mounted) return;
+        if (error) console.error("[auth.getSession]", error);
+
+        const s = data.session ?? null;
+        setSession(s);
+        if (s?.user) await loadProfile(s.user.id);
+      } catch (err) {
+        console.error('[auth] Unexpected error in getSession:', err);
+      } finally {
+        clearTimeout(safetyTimer);
+        if (mounted) setLoading(false);
+      }
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
@@ -76,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       sub.subscription.unsubscribe();
     };
   }, []);
