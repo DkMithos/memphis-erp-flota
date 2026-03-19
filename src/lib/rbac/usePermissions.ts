@@ -35,7 +35,7 @@ export function usePermissions() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (!user || !tenantId) {
+    if (!user) {
       setPermisos([]);
       setLoading(false);
       return;
@@ -44,10 +44,16 @@ export function usePermissions() {
     const load = async () => {
       setLoading(true);
       try {
-        // Fast path: admin role in JWT bypasses DB query
+        // Fast path: admin role in JWT bypasses DB query (works even without tenantId)
         const jwtRole = user?.app_metadata?.role;
         if (jwtRole === 'admin') {
           setIsAdmin(true);
+          setPermisos([]);
+          return;
+        }
+
+        // Non-admin users need tenantId to query roles
+        if (!tenantId) {
           setPermisos([]);
           return;
         }
