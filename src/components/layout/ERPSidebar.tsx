@@ -41,6 +41,7 @@ import {
 import { Button } from '../ui/button';
 import { useState } from 'react';
 import { useAuth } from '../../auth/AuthProvider';
+import { loadModulesConfig } from '../../lib/config/modules-config';
 
 interface NavItem {
   id: string;
@@ -67,6 +68,7 @@ interface ERPSidebarProps {
 export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }: ERPSidebarProps) {
   const { user, profile } = useAuth();
   const [expandedItems, setExpandedItems] = useState<string[]>(['flota']);
+  const modulesConfig = loadModulesConfig();
 
   const navItems: NavItem[] = [
     {
@@ -281,7 +283,11 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4">
         <div className="px-3 space-y-1">
-          {navItems.map((item) => (
+          {navItems.filter(item => {
+          if (item.id === 'admin') return true; // siempre visible
+          const cfg = modulesConfig.find(m => m.id === item.id);
+          return cfg?.enabled ?? item.id === 'dashboard';
+        }).map((item) => (
             <div key={item.id}>
               {item.id === 'admin' && (
                 <div className="my-2 px-1">
