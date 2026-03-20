@@ -1,9 +1,4 @@
-/**
- * QR CODE WRAPPER
- * Intenta usar react-qr-code si está disponible, sino usa SimpleQR como fallback
- */
-
-import { SimpleQR } from './SimpleQR';
+import QRCode from 'react-qr-code';
 
 interface QRCodeWrapperProps {
   value: string;
@@ -12,13 +7,5 @@ interface QRCodeWrapperProps {
 }
 
 export function QRCodeWrapper({ value, size = 180, level = 'M' }: QRCodeWrapperProps) {
-  // Intentar usar react-qr-code si está disponible
-  try {
-    // @ts-ignore - Dynamic import que puede fallar
-    const QRCode = require('react-qr-code').default;
-    return <QRCode value={value} size={size} level={level} />;
-  } catch (error) {
-    // Si falla, usar SimpleQR como fallback
-    return <SimpleQR value={value} size={size} level={level} />;
-  }
+  return <QRCode value={value} size={size} level={level} />;
 }

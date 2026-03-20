@@ -15,7 +15,7 @@ export const DEBUG_VEHICULOS = true;
 // ============================================================================
 
 export type EstadoVehiculo = 'activo' | 'en_taller' | 'inactivo';
-export type TipoVehiculo = 'ambulancia' | 'camioneta' | 'van' | 'auto' | 'otro';
+export type TipoVehiculo = 'ambulancia' | 'camioneta' | 'motocicleta' | 'van' | 'auto' | 'otro';
 export type EstadoDocumento = 'vigente' | 'proximo' | 'vencido';
 
 /**
@@ -24,6 +24,7 @@ export type EstadoDocumento = 'vigente' | 'proximo' | 'vencido';
 export const TIPO_VEHICULO_LABELS: Record<TipoVehiculo, string> = {
   ambulancia: 'Ambulancia',
   camioneta: 'Camioneta',
+  motocicleta: 'Motocicleta',
   van: 'Van',
   auto: 'Auto',
   otro: 'Otro'
