@@ -143,23 +143,40 @@ import { Menu } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Sheet, SheetContent } from './components/ui/sheet';
 import { Toaster } from './components/ui/sonner';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { LoadingScreen } from './components/ui/LoadingScreen';
 
 const ENABLE_PUBLIC_LEGACY_ROUTES = false;
+
+// Inicializa darkMode desde localStorage o preferencia del sistema
+function getInitialDarkMode(): boolean {
+  try {
+    const stored = localStorage.getItem('memphis-theme');
+    if (stored === 'dark') return true;
+    if (stored === 'light') return false;
+  } catch { /* SSR / private mode */ }
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+}
 
 export default function App() {
   const { user, profile, tenantName, loading } = useAuth();
 
   const [currentModule, setCurrentModule] = useState('dashboard');
   const [currentRoute, setCurrentRoute] = useState('/dashboard');
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState<boolean>(getInitialDarkMode);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (darkMode) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('memphis-theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('memphis-theme', 'light');
+    }
   }, [darkMode]);
 
-  const handleToggleDarkMode = () => setDarkMode(!darkMode);
+  const handleToggleDarkMode = () => setDarkMode(prev => !prev);
 
   const handleModuleChange = (moduleId: string, subRoute?: string) => {
     setCurrentModule(moduleId);
@@ -189,11 +206,7 @@ export default function App() {
 
   // 1) Mientras carga la sesión
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
-        Cargando...
-      </div>
-    );
+    return <LoadingScreen message="Iniciando sesión..." />;
   }
 
   // 2) Si NO hay user y la ruta NO es pública: Login
@@ -361,7 +374,8 @@ export default function App() {
     if (currentRoute.startsWith('/finanzas')) {
       if (currentRoute === '/finanzas/transacciones') return <FinanzasTransacciones onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/presupuestos') return <FinanzasPresupuestosModule onNavigate={navigateTo} />;
-      if (currentRoute === '/finanzas/cuentas-pagar') return <FinanzasTransacciones onNavigate={navigateTo} />;
+      // FIX: /finanzas/cuentas-pagar tenía el mismo componente que /transacciones
+      if (currentRoute === '/finanzas/cuentas-pagar') return <FinanzasPresupuestosModule onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/caja-chica') return <FinanzasCajaChica onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/flujo-caja') return <FinanzasFlujoCaja onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/reportes') return <FinanzasReportes onNavigate={navigateTo} />;
@@ -374,7 +388,8 @@ export default function App() {
       if (currentRoute === '/inventario/productos') return <InventarioArticulos onNavigate={navigateTo} />;
       if (currentRoute === '/inventario/movimientos') return <InventarioMovimientos onNavigate={navigateTo} />;
       if (currentRoute === '/inventario/almacenes') return <InventarioAlmacenes onNavigate={navigateTo} />;
-      if (currentRoute === '/inventario/ordenes') return <InventarioAlmacenes onNavigate={navigateTo} />;
+      // FIX: /inventario/ordenes tenía el mismo componente que /almacenes — usar movimientos hasta tener componente propio
+      if (currentRoute === '/inventario/ordenes') return <InventarioMovimientos onNavigate={navigateTo} />;
       if (currentRoute === '/inventario/stock-critico') return <InventarioDashboard onNavigate={navigateTo} />;
       return <InventarioDashboard onNavigate={navigateTo} />;
     }
@@ -644,6 +659,7 @@ export default function App() {
   };
 
   return (
+    <ErrorBoundary>
     <BIProvider>
     <ProyectosProvider>
     <FinanzasProvider>
@@ -746,5 +762,6 @@ export default function App() {
     </FinanzasProvider>
     </ProyectosProvider>
     </BIProvider>
+    </ErrorBoundary>
   );
 }

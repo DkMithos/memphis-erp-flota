@@ -236,6 +236,7 @@ export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: Vehiculo
                   <SelectContent>
                     <SelectItem value="ambulancia">Ambulancia</SelectItem>
                     <SelectItem value="camioneta">Camioneta</SelectItem>
+                    <SelectItem value="motocicleta">Motocicleta</SelectItem>
                     <SelectItem value="van">Van</SelectItem>
                     <SelectItem value="auto">Auto</SelectItem>
                     <SelectItem value="otro">Otro</SelectItem>
