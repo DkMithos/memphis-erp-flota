@@ -41,7 +41,7 @@ import {
   calcOTsReportKPIs,
   type OTsReportFilters
 } from '../../../../lib/flota/flota-reports';
-import { exportToCSV, exportToExcel, formatDateForExport } from '../../../../lib/shared/export-utils';
+import { exportToCSV, exportToExcel, exportToPDF, formatDateForExport } from '../../../../lib/shared/export-utils';
 import { OT_TIPO_CONFIG, OT_CRITICIDAD_CONFIG, OT_ESTADO_CONFIG } from '../../../../lib/flota/ot-config';
 import { toast } from 'sonner@2.0.3';
 
@@ -162,6 +162,20 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
     toast.success('Excel exportado', {
       description: `${rows.length} OT(s) exportada(s)`
     });
+  };
+
+  const handleExportPDF = () => {
+    if (rows.length === 0) { toast.error('No hay datos para exportar'); return; }
+    const headersMap = {
+      numeroOT: 'N° OT', placa: 'Placa', tipo: 'Tipo', criticidad: 'Criticidad',
+      estado: 'Estado', taller: 'Taller', fechaProgramada: 'F. Programada',
+      costoTotal: 'Costo Total',
+    };
+    exportToPDF(
+      `reporte-mantenimientos-${new Date().toISOString().split('T')[0]}`,
+      'Reporte de Mantenimientos — KESA ERP',
+      rows, headersMap
+    );
   };
 
   const renderKPICard = (icon: React.ReactNode, label: string, value: string | number) => {
@@ -386,7 +400,7 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
                 <FileSpreadsheet className="size-4" />
                 Excel (CSV)
               </Button>
-              <Button variant="outline" className="gap-2" disabled title="Disponible en etapa backend">
+              <Button onClick={handleExportPDF} variant="outline" className="gap-2">
                 <FilePlus className="size-4" />
                 PDF
               </Button>

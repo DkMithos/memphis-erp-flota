@@ -41,7 +41,7 @@ import {
   calcVehiculosReportKPIs,
   type VehiculosReportFilters
 } from '../../../../lib/flota/flota-reports';
-import { exportToCSV, exportToExcel, formatDateForExport } from '../../../../lib/shared/export-utils';
+import { exportToCSV, exportToExcel, exportToPDF, formatDateForExport } from '../../../../lib/shared/export-utils';
 import { TIPO_VEHICULO_LABELS, ESTADO_VEHICULO_CONFIG } from '../../../../lib/flota/vehiculos-config';
 import { toast } from 'sonner@2.0.3';
 
@@ -147,6 +147,19 @@ export function FlotaReporteVehiculos({ onNavigate }: FlotaReporteVehiculosProps
     toast.success('Excel exportado', {
       description: `${rows.length} vehículo(s) exportado(s)`
     });
+  };
+
+  const handleExportPDF = () => {
+    if (rows.length === 0) { toast.error('No hay datos para exportar'); return; }
+    const headersMap = {
+      placa: 'Placa', marca: 'Marca', modelo: 'Modelo', año: 'Año', tipo: 'Tipo',
+      clienteProyecto: 'Cliente/Proyecto', estado: 'Estado', kilometraje: 'Kilometraje',
+    };
+    exportToPDF(
+      `reporte-vehiculos-${new Date().toISOString().split('T')[0]}`,
+      'Reporte de Vehículos — KESA ERP',
+      rows, headersMap
+    );
   };
 
   const renderKPICard = (icon: React.ReactNode, label: string, value: string | number) => {
@@ -316,7 +329,7 @@ export function FlotaReporteVehiculos({ onNavigate }: FlotaReporteVehiculosProps
                 <FileSpreadsheet className="size-4" />
                 Excel (CSV)
               </Button>
-              <Button variant="outline" className="gap-2" disabled title="Disponible en etapa backend">
+              <Button onClick={handleExportPDF} variant="outline" className="gap-2">
                 <FilePlus className="size-4" />
                 PDF
               </Button>

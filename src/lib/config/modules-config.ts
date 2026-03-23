@@ -1,7 +1,8 @@
 /**
  * Configuración de módulos habilitados/deshabilitados
- * Persiste en localStorage. Admin puede toggelar desde Administración.
+ * Persiste en Supabase (tenants.modules_config). localStorage como fallback offline.
  */
+import { supabase } from '../supabase/client';
 
 export interface ModuleConfig {
   id: string;
@@ -24,16 +25,22 @@ export const MODULES_DEFAULT: ModuleConfig[] = [
 ];
 
 const STORAGE_KEY = 'kesa_modules_config';
+const ALWAYS_ON = new Set(['dashboard', 'admin']);
+
+// ── Helpers locales (fallback offline) ───────────────────────────────────────
+
+function mergeWithDefaults(overrides: { id: string; enabled: boolean }[]): ModuleConfig[] {
+  return MODULES_DEFAULT.map(m => {
+    const o = overrides.find(s => s.id === m.id);
+    return o ? { ...m, enabled: o.enabled } : m;
+  });
+}
 
 export function loadModulesConfig(): ModuleConfig[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return MODULES_DEFAULT;
-    const saved: { id: string; enabled: boolean }[] = JSON.parse(raw);
-    return MODULES_DEFAULT.map(m => {
-      const override = saved.find(s => s.id === m.id);
-      return override ? { ...m, enabled: override.enabled } : m;
-    });
+    return mergeWithDefaults(JSON.parse(raw));
   } catch {
     return MODULES_DEFAULT;
   }
@@ -44,10 +51,39 @@ export function saveModulesConfig(modules: ModuleConfig[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
 }
 
+// ── Supabase (fuente de verdad) ───────────────────────────────────────────────
+
+export async function loadModulesConfigFromDB(tenantId: string): Promise<ModuleConfig[]> {
+  const { data, error } = await supabase
+    .from('tenants')
+    .select('modules_config')
+    .eq('id', tenantId)
+    .single();
+
+  if (error || !data?.modules_config) return loadModulesConfig(); // fallback local
+
+  const overrides = data.modules_config as { id: string; enabled: boolean }[];
+  const merged = mergeWithDefaults(Array.isArray(overrides) ? overrides : []);
+  // Sincronizar localStorage para acceso offline rápido
+  saveModulesConfig(merged);
+  return merged;
+}
+
+export async function saveModulesConfigToDB(
+  tenantId: string,
+  modules: ModuleConfig[]
+): Promise<void> {
+  const toSave = modules.map(m => ({ id: m.id, enabled: m.enabled }));
+  // Optimistic local update
+  saveModulesConfig(modules);
+  await supabase
+    .from('tenants')
+    .update({ modules_config: toSave })
+    .eq('id', tenantId);
+}
+
 export function isModuleEnabled(moduleId: string): boolean {
+  if (ALWAYS_ON.has(moduleId)) return true;
   const config = loadModulesConfig();
-  const m = config.find(c => c.id === moduleId);
-  // dashboard y admin siempre visibles
-  if (moduleId === 'dashboard' || moduleId === 'admin') return true;
-  return m?.enabled ?? false;
+  return config.find(c => c.id === moduleId)?.enabled ?? false;
 }

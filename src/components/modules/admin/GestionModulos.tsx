@@ -1,27 +1,43 @@
 /**
  * Gestión de Módulos — habilitar/deshabilitar por tenant
- * Persiste en localStorage. Sin DB (config simple por demo).
+ * Persiste en Supabase (tenants.modules_config) con fallback a localStorage.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Switch } from '../../ui/switch';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { toast } from 'sonner';
-import { loadModulesConfig, saveModulesConfig, MODULES_DEFAULT, type ModuleConfig } from '../../../lib/config/modules-config';
+import {
+  loadModulesConfigFromDB,
+  saveModulesConfigToDB,
+  MODULES_DEFAULT,
+  type ModuleConfig,
+} from '../../../lib/config/modules-config';
+import { useAuth } from '../../../auth/AuthProvider';
 
 export function GestionModulos() {
-  const [modules, setModules] = useState<ModuleConfig[]>(loadModulesConfig);
+  const { tenantId } = useAuth();
+  const [modules, setModules] = useState<ModuleConfig[]>(MODULES_DEFAULT);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    loadModulesConfigFromDB(tenantId).then(setModules);
+  }, [tenantId]);
 
   const toggle = (id: string) => {
-    if (id === 'dashboard' || id === 'admin') return; // inamovibles
+    if (id === 'dashboard' || id === 'admin') return;
     setModules(prev => prev.map(m => m.id === id ? { ...m, enabled: !m.enabled } : m));
   };
 
-  const handleSave = () => {
-    saveModulesConfig(modules);
+  const handleSave = async () => {
+    if (!tenantId) return;
+    setSaving(true);
+    await saveModulesConfigToDB(tenantId, modules);
+    setSaving(false);
     window.dispatchEvent(new Event('kesa-modules-updated'));
     toast.success('Configuración guardada', {
-      description: 'Los módulos del menú se actualizaron.',
+      description: 'Los módulos del menú se actualizaron para todos los usuarios.',
     });
   };
 
@@ -32,7 +48,7 @@ export function GestionModulos() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Activa o desactiva módulos del sistema. Los cambios afectan la navegación lateral para todos los usuarios.
+        Activa o desactiva módulos del sistema. Los cambios afectan la navegación lateral para todos los usuarios del tenant.
         <strong> Dashboard y Administración</strong> siempre están visibles.
       </p>
 
@@ -64,7 +80,9 @@ export function GestionModulos() {
 
       <div className="flex gap-2 justify-end">
         <Button variant="outline" onClick={handleReset}>Restablecer</Button>
-        <Button onClick={handleSave}>Guardar cambios</Button>
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? 'Guardando...' : 'Guardar cambios'}
+        </Button>
       </div>
     </div>
   );

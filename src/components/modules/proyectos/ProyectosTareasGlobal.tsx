@@ -213,12 +213,15 @@ export function ProyectosTareasGlobal({ onNavigate }: Props) {
                   return (
                     <TableRow key={t._dbId} className={t.vencida ? 'bg-red-50/40 dark:bg-red-950/10' : ''}>
                       <TableCell>
-                        <div>
-                          <p className="font-medium text-sm">{t.titulo}</p>
+                        <button
+                          className="text-left hover:underline"
+                          onClick={() => onNavigate?.(`/proyectos/tareas/${t._dbId}`)}
+                        >
+                          <p className="font-medium text-sm text-primary">{t.titulo}</p>
                           {t.descripcion && (
                             <p className="text-xs text-muted-foreground truncate max-w-[200px]">{t.descripcion}</p>
                           )}
-                        </div>
+                        </button>
                       </TableCell>
                       <TableCell>
                         <div>

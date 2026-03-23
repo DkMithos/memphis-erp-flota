@@ -76,6 +76,7 @@ import { ProyectosDashboard } from './components/modules/proyectos/ProyectosDash
 import { ProyectosLista } from './components/modules/proyectos/ProyectosLista';
 import { ProyectoDetalle } from './components/modules/proyectos/ProyectoDetalle';
 import { ProyectosTareasGlobal } from './components/modules/proyectos/ProyectosTareasGlobal';
+import { TareaDetalle } from './components/modules/proyectos/TareaDetalle';
 import { ProyectosProvider } from './lib/proyectos/proyectos-store';
 
 // Finanzas - módulos adicionales
@@ -363,6 +364,10 @@ export default function App() {
         );
       }
       if (currentRoute === '/proyectos/tareas') return <ProyectosTareasGlobal onNavigate={navigateTo} />;
+      if (currentRoute.startsWith('/proyectos/tareas/')) {
+        const tareaDbId = currentRoute.split('/')[3];
+        if (tareaDbId) return <TareaDetalle tareaDbId={tareaDbId} onNavigate={navigateTo} onBack={() => navigateTo('/proyectos/tareas')} />;
+      }
       if (currentRoute === '/proyectos/cronograma') return <ProyectosCronograma onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/valorizaciones') return <ProyectosValorizaciones onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/riesgos') return <ProyectosRiesgos onNavigate={navigateTo} />;
