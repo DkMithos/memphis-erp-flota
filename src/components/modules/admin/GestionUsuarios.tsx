@@ -33,8 +33,9 @@ import {
   SelectValue,
 } from '../../ui/select';
 import { toast } from 'sonner';
-import { Shield, Users, Plus, Pencil, Trash2, UserCog, Layers } from 'lucide-react';
+import { Shield, Users, Plus, Pencil, Trash2, UserCog, Layers, ClipboardList } from 'lucide-react';
 import { GestionModulos } from './GestionModulos';
+import { AuditLogs } from './AuditLogs';
 
 // ─────────────────────────────────────────────────────────────
 // Constants
@@ -679,6 +680,10 @@ export function GestionUsuarios() {
             <Layers className="size-4" />
             Módulos
           </TabsTrigger>
+          <TabsTrigger value="auditoria" className="flex items-center gap-2">
+            <ClipboardList className="size-4" />
+            Auditoría
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="usuarios" className="pt-4">
@@ -699,6 +704,10 @@ export function GestionUsuarios() {
 
         <TabsContent value="modulos" className="pt-4">
           <GestionModulos />
+        </TabsContent>
+
+        <TabsContent value="auditoria" className="pt-4">
+          <AuditLogs />
         </TabsContent>
       </Tabs>
     </div>
