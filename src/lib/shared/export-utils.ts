@@ -165,3 +165,79 @@ export function formatDateForExport(isoDate?: string): string {
 export function formatNumberForExport(value: number, decimals: number = 2): string {
   return value.toFixed(decimals);
 }
+
+// ============================================================================
+// PDF EXPORT (via window.print())
+// ============================================================================
+
+/**
+ * Exporta datos a PDF usando una ventana de impresión estilizada.
+ * No requiere dependencias externas.
+ *
+ * @param filename   Nombre sugerido del PDF (visible en el diálogo de impresión)
+ * @param title      Título que aparece en el encabezado del documento
+ * @param data       Array de objetos con los datos
+ * @param headersMap Mapeo de keys a etiquetas de columna
+ */
+export function exportToPDF<T extends Record<string, any>>(
+  filename: string,
+  title: string,
+  data: T[],
+  headersMap: Partial<Record<keyof T, string>>
+): void {
+  if (data.length === 0) return;
+
+  const keys = Object.keys(headersMap) as Array<keyof T>;
+  const headers = keys.map(k => headersMap[k] as string);
+
+  const rows = data.map(row =>
+    keys.map(k => {
+      const v = row[k];
+      return v === null || v === undefined ? '' : String(v);
+    })
+  );
+
+  const thead = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+  const tbody = rows.map(r =>
+    `<tr>${r.map(cell => `<td>${cell}</td>`).join('')}</tr>`
+  ).join('');
+
+  const dateStr = new Date().toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>${filename}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #1a1a1a; padding: 20px; }
+    h1 { font-size: 16px; margin-bottom: 4px; color: #0A66C2; }
+    .meta { font-size: 10px; color: #666; margin-bottom: 14px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #0A66C2; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; font-weight: 600; }
+    td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    @media print {
+      body { padding: 0; }
+      @page { margin: 15mm; size: A4 landscape; }
+    }
+  </style>
+</head>
+<body>
+  <h1>${title}</h1>
+  <p class="meta">Generado el ${dateStr} · KESA ERP</p>
+  <table>
+    <thead>${thead}</thead>
+    <tbody>${tbody}</tbody>
+  </table>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank', 'width=900,height=650');
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); }, 400);
+}
