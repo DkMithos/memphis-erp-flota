@@ -5,6 +5,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { dbArticulos, dbAlmacenes, dbCategoriasInventario, dbMovimientos } from '../supabase/helpers';
+import { logAudit } from '../shared/audit';
 import { useAuth } from '../../auth/AuthProvider';
 import type { ArticuloDB, AlmacenDB, CategoriaInventarioDB, MovimientoInventarioDB } from '../supabase/types';
 
@@ -283,6 +284,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       categoria: data.categoriaDbId ? { nombre: data.categoriaNombre ?? '', codigo: null } : null,
     });
     setArticulos(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+    logAudit({ tenantId: tenantId!, usuarioEmail: user.email, accion: 'crear', entidadTipo: 'articulo', entidadId: nuevo.id, entidadLabel: nuevo.nombre });
     return nuevo;
   }, [articulos, tenantId, user]);
 
@@ -314,6 +316,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     const { error } = await dbArticulos.update(dbId, payload);
     if (error) return { exito: false };
 
+    const artActual = articulos.find(a => a._dbId === dbId);
     setArticulos(prev => prev.map(a => {
       if (a._dbId !== dbId) return a;
       const updated = { ...a, ...data };
@@ -323,8 +326,9 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         valorTotal: updated.precioUnitario != null ? updated.stockActual * updated.precioUnitario : undefined,
       };
     }));
+    if (artActual && tenantId) logAudit({ tenantId, usuarioEmail: user.email, accion: 'editar', entidadTipo: 'articulo', entidadId: artActual.id, entidadLabel: artActual.nombre });
     return { exito: true };
-  }, [user]);
+  }, [user, tenantId, articulos]);
 
   // --------------------------------------------------------------------------
   // ALMACENES
