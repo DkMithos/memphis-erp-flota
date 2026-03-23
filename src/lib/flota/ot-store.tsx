@@ -8,6 +8,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { supabase } from '../supabase/client';
 import { useAuth } from '../../auth/AuthProvider';
 import type { OrdenTrabajoDB, OTRepuesto, OTExtra } from '../supabase/types';
+import { logAudit } from '../shared/audit';
 import {
   generarNumeroOT,
   extraerNumeroSecuencial,
@@ -343,6 +344,7 @@ export function OTStoreProvider({ children }: { children: React.ReactNode }) {
     }
 
     setOrdenes(prev => [nuevaOT, ...prev]);
+    logAudit({ tenantId: tenantId!, usuarioEmail: user?.email ?? null, accion: 'crear', entidadTipo: 'orden_trabajo', entidadId: nuevaOT.numeroOT, entidadLabel: nuevaOT.titulo });
     return nuevaOT;
   }, [ordenes, tenantId, user]);
 
@@ -434,32 +436,38 @@ export function OTStoreProvider({ children }: { children: React.ReactNode }) {
   const aprobarOT = useCallback(async (numeroOT: string): Promise<CrudResult> => {
     const ts = new Date().toISOString();
     const email = user?.email ?? null;
-    return updateOT(
+    const result = await updateOT(
       numeroOT,
       { estado: 'en_ejecucion', aprobado_por: email, aprobado_en: ts, modificado_por: email, modificado_en: ts },
       () => ({ estado: 'en_ejecucion' })
     );
-  }, [updateOT, user]);
+    if (result.exito && tenantId) logAudit({ tenantId, usuarioEmail: email, accion: 'aprobar', entidadTipo: 'orden_trabajo', entidadId: numeroOT });
+    return result;
+  }, [updateOT, user, tenantId]);
 
   const cerrarOT = useCallback(async (numeroOT: string, notasCierre?: string): Promise<CrudResult> => {
     const ts = new Date().toISOString();
     const email = user?.email ?? null;
-    return updateOT(
+    const result = await updateOT(
       numeroOT,
       { estado: 'cerrada', fecha_cierre: ts, cerrado_por: email, modificado_por: email, modificado_en: ts },
       () => ({ estado: 'cerrada', fechaCierre: ts, notasCierre: notasCierre ?? null })
     );
-  }, [updateOT, user]);
+    if (result.exito && tenantId) logAudit({ tenantId, usuarioEmail: email, accion: 'cerrar', entidadTipo: 'orden_trabajo', entidadId: numeroOT });
+    return result;
+  }, [updateOT, user, tenantId]);
 
   const anularOT = useCallback(async (numeroOT: string, motivo: string): Promise<CrudResult> => {
     const ts = new Date().toISOString();
     const email = user?.email ?? null;
-    return updateOT(
+    const result = await updateOT(
       numeroOT,
       { estado: 'anulada', motivo_anulacion: motivo, cerrado_por: email, fecha_cierre: ts, modificado_por: email, modificado_en: ts },
       () => ({ estado: 'anulada', observaciones: motivo, notasCierre: motivo, fechaCierre: ts })
     );
-  }, [updateOT, user]);
+    if (result.exito && tenantId) logAudit({ tenantId, usuarioEmail: email, accion: 'eliminar', entidadTipo: 'orden_trabajo', entidadId: numeroOT, entidadLabel: `Anulada: ${motivo}` });
+    return result;
+  }, [updateOT, user, tenantId]);
 
   // --------------------------------------------------------------------------
   // EXTRAS
