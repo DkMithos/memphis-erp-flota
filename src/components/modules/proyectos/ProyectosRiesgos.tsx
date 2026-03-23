@@ -1,9 +1,9 @@
 /**
  * PROYECTOS — Gestión de Riesgos
- * Matriz de riesgos por impacto y probabilidad
+ * Persistencia en Supabase — tabla riesgos_proyecto
  */
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { Input } from '../../ui/input';
@@ -12,7 +12,7 @@ import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
-import { AlertCircle, Plus, Shield, TrendingDown } from 'lucide-react';
+import { AlertCircle, Plus, Shield } from 'lucide-react';
 import { supabase } from '../../../lib/supabase/client';
 import { useAuth } from '../../../auth/AuthProvider';
 import { toast } from 'sonner';
@@ -45,56 +45,83 @@ const NIVEL_STYLE: Record<string, { badge: string; dot: string }> = {
   bajo: { badge: 'bg-green-100 text-green-800 border-green-200', dot: 'bg-green-500' },
 };
 
-const STORAGE_KEY = 'kesa_riesgos_v1';
+function mapRow(r: Record<string, unknown>): Riesgo {
+  return {
+    id: r.id as string,
+    titulo: r.titulo as string,
+    descripcion: (r.descripcion as string) ?? '',
+    probabilidad: r.probabilidad as Riesgo['probabilidad'],
+    impacto: r.impacto as Riesgo['impacto'],
+    estado: r.estado as Riesgo['estado'],
+    plan: (r.plan as string) ?? '',
+    proyectoNombre: (r.proyecto_nombre as string) ?? 'Sin proyecto',
+    proyectoId: (r.proyecto_id as string) ?? '',
+    nivel: r.nivel as Riesgo['nivel'],
+  };
+}
 
 export function ProyectosRiesgos({ onNavigate }: RiesgosProps) {
-  const { tenantId } = useAuth();
+  const { tenantId, user } = useAuth();
   const [riesgos, setRiesgos] = useState<Riesgo[]>([]);
   const [proyectos, setProyectos] = useState<Array<{ id: string; nombre: string }>>([]);
+  const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
-  const [form, setForm] = useState({ titulo: '', descripcion: '', probabilidad: 'media', impacto: 'medio', plan: '', proyectoId: '' });
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    titulo: '', descripcion: '', probabilidad: 'media', impacto: 'medio', plan: '', proyectoId: '',
+  });
 
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try { setRiesgos(JSON.parse(saved)); } catch {}
-    }
-    if (tenantId) {
-      supabase.from('proyectos').select('id, nombre').then(({ data }) => {
-        if (data) setProyectos(data as any);
-      });
-    }
+  const fetchRiesgos = useCallback(async () => {
+    if (!tenantId) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from('riesgos_proyecto')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('creado_en', { ascending: false });
+    if (data) setRiesgos((data as Record<string, unknown>[]).map(mapRow));
+    setLoading(false);
   }, [tenantId]);
 
-  const guardarRiesgos = (list: Riesgo[]) => {
-    setRiesgos(list);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  };
+  useEffect(() => {
+    if (!tenantId) return;
+    fetchRiesgos();
+    supabase.from('proyectos').select('id, nombre').eq('tenant_id', tenantId).then(({ data }) => {
+      if (data) setProyectos(data as Array<{ id: string; nombre: string }>);
+    });
+  }, [tenantId, fetchRiesgos]);
 
-  const agregarRiesgo = () => {
+  const agregarRiesgo = async () => {
     if (!form.titulo) { toast.error('Ingrese un título'); return; }
+    if (!tenantId) return;
+    setSaving(true);
     const nivel = NIVEL_MAP[form.probabilidad]?.[form.impacto] ?? 'bajo';
     const proyecto = proyectos.find(p => p.id === form.proyectoId);
-    const nuevo: Riesgo = {
-      id: crypto.randomUUID(),
+    const { error } = await supabase.from('riesgos_proyecto').insert({
+      tenant_id: tenantId,
+      proyecto_id: form.proyectoId || null,
+      proyecto_nombre: proyecto?.nombre ?? null,
       titulo: form.titulo,
-      descripcion: form.descripcion,
-      probabilidad: form.probabilidad as any,
-      impacto: form.impacto as any,
-      estado: 'activo',
-      plan: form.plan,
-      proyectoNombre: proyecto?.nombre ?? 'Sin proyecto',
-      proyectoId: form.proyectoId,
+      descripcion: form.descripcion || null,
+      probabilidad: form.probabilidad,
+      impacto: form.impacto,
       nivel,
-    };
-    guardarRiesgos([...riesgos, nuevo]);
+      estado: 'activo',
+      plan: form.plan || null,
+      creado_por: user?.email ?? null,
+    });
+    setSaving(false);
+    if (error) { toast.error('Error al guardar riesgo'); return; }
+    toast.success('Riesgo registrado');
     setShowDialog(false);
     setForm({ titulo: '', descripcion: '', probabilidad: 'media', impacto: 'medio', plan: '', proyectoId: '' });
-    toast.success('Riesgo registrado');
+    fetchRiesgos();
   };
 
-  const cambiarEstado = (id: string, estado: Riesgo['estado']) => {
-    guardarRiesgos(riesgos.map(r => r.id === id ? { ...r, estado } : r));
+  const cambiarEstado = async (id: string, estado: Riesgo['estado']) => {
+    const { error } = await supabase.from('riesgos_proyecto').update({ estado }).eq('id', id);
+    if (error) { toast.error('Error al actualizar'); return; }
+    setRiesgos(prev => prev.map(r => r.id === id ? { ...r, estado } : r));
   };
 
   const criticos = riesgos.filter(r => r.nivel === 'critico' && r.estado === 'activo').length;
@@ -136,7 +163,9 @@ export function ProyectosRiesgos({ onNavigate }: RiesgosProps) {
 
       <Card>
         <CardContent className="p-0">
-          {riesgos.length === 0 ? (
+          {loading ? (
+            <div className="py-16 text-center text-sm text-muted-foreground">Cargando riesgos...</div>
+          ) : riesgos.length === 0 ? (
             <div className="py-16 text-center">
               <Shield className="size-12 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">No hay riesgos registrados</p>
@@ -171,7 +200,10 @@ export function ProyectosRiesgos({ onNavigate }: RiesgosProps) {
                       <Badge className={`text-xs capitalize border ${NIVEL_STYLE[r.nivel].badge}`}>{r.nivel}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={r.estado === 'activo' ? 'destructive' : r.estado === 'mitigado' ? 'default' : 'secondary'} className="text-xs capitalize">
+                      <Badge
+                        variant={r.estado === 'activo' ? 'destructive' : r.estado === 'mitigado' ? 'default' : 'secondary'}
+                        className="text-xs capitalize"
+                      >
                         {r.estado}
                       </Badge>
                     </TableCell>
@@ -244,7 +276,9 @@ export function ProyectosRiesgos({ onNavigate }: RiesgosProps) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancelar</Button>
-            <Button onClick={agregarRiesgo}>Registrar Riesgo</Button>
+            <Button onClick={agregarRiesgo} disabled={saving}>
+              {saving ? 'Guardando...' : 'Registrar Riesgo'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
