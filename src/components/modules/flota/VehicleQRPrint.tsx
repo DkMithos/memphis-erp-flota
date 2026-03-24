@@ -68,7 +68,7 @@ export function VehicleQRPrint({ vehiculoId, onNavigate }: VehicleQRPrintProps) 
         {/* Logo/Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2" style={{ color: '#0A66C2' }}>
-            KESA ERP
+            Memphis ERP
           </h1>
           <p className="text-xl text-gray-600">
             Sistema de Gestión de Flota
@@ -143,7 +143,7 @@ export function VehicleQRPrint({ vehiculoId, onNavigate }: VehicleQRPrintProps) 
             })}
           </p>
           <p className="text-xs text-gray-400 mt-2">
-            KESA ERP - Gestión Empresarial Multi-Tenant
+            Memphis ERP - Gestión Empresarial Multi-Tenant
           </p>
         </div>
       </div>

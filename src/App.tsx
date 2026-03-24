@@ -713,7 +713,7 @@ export default function App() {
                             <ERPTopbar
                               darkMode={darkMode}
                               onToggleDarkMode={handleToggleDarkMode}
-                              tenantName={tenantName ?? 'KESA ERP'}
+                              tenantName={tenantName ?? 'Memphis ERP'}
                               userName={profile?.nombre ?? user?.email ?? 'Usuario'}
                               onNavigate={navigateTo}
                             />

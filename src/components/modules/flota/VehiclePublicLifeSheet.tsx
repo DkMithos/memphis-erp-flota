@@ -460,7 +460,7 @@ export function VehiclePublicLifeSheet({ vehiculo: vehiculoProp, vehiculoId }: V
 
         {/* FOOTER */}
         <div className="text-center pt-8 pb-4 text-xs text-gray-500 dark:text-gray-400">
-          <p>KESA ERP - Sistema de Gestión de Flota</p>
+          <p>Memphis ERP - Sistema de Gestión de Flota</p>
           <p className="mt-1">Vista pública - Información no sensible</p>
         </div>
       </div>

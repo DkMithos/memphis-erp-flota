@@ -115,7 +115,7 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, tenantName, userName, on
             : <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           }
           <Input
-            placeholder="Buscar en KESA ERP..."
+            placeholder="Buscar en Memphis ERP..."
             className="pl-10 bg-secondary border-0"
             value={query}
             onChange={e => handleSearch(e.target.value)}

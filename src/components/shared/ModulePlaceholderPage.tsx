@@ -168,7 +168,7 @@ export function ModulePlaceholderPage({
             <div className="space-y-1">
               <p className="text-sm font-medium">Módulo en Desarrollo</p>
               <p className="text-sm text-muted-foreground">
-                Este módulo está siendo construido siguiendo los estándares KESA ERP. 
+                Este módulo está siendo construido siguiendo los estándares Memphis ERP.
                 La funcionalidad completa estará disponible próximamente con integración 
                 a backend, validaciones y flujos de trabajo empresariales.
               </p>

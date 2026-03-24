@@ -173,7 +173,7 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
     };
     exportToPDF(
       `reporte-mantenimientos-${new Date().toISOString().split('T')[0]}`,
-      'Reporte de Mantenimientos — KESA ERP',
+      'Reporte de Mantenimientos — Memphis ERP',
       rows, headersMap
     );
   };

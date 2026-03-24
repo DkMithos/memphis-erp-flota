@@ -35,7 +35,7 @@ export function GestionModulos() {
     setSaving(true);
     await saveModulesConfigToDB(tenantId, modules);
     setSaving(false);
-    window.dispatchEvent(new Event('kesa-modules-updated'));
+    window.dispatchEvent(new Event('memphis-modules-updated'));
     toast.success('Configuración guardada', {
       description: 'Los módulos del menú se actualizaron para todos los usuarios.',
     });

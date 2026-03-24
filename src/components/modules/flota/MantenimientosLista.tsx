@@ -61,6 +61,7 @@ import {
   type CriticidadOT
 } from '../../../lib/flota/ot-config';
 import { useOTStore, type OrdenTrabajo } from '../../../lib/flota/ot-store';
+import { usePagination } from '../../../lib/shared/usePagination';
 
 interface MantenimientosListaProps {
   onNavigateToDetalle: (numeroOT: string) => void;
@@ -122,6 +123,8 @@ export function MantenimientosLista({
     return true;
   });
   
+  const { paged: ordenesPaged, page, totalPages, setPage } = usePagination(ordenesFiltradas);
+
   const filtrarPorAprobacion = () => {
     setTabActual('activas');
     // Aquí podrías agregar un filtro adicional si lo necesitas
@@ -444,7 +447,7 @@ export function MantenimientosLista({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {ordenesFiltradas.map((ot) => (
+                    {ordenesPaged.map((ot) => (
                       <TableRow key={ot.id}>
                         <TableCell className="font-medium">{ot.numeroOT}</TableCell>
                         <TableCell className="font-medium">{ot.vehiculoPlaca}</TableCell>
@@ -532,7 +535,7 @@ export function MantenimientosLista({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {ordenesFiltradas.map((ot) => (
+                    {ordenesPaged.map((ot) => (
                       <TableRow key={ot.id}>
                         <TableCell className="font-medium">{ot.numeroOT}</TableCell>
                         <TableCell className="font-medium">{ot.vehiculoPlaca}</TableCell>
@@ -600,7 +603,7 @@ export function MantenimientosLista({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {ordenesFiltradas.map((ot) => (
+                    {ordenesPaged.map((ot) => (
                       <TableRow key={ot.id}>
                         <TableCell className="font-medium">{ot.numeroOT}</TableCell>
                         <TableCell className="font-medium">{ot.vehiculoPlaca}</TableCell>
@@ -661,7 +664,7 @@ export function MantenimientosLista({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {ordenesFiltradas.map((ot) => (
+                    {ordenesPaged.map((ot) => (
                       <TableRow key={ot.id}>
                         <TableCell className="font-medium">{ot.numeroOT}</TableCell>
                         <TableCell className="font-medium">{ot.vehiculoPlaca}</TableCell>
@@ -695,6 +698,22 @@ export function MantenimientosLista({
           </Card>
         </TabsContent>
       </Tabs>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-2 py-3 border rounded-lg bg-card">
+          <span className="text-sm text-muted-foreground">
+            Página {page} de {totalPages} · {ordenesFiltradas.length} registros
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
+              Anterior
+            </Button>
+            <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

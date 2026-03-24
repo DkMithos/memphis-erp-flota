@@ -226,7 +226,7 @@ export function exportToPDF<T extends Record<string, any>>(
 </head>
 <body>
   <h1>${title}</h1>
-  <p class="meta">Generado el ${dateStr} · KESA ERP</p>
+  <p class="meta">Generado el ${dateStr} · Memphis ERP</p>
   <table>
     <thead>${thead}</thead>
     <tbody>${tbody}</tbody>
