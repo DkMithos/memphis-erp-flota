@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { dbClientes, dbOportunidades, dbActividadesCRM } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
+import { logAudit } from '../shared/audit';
 import type { ClienteDB, OportunidadDB, ActividadCRMDB } from '../supabase/types';
 
 // ============================================================================
@@ -280,6 +281,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     if (error) throw new Error(error.message);
     const nuevo = mapClienteFromDB(row as ClienteDB);
     setClientes(prev => [...prev, nuevo].sort((a, b) => a.razonSocial.localeCompare(b.razonSocial)));
+    logAudit({ tenantId, usuarioEmail: user.email, accion: 'crear', entidadTipo: 'cliente', entidadId: nuevo.id, entidadLabel: nuevo.razonSocial });
     return nuevo;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientes, tenantId, user]);
@@ -356,6 +358,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       cliente: { codigo: data.clienteId, razon_social: data.clienteNombre },
     });
     setOportunidades(prev => [nuevo, ...prev]);
+    logAudit({ tenantId, usuarioEmail: user.email, accion: 'crear', entidadTipo: 'oportunidad', entidadId: nuevo.id, entidadLabel: nuevo.titulo });
     return nuevo;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [oportunidades, tenantId, user]);
