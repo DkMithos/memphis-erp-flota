@@ -1,5 +1,5 @@
 /**
- * KESA ERP – Helpers de acceso a Supabase por módulo
+ * Memphis ERP – Helpers de acceso a Supabase por módulo
  * Cada función devuelve un query builder pre-filtrado por tenant.
  * Usar estos helpers garantiza que nunca se acceda a datos de otro tenant.
  */

@@ -228,7 +228,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
   const [loading, setLoading] = useState(true);
 
   const usuarioActual = {
-    email: user?.email ?? profile?.email ?? 'admin@kesa.com',
+    email: user?.email ?? profile?.email ?? 'admin@memphis.com.pe',
     nombre: profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Usuario',
     rol: (profile?.rol as RolUsuario) ?? ('admin_sistemas' as RolUsuario),
   };

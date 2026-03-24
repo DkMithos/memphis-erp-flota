@@ -129,7 +129,7 @@ export function AdicionalesTab({
       motivo.trim(),
       cantidad,
       costoUnitario,
-      'admin@kesa.com', // Mock - en producción viene del auth
+      'admin@memphis.com.pe', // Mock - en producción viene del auth
       tipo === 'pieza' ? categoria : undefined
     );
 

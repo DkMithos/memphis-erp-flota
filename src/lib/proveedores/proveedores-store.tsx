@@ -1,5 +1,5 @@
 /**
- * KESA ERP - Proveedores Store
+ * Memphis ERP - Proveedores Store
  * v2.0.0 - Conectado a Supabase (reemplaza mock local)
  * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */

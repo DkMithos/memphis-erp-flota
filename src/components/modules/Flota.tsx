@@ -555,7 +555,7 @@ export function Flota() {
               <strong>Trazabilidad:</strong> Todos los cambios son registrados en el log de auditoría del sistema
             </div>
             <div>
-              <strong>Usuario:</strong> admin@kesa.com | <strong>Sesión:</strong> {new Date().toISOString().split('T')[0]}
+              <strong>Usuario:</strong> admin@memphis.com.pe | <strong>Sesión:</strong> {new Date().toISOString().split('T')[0]}
             </div>
           </div>
         </CardContent>

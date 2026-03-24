@@ -396,7 +396,7 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
                       setFormData({ ...formData, solicitanteEmail: e.target.value });
                       if (errors.solicitanteEmail) setErrors({ ...errors, solicitanteEmail: '' });
                     }}
-                    placeholder="email@kesa.com"
+                    placeholder="email@memphis.com.pe"
                   />
                   {errors.solicitanteEmail && (
                     <p className="text-sm text-red-600 flex items-center gap-1">

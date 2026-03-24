@@ -1,6 +1,7 @@
 /**
  * Configuración de módulos habilitados/deshabilitados
  * Persiste en Supabase (tenants.modules_config). localStorage como fallback offline.
+ * Memphis Maquinarias ERP
  */
 import { supabase } from '../supabase/client';
 
@@ -24,7 +25,7 @@ export const MODULES_DEFAULT: ModuleConfig[] = [
   { id: 'bi',          label: 'BI & Reportería', descripcion: 'Dashboard cruzado de inteligencia',      enabled: false },
 ];
 
-const STORAGE_KEY = 'kesa_modules_config';
+const STORAGE_KEY = 'memphis_modules_config';
 const ALWAYS_ON = new Set(['dashboard', 'admin']);
 
 // ── Helpers locales (fallback offline) ───────────────────────────────────────

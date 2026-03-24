@@ -720,7 +720,7 @@ export function MantenimientosVehiculo({
               </span>
             </div>
             <div>
-              <strong>Sesión:</strong> admin@kesa.com | {new Date().toLocaleDateString('es-ES')}
+              <strong>Sesión:</strong> admin@memphis.com.pe | {new Date().toLocaleDateString('es-ES')}
             </div>
           </div>
         </CardContent>

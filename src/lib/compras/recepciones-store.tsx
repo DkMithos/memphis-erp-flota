@@ -177,7 +177,7 @@ export function RecepcionStoreProvider({ children }: { children: React.ReactNode
   const [loading, setLoading] = useState(true);
 
   const usuarioActual = {
-    email: user?.email ?? profile?.email ?? 'operaciones@kesa.com',
+    email: user?.email ?? profile?.email ?? 'operaciones@memphis.com.pe',
     nombre: profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Operaciones',
     rol: (profile?.rol as RolUsuario) ?? ('operaciones' as RolUsuario),
   };

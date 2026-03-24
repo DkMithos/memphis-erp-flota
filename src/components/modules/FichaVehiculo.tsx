@@ -375,7 +375,7 @@ export function FichaVehiculo() {
                   </div>
                 </div>
                 <div className="text-sm text-muted-foreground text-center">
-                  <p>URL pública: https://kesa-erp.com/public/vehicle/{vehiculoData.id}</p>
+                  <p>URL pública: https://memphis-erp.com/public/vehicle/{vehiculoData.id}</p>
                   <p className="mt-2">Acceso de solo lectura sin autenticación</p>
                 </div>
                 <Button variant="outline" className="w-full">
@@ -997,7 +997,7 @@ export function FichaVehiculo() {
             <div className="flex items-center gap-2">
               <Shield className="size-4" />
               <span>
-                <strong>Auditoría:</strong> Última modificación por admin@kesa.com el {new Date().toLocaleString('es-ES')}
+                <strong>Auditoría:</strong> Última modificación por admin@memphis.com.pe el {new Date().toLocaleString('es-ES')}
               </span>
             </div>
             <div>

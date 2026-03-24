@@ -1,5 +1,5 @@
 /**
- * KESA ERP – Tipos TypeScript generados del schema de Supabase
+ * Memphis ERP – Tipos TypeScript generados del schema de Supabase
  * Refleja exactamente las tablas definidas en la migración inicial
  */
 

@@ -1,5 +1,5 @@
 /**
- * KESA ERP - Flota → Vehículos Config
+ * Memphis ERP - Flota → Vehículos Config
  * Configuración centralizada, tipos, validaciones y helpers
  * Patrón enterprise: 0 hardcode en UI, toda lógica aquí
  * v3.0.0 - Con soporte para contratos, plan preventivo y documentos

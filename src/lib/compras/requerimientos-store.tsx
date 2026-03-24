@@ -183,7 +183,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
 
   // Usuario actual derivado del perfil autenticado
   const usuarioActual = {
-    email: user?.email ?? profile?.email ?? 'admin@kesa.com',
+    email: user?.email ?? profile?.email ?? 'admin@memphis.com.pe',
     nombre: profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Usuario',
     rol: (profile?.rol as RolUsuario) ?? ('admin_empresa' as RolUsuario),
   };

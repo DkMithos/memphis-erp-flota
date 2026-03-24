@@ -149,14 +149,21 @@ import { LoadingScreen } from './components/ui/LoadingScreen';
 
 const ENABLE_PUBLIC_LEGACY_ROUTES = false;
 
-// Inicializa darkMode desde localStorage o preferencia del sistema
-function getInitialDarkMode(): boolean {
+// Inicializa themeMode desde localStorage
+function getInitialThemeMode(): 'light' | 'dark' | 'system' {
   try {
     const stored = localStorage.getItem('memphis-theme');
-    if (stored === 'dark') return true;
-    if (stored === 'light') return false;
+    if (stored === 'dark' || stored === 'light' || stored === 'system') return stored;
   } catch { /* SSR / private mode */ }
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+  return 'system';
+}
+
+function applyTheme(mode: 'light' | 'dark' | 'system'): boolean {
+  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+  const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+  if (isDark) document.documentElement.classList.add('dark');
+  else document.documentElement.classList.remove('dark');
+  return isDark;
 }
 
 export default function App() {
@@ -164,20 +171,31 @@ export default function App() {
 
   const [currentModule, setCurrentModule] = useState('dashboard');
   const [currentRoute, setCurrentRoute] = useState('/dashboard');
-  const [darkMode, setDarkMode] = useState<boolean>(getInitialDarkMode);
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(getInitialThemeMode);
+  const [darkMode, setDarkMode] = useState<boolean>(() => applyTheme(getInitialThemeMode()));
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
+  // Aplicar tema y persistir
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('memphis-theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('memphis-theme', 'light');
-    }
-  }, [darkMode]);
+    localStorage.setItem('memphis-theme', themeMode);
+    const isDark = applyTheme(themeMode);
+    setDarkMode(isDark);
 
-  const handleToggleDarkMode = () => setDarkMode(prev => !prev);
+    // Listener para modo sistema: responde a cambios del OS en tiempo real
+    if (themeMode === 'system') {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      const handler = (e: MediaQueryListEvent) => {
+        if (e.matches) document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+        setDarkMode(e.matches);
+      };
+      mq.addEventListener('change', handler);
+      return () => mq.removeEventListener('change', handler);
+    }
+  }, [themeMode]);
+
+  const handleSetTheme = (mode: 'light' | 'dark' | 'system') => setThemeMode(mode);
+  const handleToggleDarkMode = () => setThemeMode(prev => prev === 'dark' ? 'light' : 'dark');
 
   const handleModuleChange = (moduleId: string, subRoute?: string) => {
     setCurrentModule(moduleId);
@@ -729,6 +747,8 @@ export default function App() {
                             <ERPTopbar
                               darkMode={darkMode}
                               onToggleDarkMode={handleToggleDarkMode}
+                              themeMode={themeMode}
+                              onSetTheme={handleSetTheme}
                               tenantName={tenantName ?? 'Memphis ERP'}
                               userName={profile?.nombre ?? user?.email ?? 'Usuario'}
                               onNavigate={navigateTo}

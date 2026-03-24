@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback } from 'react';
-import { Bell, Search, Moon, Sun, ChevronDown, LogOut, User, Settings, CheckCheck, Loader2 } from 'lucide-react';
+import { Bell, Search, Moon, Sun, Monitor, ChevronDown, LogOut, User, Settings, CheckCheck, Loader2 } from 'lucide-react';
+
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
@@ -33,9 +34,12 @@ const TIPO_BADGE: Record<string, string> = {
 interface ERPTopbarProps {
   darkMode: boolean;
   onToggleDarkMode: () => void;
+  themeMode?: 'light' | 'dark' | 'system';
+  onSetTheme?: (mode: 'light' | 'dark' | 'system') => void;
   tenantName: string;
   userName: string;
   onNavigate?: (route: string) => void;
+
 }
 
 const TIPO_COLOR: Record<string, string> = {
@@ -55,7 +59,8 @@ function formatRelative(iso: string): string {
   return `Hace ${Math.floor(hrs / 24)}d`;
 }
 
-export function ERPTopbar({ darkMode, onToggleDarkMode, tenantName, userName, onNavigate }: ERPTopbarProps) {
+export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onSetTheme, tenantName, userName, onNavigate }: ERPTopbarProps) {
+
   const { signOut, user, tenantId } = useAuth();
   const { notificaciones, noLeidas, marcarLeida, marcarTodasLeidas } = useNotifications();
 
@@ -205,10 +210,33 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, tenantName, userName, on
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Dark Mode Toggle */}
-        <Button variant="ghost" size="icon" onClick={onToggleDarkMode}>
-          {darkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
-        </Button>
+        {/* Theme Toggle */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              {themeMode === 'system' ? <Monitor className="size-5" /> : darkMode ? <Moon className="size-5" /> : <Sun className="size-5" />}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Apariencia</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => onSetTheme?.('light')}>
+              <Sun className="size-4" />
+              <span>Claro</span>
+              {themeMode === 'light' && <span className="ml-auto text-primary text-xs">✓</span>}
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => onSetTheme?.('dark')}>
+              <Moon className="size-4" />
+              <span>Oscuro</span>
+              {themeMode === 'dark' && <span className="ml-auto text-primary text-xs">✓</span>}
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => onSetTheme?.('system')}>
+              <Monitor className="size-4" />
+              <span>Sistema</span>
+              {themeMode === 'system' && <span className="ml-auto text-primary text-xs">✓</span>}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* User Menu */}
         <DropdownMenu>
