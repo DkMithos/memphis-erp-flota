@@ -36,6 +36,7 @@ import {
 } from '../../ui/table';
 import { useEquiposStore } from '../../../lib/biomedico/equipos-store';
 import { exportToPDF } from '../../../lib/shared/export-utils';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { 
   EQUIPO_ESTADO_CONFIG,
   EQUIPO_CATEGORIA_CONFIG,
@@ -83,6 +84,8 @@ export function BiomedicoEquipos({ onNavigateToNuevo, onNavigateToDetalle }: Bio
       return matchSearch && matchEstado && matchCategoria && matchRiesgo;
     });
   }, [equipos, searchTerm, filtroEstado, filtroCategoria, filtroRiesgo]);
+
+  const { paged: equiposPaged, page, totalPages, setPage } = usePagination(equiposFiltrados);
 
   // KPIs calculados
   const kpis = useMemo(() => {
@@ -270,7 +273,7 @@ export function BiomedicoEquipos({ onNavigateToNuevo, onNavigateToDetalle }: Bio
                   </TableCell>
                 </TableRow>
               ) : (
-                equiposFiltrados.map((equipo) => {
+                equiposPaged.map((equipo) => {
                   const estadoConfig = EQUIPO_ESTADO_CONFIG[equipo.estado];
                   const categoriaConfig = EQUIPO_CATEGORIA_CONFIG[equipo.categoria];
                   const riesgoConfig = EQUIPO_RIESGO_CONFIG[equipo.riesgo];
@@ -335,6 +338,21 @@ export function BiomedicoEquipos({ onNavigateToNuevo, onNavigateToDetalle }: Bio
               )}
             </TableBody>
           </Table>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-2 py-3 border-t">
+              <span className="text-sm text-muted-foreground">
+                Página {page} de {totalPages}
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
+                  Anterior
+                </Button>
+                <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
+                  Siguiente
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

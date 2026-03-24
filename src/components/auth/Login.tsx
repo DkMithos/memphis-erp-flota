@@ -44,7 +44,7 @@ export function Login({ onLogin }: LoginProps) {
             <div className="flex items-center gap-3">
               <Building2 className="size-10 text-primary" />
               <div>
-                <h1 className="text-2xl font-bold">KESA ERP</h1>
+                <h1 className="text-2xl font-bold">Memphis ERP</h1>
                 <p className="text-sm text-muted-foreground">Sistema Empresarial</p>
               </div>
             </div>

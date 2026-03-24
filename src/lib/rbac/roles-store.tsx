@@ -66,6 +66,7 @@ interface RolesContextValue {
     dbId: string,
     estado: UsuarioTenant['estado'],
   ) => Promise<{ exito: boolean }>;
+  reload: () => Promise<void>;
 }
 
 const RolesContext = createContext<RolesContextValue | null>(null);
@@ -302,6 +303,7 @@ export function RolesProvider({ children }: { children: React.ReactNode }) {
         asignarRol,
         quitarRol,
         cambiarEstadoUsuario,
+        reload,
       }}
     >
       {children}

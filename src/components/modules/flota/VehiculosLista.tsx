@@ -21,6 +21,7 @@ import {
 } from '../../ui/table';
 import { useVehiculos } from '../../../lib/flota/vehiculos-store';
 import { EstadoVehiculo, TipoVehiculo, getEstadoBadge, getTipoBadge, calcularDiasProximoMantenimiento } from '../../../lib/flota/vehiculos-config';
+import { usePagination } from '../../../lib/shared/usePagination';
 
 interface VehiculosListaProps {
   onNavigate: (route: string) => void;
@@ -50,6 +51,8 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
     const numB = parseInt(b.id.replace('VH-', ''));
     return numB - numA;
   });
+
+  const { paged: vehiculosPaged, page, totalPages, totalItems: totalFiltrados, setPage } = usePagination(vehiculosFiltrados);
 
   // KPIs reales desde el store
   const totalVehiculos = vehiculos.length;
@@ -199,7 +202,7 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
           {/* Contador de resultados */}
           <div className="mt-4 pt-4 border-t flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              Mostrando <strong>{vehiculosFiltrados.length}</strong> de <strong>{totalVehiculos}</strong> vehículos
+              Mostrando <strong>{totalFiltrados}</strong> de <strong>{totalVehiculos}</strong> vehículos
             </p>
             {hayFiltrosActivos && (
               <Button
@@ -237,17 +240,17 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {vehiculosFiltrados.length === 0 ? (
+              {totalFiltrados === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                    {hayFiltrosActivos 
+                    {hayFiltrosActivos
                       ? 'No se encontraron vehículos con los filtros aplicados'
                       : 'No hay vehículos registrados. Crea el primero usando el botón "Nuevo Vehículo"'
                     }
                   </TableCell>
                 </TableRow>
               ) : (
-                vehiculosFiltrados.map((vehiculo) => {
+                vehiculosPaged.map((vehiculo) => {
                   const estadoBadge = getEstadoBadge(vehiculo.estado);
                   const tipoBadge = getTipoBadge(vehiculo.tipo);
                   const diasProxMant = calcularDiasProximoMantenimiento(vehiculo.proximoMantenimiento);
@@ -348,6 +351,21 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
               )}
             </TableBody>
           </Table>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-2 py-3 border-t">
+              <span className="text-sm text-muted-foreground">
+                Página {page} de {totalPages}
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
+                  Anterior
+                </Button>
+                <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
+                  Siguiente
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Filter, Download, Eye, Edit, FileText, ShoppingBag } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -22,6 +22,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { useOrdenesStore } from '../../../lib/compras/ordenes-store';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { 
   ORDEN_ESTADO_CONFIG, 
   ORDEN_TIPO_LABELS,
@@ -106,6 +107,10 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
 
   const puedeCrear = tienePermiso(usuarioActual.rol, 'crear');
 
+  const { paged: ordenesPaged, page, totalPages, setPage } = usePagination(ordenesFiltradas);
+  // Reset page on filter change
+  useEffect(() => { setPage(1); }, [tabActual, searchTerm, filtroEstado, filtroTipo, filtroMoneda]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -127,6 +132,12 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
             <Download className="size-4 mr-2" />
             Exportar
           </Button>
+          {puedeCrear && (
+            <Button onClick={() => onNavigate?.('/compras/ordenes/nuevo')}>
+              <Plus className="size-4 mr-2" />
+              Nueva Orden
+            </Button>
+          )}
         </div>
       </div>
 
@@ -300,7 +311,7 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {ordenesFiltradas.map((orden) => {
+                    {ordenesPaged.map((orden) => {
                       const estadoConfig = ORDEN_ESTADO_CONFIG[orden.estado];
                       const puedeEditar = tienePermiso(usuarioActual.rol, 'editar');
 
@@ -357,6 +368,21 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
                     })}
                   </TableBody>
                 </Table>
+              )}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t">
+                  <span className="text-sm text-muted-foreground">
+                    Página {page} de {totalPages}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
+                      Anterior
+                    </Button>
+                    <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
+                      Siguiente
+                    </Button>
+                  </div>
+                </div>
               )}
             </TabsContent>
           </Tabs>

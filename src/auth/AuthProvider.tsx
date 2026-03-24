@@ -116,7 +116,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
 
     signOut: async () => {
-      // Limpiar estado local SIEMPRE, independientemente del resultado de Supabase
       try {
         await supabase.auth.signOut();
       } catch (err) {
@@ -125,6 +124,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(null);
         setProfile(null);
         setTenantName(null);
+        // Hard reset para garantizar estado limpio
+        window.location.href = '/';
       }
     },
   }), [session, profile, tenantName, loading]);

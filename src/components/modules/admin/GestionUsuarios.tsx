@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useRoles } from '../../../lib/rbac/roles-store';
 import type { Rol, UsuarioTenant } from '../../../lib/rbac/roles-store';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
@@ -33,7 +33,10 @@ import {
   SelectValue,
 } from '../../ui/select';
 import { toast } from 'sonner';
-import { Shield, Users, Plus, Pencil, Trash2, UserCog, Layers, ClipboardList } from 'lucide-react';
+import { Shield, Users, Plus, Pencil, Trash2, UserCog, Layers, ClipboardList, UserPlus } from 'lucide-react';
+import { usePagination } from '../../../lib/shared/usePagination';
+import { supabase } from '../../../lib/supabase/client';
+import { useAuth } from '../../../auth/AuthProvider';
 import { GestionModulos } from './GestionModulos';
 import { AuditLogs } from './AuditLogs';
 
@@ -336,15 +339,105 @@ function RolDialog({ rol, onClose }: RolDialogProps) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Dialog: Nuevo Usuario
+// ─────────────────────────────────────────────────────────────
+
+interface NuevoUsuarioDialogProps {
+  tenantId: string | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function NuevoUsuarioDialog({ tenantId, onClose, onSuccess }: NuevoUsuarioDialogProps) {
+  const [email, setEmail] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [password, setPassword] = useState('');
+  const [cargo, setCargo] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleCreate = async () => {
+    if (!tenantId || !email || !nombre || !password) {
+      setError('Email, nombre y contraseña son obligatorios.');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+      if (signUpError) throw signUpError;
+      const userId = data.user?.id;
+      if (!userId) throw new Error('No se pudo obtener el ID del nuevo usuario.');
+      // Insertar perfil en usuarios_tenant
+      const { error: profileError } = await supabase.from('usuarios_tenant').insert({
+        tenant_id: tenantId,
+        user_id: userId,
+        nombre,
+        email,
+        cargo: cargo || null,
+        estado: 'activo',
+      });
+      if (profileError) throw profileError;
+      toast.success('Usuario creado', { description: `Se envió un email de confirmación a ${email}` });
+      onSuccess();
+    } catch (err: any) {
+      setError(err?.message ?? 'Error al crear el usuario.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="size-5" />
+            Nuevo Usuario
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-1">
+            <Label htmlFor="nu-nombre">Nombre completo *</Label>
+            <Input id="nu-nombre" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Juan Pérez" />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="nu-email">Email *</Label>
+            <Input id="nu-email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="usuario@empresa.com" />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="nu-password">Contraseña temporal *</Label>
+            <Input id="nu-password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="nu-cargo">Cargo</Label>
+            <Input id="nu-cargo" value={cargo} onChange={e => setCargo(e.target.value)} placeholder="Ej: Técnico, Supervisor..." />
+          </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button onClick={handleCreate} disabled={saving}>
+            {saving ? 'Creando...' : 'Crear Usuario'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Tab: Usuarios
 // ─────────────────────────────────────────────────────────────
 
 function TabUsuarios() {
-  const { usuarios, cambiarEstadoUsuario } = useRoles();
+  const { usuarios, cambiarEstadoUsuario, reload } = useRoles();
+  const { tenantId } = useAuth();
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [usuarioGestionando, setUsuarioGestionando] = useState<UsuarioTenant | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [showNuevoUsuario, setShowNuevoUsuario] = useState(false);
 
   const filtrados = useMemo(() => {
     return usuarios.filter(u => {
@@ -356,6 +449,9 @@ function TabUsuarios() {
       return matchBusqueda && matchEstado;
     });
   }, [usuarios, busqueda, filtroEstado]);
+
+  const { paged: usuariosPaged, page, totalPages, setPage } = usePagination(filtrados);
+  useEffect(() => { setPage(1); }, [busqueda, filtroEstado]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activos = usuarios.filter(u => u.estado === 'activo').length;
   const inactivos = usuarios.filter(u => u.estado === 'inactivo').length;
@@ -388,24 +484,30 @@ function TabUsuarios() {
       </div>
 
       {/* Filtros */}
-      <div className="flex gap-3 flex-wrap">
-        <Input
-          placeholder="Buscar por nombre o email..."
-          value={busqueda}
-          onChange={e => setBusqueda(e.target.value)}
-          className="max-w-xs"
-        />
-        <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos los estados</SelectItem>
-            <SelectItem value="activo">Activo</SelectItem>
-            <SelectItem value="inactivo">Inactivo</SelectItem>
-            <SelectItem value="suspendido">Suspendido</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex gap-3 flex-wrap items-center justify-between">
+        <div className="flex gap-3 flex-wrap">
+          <Input
+            placeholder="Buscar por nombre o email..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            className="max-w-xs"
+          />
+          <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos los estados</SelectItem>
+              <SelectItem value="activo">Activo</SelectItem>
+              <SelectItem value="inactivo">Inactivo</SelectItem>
+              <SelectItem value="suspendido">Suspendido</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={() => setShowNuevoUsuario(true)}>
+          <UserPlus className="size-4 mr-2" />
+          Nuevo Usuario
+        </Button>
       </div>
 
       {/* Tabla */}
@@ -428,7 +530,7 @@ function TabUsuarios() {
                 </TableCell>
               </TableRow>
             )}
-            {filtrados.map(u => (
+            {usuariosPaged.map(u => (
               <TableRow key={u._dbId}>
                 <TableCell>
                   <div className="flex items-center gap-2">
@@ -507,6 +609,15 @@ function TabUsuarios() {
             ))}
           </TableBody>
         </Table>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t">
+            <span className="text-sm text-muted-foreground">Página {page} de {totalPages}</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</Button>
+              <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>Siguiente</Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Dialog gestión de roles */}
@@ -514,6 +625,15 @@ function TabUsuarios() {
         <GestionarRolesDialog
           usuario={usuarioGestionando}
           onClose={() => setUsuarioGestionando(null)}
+        />
+      )}
+
+      {/* Dialog nuevo usuario */}
+      {showNuevoUsuario && (
+        <NuevoUsuarioDialog
+          tenantId={tenantId}
+          onClose={() => setShowNuevoUsuario(false)}
+          onSuccess={() => { setShowNuevoUsuario(false); reload?.(); }}
         />
       )}
     </div>

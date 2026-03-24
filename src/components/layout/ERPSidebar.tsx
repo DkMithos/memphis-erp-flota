@@ -73,10 +73,10 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
   // Re-leer config cuando GestionModulos guarda cambios
   useEffect(() => {
     const handler = () => setModulesConfig(loadModulesConfig());
-    window.addEventListener('kesa-modules-updated', handler);
+    window.addEventListener('memphis-modules-updated', handler);
     window.addEventListener('storage', handler);
     return () => {
-      window.removeEventListener('kesa-modules-updated', handler);
+      window.removeEventListener('memphis-modules-updated', handler);
       window.removeEventListener('storage', handler);
     };
   }, []);
@@ -285,7 +285,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
             <Building2 className="size-5 text-primary-foreground" />
           </div>
           <div>
-            <span className="text-base font-bold text-foreground">KESA ERP</span>
+            <span className="text-base font-bold text-foreground">Memphis ERP</span>
             <p className="text-xs text-muted-foreground leading-none">Sistema Integrado</p>
           </div>
         </div>
