@@ -15,6 +15,7 @@ import {
   PieChart, CheckCircle, AlertCircle
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase/client';
+import { exportToPDF } from '../../../lib/shared/export-utils';
 import { useAuth } from '../../../auth/AuthProvider';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { toast } from 'sonner';
@@ -135,6 +136,20 @@ export function FinanzasReportes({ onNavigate }: ReportesProps) {
     Ejecutado: l.monto_ejecutado,
   }));
 
+  const exportPDF = () => {
+    exportToPDF(
+      `reporte-financiero-${anio}`,
+      `Reporte Financiero ${anio}`,
+      lineas.map(l => ({
+        categoria: l.categoria,
+        presupuestado: `S/ ${l.monto_presupuestado.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`,
+        ejecutado: `S/ ${l.monto_ejecutado.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`,
+        ejecucion: l.monto_presupuestado > 0 ? ((l.monto_ejecutado / l.monto_presupuestado) * 100).toFixed(1) + '%' : '—',
+      })),
+      { categoria: 'Categoría', presupuestado: 'Presupuestado', ejecutado: 'Ejecutado', ejecucion: '% Ejecución' }
+    );
+  };
+
   const exportCSV = () => {
     const rows = [
       ['Categoría', 'Presupuestado', 'Ejecutado', '% Ejecución'],
@@ -179,7 +194,11 @@ export function FinanzasReportes({ onNavigate }: ReportesProps) {
           </Select>
           <Button variant="outline" size="sm" onClick={exportCSV}>
             <Download className="size-4 mr-2" />
-            Exportar
+            CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportPDF}>
+            <Download className="size-4 mr-2" />
+            PDF
           </Button>
         </div>
       </div>

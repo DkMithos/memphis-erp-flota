@@ -35,6 +35,7 @@ import {
   TableRow,
 } from '../../ui/table';
 import { useEquiposStore } from '../../../lib/biomedico/equipos-store';
+import { exportToPDF } from '../../../lib/shared/export-utils';
 import { 
   EQUIPO_ESTADO_CONFIG,
   EQUIPO_CATEGORIA_CONFIG,
@@ -56,6 +57,15 @@ export function BiomedicoEquipos({ onNavigateToNuevo, onNavigateToDetalle }: Bio
   const [filtroEstado, setFiltroEstado] = useState<EstadoEquipoBiomedico | 'todos'>('todos');
   const [filtroCategoria, setFiltroCategoria] = useState<CategoriaEquipoBiomedico | 'todos'>('todos');
   const [filtroRiesgo, setFiltroRiesgo] = useState<RiesgoBiomedico | 'todos'>('todos');
+
+  const handleExportPDF = () => {
+    exportToPDF(
+      `equipos-biomedicos-${new Date().toISOString().slice(0, 10)}`,
+      'Reporte de Equipos Biomédicos',
+      equiposFiltrados,
+      { codigo: 'Código', nombre: 'Nombre', marca: 'Marca', modelo: 'Modelo', categoria: 'Categoría', riesgo: 'Riesgo', estado: 'Estado' }
+    );
+  };
 
   // Filtrado de equipos
   const equiposFiltrados = useMemo(() => {
@@ -104,9 +114,9 @@ export function BiomedicoEquipos({ onNavigateToNuevo, onNavigateToDetalle }: Bio
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleExportPDF}>
             <Download className="size-4 mr-2" />
-            Exportar
+            PDF
           </Button>
           <Button size="sm" onClick={onNavigateToNuevo}>
             <Plus className="size-4 mr-2" />
