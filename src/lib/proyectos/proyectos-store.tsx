@@ -5,6 +5,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { dbProyectos, dbFasesProyecto, dbTareasProyecto, dbMiembrosProyecto } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
+import { logAudit } from '../shared/audit';
 import type { ProyectoDB, FaseProyectoDB, TareaProyectoDB, MiembroProyectoDB } from '../supabase/types';
 
 // ============================================================================
@@ -227,8 +228,9 @@ export function ProyectosProvider({ children }: { children: React.ReactNode }) {
     if (err || !row) throw err ?? new Error('Error creando proyecto');
     const nuevo = mapProyecto({ ...row, fases: [], tareas: [], miembros: [] });
     setProyectos(prev => [nuevo, ...prev]);
+    logAudit({ tenantId: data.tenant_id, usuarioEmail: user?.email ?? null, accion: 'crear', entidadTipo: 'proyecto', entidadId: nuevo._dbId, entidadLabel: nuevo.nombre });
     return nuevo;
-  }, []);
+  }, [user]);
 
   const actualizarProyecto = useCallback(async (dbId: string, data: Partial<Omit<ProyectoDB, 'fases' | 'tareas' | 'miembros'>>) => {
     const { data: row, error: err } = await dbProyectos.update(dbId, data);
@@ -304,8 +306,9 @@ export function ProyectosProvider({ children }: { children: React.ReactNode }) {
         tareasCompletadas,
       };
     }));
+    logAudit({ tenantId: data.tenant_id, usuarioEmail: user?.email ?? null, accion: 'crear', entidadTipo: 'tarea', entidadId: nueva._dbId, entidadLabel: nueva.titulo });
     return nueva;
-  }, []);
+  }, [user]);
 
   const actualizarTarea = useCallback(async (dbId: string, data: Partial<TareaProyectoDB>) => {
     const { data: row, error: err } = await dbTareasProyecto.update(dbId, data);

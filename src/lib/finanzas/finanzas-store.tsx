@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { dbTransacciones, dbPresupuestos, dbCajasChicas, dbGastosCajaChica } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
+import { logAudit } from '../shared/audit';
 import type { TransaccionDB, PresupuestoDB, PresupuestoLineaDB, CajaChicaDB, GastoCajaChicaDB } from '../supabase/types';
 
 // ============================================================================
@@ -232,7 +233,7 @@ interface FinanzasContextValue {
 const FinanzasContext = createContext<FinanzasContextValue | null>(null);
 
 export function FinanzasProvider({ children }: { children: React.ReactNode }) {
-  const { tenantId } = useAuth();
+  const { tenantId, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
@@ -268,8 +269,9 @@ export function FinanzasProvider({ children }: { children: React.ReactNode }) {
     if (error || !row) throw new Error(error?.message ?? 'Error al crear transacción');
     const trx = mapTransaccion(row as TransaccionDB);
     setTransacciones(prev => [trx, ...prev]);
+    if (tenantId) logAudit({ tenantId, usuarioEmail: user?.email ?? null, accion: 'crear', entidadTipo: 'transaccion', entidadId: trx.id, entidadLabel: trx.descripcion });
     return trx;
-  }, []);
+  }, [tenantId, user]);
 
   const updateTransaccion = useCallback(async (dbId: string, data: Partial<TransaccionDB>) => {
     const { data: row, error } = await dbTransacciones.update(dbId, data);
