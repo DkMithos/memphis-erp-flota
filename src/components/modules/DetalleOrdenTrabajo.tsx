@@ -306,21 +306,21 @@ const ordenTrabajoEjemplo: OrdenTrabajoDetalle = {
     {
       id: 'TRAB-001',
       fecha: '2024-12-25 08:15',
-      usuario: 'carlos.mendoza@kesa.com',
+      usuario: 'carlos.mendoza@memphis.com',
       descripcion: 'Inicio de diagnóstico. Levantamiento de vehículo en rampa. Inspección visual de sistema de frenos.',
       tiempoEmpleado: 0.5
     },
     {
       id: 'TRAB-002',
       fecha: '2024-12-25 09:00',
-      usuario: 'carlos.mendoza@kesa.com',
+      usuario: 'carlos.mendoza@memphis.com',
       descripcion: 'Confirmado desgaste del 95% en pastillas delanteras. Discos OK. Procediendo con reemplazo de pastillas.',
       tiempoEmpleado: 1.0
     },
     {
       id: 'TRAB-003',
       fecha: '2024-12-25 10:30',
-      usuario: 'carlos.mendoza@kesa.com',
+      usuario: 'carlos.mendoza@memphis.com',
       descripcion: 'Pastillas instaladas. Líquido de frenos rellenado. Sistema purgado y calibrado. En proceso de pruebas.',
       tiempoEmpleado: 1.5
     }
@@ -333,7 +333,7 @@ const ordenTrabajoEjemplo: OrdenTrabajoDetalle = {
       url: '/uploads/ot-002/pastillas_antes.jpg',
       tamano: 2048000,
       fechaSubida: '2024-12-25 09:05',
-      subioPor: 'carlos.mendoza@kesa.com'
+      subioPor: 'carlos.mendoza@memphis.com'
     },
     {
       id: 'EVID-002',
@@ -342,7 +342,7 @@ const ordenTrabajoEjemplo: OrdenTrabajoDetalle = {
       url: '/uploads/ot-002/pastillas_despues.jpg',
       tamano: 1856000,
       fechaSubida: '2024-12-25 10:35',
-      subioPor: 'carlos.mendoza@kesa.com'
+      subioPor: 'carlos.mendoza@memphis.com'
     }
   ],
   checklistCierre: [
@@ -355,9 +355,9 @@ const ordenTrabajoEjemplo: OrdenTrabajoDetalle = {
   ],
   aprobaciones: [],
   auditoria: {
-    creadoPor: 'juan.perez@kesa.com',
+    creadoPor: 'juan.perez@memphis.com',
     creadoEn: '2024-12-24 14:30:00',
-    modificadoPor: 'carlos.mendoza@kesa.com',
+    modificadoPor: 'carlos.mendoza@memphis.com',
     modificadoEn: '2024-12-25 08:15:00',
     cerradoPor: null,
     cerradoEn: null,
@@ -370,14 +370,14 @@ const ordenTrabajoEjemplo: OrdenTrabajoDetalle = {
       id: 'TL-001',
       fecha: '2024-12-24 14:30',
       tipo: 'creacion',
-      usuario: 'juan.perez@kesa.com',
+      usuario: 'juan.perez@memphis.com',
       descripcion: 'OT creada por conductor tras detectar problema en frenos'
     },
     {
       id: 'TL-002',
       fecha: '2024-12-24 14:45',
       tipo: 'cambio_estado',
-      usuario: 'ana.garcia@kesa.com',
+      usuario: 'ana.garcia@memphis.com',
       descripcion: 'Estado cambiado de Programada a En Ejecución',
       estadoAnterior: 'programada',
       estadoNuevo: 'en_ejecucion'
@@ -386,21 +386,21 @@ const ordenTrabajoEjemplo: OrdenTrabajoDetalle = {
       id: 'TL-003',
       fecha: '2024-12-25 08:15',
       tipo: 'asignacion',
-      usuario: 'ana.garcia@kesa.com',
+      usuario: 'ana.garcia@memphis.com',
       descripcion: 'Taller asignado: Taller Interno - Base Central'
     },
     {
       id: 'TL-004',
       fecha: '2024-12-25 09:00',
       tipo: 'diagnostico',
-      usuario: 'carlos.mendoza@kesa.com',
+      usuario: 'carlos.mendoza@memphis.com',
       descripcion: 'Diagnóstico técnico completado'
     },
     {
       id: 'TL-005',
       fecha: '2024-12-25 09:45',
       tipo: 'repuesto',
-      usuario: 'carlos.mendoza@kesa.com',
+      usuario: 'carlos.mendoza@memphis.com',
       descripcion: 'Repuesto consumido: Pastillas de freno delanteras (1 unidad)',
       metadata: { repuesto: 'INV-FR-001', cantidad: 1 }
     },
@@ -408,7 +408,7 @@ const ordenTrabajoEjemplo: OrdenTrabajoDetalle = {
       id: 'TL-006',
       fecha: '2024-12-25 10:30',
       tipo: 'repuesto',
-      usuario: 'carlos.mendoza@kesa.com',
+      usuario: 'carlos.mendoza@memphis.com',
       descripcion: 'Repuesto consumido: Líquido de frenos DOT 4 (2 unidades)',
       metadata: { repuesto: 'INV-FR-002', cantidad: 2 }
     }

@@ -24,6 +24,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../../ui/table';
 import { useProyectos, type Proyecto } from '../../../lib/proyectos/proyectos-store';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { useAuth } from '../../../auth/AuthProvider';
 import { toast } from 'sonner';
 
@@ -332,6 +333,8 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
     });
   }, [proyectos, busqueda, filtroEstado, filtroTipo, filtroPrioridad]);
 
+  const { paged: filtradosPaged, page, totalPages, totalItems: totalFiltrados, setPage } = usePagination(filtrados);
+
   const abrirNuevo = () => { setEditando(undefined); setDialogOpen(true); };
   const abrirEditar = (p: Proyecto) => { setEditando(p); setDialogOpen(true); };
   const cerrarDialog = () => { setDialogOpen(false); setEditando(undefined); };
@@ -440,7 +443,7 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
       {/* Vista Cards */}
       {!loading && vista === 'cards' && filtrados.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtrados.map(p => {
+          {filtradosPaged.map(p => {
             const estadoCfg = ESTADO_CONFIG[p.estado];
             const priorCfg = PRIORIDAD_CONFIG[p.prioridad];
             return (
@@ -554,7 +557,7 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtrados.map(p => {
+                {filtradosPaged.map(p => {
                   const estadoCfg = ESTADO_CONFIG[p.estado];
                   const priorCfg = PRIORIDAD_CONFIG[p.prioridad];
                   return (
@@ -607,6 +610,23 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
             </Table>
           </CardContent>
         </Card>
+      )}
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-2 py-3 border rounded-lg bg-card">
+          <span className="text-sm text-muted-foreground">
+            Página {page} de {totalPages} · {totalFiltrados} proyectos
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
+              Anterior
+            </Button>
+            <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
+              Siguiente
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Dialog */}

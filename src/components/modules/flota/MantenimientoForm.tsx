@@ -38,6 +38,7 @@ import {
 } from '../../../lib/flota/ot-config';
 import { useOTStore, type NuevaOrdenTrabajoInput } from '../../../lib/flota/ot-store';
 import { useVehiculos } from '../../../lib/flota/vehiculos-store';
+import { CenteredLayout } from '../../shared/CenteredLayout';
 import { toast } from 'sonner@2.0.3';
 
 interface MantenimientoFormProps {
@@ -64,8 +65,8 @@ export function MantenimientoForm({
   const [descripcion, setDescripcion] = useState('');
   const [selectedVehiculoId, setSelectedVehiculoId] = useState<string>('');
   const [fechaProgramada, setFechaProgramada] = useState('');
-  const [kilometrajeRegistro, setKilometrajeRegistro] = useState<number>(48500);
-  const [tallerId, setTallerId] = useState('TALLER-002');
+  const [kilometrajeRegistro, setKilometrajeRegistro] = useState<number>(0);
+  const [tallerId, setTallerId] = useState('');
   const [costoManoObra, setCostoManoObra] = useState<number>(0);
   const [costoRepuestos, setCostoRepuestos] = useState<number>(0);
   const [costoTerceros, setCostoTerceros] = useState<number>(0);
@@ -183,7 +184,7 @@ export function MantenimientoForm({
   };
 
   return (
-    <div className="space-y-6">
+    <CenteredLayout>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -515,6 +516,6 @@ export function MantenimientoForm({
           </div>
         </div>
       </div>
-    </div>
+    </CenteredLayout>
   );
 }

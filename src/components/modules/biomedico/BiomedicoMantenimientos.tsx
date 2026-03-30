@@ -5,6 +5,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { 
   Plus, 
   Search, 
@@ -35,6 +36,7 @@ import {
   TableRow,
 } from '../../ui/table';
 import { useMantenimientosStore } from '../../../lib/biomedico/mantenimientos-store';
+import { CenteredLayout } from '../../shared/CenteredLayout';
 import { 
   MANTENIMIENTO_ESTADO_CONFIG,
   MANTENIMIENTO_TIPO_CONFIG,
@@ -61,7 +63,7 @@ export function BiomedicoMantenimientos({
   const [filtroPrioridad, setFiltroPrioridad] = useState<PrioridadMantenimientoBio | 'todos'>('todos');
 
   // Filtrado de mantenimientos
-  const mantenimientosFiltrados = useMemo(() => {
+  const mantenimientosFiltrados = useMemo<ReturnType<typeof useMantenimientosStore>['mantenimientos']>(() => {
     return mantenimientos.filter(mant => {
       const matchSearch = searchTerm === '' || 
         mant.numeroMantenimiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -76,6 +78,8 @@ export function BiomedicoMantenimientos({
       return matchSearch && matchEstado && matchTipo && matchPrioridad;
     });
   }, [mantenimientos, searchTerm, filtroEstado, filtroTipo, filtroPrioridad]);
+
+  const { paged: mantenimientosPaged, page, totalPages, totalItems: totalFiltrados, setPage } = usePagination(mantenimientosFiltrados);
 
   // KPIs calculados
   const kpis = useMemo(() => {
@@ -95,7 +99,7 @@ export function BiomedicoMantenimientos({
   }, [mantenimientos]);
 
   return (
-    <div className="space-y-6">
+    <CenteredLayout>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -233,7 +237,7 @@ export function BiomedicoMantenimientos({
       <Card>
         <CardHeader>
           <CardTitle>
-            Mantenimientos Registrados ({mantenimientosFiltrados.length})
+            Mantenimientos Registrados ({totalFiltrados})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -251,14 +255,14 @@ export function BiomedicoMantenimientos({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mantenimientosFiltrados.length === 0 ? (
+              {mantenimientosPaged.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No se encontraron mantenimientos
                   </TableCell>
                 </TableRow>
               ) : (
-                mantenimientosFiltrados.map((mant) => {
+                mantenimientosPaged.map((mant) => {
                   const estadoConfig = MANTENIMIENTO_ESTADO_CONFIG[mant.estado];
                   const tipoConfig = MANTENIMIENTO_TIPO_CONFIG[mant.tipo];
                   const prioridadConfig = MANTENIMIENTO_PRIORIDAD_CONFIG[mant.prioridad];
@@ -321,8 +325,23 @@ export function BiomedicoMantenimientos({
               )}
             </TableBody>
           </Table>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-2 py-3 border-t">
+              <span className="text-sm text-muted-foreground">
+                Página {page} de {totalPages}
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
+                  Anterior
+                </Button>
+                <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
+                  Siguiente
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
-    </div>
+    </CenteredLayout>
   );
 }

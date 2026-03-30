@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { Plus, Search, Filter, Download, Eye, Edit, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -84,6 +85,8 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
       return matchSearch && matchEstado && matchTipo && matchMoneda;
     });
   }, [cotizacionesPorTab, searchTerm, filtroEstado, filtroTipo, filtroMoneda]);
+
+  const { paged: cotizacionesPaged, page, totalPages, totalItems: totalFiltrados, setPage } = usePagination(cotizacionesFiltradas);
 
   // Estadísticas
   const stats = useMemo(() => ({
@@ -243,7 +246,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
           {(searchTerm || filtroEstado !== 'todos' || filtroTipo !== 'todos' || filtroMoneda !== 'todos') && (
             <Alert className="mt-4">
               <AlertDescription>
-                Mostrando <strong>{cotizacionesFiltradas.length}</strong> de <strong>{cotizacionesPorTab.length}</strong> cotizaciones
+                Mostrando <strong>{totalFiltrados}</strong> de <strong>{cotizacionesPorTab.length}</strong> cotizaciones
                 {searchTerm && ` • Búsqueda: "${searchTerm}"`}
                 {filtroEstado !== 'todos' && ` • Estado: ${filtroEstado}`}
                 {filtroTipo !== 'todos' && ` • Tipo: ${COTIZACION_TIPO_LABELS[filtroTipo]}`}
@@ -292,7 +295,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
             </div>
 
             <TabsContent value={tabActual} className="m-0">
-              {cotizacionesFiltradas.length === 0 ? (
+              {cotizacionesPaged.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <FileText className="size-16 mx-auto mb-4 opacity-20" />
                   <h3 className="font-medium text-foreground mb-2">No se encontraron cotizaciones</h3>
@@ -319,7 +322,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {cotizacionesFiltradas.map((cot) => {
+                    {cotizacionesPaged.map((cot) => {
                       const estadoConfig = COTIZACION_ESTADO_CONFIG[cot.estado];
                       const puedeEditar = tienePermiso(usuarioActual.rol, 'editar');
 
@@ -384,6 +387,21 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
                     })}
                   </TableBody>
                 </Table>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-2 py-3 border-t">
+                    <span className="text-sm text-muted-foreground">
+                      Página {page} de {totalPages}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
+                        Anterior
+                      </Button>
+                      <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
+                        Siguiente
+                      </Button>
+                    </div>
+                  </div>
+                )}
               )}
             </TabsContent>
           </Tabs>

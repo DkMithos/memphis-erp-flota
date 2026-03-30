@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { Package, Search, Filter, Download, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -44,6 +45,8 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
       return matchSearch && matchEstado;
     });
   }, [recepciones, searchTerm, filtroEstado]);
+
+  const { paged: recepcionesPaged, page, totalPages, setPage } = usePagination(recepcionesFiltradas);
 
   const stats = useMemo(() => ({
     total: recepciones.length,
@@ -153,7 +156,7 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
       {/* Tabla */}
       <Card>
         <CardContent className="p-0">
-          {recepcionesFiltradas.length === 0 ? (
+          {recepcionesPaged.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Package className="size-16 mx-auto mb-4 opacity-20" />
               <h3 className="font-medium text-foreground mb-2">No se encontraron recepciones</h3>
@@ -176,7 +179,7 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recepcionesFiltradas.map((recepcion) => {
+                {recepcionesPaged.map((recepcion) => {
                   const estadoConfig = RECEPCION_ESTADO_CONFIG[recepcion.estado];
                   
                   return (
@@ -214,6 +217,21 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
                 })}
               </TableBody>
             </Table>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-2 py-3 border-t">
+                <span className="text-sm text-muted-foreground">
+                  Página {page} de {totalPages}
+                </span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
+                    Anterior
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
+                    Siguiente
+                  </Button>
+                </div>
+              </div>
+            )}
           )}
         </CardContent>
       </Card>

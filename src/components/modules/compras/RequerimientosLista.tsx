@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { Plus, Search, Filter, Download, Eye, Edit, ShoppingCart } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -81,6 +82,8 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
       return matchSearch && matchEstado && matchPrioridad && matchCentroCosto;
     });
   }, [requerimientosPorTab, searchTerm, filtroEstado, filtroPrioridad, filtroCentroCosto]);
+
+  const { paged: requerimientosPaged, page, totalPages, totalItems: totalFiltrados, setPage } = usePagination(requerimientosFiltrados);
 
   // Estadísticas
   const stats = useMemo(() => ({
@@ -241,7 +244,7 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
           {(searchTerm || filtroEstado !== 'todos' || filtroPrioridad !== 'todos' || filtroCentroCosto !== 'todos') && (
             <Alert className="mt-4">
               <AlertDescription>
-                Mostrando <strong>{requerimientosFiltrados.length}</strong> de <strong>{requerimientosPorTab.length}</strong> requerimientos
+                Mostrando <strong>{totalFiltrados}</strong> de <strong>{requerimientosPorTab.length}</strong> requerimientos
                 {searchTerm && ` • Búsqueda: "${searchTerm}"`}
                 {filtroEstado !== 'todos' && ` • Estado: ${filtroEstado}`}
                 {filtroPrioridad !== 'todos' && ` • Prioridad: ${filtroPrioridad}`}
@@ -284,7 +287,7 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
             </div>
 
             <TabsContent value={tabActual} className="m-0">
-              {requerimientosFiltrados.length === 0 ? (
+              {requerimientosPaged.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <ShoppingCart className="size-16 mx-auto mb-4 opacity-20" />
                   <h3 className="font-medium text-foreground mb-2">No se encontraron requerimientos</h3>
@@ -311,7 +314,7 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {requerimientosFiltrados.map((req) => {
+                    {requerimientosPaged.map((req) => {
                       const estadoConfig = REQUERIMIENTO_ESTADO_CONFIG[req.estado];
                       const prioridadConfig = REQUERIMIENTO_PRIORIDAD_CONFIG[req.prioridad];
                       const puedeEditar = tienePermiso(usuarioActual.rol, 'editar');
@@ -379,6 +382,21 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
                     })}
                   </TableBody>
                 </Table>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-2 py-3 border-t">
+                    <span className="text-sm text-muted-foreground">
+                      Página {page} de {totalPages}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
+                        Anterior
+                      </Button>
+                      <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
+                        Siguiente
+                      </Button>
+                    </div>
+                  </div>
+                )}
               )}
             </TabsContent>
           </Tabs>
