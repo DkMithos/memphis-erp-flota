@@ -71,7 +71,7 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
         </div>
 
         <Button variant="outline">
-          <Download className="size-4 mr-2" />
+          <Download className="size-4" />
           Exportar
         </Button>
       </div>
@@ -167,6 +167,7 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
               </p>
             </div>
           ) : (
+            <>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -194,7 +195,7 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
                       </TableCell>
                       <TableCell>
                         <Badge className={estadoConfig.className}>
-                          <estadoConfig.icon className="size-3 mr-1" />
+                          <estadoConfig.icon className="size-3" />
                           {estadoConfig.label}
                         </Badge>
                       </TableCell>
@@ -232,6 +233,7 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
                 </div>
               </div>
             )}
+            </>
           )}
         </CardContent>
       </Card>

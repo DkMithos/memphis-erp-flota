@@ -12,6 +12,7 @@ import {
   Download, RefreshCw, Calendar, BarChart3, Wallet
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase/client';
+import { convertirAMonedaBase } from '../../../lib/shared/currency-utils';
 import { useAuth } from '../../../auth/AuthProvider';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
@@ -30,6 +31,7 @@ interface Transaccion {
   descripcion: string;
   estado: string;
   categoria?: string;
+  moneda?: string;
 }
 
 interface PuntoFlujo {
@@ -68,7 +70,7 @@ export function FinanzasFlujoCaja({ onNavigate }: FlujoCajaProps) {
 
       const { data, error } = await supabase
         .from('transacciones')
-        .select('id, tipo, monto, fecha, descripcion, estado, categoria')
+        .select('id, tipo, monto, moneda, fecha, descripcion, estado, categoria')
         .gte('fecha', desdeStr)
         .in('estado', ['aprobada', 'pagada', 'pendiente'])
         .order('fecha', { ascending: true });
@@ -91,8 +93,9 @@ export function FinanzasFlujoCaja({ onNavigate }: FlujoCajaProps) {
       const key = t.fecha.slice(0, 7); // YYYY-MM
       if (!mapa.has(key)) mapa.set(key, { ingresos: 0, egresos: 0 });
       const entry = mapa.get(key)!;
-      if (t.tipo === 'ingreso') entry.ingresos += t.monto;
-      else if (t.tipo === 'egreso') entry.egresos += t.monto;
+      const montoBase = convertirAMonedaBase(t.monto, t.moneda);
+      if (t.tipo === 'ingreso') entry.ingresos += montoBase;
+      else if (t.tipo === 'egreso') entry.egresos += montoBase;
     });
 
     const sorted = Array.from(mapa.entries()).sort(([a], [b]) => a.localeCompare(b));
@@ -110,8 +113,8 @@ export function FinanzasFlujoCaja({ onNavigate }: FlujoCajaProps) {
     });
   }, [transacciones]);
 
-  const totalIngresos = transacciones.filter(t => t.tipo === 'ingreso').reduce((s, t) => s + t.monto, 0);
-  const totalEgresos = transacciones.filter(t => t.tipo === 'egreso').reduce((s, t) => s + t.monto, 0);
+  const totalIngresos = transacciones.filter(t => t.tipo === 'ingreso').reduce((s, t) => s + convertirAMonedaBase(t.monto, t.moneda), 0);
+  const totalEgresos = transacciones.filter(t => t.tipo === 'egreso').reduce((s, t) => s + convertirAMonedaBase(t.monto, t.moneda), 0);
   const balance = totalIngresos - totalEgresos;
 
   const exportCSV = () => {
@@ -152,11 +155,11 @@ export function FinanzasFlujoCaja({ onNavigate }: FlujoCajaProps) {
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={cargar} disabled={loading}>
-            <RefreshCw className={`size-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>
           <Button variant="outline" size="sm" onClick={exportCSV}>
-            <Download className="size-4 mr-2" />
+            <Download className="size-4" />
             Exportar
           </Button>
         </div>

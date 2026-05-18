@@ -1,5 +1,5 @@
 -- =============================================================================
--- KESA ERP — RBAC: Roles, Permisos y Asignaciones
+-- Memphis ERP — RBAC: Roles, Permisos y Asignaciones
 -- Migración: 20260323010000_rbac_tables.sql
 -- =============================================================================
 

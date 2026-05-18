@@ -23,13 +23,13 @@ interface LogEntry {
 }
 
 const ACCION_CONFIG: Record<string, { label: string; color: string }> = {
-  crear:    { label: 'Crear',    color: 'bg-green-100 text-green-800' },
-  editar:   { label: 'Editar',   color: 'bg-blue-100 text-blue-800' },
-  eliminar: { label: 'Eliminar', color: 'bg-red-100 text-red-800' },
-  aprobar:  { label: 'Aprobar',  color: 'bg-purple-100 text-purple-800' },
+  crear:    { label: 'Crear',    color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
+  editar:   { label: 'Editar',   color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
+  eliminar: { label: 'Eliminar', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
+  aprobar:  { label: 'Aprobar',  color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' },
   cerrar:   { label: 'Cerrar',   color: 'bg-slate-100 text-slate-800' },
-  exportar: { label: 'Exportar', color: 'bg-orange-100 text-orange-800' },
-  login:    { label: 'Login',    color: 'bg-gray-100 text-gray-800' },
+  exportar: { label: 'Exportar', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' },
+  login:    { label: 'Login',    color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400' },
 };
 
 const ENTIDAD_LABELS: Record<string, string> = {
@@ -151,7 +151,7 @@ export function AuditLogs() {
               </TableHeader>
               <TableBody>
                 {logsFiltrados.map(l => {
-                  const accionCfg = ACCION_CONFIG[l.accion] ?? { label: l.accion, color: 'bg-gray-100 text-gray-800' };
+                  const accionCfg = ACCION_CONFIG[l.accion] ?? { label: l.accion, color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400' };
                   return (
                     <TableRow key={l.id}>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">

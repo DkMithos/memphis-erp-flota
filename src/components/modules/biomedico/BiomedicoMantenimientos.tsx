@@ -5,7 +5,6 @@
  */
 
 import { useState, useMemo } from 'react';
-import { usePagination } from '../../../lib/shared/usePagination';
 import { 
   Plus, 
   Search, 
@@ -36,7 +35,6 @@ import {
   TableRow,
 } from '../../ui/table';
 import { useMantenimientosStore } from '../../../lib/biomedico/mantenimientos-store';
-import { CenteredLayout } from '../../shared/CenteredLayout';
 import { 
   MANTENIMIENTO_ESTADO_CONFIG,
   MANTENIMIENTO_TIPO_CONFIG,
@@ -63,7 +61,7 @@ export function BiomedicoMantenimientos({
   const [filtroPrioridad, setFiltroPrioridad] = useState<PrioridadMantenimientoBio | 'todos'>('todos');
 
   // Filtrado de mantenimientos
-  const mantenimientosFiltrados = useMemo<ReturnType<typeof useMantenimientosStore>['mantenimientos']>(() => {
+  const mantenimientosFiltrados = useMemo(() => {
     return mantenimientos.filter(mant => {
       const matchSearch = searchTerm === '' || 
         mant.numeroMantenimiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -78,8 +76,6 @@ export function BiomedicoMantenimientos({
       return matchSearch && matchEstado && matchTipo && matchPrioridad;
     });
   }, [mantenimientos, searchTerm, filtroEstado, filtroTipo, filtroPrioridad]);
-
-  const { paged: mantenimientosPaged, page, totalPages, totalItems: totalFiltrados, setPage } = usePagination(mantenimientosFiltrados);
 
   // KPIs calculados
   const kpis = useMemo(() => {
@@ -99,7 +95,7 @@ export function BiomedicoMantenimientos({
   }, [mantenimientos]);
 
   return (
-    <CenteredLayout>
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -110,11 +106,11 @@ export function BiomedicoMantenimientos({
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
-            <Download className="size-4 mr-2" />
+            <Download className="size-4" />
             Exportar
           </Button>
           <Button size="sm" onClick={onNavigateToNuevo}>
-            <Plus className="size-4 mr-2" />
+            <Plus className="size-4" />
             Nuevo Mantenimiento
           </Button>
         </div>
@@ -193,7 +189,7 @@ export function BiomedicoMantenimientos({
             
             <Select value={filtroEstado} onValueChange={(v) => setFiltroEstado(v as EstadoMantenimientoBio | 'todos')}>
               <SelectTrigger className="w-[180px]">
-                <Filter className="size-4 mr-2" />
+                <Filter className="size-4" />
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
@@ -237,7 +233,7 @@ export function BiomedicoMantenimientos({
       <Card>
         <CardHeader>
           <CardTitle>
-            Mantenimientos Registrados ({totalFiltrados})
+            Mantenimientos Registrados ({mantenimientosFiltrados.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -255,14 +251,14 @@ export function BiomedicoMantenimientos({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mantenimientosPaged.length === 0 ? (
+              {mantenimientosFiltrados.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No se encontraron mantenimientos
                   </TableCell>
                 </TableRow>
               ) : (
-                mantenimientosPaged.map((mant) => {
+                mantenimientosFiltrados.map((mant) => {
                   const estadoConfig = MANTENIMIENTO_ESTADO_CONFIG[mant.estado];
                   const tipoConfig = MANTENIMIENTO_TIPO_CONFIG[mant.tipo];
                   const prioridadConfig = MANTENIMIENTO_PRIORIDAD_CONFIG[mant.prioridad];
@@ -289,13 +285,13 @@ export function BiomedicoMantenimientos({
                       </TableCell>
                       <TableCell>
                         <Badge variant={prioridadConfig.variant} className={prioridadConfig.className}>
-                          <PrioridadIcon className="size-3 mr-1" />
+                          <PrioridadIcon className="size-3" />
                           {prioridadConfig.label}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant={estadoConfig.variant} className={estadoConfig.className}>
-                          <EstadoIcon className="size-3 mr-1" />
+                          <EstadoIcon className="size-3" />
                           {estadoConfig.label}
                         </Badge>
                       </TableCell>
@@ -325,23 +321,8 @@ export function BiomedicoMantenimientos({
               )}
             </TableBody>
           </Table>
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-2 py-3 border-t">
-              <span className="text-sm text-muted-foreground">
-                Página {page} de {totalPages}
-              </span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
-                  Anterior
-                </Button>
-                <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
-                  Siguiente
-                </Button>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
-    </CenteredLayout>
+    </div>
   );
 }

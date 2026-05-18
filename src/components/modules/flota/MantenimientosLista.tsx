@@ -139,7 +139,7 @@ export function MantenimientosLista({
     const { variant, icon: Icon, label, className } = config;
     return (
       <Badge variant={variant} className={className}>
-        <Icon className="size-3 mr-1" />
+        <Icon className="size-3" />
         {label}
       </Badge>
     );
@@ -205,22 +205,22 @@ export function MantenimientosLista({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button>
-                <Plus className="size-4 mr-2" />
+                <Plus className="size-4" />
                 Nueva Orden de Trabajo
                 <ChevronDown className="size-4 ml-2" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onNavigateToNueva('preventivo')}>
-                <RotateCcw className="size-4 mr-2" />
+                <RotateCcw className="size-4" />
                 Mantenimiento Preventivo
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onNavigateToNueva('correctivo')}>
-                <Wrench className="size-4 mr-2" />
+                <Wrench className="size-4" />
                 Mantenimiento Correctivo
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onNavigateToNueva('predictivo')}>
-                <TrendingUp className="size-4 mr-2" />
+                <TrendingUp className="size-4" />
                 Mantenimiento Predictivo
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -230,18 +230,18 @@ export function MantenimientosLista({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
-                <Download className="size-4 mr-2" />
+                <Download className="size-4" />
                 Exportar
                 <ChevronDown className="size-4 ml-2" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem>
-                <FileSpreadsheet className="size-4 mr-2" />
+                <FileSpreadsheet className="size-4" />
                 Exportar a Excel (.xlsx)
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <FileText className="size-4 mr-2" />
+                <FileText className="size-4" />
                 Exportar a PDF
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -330,7 +330,7 @@ export function MantenimientosLista({
               onClick={filtrarPorAprobacion}
               className="ml-4"
             >
-              <ShieldAlert className="size-4 mr-2" />
+              <ShieldAlert className="size-4" />
               Ver OTs en aprobación
             </Button>
           </AlertDescription>

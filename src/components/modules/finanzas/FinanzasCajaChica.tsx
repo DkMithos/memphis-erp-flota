@@ -18,32 +18,36 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useFinanzas, type CajaChica, type GastoCajaChica } from '@/lib/finanzas/finanzas-store';
+import { ProyectoSelector } from '../../shared/ProyectoSelector';
+import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
 import { useAuth } from '@/auth/AuthProvider';
 
 interface Props {
   onNavigate: (route: string) => void;
 }
 
-function fmt(n: number) {
-  return `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+function fmt(n: number, moneda: string = 'PEN') {
+  const sym = moneda === 'USD' ? '$' : 'S/';
+  return `${sym} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
 }
 
 const ESTADO_CAJA_COLORS = {
-  activo: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-  en_reposicion: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+  activo: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  en_reposicion: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
   cerrada: 'bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400',
 };
 
 const ESTADO_GASTO_COLORS = {
-  pendiente: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-  aprobado: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-  rechazado: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+  pendiente: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  aprobado: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  rechazado: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
 };
 
 interface NuevaCajaForm {
   nombre: string;
   responsable: string;
   montoAsignado: string;
+  moneda: 'PEN' | 'USD';
 }
 
 interface NuevoGastoForm {
@@ -81,9 +85,12 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
     nombre: '',
     responsable: '',
     montoAsignado: '',
+    moneda: 'PEN',
   });
 
   const [gastoForm, setGastoForm] = useState<NuevoGastoForm>(defaultGastoForm);
+  const [gastoProyectoId, setGastoProyectoId] = useState<string | null>(null);
+  const [gastoCentroCostoId, setGastoCentroCostoId] = useState<string | null>(null);
 
   const selectedCaja = cajasChicas.find(c => c._dbId === selectedCajaId) ?? null;
 
@@ -125,12 +132,12 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
         responsable: nuevaCajaForm.responsable,
         monto_asignado: monto,
         monto_disponible: monto,
-        moneda: 'PEN',
+        moneda: nuevaCajaForm.moneda,
         estado: 'activo',
       });
       toast.success('Caja chica creada');
       setShowNuevaCaja(false);
-      setNuevaCajaForm({ nombre: '', responsable: '', montoAsignado: '' });
+      setNuevaCajaForm({ nombre: '', responsable: '', montoAsignado: '', moneda: 'PEN' });
     } catch { toast.error('Error al crear caja'); }
     finally { setSaving(false); }
   };
@@ -200,7 +207,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
           <p className="text-muted-foreground mt-1">Gestión de fondos y gastos de caja chica</p>
         </div>
         <Button onClick={() => setShowNuevaCaja(true)}>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Nueva Caja Chica
         </Button>
       </div>
@@ -275,7 +282,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
               </div>
             </div>
             <Button size="sm" onClick={() => setShowNuevoGasto(true)}>
-              <Plus className="size-4 mr-1" />
+              <Plus className="size-4" />
               Registrar Gasto
             </Button>
           </CardHeader>
@@ -376,7 +383,22 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
               />
             </div>
             <div>
-              <Label>Monto Asignado (S/) *</Label>
+              <Label>Moneda *</Label>
+              <Select
+                value={nuevaCajaForm.moneda}
+                onValueChange={v => setNuevaCajaForm(f => ({ ...f, moneda: v as 'PEN' | 'USD' }))}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PEN">Soles (PEN)</SelectItem>
+                  <SelectItem value="USD">Dólares (USD)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Monto Asignado ({nuevaCajaForm.moneda === 'USD' ? '$' : 'S/'}) *</Label>
               <Input
                 type="number"
                 min="0"
@@ -474,6 +496,26 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                     <SelectItem value="sin_comprobante">Sin comprobante</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Proyecto</Label>
+                <ProyectoSelector
+                  value={gastoProyectoId}
+                  onChange={setGastoProyectoId}
+                  nullable
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Centro de Costo</Label>
+                <CentroCostoSelector
+                  value={gastoCentroCostoId}
+                  onChange={setGastoCentroCostoId}
+                  nullable
+                  className="mt-1"
+                />
               </div>
             </div>
             <div>

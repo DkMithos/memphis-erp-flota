@@ -4,19 +4,19 @@
  * Garantiza consistencia UI/UX en módulo Proveedores
  */
 
-import { Building2, CheckCircle, XCircle, AlertTriangle, type LucideIcon } from 'lucide-react';
+import { Building2, CheckCircle, XCircle, AlertTriangle, Clock, type LucideIcon } from 'lucide-react';
 
 // ============================================================================
 // DEBUG FLAG
 // ============================================================================
 
-export const DEBUG_PROVEEDORES = true;
+export const DEBUG_PROVEEDORES = import.meta.env.DEV;
 
 // ============================================================================
 // TIPOS Y ESTADOS
 // ============================================================================
 
-export type EstadoProveedor = 'activo' | 'inactivo' | 'observado' | 'bloqueado';
+export type EstadoProveedor = 'activo' | 'inactivo' | 'observado' | 'bloqueado' | 'en_evaluacion';
 
 export type CondicionProveedor = 
   | 'excelente'    // +95 puntos, sin incidencias
@@ -72,6 +72,11 @@ export const PROVEEDOR_ESTADO_CONFIG: Record<EstadoProveedor, BadgeConfig> = {
     label: 'Bloqueado',
     icon: XCircle,
     className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+  },
+  en_evaluacion: {
+    label: 'En Evaluación',
+    icon: Clock,
+    className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
   }
 };
 
@@ -277,6 +282,7 @@ interface PermisosProveedor {
   crear: boolean;
   editar: boolean;
   inactivar: boolean;
+  aprobar: boolean;   // Aprobar/rechazar proveedores en evaluación
   ver: boolean;
 }
 
@@ -285,24 +291,28 @@ export const PERMISOS_POR_ROL: Record<RolUsuario, PermisosProveedor> = {
     crear: true,
     editar: true,
     inactivar: true,
+    aprobar: true,
     ver: true
   },
   gerencia: {
     crear: false,
     editar: false,
     inactivar: false,
+    aprobar: true,
     ver: true
   },
   compras: {
     crear: true,
     editar: true,
     inactivar: false,
+    aprobar: false,
     ver: true
   },
   operaciones: {
     crear: false,
     editar: false,
     inactivar: false,
+    aprobar: false,
     ver: true
   }
 };

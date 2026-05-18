@@ -1,14 +1,20 @@
+/**
+ * Memphis ERP — Login
+ * Branding de plataforma: Memphis ERP (Memphis Maquinarias S.A.C.)
+ * El header muestra el ícono dorado de Memphis + nombre de la plataforma.
+ */
 import { useState } from 'react';
-import { Building2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Checkbox } from '../ui/checkbox';
 import { useAuth } from '../../auth/AuthProvider';
+import { MemphisIconSVG, PLATFORM } from '../../lib/config/branding';
 
 interface LoginProps {
-  onLogin?: () => void; // opcional: compatibilidad legacy
+  onLogin?: () => void;
 }
 
 export function Login({ onLogin }: LoginProps) {
@@ -17,7 +23,6 @@ export function Login({ onLogin }: LoginProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -25,10 +30,9 @@ export function Login({ onLogin }: LoginProps) {
     e.preventDefault();
     setErrorMsg(null);
     setSubmitting(true);
-
     try {
       await signInWithPassword(email.trim(), password);
-      onLogin?.(); // si App todavía lo usa, no rompe
+      onLogin?.();
     } catch (err: any) {
       setErrorMsg(err?.message ?? 'No se pudo iniciar sesión.');
     } finally {
@@ -37,22 +41,28 @@ export function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-4">
-          <div className="flex justify-center">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-amber-50 via-white to-amber-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4">
+
+      {/* Card principal */}
+      <Card className="w-full max-w-md shadow-xl border-border/60">
+        <CardHeader className="space-y-4 pb-4">
+
+          {/* Logo de plataforma — Memphis ERP */}
+          <div className="flex justify-center pt-2">
             <div className="flex items-center gap-3">
-              <Building2 className="size-10 text-primary" />
+              <div className="size-12 flex items-center justify-center">
+                <MemphisIconSVG className="size-12" />
+              </div>
               <div>
-                <h1 className="text-2xl font-bold">Memphis ERP</h1>
-                <p className="text-sm text-muted-foreground">Sistema Empresarial</p>
+                <h1 className="text-2xl font-bold text-foreground">{PLATFORM.name}</h1>
+                <p className="text-xs text-muted-foreground">{PLATFORM.tagline}</p>
               </div>
             </div>
           </div>
 
           <div className="text-center">
-            <CardTitle>Iniciar Sesión</CardTitle>
-            <CardDescription className="mt-2">
+            <CardTitle className="text-lg">Iniciar Sesión</CardTitle>
+            <CardDescription className="mt-1 text-sm">
               Ingresa tus credenciales para acceder al sistema
             </CardDescription>
           </div>
@@ -60,6 +70,7 @@ export function Login({ onLogin }: LoginProps) {
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email">Correo Electrónico</Label>
               <div className="relative">
@@ -77,6 +88,7 @@ export function Login({ onLogin }: LoginProps) {
               </div>
             </div>
 
+            {/* Contraseña */}
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>
               <div className="relative">
@@ -102,12 +114,14 @@ export function Login({ onLogin }: LoginProps) {
               </div>
             </div>
 
+            {/* Error */}
             {errorMsg && (
-              <div className="text-sm text-red-600 dark:text-red-400">
+              <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 px-3 py-2 rounded-md border border-red-200 dark:border-red-800">
                 {errorMsg}
               </div>
             )}
 
+            {/* Recordar + Olvidé contraseña */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Checkbox id="remember" />
@@ -115,45 +129,49 @@ export function Login({ onLogin }: LoginProps) {
                   Recordarme
                 </label>
               </div>
-
-              <Button variant="link" className="px-0" type="button" disabled>
+              <Button variant="link" className="px-0 text-xs" type="button" disabled>
                 ¿Olvidaste tu contraseña?
               </Button>
             </div>
 
+            {/* Submit */}
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? 'Ingresando...' : 'Iniciar Sesión'}
             </Button>
 
+            {/* Divisor SSO */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  O continuar con
-                </span>
+                <span className="bg-background px-2 text-muted-foreground">O continuar con</span>
               </div>
             </div>
 
+            {/* SSO (próximamente) */}
             <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" type="button" disabled>
-                Microsoft
-              </Button>
-              <Button variant="outline" type="button" disabled>
-                Google
-              </Button>
+              <Button variant="outline" type="button" disabled>Microsoft</Button>
+              <Button variant="outline" type="button" disabled>Google</Button>
             </div>
           </form>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>¿No tienes una cuenta?</p>
-            <Button variant="link" className="px-0 mt-1" type="button" disabled>
+            <Button variant="link" className="px-0 mt-1 text-xs" type="button" disabled>
               Contacta con soporte
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Footer de plataforma — SIEMPRE Memphis Maquinarias */}
+      <div className="mt-6 flex items-center gap-2 text-xs text-muted-foreground/60">
+        <MemphisIconSVG className="size-4 opacity-50" />
+        <span>Powered by <strong className="font-medium text-muted-foreground/80">{PLATFORM.company}</strong></span>
+        <span>·</span>
+        <span>v{PLATFORM.version}</span>
+      </div>
     </div>
   );
 }

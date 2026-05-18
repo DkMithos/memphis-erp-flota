@@ -38,17 +38,20 @@ import {
 } from '../../../lib/flota/ot-config';
 import { useOTStore, type NuevaOrdenTrabajoInput } from '../../../lib/flota/ot-store';
 import { useVehiculos } from '../../../lib/flota/vehiculos-store';
-import { CenteredLayout } from '../../shared/CenteredLayout';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
+import { ProyectoSelector } from '../../shared/ProyectoSelector';
+import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
 
 interface MantenimientoFormProps {
   tipoInicial?: TipoOT;
+  vehiculoIdInicial?: string;
   onCancel: () => void;
   onSuccess: (numeroOT: string) => void;
 }
 
 export function MantenimientoForm({
   tipoInicial,
+  vehiculoIdInicial,
   onCancel,
   onSuccess
 }: MantenimientoFormProps) {
@@ -63,15 +66,17 @@ export function MantenimientoForm({
   const [criticidad, setCriticidad] = useState<CriticidadOT>('media');
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [selectedVehiculoId, setSelectedVehiculoId] = useState<string>('');
+  const [selectedVehiculoId, setSelectedVehiculoId] = useState<string>(vehiculoIdInicial ?? '');
   const [fechaProgramada, setFechaProgramada] = useState('');
-  const [kilometrajeRegistro, setKilometrajeRegistro] = useState<number>(0);
-  const [tallerId, setTallerId] = useState('');
+  const [kilometrajeRegistro, setKilometrajeRegistro] = useState<number>(48500);
+  const [tallerId, setTallerId] = useState('TALLER-002');
   const [costoManoObra, setCostoManoObra] = useState<number>(0);
   const [costoRepuestos, setCostoRepuestos] = useState<number>(0);
   const [costoTerceros, setCostoTerceros] = useState<number>(0);
   const [costoOtros, setCostoOtros] = useState<number>(0);
   const [observaciones, setObservaciones] = useState('');
+  const [proyectoId, setProyectoId] = useState<string | null>(null);
+  const [centroCostoId, setCentroCostoId] = useState<string | null>(null);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -184,13 +189,13 @@ export function MantenimientoForm({
   };
 
   return (
-    <CenteredLayout>
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Button variant="ghost" size="sm" onClick={onCancel}>
-              <ArrowLeft className="size-4 mr-2" />
+              <ArrowLeft className="size-4" />
               Volver
             </Button>
           </div>
@@ -382,9 +387,31 @@ export function MantenimientoForm({
                 </Select>
               </div>
 
+              {/* Imputación dual */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Proyecto</Label>
+                  <ProyectoSelector
+                    value={proyectoId}
+                    onChange={setProyectoId}
+                    nullable
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Centro de Costo</Label>
+                  <CentroCostoSelector
+                    value={centroCostoId}
+                    onChange={setCentroCostoId}
+                    nullable
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
               <div>
                 <Label htmlFor="observaciones">Observaciones</Label>
-                <Textarea 
+                <Textarea
                   id="observaciones"
                   placeholder="Observaciones adicionales (opcional)"
                   rows={3}
@@ -502,7 +529,7 @@ export function MantenimientoForm({
               onClick={handleSubmit}
               disabled={isSubmitting}
             >
-              <Save className="size-4 mr-2" />
+              <Save className="size-4" />
               {isSubmitting ? 'Guardando...' : 'Crear Orden de Trabajo'}
             </Button>
             <Button 
@@ -516,6 +543,6 @@ export function MantenimientoForm({
           </div>
         </div>
       </div>
-    </CenteredLayout>
+    </div>
   );
 }

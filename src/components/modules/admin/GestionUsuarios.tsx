@@ -33,12 +33,15 @@ import {
   SelectValue,
 } from '../../ui/select';
 import { toast } from 'sonner';
-import { Shield, Users, Plus, Pencil, Trash2, UserCog, Layers, ClipboardList, UserPlus } from 'lucide-react';
+import { useConfirmAction } from '@/components/shared/ConfirmDialogProvider';
+import { Shield, Users, Plus, Pencil, Trash2, UserCog, Layers, ClipboardList, UserPlus, GitBranch, List } from 'lucide-react';
 import { usePagination } from '../../../lib/shared/usePagination';
 import { supabase } from '../../../lib/supabase/client';
 import { useAuth } from '../../../auth/AuthProvider';
 import { GestionModulos } from './GestionModulos';
 import { AuditLogs } from './AuditLogs';
+import { GestionFlujoAprobacion } from './GestionFlujoAprobacion';
+import { GestionCatalogos } from './GestionCatalogos';
 
 // ─────────────────────────────────────────────────────────────
 // Constants
@@ -72,8 +75,8 @@ const ACCIONES_ORDEN = [
 // ─────────────────────────────────────────────────────────────
 
 function EstadoBadge({ estado }: { estado: UsuarioTenant['estado'] }) {
-  if (estado === 'activo') return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Activo</Badge>;
-  if (estado === 'suspendido') return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Suspendido</Badge>;
+  if (estado === 'activo') return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100">Activo</Badge>;
+  if (estado === 'suspendido') return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100">Suspendido</Badge>;
   return <Badge variant="secondary">Inactivo</Badge>;
 }
 
@@ -242,17 +245,25 @@ function RolDialog({ rol, onClose }: RolDialogProps) {
     }
   };
 
+  const esSistema = rol?.esSistema ?? false;
+
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Shield className="size-5" />
-            {rol ? 'Editar Rol' : 'Nuevo Rol'}
+            {rol ? (esSistema ? `Permisos: ${rol.nombre}` : 'Editar Rol') : 'Nuevo Rol'}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {esSistema && (
+            <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+              Este es un rol de sistema. Solo puedes modificar sus permisos asignados, no su nombre ni descripción.
+            </div>
+          )}
+
           {/* Nombre */}
           <div className="space-y-1">
             <Label htmlFor="rol-nombre">Nombre *</Label>
@@ -261,6 +272,7 @@ function RolDialog({ rol, onClose }: RolDialogProps) {
               value={nombre}
               onChange={e => setNombre(e.target.value)}
               placeholder="Ej: Supervisor de Flota"
+              disabled={esSistema}
             />
           </div>
 
@@ -273,6 +285,7 @@ function RolDialog({ rol, onClose }: RolDialogProps) {
               onChange={e => setDescripcion(e.target.value)}
               rows={2}
               placeholder="Descripción del rol y sus responsabilidades"
+              disabled={esSistema}
             />
           </div>
 
@@ -505,7 +518,7 @@ function TabUsuarios() {
           </Select>
         </div>
         <Button onClick={() => setShowNuevoUsuario(true)}>
-          <UserPlus className="size-4 mr-2" />
+          <UserPlus className="size-4" />
           Nuevo Usuario
         </Button>
       </div>
@@ -569,7 +582,7 @@ function TabUsuarios() {
                       variant="outline"
                       onClick={() => setUsuarioGestionando(u)}
                     >
-                      <UserCog className="size-3.5 mr-1" />
+                      <UserCog className="size-3.5" />
                       Roles
                     </Button>
                     {u.estado === 'activo' && (
@@ -646,11 +659,13 @@ function TabUsuarios() {
 
 function TabRoles() {
   const { roles, permisos, eliminarRol } = useRoles();
+  const confirmAction = useConfirmAction();
   const [dialogRol, setDialogRol] = useState<Rol | null | 'nuevo'>(null);
   const [eliminando, setEliminando] = useState<string | null>(null);
 
   const handleEliminar = async (rol: Rol) => {
-    if (!confirm(`¿Eliminar el rol "${rol.nombre}"? Esta acción no se puede deshacer.`)) return;
+    const ok = await confirmAction({ title: 'Confirmar eliminación', description: `¿Eliminar el rol "${rol.nombre}"? Esta acción no se puede deshacer.`, confirmLabel: 'Eliminar', variant: 'destructive' });
+    if (!ok) return;
     setEliminando(rol._dbId);
     const result = await eliminarRol(rol._dbId);
     setEliminando(null);
@@ -660,9 +675,12 @@ function TabRoles() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Gestiona los roles del sistema. Los roles de sistema pueden tener sus permisos ajustados, pero no pueden eliminarse.
+        </p>
         <Button onClick={() => setDialogRol('nuevo')}>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Nuevo Rol
         </Button>
       </div>
@@ -675,7 +693,7 @@ function TabRoles() {
               <TableHead>Descripción</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Permisos</TableHead>
-              <TableHead className="w-24">Acciones</TableHead>
+              <TableHead className="w-32">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -700,20 +718,20 @@ function TabRoles() {
                   )}
                 </TableCell>
                 <TableCell>
-                  <span className="text-sm">
-                    {rol.permisoIds.length} / {permisos.length}
-                  </span>
+                  <span className="text-sm font-medium">{rol.permisoIds.length}</span>
+                  <span className="text-xs text-muted-foreground"> / {permisos.length}</span>
                 </TableCell>
                 <TableCell>
-                  {!rol.esSistema && (
-                    <div className="flex gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setDialogRol(rol)}
-                      >
-                        <Pencil className="size-3.5" />
-                      </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setDialogRol(rol)}
+                    >
+                      <Pencil className="size-3.5" />
+                      Permisos
+                    </Button>
+                    {!rol.esSistema && (
                       <Button
                         size="icon"
                         variant="ghost"
@@ -723,8 +741,8 @@ function TabRoles() {
                       >
                         <Trash2 className="size-3.5" />
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -804,6 +822,14 @@ export function GestionUsuarios() {
             <ClipboardList className="size-4" />
             Auditoría
           </TabsTrigger>
+          <TabsTrigger value="flujo" className="flex items-center gap-2">
+            <GitBranch className="size-4" />
+            Flujo Aprobación
+          </TabsTrigger>
+          <TabsTrigger value="catalogos" className="flex items-center gap-2">
+            <List className="size-4" />
+            Catálogos
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="usuarios" className="pt-4">
@@ -828,6 +854,12 @@ export function GestionUsuarios() {
 
         <TabsContent value="auditoria" className="pt-4">
           <AuditLogs />
+        </TabsContent>
+        <TabsContent value="flujo" className="pt-4">
+          <GestionFlujoAprobacion />
+        </TabsContent>
+        <TabsContent value="catalogos" className="pt-4">
+          <GestionCatalogos />
         </TabsContent>
       </Tabs>
     </div>

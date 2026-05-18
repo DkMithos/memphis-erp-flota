@@ -1,5 +1,5 @@
 /**
- * Memphis ERP - Flota → Reportes → Documentos
+ * KESA ERP - Flota → Reportes → Documentos
  */
 
 import { useState, useMemo } from 'react';
@@ -42,7 +42,7 @@ import {
 } from '../../../../lib/flota/flota-reports';
 import { exportToCSV, exportToExcel, formatDateForExport } from '../../../../lib/shared/export-utils';
 import { TIPO_DOCUMENTO_LABELS, getEstadoDocumentoBadge } from '../../../../lib/flota/vehiculos-config';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface FlotaReporteDocumentosProps {
   onNavigate: (route: string) => void;

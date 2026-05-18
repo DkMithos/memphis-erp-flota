@@ -36,12 +36,29 @@ import {
   Handshake,
   Target,
   PhoneCall,
-  MapPin
+  MapPin,
+  BookOpen,
+  FolderOpen,
+  Shield,
+  GitBranch,
+  Clock,
+  AlertTriangle,
+  Gauge,
+  Thermometer,
+  Printer,
+  Search,
+  Layers,
+  Archive,
+  BookOpenCheck,
+  Hash,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../auth/AuthProvider';
 import { loadModulesConfig, type ModuleConfig } from '../../lib/config/modules-config';
+import { useTranslation } from 'react-i18next';
+import { MemphisIconSVG, PLATFORM } from '../../lib/config/branding';
 
 interface NavItem {
   id: string;
@@ -66,8 +83,10 @@ interface ERPSidebarProps {
 }
 
 export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }: ERPSidebarProps) {
-  const { user, profile } = useAuth();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['flota']);
+  const { t } = useTranslation();
+  const { user, profile, tenantName, tenantLogoUrl } = useAuth();
+  // Todos los módulos comienzan contraídos — se expande el activo al navegar
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [modulesConfig, setModulesConfig] = useState<ModuleConfig[]>(loadModulesConfig);
 
   // Re-leer config cuando GestionModulos guarda cambios
@@ -83,123 +102,146 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
 
   const navItems: NavItem[] = [
     {
-      id: 'dashboard',
-      label: 'Dashboard',
+      id: 'home',
+      label: t('nav.home', 'Inicio'),
       icon: <Home className="size-5" />,
+      href: '/home'
+    },
+    {
+      id: 'dashboard',
+      label: t('nav.dashboard'),
+      icon: <LayoutDashboard className="size-5" />,
       href: '/dashboard'
     },
     {
       id: 'proveedores',
-      label: 'Proveedores',
+      label: t('nav.proveedores'),
       icon: <Users className="size-5" />,
       href: '/proveedores',
       subItems: [
-        { label: 'Dashboard', href: '/proveedores' },
-        { label: 'Directorio', href: '/proveedores/directorio' },
-        { label: 'Evaluaciones', href: '/proveedores/evaluaciones' },
-        { label: 'Contratos', href: '/proveedores/contratos' },
-        { label: 'Talleres', href: '/proveedores/talleres' }
+        { label: t('nav.sub.dashboard'), href: '/proveedores' },
+        { label: t('nav.sub.directorio'), href: '/proveedores/directorio' },
+        { label: t('nav.sub.evaluaciones'), href: '/proveedores/evaluaciones' },
+        { label: t('nav.sub.contratos'), href: '/proveedores/contratos' },
+        { label: t('nav.sub.talleres'), href: '/proveedores/talleres' },
+        { label: t('nav.sub.categorias'), href: '/proveedores/categorias' }
       ]
     },
     {
       id: 'compras',
-      label: 'Compras',
+      label: t('nav.compras'),
       icon: <ShoppingCart className="size-5" />,
       href: '/compras',
       subItems: [
-        { label: 'Dashboard', href: '/compras' },
-        { label: 'Requerimientos', href: '/compras/requerimientos' },
-        { label: 'Cotizaciones', href: '/compras/cotizaciones' },
-        { label: 'Órdenes de Compra', href: '/compras/ordenes' },
-        { label: 'Recepciones', href: '/compras/recepciones' }
+        { label: t('nav.sub.dashboard'), href: '/compras' },
+        { label: t('nav.sub.requerimientos'), href: '/compras/requerimientos' },
+        { label: t('nav.sub.cotizaciones'), href: '/compras/cotizaciones' },
+        { label: t('nav.sub.ordenes_compra'), href: '/compras/ordenes' },
+        { label: t('nav.sub.recepciones'), href: '/compras/recepciones' }
       ]
     },
     {
       id: 'inventario',
-      label: 'Inventario',
+      label: t('nav.inventario'),
       icon: <Package className="size-5" />,
       href: '/inventario',
       subItems: [
-        { label: 'Dashboard', href: '/inventario' },
-        { label: 'Productos', href: '/inventario/productos' },
-        { label: 'Movimientos', href: '/inventario/movimientos' },
-        { label: 'Órdenes', href: '/inventario/ordenes' },
-        { label: 'Stock Crítico', href: '/inventario/stock-critico' }
+        { label: t('nav.sub.dashboard'), href: '/inventario' },
+        { label: t('nav.sub.productos'), href: '/inventario/productos' },
+        { label: t('nav.sub.almacenes'), href: '/inventario/almacenes' },
+        { label: t('nav.sub.movimientos'), href: '/inventario/movimientos' },
+        { label: t('nav.sub.ordenes'), href: '/inventario/ordenes' },
+        { label: t('nav.sub.stock_critico'), href: '/inventario/stock-critico' }
+      ]
+    },
+    {
+      id: 'contabilidad',
+      label: t('nav.contabilidad', 'Contabilidad'),
+      icon: <BookOpen className="size-5" />,
+      href: '/contabilidad',
+      subItems: [
+        { label: t('nav.sub.dashboard'), href: '/contabilidad' },
+        { label: t('nav.sub.plan_cuentas'), href: '/contabilidad/plan-cuentas' },
+        { label: t('nav.sub.periodos'), href: '/contabilidad/periodos' },
+        { label: t('nav.sub.libro_diario'), href: '/contabilidad/asientos' },
+        { label: t('nav.sub.comprobantes'), href: '/contabilidad/comprobantes' },
+        { label: t('nav.sub.reg_compras'), href: '/contabilidad/registro-compras' },
+        { label: t('nav.sub.reg_ventas'), href: '/contabilidad/registro-ventas' },
       ]
     },
     {
       id: 'finanzas',
-      label: 'Finanzas',
+      label: t('nav.finanzas'),
       icon: <DollarSign className="size-5" />,
       href: '/finanzas',
       subItems: [
-        { label: 'Dashboard', href: '/finanzas' },
-        { label: 'Transacciones', href: '/finanzas/transacciones' },
-        { label: 'Presupuestos', href: '/finanzas/presupuestos' },
-        { label: 'Cuentas por Pagar', href: '/finanzas/cuentas-pagar' },
-        { label: 'Caja Chica', href: '/finanzas/caja-chica' },
-        { label: 'Flujo de Caja', href: '/finanzas/flujo-caja' },
-        { label: 'Reportes', href: '/finanzas/reportes' }
+        { label: t('nav.sub.dashboard'), href: '/finanzas' },
+        { label: t('nav.sub.transacciones'), href: '/finanzas/transacciones' },
+        { label: t('nav.sub.presupuestos'), href: '/finanzas/presupuestos' },
+        { label: t('nav.sub.cuentas_pagar'), href: '/finanzas/cuentas-pagar' },
+        { label: t('nav.sub.caja_chica'), href: '/finanzas/caja-chica' },
+        { label: t('nav.sub.flujo_caja'), href: '/finanzas/flujo-caja' },
+        { label: t('nav.sub.reportes'), href: '/finanzas/reportes' }
       ]
     },
     {
       id: 'proyectos',
-      label: 'Proyectos',
+      label: t('nav.proyectos'),
       icon: <FolderKanban className="size-5" />,
       href: '/proyectos',
       subItems: [
-        { label: 'Dashboard', href: '/proyectos' },
-        { label: 'Lista de Proyectos', href: '/proyectos/lista' },
-        { label: 'Tareas', href: '/proyectos/tareas' },
-        { label: 'Cronograma', href: '/proyectos/cronograma' },
-        { label: 'Valorizaciones', href: '/proyectos/valorizaciones' },
-        { label: 'Riesgos', href: '/proyectos/riesgos' },
-        { label: 'Documentos', href: '/proyectos/documentos' }
+        { label: t('nav.sub.dashboard'), href: '/proyectos' },
+        { label: t('nav.sub.lista_proyectos'), href: '/proyectos/lista' },
+        { label: t('nav.sub.tareas'), href: '/proyectos/tareas' },
+        { label: t('nav.sub.cronograma'), href: '/proyectos/cronograma' },
+        { label: t('nav.sub.valorizaciones'), href: '/proyectos/valorizaciones' },
+        { label: t('nav.sub.riesgos'), href: '/proyectos/riesgos' },
+        { label: t('nav.sub.documentos'), href: '/proyectos/documentos' }
       ]
     },
     {
       id: 'flota',
-      label: 'Flota',
+      label: t('nav.flota'),
       icon: <Truck className="size-5" />,
       href: '/flota',
       subItems: [
-        { 
-          label: 'Dashboard', 
+        {
+          label: t('nav.sub.dashboard'),
           href: '/flota',
           id: 'flota-dashboard',
         },
-        { 
-          label: 'Vehículos', 
+        {
+          label: t('nav.sub.vehiculos'),
           href: '/flota/vehiculos',
           id: 'flota-vehiculos',
         },
-        { 
-          label: 'Mantenimientos', 
+        {
+          label: t('nav.sub.mantenimientos'),
           href: '/flota/mantenimientos',
           id: 'flota-mantenimientos',
         },
         {
-          label: 'Análisis Preventivo',
+          label: t('nav.sub.analisis_preventivo'),
           href: '/flota/analisis-preventivo',
           id: 'flota-analisis-preventivo',
         },
         {
-          label: 'Monitoreo GPS',
+          label: t('nav.sub.monitoreo_gps'),
           href: '/flota/gps',
           id: 'flota-gps',
         },
         {
-          label: 'Reporte Vehículos',
+          label: t('nav.sub.reporte_vehiculos'),
           href: '/flota/reportes/vehiculos',
           id: 'flota-reportes-vehiculos',
         },
-        { 
-          label: 'Reporte Mantenimientos',
+        {
+          label: t('nav.sub.reporte_mantenimientos'),
           href: '/flota/reportes/mantenimientos',
           id: 'flota-reportes-mantenimientos',
         },
-        { 
-          label: 'Reporte Documentos',
+        {
+          label: t('nav.sub.reporte_documentos'),
           href: '/flota/reportes/documentos',
           id: 'flota-reportes-documentos',
         }
@@ -207,86 +249,177 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
     },
     {
       id: 'biomedico',
-      label: 'Biomédico',
+      label: t('nav.biomedico'),
       icon: <Activity className="size-5" />,
       href: '/biomedico',
       subItems: [
-        { label: 'Dashboard', href: '/biomedico' },
-        { label: 'Equipos', href: '/biomedico/equipos' },
-        { label: 'Mantenimientos', href: '/biomedico/mantenimientos' },
-        { label: 'Calibraciones', href: '/biomedico/calibraciones' },
-        { label: 'Incidencias', href: '/biomedico/incidencias' },
-        { label: 'Documentos', href: '/biomedico/documentos' }
+        { label: t('nav.sub.dashboard'), href: '/biomedico' },
+        { label: t('nav.sub.equipos'), href: '/biomedico/equipos' },
+        { label: t('nav.sub.mantenimientos'), href: '/biomedico/mantenimientos' },
+        { label: t('nav.sub.calibraciones'), href: '/biomedico/calibraciones' },
+        { label: t('nav.sub.incidencias'), href: '/biomedico/incidencias' },
+        { label: t('nav.sub.documentos'), href: '/biomedico/documentos' },
+        { label: t('nav.sub.contratos_servicio', 'Contratos'), href: '/biomedico/contratos' }
       ]
     },
     {
       id: 'crm',
-      label: 'CRM',
+      label: t('nav.crm'),
       icon: <UserCircle className="size-5" />,
       href: '/crm',
       subItems: [
-        { label: 'Dashboard', href: '/crm' },
-        { label: 'Clientes', href: '/crm/clientes' },
-        { label: 'Oportunidades', href: '/crm/oportunidades' },
-        { label: 'Actividades', href: '/crm/actividades' }
+        { label: t('nav.sub.dashboard'), href: '/crm' },
+        { label: t('nav.sub.clientes'), href: '/crm/clientes' },
+        { label: t('nav.sub.oportunidades'), href: '/crm/oportunidades' },
+        { label: t('nav.sub.actividades'), href: '/crm/actividades' }
       ]
     },
     {
       id: 'bi',
-      label: 'BI & Reportería',
+      label: t('nav.bi'),
       icon: <BarChart3 className="size-5" />,
-      href: '/bi'
+      href: '/bi',
+      subItems: [
+        { label: t('nav.sub.dashboard'), href: '/bi', id: 'bi-dashboard' },
+        { label: t('nav.sub.reporte_cruzado'), href: '/bi/cruzado', id: 'bi-cruzado' },
+      ]
     },
     {
       id: 'admin',
-      label: 'Administración',
+      label: t('nav.admin'),
       icon: <Settings className="size-5" />,
       href: '/admin',
       subItems: [
-        { label: 'Usuarios y Roles', href: '/admin/usuarios', id: 'admin-usuarios' }
+        { label: t('nav.sub.usuarios_roles'), href: '/admin/usuarios', id: 'admin-usuarios' },
+        { label: t('nav.sub.catalogs'), href: '/admin/catalogos', id: 'admin-catalogos' },
+        { label: t('nav.sub.approval_flow'), href: '/admin/flujo-aprobacion', id: 'admin-flujo-aprobacion' },
+        { label: t('nav.sub.cost_centers', 'Centros de Costo'), href: '/admin/centros-costo', id: 'admin-centros-costo' }
       ]
     }
   ];
 
+  // Auto-expandir el menú padre cuando cambia la ruta
+  useEffect(() => {
+    const parentItem = navItems.find(item =>
+      item.subItems && (
+        currentRoute === item.href ||
+        currentRoute.startsWith(item.href + '/')
+      )
+    );
+    if (parentItem && !expandedItems.includes(parentItem.id)) {
+      setExpandedItems(prev => [...prev, parentItem.id]);
+    }
+  }, [currentRoute]);
+
   const toggleExpand = (itemId: string) => {
-    setExpandedItems(prev => 
-      prev.includes(itemId) 
+    setExpandedItems(prev =>
+      prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
         : [...prev, itemId]
     );
   };
 
   const getSubItemIcon = (href: string) => {
+    // Dashboard (genérico)
     if (href.includes('dashboard')) return <LayoutDashboard className="size-4" />;
+    // Flota
     if (href.includes('vehiculos')) return <Car className="size-4" />;
-    if (href.includes('mantenimientos')) return <Wrench className="size-4" />;
-    if (href.includes('gps')) return <MapPin className="size-4" />;
+    if (href.includes('mantenimientos') && !href.includes('reporte')) return <Wrench className="size-4" />;
+    if (href.includes('analisis-preventivo') || href.includes('analisis_preventivo')) return <Gauge className="size-4" />;
+    if (href.includes('gps') || href.includes('monitoreo')) return <MapPin className="size-4" />;
+    if (href.includes('reporte-vehiculos') || href.includes('reporte_vehiculos')) return <FileBarChart className="size-4" />;
+    if (href.includes('reporte-mantenimientos') || href.includes('reporte_mantenimientos')) return <FileCheck className="size-4" />;
+    if (href.includes('reporte-documentos') || href.includes('reporte_documentos')) return <FileText className="size-4" />;
+    // Proveedores
+    if (href.includes('directorio')) return <Building2 className="size-4" />;
+    if (href.includes('evaluaciones')) return <Star className="size-4" />;
+    if (href.includes('contratos')) return <Handshake className="size-4" />;
+    if (href.includes('talleres')) return <Wrench className="size-4" />;
+    if (href.includes('categorias')) return <Layers className="size-4" />;
+    // Compras
+    if (href.includes('requerimientos')) return <ClipboardCheck className="size-4" />;
+    if (href.includes('cotizaciones')) return <FileText className="size-4" />;
+    if (href.includes('ordenes-compra') || href.includes('ordenes_compra')) return <ShoppingBag className="size-4" />;
+    if (href.includes('recepciones')) return <PackageSearch className="size-4" />;
+    // Inventario
+    if (href.includes('productos') || href.includes('articulos')) return <BoxIcon className="size-4" />;
+    if (href.includes('almacenes')) return <Archive className="size-4" />;
+    if (href.includes('movimientos')) return <ArrowRightLeft className="size-4" />;
+    if (href.includes('ordenes')) return <ListChecks className="size-4" />;
+    if (href.includes('stock')) return <AlertCircle className="size-4" />;
+    // Contabilidad
+    if (href.includes('plan-cuentas') || href.includes('plan_cuentas')) return <BookOpen className="size-4" />;
+    if (href.includes('periodos')) return <CalendarDays className="size-4" />;
+    if (href.includes('libro-diario') || href.includes('libro_diario')) return <BookOpenCheck className="size-4" />;
+    if (href.includes('comprobantes')) return <Receipt className="size-4" />;
+    if (href.includes('reg-compras') || href.includes('reg_compras')) return <ShoppingCart className="size-4" />;
+    if (href.includes('reg-ventas') || href.includes('reg_ventas')) return <CreditCard className="size-4" />;
+    // Finanzas
+    if (href.includes('transacciones')) return <ArrowRightLeft className="size-4" />;
+    if (href.includes('presupuestos')) return <Calculator className="size-4" />;
+    if (href.includes('cuentas-pagar') || href.includes('cuentas_pagar')) return <CreditCard className="size-4" />;
+    if (href.includes('caja-chica') || href.includes('caja_chica')) return <Wallet className="size-4" />;
+    if (href.includes('flujo-caja') || href.includes('flujo_caja')) return <TrendingUp className="size-4" />;
+    if (href.includes('reportes')) return <BarChart3 className="size-4" />;
+    // Proyectos
+    if (href.includes('lista') || href.includes('proyectos/lista')) return <FolderKanban className="size-4" />;
+    if (href.includes('tareas')) return <ListChecks className="size-4" />;
+    if (href.includes('cronograma')) return <CalendarDays className="size-4" />;
+    if (href.includes('valorizaciones')) return <DollarSign className="size-4" />;
+    if (href.includes('riesgos')) return <AlertTriangle className="size-4" />;
+    if (href.includes('documentos')) return <FileText className="size-4" />;
+    // Biomédico
+    if (href.includes('equipos')) return <Thermometer className="size-4" />;
+    if (href.includes('calibraciones')) return <Cog className="size-4" />;
+    if (href.includes('incidencias')) return <AlertCircle className="size-4" />;
+    // CRM
+    if (href.includes('clientes')) return <Users className="size-4" />;
+    if (href.includes('oportunidades')) return <Target className="size-4" />;
+    if (href.includes('actividades')) return <PhoneCall className="size-4" />;
+    // BI
+    if (href.includes('cruzado')) return <FileBarChart className="size-4" />;
+    // Admin
+    if (href.includes('usuarios')) return <Users className="size-4" />;
+    if (href.includes('catalogos') || href.includes('catalogs')) return <Cog className="size-4" />;
+    if (href.includes('flujo-aprobacion') || href.includes('approval')) return <GitBranch className="size-4" />;
+    if (href.includes('centros-costo') || href.includes('cost_centers')) return <Hash className="size-4" />;
     return null;
   };
 
   const isSubItemActive = (subItemHref: string) => {
-    // Match exacto para Dashboard de Flota
-    if (subItemHref === '/flota') {
-      return currentRoute === '/flota' || currentRoute === '/flota/';
+    const moduleRoots = navItems
+      .filter(i => i.subItems)
+      .map(i => i.href);
+    if (moduleRoots.includes(subItemHref)) {
+      return currentRoute === subItemHref || currentRoute === subItemHref + '/';
     }
-    
-    // Match por prefijo para sub-rutas
-    // Esto permite que /flota/vehiculos/VH-001 active el submenú "Vehículos"
-    // y que /flota/mantenimientos/OT-2024-002 active "Mantenimientos"
     return currentRoute.startsWith(subItemHref + '/') || currentRoute === subItemHref;
   };
 
   return (
     <aside className="w-64 bg-card border-r border-border h-screen flex flex-col lg:fixed lg:left-0 lg:top-0">
-      {/* Logo */}
-      <div className="h-16 flex items-center px-6 border-b border-border shrink-0 bg-gradient-to-r from-primary/5 to-transparent">
-        <div className="flex items-center gap-3">
-          <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
-            <Building2 className="size-5 text-primary-foreground" />
-          </div>
-          <div>
-            <span className="text-base font-bold text-foreground">Memphis ERP</span>
-            <p className="text-xs text-muted-foreground leading-none">Sistema Integrado</p>
+      {/* Logo — branding por TENANT (nombre e imagen del cliente) */}
+      <div className="h-16 flex items-center px-4 border-b border-border shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Logo del tenant si existe, sino ícono Memphis como fallback */}
+          {tenantLogoUrl ? (
+            <img
+              src={tenantLogoUrl}
+              alt={tenantName ?? PLATFORM.name}
+              className="size-8 rounded-lg object-contain bg-white dark:bg-gray-900 p-0.5"
+            />
+          ) : (
+            <div className="size-8 shrink-0 flex items-center justify-center">
+              <MemphisIconSVG className="size-8" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <span className="text-sm font-bold text-foreground truncate block">
+              {tenantName ?? PLATFORM.name}
+            </span>
+            <p className="text-xs text-muted-foreground leading-none truncate">
+              {PLATFORM.tagline}
+            </p>
           </div>
         </div>
       </div>
@@ -314,8 +447,11 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
                 }`}
                 onClick={() => {
                   if (item.subItems) {
-                    toggleExpand(item.id);
-                    onModuleChange(item.id, item.subItems[0].href);
+                    if (expandedItems.includes(item.id)) {
+                      setExpandedItems(prev => prev.filter(id => id !== item.id));
+                    } else {
+                      setExpandedItems(prev => [...prev, item.id]);
+                    }
                   } else {
                     onModuleChange(item.id);
                   }
@@ -376,9 +512,10 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         <Button
           variant="ghost"
           className="w-full justify-start text-muted-foreground hover:text-foreground"
+          onClick={() => onModuleChange('admin')}
         >
           <Settings className="size-5" />
-          <span className="ml-3">Configuración</span>
+          <span className="ml-3">{t('nav.settings')}</span>
         </Button>
       </div>
     </aside>

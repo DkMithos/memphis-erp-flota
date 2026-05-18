@@ -79,7 +79,7 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
           </AlertDescription>
         </Alert>
         <Button variant="outline" onClick={() => onNavigate?.('/compras/cotizaciones')}>
-          <ArrowLeft className="size-4 mr-2" />
+          <ArrowLeft className="size-4" />
           Volver a Cotizaciones
         </Button>
       </div>
@@ -142,7 +142,7 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <Button variant="ghost" size="sm" onClick={() => onNavigate?.('/compras/cotizaciones')}>
-            <ArrowLeft className="size-4 mr-2" />
+            <ArrowLeft className="size-4" />
             Volver a Cotizaciones
           </Button>
           <div className="flex items-center gap-3 mt-2">
@@ -153,7 +153,7 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
               <div className="flex items-center gap-2">
                 <h2 className="text-xl">{cotizacion.id}</h2>
                 <Badge className={estadoConfig.className}>
-                  <estadoConfig.icon className="size-3 mr-1" />
+                  <estadoConfig.icon className="size-3" />
                   {estadoConfig.label}
                 </Badge>
               </div>
@@ -165,25 +165,25 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
         <div className="flex items-center gap-2">
           {puedeRechazar && (
             <Button variant="destructive" onClick={() => setShowRechazarDialog(true)}>
-              <XCircle className="size-4 mr-2" />
+              <XCircle className="size-4" />
               Rechazar
             </Button>
           )}
           {puedeAprobar && (
             <Button variant="default" className="bg-green-600 hover:bg-green-700" onClick={handleAprobar}>
-              <CheckCircle className="size-4 mr-2" />
+              <CheckCircle className="size-4" />
               Aprobar
             </Button>
           )}
           {puedeEditar && (
             <Button onClick={() => onNavigate?.(`/compras/cotizaciones/${cotizacionId}/editar`)}>
-              <Edit className="size-4 mr-2" />
+              <Edit className="size-4" />
               Editar
             </Button>
           )}
           {puedeAnular && (
             <Button variant="outline" onClick={() => setShowAnularDialog(true)}>
-              <Ban className="size-4 mr-2" />
+              <Ban className="size-4" />
               Anular
             </Button>
           )}
@@ -261,7 +261,7 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
                 size="sm"
                 onClick={() => onNavigate?.(`/compras/requerimientos/${requerimiento.id}`)}
               >
-                <ExternalLink className="size-4 mr-2" />
+                <ExternalLink className="size-4" />
                 Ver Detalle
               </Button>
             </div>
@@ -278,7 +278,7 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
           </CardTitle>
           {cotizacion.estado === 'aprobada' && (
             <Button onClick={() => onNavigate?.(`/compras/ordenes/nuevo?cot=${cotizacion.id}&tipo=oc`)} size="sm">
-              <Plus className="size-4 mr-2" />
+              <Plus className="size-4" />
               Generar Orden
             </Button>
           )}
@@ -305,7 +305,7 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
                           <Badge variant="outline" className="font-mono">{orden.id}</Badge>
                           <Badge variant="outline">{orden.tipo === 'oc' ? 'OC' : 'OS'}</Badge>
                           <Badge className={estadoOrdenConfig.className}>
-                            <estadoOrdenConfig.icon className="size-3 mr-1" />
+                            <estadoOrdenConfig.icon className="size-3" />
                             {estadoOrdenConfig.label}
                           </Badge>
                         </div>
@@ -319,7 +319,7 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
                       size="sm"
                       onClick={() => onNavigate?.(`/compras/ordenes/${orden.id}`)}
                     >
-                      <Eye className="size-4 mr-2" />
+                      <Eye className="size-4" />
                       Ver
                     </Button>
                   </div>

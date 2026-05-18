@@ -62,7 +62,7 @@ import {
   type CampaignRecommendation
 } from '../../../lib/flota/preventive-analytics';
 import { TipoOT, CriticidadOT, OT_TIPO_CONFIG, OT_CRITICIDAD_CONFIG } from '../../../lib/flota/ot-config';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface FlotaPreventiveAnalyticsProps {
   onNavigate: (route: string) => void;

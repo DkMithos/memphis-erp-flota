@@ -3,7 +3,7 @@
  * Conectado a Supabase — tabla talleres
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { dbTalleres } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import type { TallerDB } from '../supabase/types';
@@ -119,6 +119,8 @@ function mapFromDB(row: TallerDB): TallerFrontend {
 export function TalleresProvider({ children }: { children: React.ReactNode }) {
   const { tenantId, user } = useAuth();
   const [talleres, setTalleres] = useState<TallerFrontend[]>([]);
+  const talleresRef = useRef(talleres);
+  useEffect(() => { talleresRef.current = talleres; }, [talleres]);
   const [loading, setLoading] = useState(true);
 
   const fetchTalleres = useCallback(async () => {
@@ -189,11 +191,7 @@ export function TalleresProvider({ children }: { children: React.ReactNode }) {
   ): Promise<CrudResult> => {
     if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-    let found = false;
-    setTalleres(prev => {
-      found = prev.some(t => t._dbId === dbId);
-      return prev;
-    });
+    const found = talleresRef.current.some(t => t._dbId === dbId);
     if (!found) return { exito: false, errores: ['Taller no encontrado'] };
 
     const ahora = new Date().toISOString();

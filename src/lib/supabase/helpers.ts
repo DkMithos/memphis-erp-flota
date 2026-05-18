@@ -5,7 +5,7 @@
  */
 
 import { supabase } from "./client";
-import type { EvaluacionProveedor, ContratoProveedor, TallerDB, RolDB, UsuarioTenantDB, ArticuloDB, AlmacenDB, CategoriaInventarioDB, MovimientoInventarioDB, ClienteDB, OportunidadDB, ActividadCRMDB, TransaccionDB, PresupuestoDB, CajaChicaDB, GastoCajaChicaDB, ProyectoDB, FaseProyectoDB, TareaProyectoDB, MiembroProyectoDB } from "./types";
+import type { EvaluacionProveedor, ContratoProveedor, TallerDB, RolDB, UsuarioTenantDB, ArticuloDB, AlmacenDB, CategoriaInventarioDB, MovimientoInventarioDB, ClienteDB, OportunidadDB, ActividadCRMDB, TransaccionDB, PresupuestoDB, CajaChicaDB, GastoCajaChicaDB, ProyectoDB, FaseProyectoDB, TareaProyectoDB, MiembroProyectoDB, CentroCostoDB, ClienteBioInsert, ClienteBioUpdate, SedeInsert, SedeUpdate, AreaClinicaInsert, AreaClinicaUpdate } from "./types";
 
 // =============================================================================
 // HELPER BASE — obtiene tenant_id del usuario autenticado
@@ -127,6 +127,70 @@ export const dbOrdenesTrabajo = {
 };
 
 // =============================================================================
+// BIOMÉDICO — CLIENTES / SEDES / ÁREAS CLÍNICAS
+// =============================================================================
+
+export const dbClientesBio = {
+  list: () =>
+    supabase.from("clientes_bio").select("*").order("nombre"),
+
+  getById: (id: string) =>
+    supabase.from("clientes_bio").select("*").eq("id", id).single(),
+
+  create: (data: ClienteBioInsert) =>
+    supabase.from("clientes_bio").insert(data).select().single(),
+
+  update: (id: string, data: ClienteBioUpdate) =>
+    supabase.from("clientes_bio").update(data).eq("id", id).select().single(),
+};
+
+export const dbSedes = {
+  listByCliente: (clienteId: string) =>
+    supabase.from("sedes").select("*").eq("cliente_id", clienteId).order("nombre"),
+
+  list: () =>
+    supabase.from("sedes").select("*, cliente:clientes_bio(codigo, nombre)").order("nombre"),
+
+  getById: (id: string) =>
+    supabase.from("sedes").select("*").eq("id", id).single(),
+
+  create: (data: SedeInsert) =>
+    supabase.from("sedes").insert(data).select().single(),
+
+  update: (id: string, data: SedeUpdate) =>
+    supabase.from("sedes").update(data).eq("id", id).select().single(),
+};
+
+export const dbAreasClincias = {
+  listBySede: (sedeId: string) =>
+    supabase.from("areas_clinicas").select("*").eq("sede_id", sedeId).order("nombre"),
+
+  list: () =>
+    supabase
+      .from("areas_clinicas")
+      .select("*, sede:sedes(codigo, nombre, cliente_id)")
+      .order("nombre"),
+
+  create: (data: AreaClinicaInsert) =>
+    supabase.from("areas_clinicas").insert(data).select().single(),
+
+  update: (id: string, data: AreaClinicaUpdate) =>
+    supabase.from("areas_clinicas").update(data).eq("id", id).select().single(),
+};
+
+export const dbHistorialUbicacion = {
+  listByEquipo: (equipoId: string) =>
+    supabase
+      .from("historial_ubicacion_equipo")
+      .select("*")
+      .eq("equipo_id", equipoId)
+      .order("fecha_cambio", { ascending: false }),
+
+  create: (data: object) =>
+    supabase.from("historial_ubicacion_equipo").insert(data).select().single(),
+};
+
+// =============================================================================
 // BIOMÉDICO — EQUIPOS
 // =============================================================================
 
@@ -142,6 +206,14 @@ export const dbEquiposBiomedicos = {
 
   update: (id: string, data: object) =>
     supabase.from("equipos_biomedicos").update(data).eq("id", id).select().single(),
+
+  getByPublicToken: (token: string) =>
+    supabase
+      .from("equipos_biomedicos")
+      .select("*")
+      .eq("public_token", token)
+      .eq("public_view_enabled", true)
+      .maybeSingle(),
 };
 
 // =============================================================================
@@ -699,7 +771,9 @@ export const dbGastosCajaChica = {
 
 export const dbProyectos = {
   list: (tenantId: string) =>
-    supabase.from('proyectos').select('*').eq('tenant_id', tenantId)
+    supabase.from('proyectos')
+      .select('*, fases:fases_proyecto(*), tareas:tareas_proyecto(*), miembros:miembros_proyecto(*)')
+      .eq('tenant_id', tenantId)
       .order('creado_en', { ascending: false }),
   getWithDetails: (id: string) =>
     supabase.from('proyectos')
@@ -736,3 +810,23 @@ export const dbMiembrosProyecto = {
     supabase.from('miembros_proyecto').update(data).eq('id', id).select().single(),
   delete: (id: string) => supabase.from('miembros_proyecto').delete().eq('id', id),
 };
+
+// =============================================================================
+// CENTROS DE COSTO
+// =============================================================================
+
+export const dbCentrosCosto = {
+  /** Lista centros de costo activos del tenant */
+  list: () => supabase.from('centros_costo').select('*').eq('activo', true).order('codigo'),
+  /** Lista todos (incluyendo inactivos) */
+  listAll: () => supabase.from('centros_costo').select('*').order('codigo'),
+  /** Obtiene un centro de costo por UUID */
+  getById: (id: string) => supabase.from('centros_costo').select('*').eq('id', id).single(),
+  /** Crea un centro de costo */
+  create: (data: Omit<CentroCostoDB, 'id' | 'creado_en'>) =>
+    supabase.from('centros_costo').insert(data).select().single(),
+  /** Actualiza un centro de costo */
+  update: (id: string, data: Partial<Omit<CentroCostoDB, 'id' | 'tenant_id' | 'creado_en'>>) =>
+    supabase.from('centros_costo').update(data).eq('id', id).select().single(),
+};
+

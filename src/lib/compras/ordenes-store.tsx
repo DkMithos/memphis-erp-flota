@@ -4,10 +4,11 @@
  * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../supabase/client';
 import { dbOrdenesCompra } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
+import { validateTransition, ORDEN_TRANSITIONS } from '../shared/state-machine';
 import type {
   OrdenCompra as OrdenCompraDB,
   OrdenItem as OrdenItemDB,
@@ -75,6 +76,10 @@ export interface Orden {
   rechazadoPor: string | null;
   rechazadoEn: string | null;
   motivoRechazo: string | null;
+
+  // Imputación dual
+  proyectoId: string | null;
+  centroCostoId: string | null;
 
   // Control de ejecución
   enEjecucionDesde: string | null;
@@ -168,7 +173,11 @@ function mapFromDB(row: OrdenWithRelations): Orden {
     anulada: 'anulada',
   };
 
-  const estadoFrontend = estadoMap[row.estado] ?? ('borrador' as EstadoOrden);
+  // Si estado DB es 'aprobada' pero tiene en_ejecucion_desde, es en_ejecucion en frontend
+  let estadoFrontend = estadoMap[row.estado] ?? ('borrador' as EstadoOrden);
+  if (row.estado === 'aprobada' && row.en_ejecucion_desde) {
+    estadoFrontend = 'en_ejecucion' as EstadoOrden;
+  }
 
   return {
     id: row.numero,
@@ -186,12 +195,14 @@ function mapFromDB(row: OrdenWithRelations): Orden {
     impuestos: row.igv,
     total: row.total,
     condiciones: row.condiciones_pago,
+    proyectoId: row.proyecto_id ?? null,
+    centroCostoId: row.centro_costo_id ?? null,
     aprobadoPor: row.aprobado_por,
     aprobadoEn: row.aprobado_en,
-    rechazadoPor: null,
-    rechazadoEn: null,
-    motivoRechazo: null,
-    enEjecucionDesde: null,
+    rechazadoPor: row.rechazado_por ?? null,
+    rechazadoEn: row.rechazado_en ?? null,
+    motivoRechazo: row.motivo_rechazo ?? null,
+    enEjecucionDesde: row.en_ejecucion_desde ?? null,
     auditoria: {
       creadoPor: row.creado_por ?? '',
       creadoEn: row.creado_en,
@@ -225,10 +236,12 @@ function estadoFrontendToDb(estadoFrontend: EstadoOrden): string {
 export function OrdenStoreProvider({ children }: { children: React.ReactNode }) {
   const { tenantId, user, profile } = useAuth();
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
+  const ordenesRef = useRef(ordenes);
+  useEffect(() => { ordenesRef.current = ordenes; }, [ordenes]);
   const [loading, setLoading] = useState(true);
 
   const usuarioActual = {
-    email: user?.email ?? profile?.email ?? 'admin@memphis.com.pe',
+    email: user?.email ?? profile?.email ?? 'admin@kesa.com',
     nombre: profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Usuario',
     rol: (profile?.rol as RolUsuario) ?? ('admin_sistemas' as RolUsuario),
   };
@@ -337,27 +350,23 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
 
       const dbRow = inserted as OrdenCompraDB;
 
-      const itemsInserted: OrdenItemDB[] = [];
-      for (const item of itemsConSubtotal) {
-        const { data: itemData, error: errItem } = await supabase
-          .from('orden_items')
-          .insert({
-            tenant_id: tenantId,
-            orden_id: dbRow.id,
-            descripcion: item.descripcion.trim(),
-            unidad: item.unidad,
-            cantidad: item.cantidad,
-            precio_unitario: item.precioUnitario,
-          })
-          .select()
-          .single();
-
-        if (errItem) {
-          console.error('[ORDENES] Error al crear item:', errItem.message);
-        } else if (itemData) {
-          itemsInserted.push(itemData as OrdenItemDB);
-        }
+      // Insert items en batch (atómico)
+      const itemsPayload = itemsConSubtotal.map(item => ({
+        tenant_id: tenantId,
+        orden_id: dbRow.id,
+        descripcion: item.descripcion.trim(),
+        unidad: item.unidad,
+        cantidad: item.cantidad,
+        precio_unitario: item.precioUnitario,
+      }));
+      const { data: itemsData, error: errItems } = await supabase
+        .from('orden_items')
+        .insert(itemsPayload)
+        .select();
+      if (errItems) {
+        console.error('[ORDENES] Error al crear items:', errItems.message);
       }
+      const itemsInserted = (itemsData ?? []) as OrdenItemDB[];
 
       const nueva = mapFromDB({
         ...dbRow,
@@ -381,11 +390,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
     async (id: string, input: ActualizarOrdenInput): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setOrdenes(prev => {
-        dbId = prev.find(o => o.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = ordenesRef.current.find(o => o.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
 
       const ahora = new Date().toISOString();
@@ -421,23 +426,19 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
       if (input.items !== undefined && tenantId) {
         await supabase.from('orden_items').delete().eq('orden_id', dbId);
 
-        const newItemsInserted: OrdenItemDB[] = [];
-        for (const item of input.items) {
-          const { data: itemData } = await supabase
-            .from('orden_items')
-            .insert({
-              tenant_id: tenantId,
-              orden_id: dbId,
-              descripcion: item.descripcion.trim(),
-              unidad: item.unidad,
-              cantidad: item.cantidad,
-              precio_unitario: item.precioUnitario,
-            })
-            .select()
-            .single();
-
-          if (itemData) newItemsInserted.push(itemData as OrdenItemDB);
-        }
+        const itemsPayload = input.items.map(item => ({
+          tenant_id: tenantId,
+          orden_id: dbId,
+          descripcion: item.descripcion.trim(),
+          unidad: item.unidad,
+          cantidad: item.cantidad,
+          precio_unitario: item.precioUnitario,
+        }));
+        const { data: newItemsData } = await supabase
+          .from('orden_items')
+          .insert(itemsPayload)
+          .select();
+        const newItemsInserted = (newItemsData ?? []) as OrdenItemDB[];
 
         setOrdenes(prev =>
           prev.map(o => {
@@ -493,11 +494,14 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
     async (id: string, nuevoEstado: EstadoOrden): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setOrdenes(prev => {
-        dbId = prev.find(o => o.id === id)?._dbId;
-        return prev;
-      });
+      // Validar transición de estado
+      const ordActual = ordenes.find(o => o.id === id);
+      if (ordActual) {
+        const check = validateTransition(ordActual.estado, nuevoEstado, ORDEN_TRANSITIONS, `Orden ${id}`);
+        if (!check.valid) return { exito: false, errores: [check.error] };
+      }
+
+      const dbId = ordenesRef.current.find(o => o.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
 
       const ahora = new Date().toISOString();
@@ -529,11 +533,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
     async (id: string, aprobadoPor: string): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setOrdenes(prev => {
-        dbId = prev.find(o => o.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = ordenesRef.current.find(o => o.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
 
       const ahora = new Date().toISOString();
@@ -577,16 +577,15 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
     async (id: string, rechazadoPor: string, motivo: string): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setOrdenes(prev => {
-        dbId = prev.find(o => o.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = ordenesRef.current.find(o => o.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
 
       const ahora = new Date().toISOString();
       const { error } = await dbOrdenesCompra.update(dbId, {
-        estado: 'borrador', // rejected goes back to draft
+        estado: 'rechazada', // rejected state
+        rechazado_por: rechazadoPor,
+        rechazado_en: ahora,
+        motivo_rechazo: motivo.trim(),
         modificado_por: user.id,
         modificado_en: ahora,
       });
@@ -601,7 +600,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
           o.id === id
             ? {
                 ...o,
-                estado: 'borrador' as EstadoOrden,
+                estado: 'rechazada' as EstadoOrden,
                 rechazadoPor,
                 rechazadoEn: ahora,
                 motivoRechazo: motivo.trim(),
@@ -620,17 +619,14 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
     async (id: string): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setOrdenes(prev => {
-        dbId = prev.find(o => o.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = ordenesRef.current.find(o => o.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
 
       const ahora = new Date().toISOString();
       // Map en_ejecucion to aprobada in DB (DB doesn't have en_ejecucion)
       const { error } = await dbOrdenesCompra.update(dbId, {
         estado: 'aprobada',
+        en_ejecucion_desde: ahora,
         modificado_por: user.id,
         modificado_en: ahora,
       });
@@ -662,11 +658,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
     async (id: string, motivo: string): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setOrdenes(prev => {
-        dbId = prev.find(o => o.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = ordenesRef.current.find(o => o.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
 
       const ahora = new Date().toISOString();
@@ -710,11 +702,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
     async (ordenId: string, esCompleta: boolean): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setOrdenes(prev => {
-        dbId = prev.find(o => o.id === ordenId)?._dbId;
-        return prev;
-      });
+      const dbId = ordenesRef.current.find(o => o.id === ordenId)?._dbId;
       if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
 
       const nuevoEstado: EstadoOrden = esCompleta ? 'recepcion_completa' : 'recepcion_parcial';

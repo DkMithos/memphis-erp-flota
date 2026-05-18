@@ -1,17 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-  <!-- Memphis Maquinarias - Icono M dorado -->
-  <rect width="64" height="64" rx="12" fill="#1a1a1a"/>
-  <!-- Columna izquierda -->
-  <polygon points="8,12 18,12 18,52 8,52" fill="#D4A017"/>
-  <polygon points="8,52 18,52 12,42" fill="#B8891A" opacity="0.7"/>
-  <!-- Columna centro-izquierda -->
-  <polygon points="20,12 28,12 24,52" fill="#D4A017"/>
-  <polygon points="20,12 28,12 24,30" fill="#E8C040" opacity="0.8"/>
-  <!-- Columna centro-derecha -->
-  <polygon points="36,12 44,12 40,52" fill="#D4A017"/>
-  <polygon points="36,12 44,12 40,30" fill="#E8C040" opacity="0.8"/>
-  <!-- Columna derecha -->
-  <polygon points="46,12 56,12 56,52 46,52" fill="#D4A017"/>
-  <polygon points="46,52 56,52 50,42" fill="#B8891A" opacity="0.7"/>
+<svg id="Capa_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 29.2 32">
+  <!-- Generator: Adobe Illustrator 29.5.1, SVG Export Plug-In . SVG Version: 2.1.0 Build 141)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: #b99113;
+      }
+
+      .st1 {
+        fill: #f7c019;
+      }
+    </style>
+  </defs>
+  <polygon class="st0" points="29.2 32 29.2 7.1 21.26 3.29 21.26 22.28 29.2 32"/>
+  <polygon class="st0" points="14.6 0 14.6 32 19.56 2.42 14.6 0"/>
+  <polygon class="st1" points="14.6 0 14.6 32 9.63 2.42 14.6 0"/>
+  <polygon class="st1" points="21.26 3.29 29.2 32 21.26 22.28 21.26 3.29"/>
+  <polygon class="st1" points="0 32 0 7.1 7.93 3.29 7.93 22.28 0 32"/>
+  <polygon class="st0" points="7.93 3.29 0 32 7.93 22.28 7.93 3.29"/>
 </svg>

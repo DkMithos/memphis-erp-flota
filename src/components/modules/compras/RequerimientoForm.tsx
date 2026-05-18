@@ -25,6 +25,7 @@ import {
   type CentroCosto
 } from '../../../lib/compras/requerimientos-config';
 import { toast } from 'sonner';
+import { ProyectoSelector } from '../../shared/ProyectoSelector';
 
 interface RequerimientoFormProps {
   requerimientoId?: string; // Si existe, es edición
@@ -245,7 +246,7 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
           </p>
         </div>
         <Button variant="ghost" onClick={onCancel}>
-          <X className="size-4 mr-2" />
+          <X className="size-4" />
           Cancelar
         </Button>
       </div>
@@ -356,6 +357,16 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
                     onChange={(e) => setFormData({ ...formData, fechaRequerida: e.target.value })}
                   />
                 </div>
+
+                {/* Proyecto (imputación) */}
+                <div className="space-y-2">
+                  <Label>Proyecto</Label>
+                  <ProyectoSelector
+                    value={formData.proyectoId ?? null}
+                    onChange={(v) => setFormData({ ...formData, proyectoId: v })}
+                    nullable
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -396,7 +407,7 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
                       setFormData({ ...formData, solicitanteEmail: e.target.value });
                       if (errors.solicitanteEmail) setErrors({ ...errors, solicitanteEmail: '' });
                     }}
-                    placeholder="email@memphis.com.pe"
+                    placeholder="email@kesa.com"
                   />
                   {errors.solicitanteEmail && (
                     <p className="text-sm text-red-600 flex items-center gap-1">
@@ -415,7 +426,7 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
               <div className="flex items-center justify-between">
                 <CardTitle>Items del Requerimiento *</CardTitle>
                 <Button type="button" variant="outline" size="sm" onClick={agregarItem}>
-                  <Plus className="size-4 mr-2" />
+                  <Plus className="size-4" />
                   Agregar Item
                 </Button>
               </div>
@@ -554,11 +565,11 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
           {/* Botones de Acción */}
           <div className="flex items-center justify-end gap-3">
             <Button type="button" variant="outline" onClick={onCancel}>
-              <X className="size-4 mr-2" />
+              <X className="size-4" />
               Cancelar
             </Button>
             <Button type="submit" variant="secondary" disabled={isSubmitting}>
-              <Save className="size-4 mr-2" />
+              <Save className="size-4" />
               Guardar como Borrador
             </Button>
             <Button 
@@ -566,7 +577,7 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
               onClick={(e) => handleSubmit(e, true)} 
               disabled={isSubmitting}
             >
-              <Save className="size-4 mr-2" />
+              <Save className="size-4" />
               {isSubmitting ? 'Guardando...' : 'Guardar y Enviar'}
             </Button>
           </div>

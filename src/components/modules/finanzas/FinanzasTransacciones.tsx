@@ -18,6 +18,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { ProyectoSelector } from '../../shared/ProyectoSelector';
+import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
 import { toast } from 'sonner';
 import { useFinanzas, type Transaccion } from '@/lib/finanzas/finanzas-store';
 import { useAuth } from '@/auth/AuthProvider';
@@ -32,10 +34,10 @@ function fmt(n: number, moneda = 'PEN') {
 }
 
 const ESTADO_COLORS: Record<string, string> = {
-  pendiente: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-  aprobada: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  rechazada: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-  pagada: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+  pendiente: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  aprobada: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  rechazada: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  pagada: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
   anulada: 'bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400',
 };
 
@@ -82,6 +84,8 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
 
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<FormData>(defaultForm);
+  const [trxProyectoId, setTrxProyectoId] = useState<string | null>(null);
+  const [trxCentroCostoId, setTrxCentroCostoId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -122,12 +126,11 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
 
   const handleSave = async () => {
     if (!tenantId) return;
-    if (!formData.categoria.trim() || !formData.descripcion.trim() || !formData.monto || !formData.fecha) {
-      toast.error('Completa los campos obligatorios');
-      return;
-    }
+    if (!formData.descripcion.trim()) { toast.error('La descripción es obligatoria'); return; }
+    if (!formData.categoria.trim()) { toast.error('La categoría es obligatoria'); return; }
+    if (!formData.tipo) { toast.error('El tipo de transacción es obligatorio'); return; }
     const monto = parseFloat(formData.monto);
-    if (isNaN(monto) || monto <= 0) { toast.error('Monto inválido'); return; }
+    if (!formData.monto || isNaN(monto) || monto <= 0) { toast.error('El monto debe ser mayor a 0'); return; }
 
     setSaving(true);
     try {
@@ -208,7 +211,7 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
           <p className="text-muted-foreground mt-1">Ingresos, egresos y transferencias financieras</p>
         </div>
         <Button onClick={() => setShowForm(true)}>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Nueva Transacción
         </Button>
       </div>
@@ -344,10 +347,10 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
                         <Badge
                           className={`text-xs ${
                             t.tipo === 'ingreso'
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                               : t.tipo === 'egreso'
-                              ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                              ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
                           }`}
                         >
                           {t.tipo}
@@ -553,6 +556,27 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
                 onChange={e => setField('comprobanteUrl', e.target.value)}
                 className="mt-1"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Proyecto</Label>
+                <ProyectoSelector
+                  value={trxProyectoId}
+                  onChange={setTrxProyectoId}
+                  nullable
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Centro de Costo</Label>
+                <CentroCostoSelector
+                  value={trxCentroCostoId}
+                  onChange={setTrxCentroCostoId}
+                  nullable
+                  className="mt-1"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>

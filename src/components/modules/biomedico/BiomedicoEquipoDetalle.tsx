@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { 
+import {
   ArrowLeft,
   Edit,
   Wrench,
@@ -17,7 +17,8 @@ import {
   AlertCircle,
   Clock,
   CheckCircle,
-  Download
+  Download,
+  QrCode
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
@@ -35,27 +36,30 @@ import {
 import { Alert, AlertDescription } from '../../ui/alert';
 import { useEquiposStore } from '../../../lib/biomedico/equipos-store';
 import { useMantenimientosStore } from '../../../lib/biomedico/mantenimientos-store';
-import { 
+import {
   EQUIPO_ESTADO_CONFIG,
   EQUIPO_CATEGORIA_CONFIG,
   EQUIPO_RIESGO_CONFIG
 } from '../../../lib/biomedico/equipos-config';
 import { MANTENIMIENTO_ESTADO_CONFIG, MANTENIMIENTO_TIPO_CONFIG } from '../../../lib/biomedico/mantenimientos-config';
+import { EquipoQRSection } from './EquipoQRSection';
 
 interface BiomedicoEquipoDetalleProps {
   codigoEquipo: string;
   onNavigateToEditar?: () => void;
   onNavigateToMantenimiento?: (numeroMantenimiento: string) => void;
   onNavigateToNuevoMantenimiento?: () => void;
+  onNavigate?: (route: string) => void;
   onBack?: () => void;
 }
 
-export function BiomedicoEquipoDetalle({ 
+export function BiomedicoEquipoDetalle({
   codigoEquipo,
   onNavigateToEditar,
   onNavigateToMantenimiento,
   onNavigateToNuevoMantenimiento,
-  onBack 
+  onNavigate,
+  onBack
 }: BiomedicoEquipoDetalleProps) {
   const { obtenerEquipoPorCodigo } = useEquiposStore();
   const { obtenerMantenimientosPorEquipo } = useMantenimientosStore();
@@ -74,7 +78,7 @@ export function BiomedicoEquipoDetalle({
           </AlertDescription>
         </Alert>
         <Button variant="outline" onClick={onBack}>
-          <ArrowLeft className="size-4 mr-2" />
+          <ArrowLeft className="size-4" />
           Volver
         </Button>
       </div>
@@ -102,14 +106,14 @@ export function BiomedicoEquipoDetalle({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={onBack}>
-            <ArrowLeft className="size-4 mr-2" />
+            <ArrowLeft className="size-4" />
             Volver
           </Button>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold">{equipo.nombre}</h1>
               <Badge variant={estadoConfig.variant} className={estadoConfig.className}>
-                <EstadoIcon className="size-3 mr-1" />
+                <EstadoIcon className="size-3" />
                 {estadoConfig.label}
               </Badge>
             </div>
@@ -120,15 +124,15 @@ export function BiomedicoEquipoDetalle({
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
-            <Download className="size-4 mr-2" />
+            <Download className="size-4" />
             Exportar
           </Button>
           <Button variant="outline" size="sm" onClick={onNavigateToEditar}>
-            <Edit className="size-4 mr-2" />
+            <Edit className="size-4" />
             Editar
           </Button>
           <Button size="sm" onClick={onNavigateToNuevoMantenimiento}>
-            <Wrench className="size-4 mr-2" />
+            <Wrench className="size-4" />
             Crear Mantenimiento
           </Button>
         </div>
@@ -137,11 +141,11 @@ export function BiomedicoEquipoDetalle({
       {/* Badges de clasificación */}
       <div className="flex gap-2">
         <Badge variant="secondary" className={categoriaConfig.className}>
-          <CategoriaIcon className="size-3 mr-1" />
+          <CategoriaIcon className="size-3" />
           {categoriaConfig.label}
         </Badge>
         <Badge variant={riesgoConfig.variant} className={riesgoConfig.className}>
-          <RiesgoIcon className="size-3 mr-1" />
+          <RiesgoIcon className="size-3" />
           Riesgo {riesgoConfig.label}
         </Badge>
       </div>
@@ -169,16 +173,20 @@ export function BiomedicoEquipoDetalle({
       <Tabs value={tabActual} onValueChange={setTabActual}>
         <TabsList>
           <TabsTrigger value="general">
-            <FileText className="size-4 mr-2" />
+            <FileText className="size-4" />
             General
           </TabsTrigger>
           <TabsTrigger value="mantenimientos">
-            <Wrench className="size-4 mr-2" />
+            <Wrench className="size-4" />
             Mantenimientos ({mantStats.total})
           </TabsTrigger>
           <TabsTrigger value="garantia">
-            <Shield className="size-4 mr-2" />
+            <Shield className="size-4" />
             Garantía
+          </TabsTrigger>
+          <TabsTrigger value="qr">
+            <QrCode className="size-4" />
+            QR
           </TabsTrigger>
         </TabsList>
 
@@ -450,7 +458,7 @@ export function BiomedicoEquipoDetalle({
               <div className="flex items-center justify-between">
                 <CardTitle>Historial de Mantenimientos</CardTitle>
                 <Button size="sm" onClick={onNavigateToNuevoMantenimiento}>
-                  <Wrench className="size-4 mr-2" />
+                  <Wrench className="size-4" />
                   Nuevo Mantenimiento
                 </Button>
               </div>
@@ -490,7 +498,7 @@ export function BiomedicoEquipoDetalle({
                           </TableCell>
                           <TableCell>
                             <Badge variant={estadoMantConfig.variant} className={estadoMantConfig.className}>
-                              <EstadoMantIcon className="size-3 mr-1" />
+                              <EstadoMantIcon className="size-3" />
                               {estadoMantConfig.label}
                             </Badge>
                           </TableCell>
@@ -534,13 +542,13 @@ export function BiomedicoEquipoDetalle({
                 <div className="text-sm text-muted-foreground">Estado</div>
                 <div className="flex items-center gap-2">
                   {equipo.garantia.vigente ? (
-                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
-                      <CheckCircle className="size-3 mr-1" />
+                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                      <CheckCircle className="size-3" />
                       Vigente
                     </Badge>
                   ) : (
-                    <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-                      <AlertCircle className="size-3 mr-1" />
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400">
+                      <AlertCircle className="size-3" />
                       Vencida
                     </Badge>
                   )}
@@ -564,6 +572,24 @@ export function BiomedicoEquipoDetalle({
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Tab: QR */}
+        <TabsContent value="qr" className="space-y-6">
+          {onNavigate ? (
+            <EquipoQRSection
+              codigoEquipo={codigoEquipo}
+              onNavigate={onNavigate}
+            />
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">
+                  La funcionalidad QR no está disponible en este contexto.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

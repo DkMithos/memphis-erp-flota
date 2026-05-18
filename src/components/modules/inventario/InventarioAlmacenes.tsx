@@ -31,11 +31,11 @@ const TIPOS_ALMACEN: { value: TipoAlmacen; label: string }[] = [
 
 function TipoAlmacenBadge({ tipo }: { tipo: TipoAlmacen }) {
   const map: Record<TipoAlmacen, string> = {
-    general: 'bg-gray-100 text-gray-800',
-    repuestos: 'bg-purple-100 text-purple-800',
-    suministros: 'bg-blue-100 text-blue-800',
-    herramientas: 'bg-yellow-100 text-yellow-800',
-    consumibles: 'bg-orange-100 text-orange-800',
+    general: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
+    repuestos: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+    suministros: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    herramientas: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+    consumibles: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
   };
   const label = TIPOS_ALMACEN.find(t => t.value === tipo)?.label ?? tipo;
   return <Badge className={`${map[tipo]} hover:${map[tipo]}`}>{label}</Badge>;
@@ -134,7 +134,7 @@ export function InventarioAlmacenes({ onNavigate: _onNavigate }: Props) {
           <p className="text-muted-foreground mt-1">{almacenes.length} almacén(es) registrado(s)</p>
         </div>
         <Button onClick={abrirNuevo}>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Nuevo Almacén
         </Button>
       </div>

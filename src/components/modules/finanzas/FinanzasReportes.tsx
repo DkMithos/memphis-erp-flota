@@ -15,6 +15,7 @@ import {
   PieChart, CheckCircle, AlertCircle
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase/client';
+import { convertirAMonedaBase, formatMontoBase } from '../../../lib/shared/currency-utils';
 import { exportToPDF } from '../../../lib/shared/export-utils';
 import { useAuth } from '../../../auth/AuthProvider';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -75,11 +76,11 @@ export function FinanzasReportes({ onNavigate }: ReportesProps) {
 
       const [resTx, resTxMes, resPres, resLineas] = await Promise.all([
         supabase.from('transacciones')
-          .select('tipo, monto, estado')
+          .select('tipo, monto, moneda, estado')
           .gte('fecha', inicioAnio).lte('fecha', finAnio)
           .in('estado', ['aprobada', 'pagada']),
         supabase.from('transacciones')
-          .select('tipo, monto, estado')
+          .select('tipo, monto, moneda, estado')
           .gte('fecha', desdeEsteMs)
           .in('estado', ['aprobada', 'pagada']),
         supabase.from('presupuestos')
@@ -88,11 +89,11 @@ export function FinanzasReportes({ onNavigate }: ReportesProps) {
           .select('categoria, monto_presupuestado, monto_ejecutado'),
       ]);
 
-      const txs = (resTx.data ?? []) as Array<{ tipo: string; monto: number; estado: string }>;
-      const txsMes = (resTxMes.data ?? []) as Array<{ tipo: string; monto: number }>;
+      const txs = (resTx.data ?? []) as Array<{ tipo: string; monto: number; moneda: string; estado: string }>;
+      const txsMes = (resTxMes.data ?? []) as Array<{ tipo: string; monto: number; moneda: string }>;
 
-      const totalIngresos = txs.filter(t => t.tipo === 'ingreso').reduce((s, t) => s + t.monto, 0);
-      const totalEgresos = txs.filter(t => t.tipo === 'egreso').reduce((s, t) => s + t.monto, 0);
+      const totalIngresos = txs.filter(t => t.tipo === 'ingreso').reduce((s, t) => s + convertirAMonedaBase(t.monto, t.moneda), 0);
+      const totalEgresos = txs.filter(t => t.tipo === 'egreso').reduce((s, t) => s + convertirAMonedaBase(t.monto, t.moneda), 0);
       const utilidad = totalIngresos - totalEgresos;
 
       setResumen({
@@ -100,8 +101,8 @@ export function FinanzasReportes({ onNavigate }: ReportesProps) {
         totalEgresos,
         utilidad,
         margenUtilidad: totalIngresos > 0 ? (utilidad / totalIngresos) * 100 : 0,
-        ingresosMes: txsMes.filter(t => t.tipo === 'ingreso').reduce((s, t) => s + t.monto, 0),
-        egresosMes: txsMes.filter(t => t.tipo === 'egreso').reduce((s, t) => s + t.monto, 0),
+        ingresosMes: txsMes.filter(t => t.tipo === 'ingreso').reduce((s, t) => s + convertirAMonedaBase(t.monto, t.moneda), 0),
+        egresosMes: txsMes.filter(t => t.tipo === 'egreso').reduce((s, t) => s + convertirAMonedaBase(t.monto, t.moneda), 0),
         transaccionesCount: txs.length,
       });
 
@@ -193,11 +194,11 @@ export function FinanzasReportes({ onNavigate }: ReportesProps) {
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={exportCSV}>
-            <Download className="size-4 mr-2" />
+            <Download className="size-4" />
             CSV
           </Button>
           <Button variant="outline" size="sm" onClick={exportPDF}>
-            <Download className="size-4 mr-2" />
+            <Download className="size-4" />
             PDF
           </Button>
         </div>
@@ -338,9 +339,9 @@ export function FinanzasReportes({ onNavigate }: ReportesProps) {
                               {pct > 100 ? (
                                 <Badge variant="destructive" className="text-xs">Excedido</Badge>
                               ) : pct > 90 ? (
-                                <Badge className="bg-orange-100 text-orange-800 text-xs">En límite</Badge>
+                                <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 text-xs">En límite</Badge>
                               ) : (
-                                <Badge className="bg-green-100 text-green-800 text-xs">Normal</Badge>
+                                <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-xs">Normal</Badge>
                               )}
                             </TableCell>
                           </TableRow>

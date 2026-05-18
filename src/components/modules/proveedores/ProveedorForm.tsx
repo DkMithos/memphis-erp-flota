@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Save, X, AlertCircle } from 'lucide-react';
+import { Save, X, AlertCircle, CreditCard, Receipt, Plus, Trash2, CheckCircle, Loader2, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -15,6 +15,8 @@ import {
 import { Alert, AlertDescription } from '../../ui/alert';
 import { Badge } from '../../ui/badge';
 import { Checkbox } from '../../ui/checkbox';
+import { SunatRucInput } from '../../ui/SunatRucInput';
+import { formatearDireccionSunat, consultarRUC, type SunatRucResult } from '../../../lib/sunat/sunat-service';
 import { useProveedorStore, type NuevoProveedorInput } from '../../../lib/proveedores/proveedores-store';
 import {
   validarRUC,
@@ -24,8 +26,32 @@ import {
   validarDireccion,
   PROVEEDOR_CATEGORIA_LABELS,
   type TipoProveedor,
-  type CategoriaProveedor
 } from '../../../lib/proveedores/proveedores-config';
+
+// ─── Tipos locales del formulario (extienden NuevoProveedorInput con campos de UI)
+type CuentaBancariaForm = {
+  banco: string;
+  numeroCuenta: string;
+  cci: string;
+  tipoCuenta: 'corriente' | 'ahorros' | 'detraccion';
+  moneda: 'PEN' | 'USD';
+  titular?: string;
+};
+
+type DatosTributariosForm = {
+  sujetoDetraccion: boolean;
+  tasaDetraccion?: number;
+  codigoBienServicio?: string;
+  sujetoRetencion: boolean;
+  // Campos de UI — no se persisten en store
+  verificadoSunat?: boolean;
+  verificacionSunatEn?: string | null;
+};
+
+type ProveedorFormState = Omit<Partial<NuevoProveedorInput>, 'datosBancarios' | 'datosTributarios'> & {
+  cuentasBancarias: CuentaBancariaForm[];
+  datosTributarios?: DatosTributariosForm;
+};
 import { toast } from 'sonner';
 
 interface ProveedorFormProps {
@@ -36,11 +62,13 @@ interface ProveedorFormProps {
 
 export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFormProps) {
   const { obtenerProveedorPorId, crearProveedor, actualizarProveedor, obtenerProveedorPorRUC } = useProveedorStore();
+  // Categorías derivadas del config centralizado (no del store — el store no las expone)
+  const categorias = Object.entries(PROVEEDOR_CATEGORIA_LABELS).map(([key, label]) => ({ key, label }));
   const isEditing = !!proveedorId;
   const proveedorExistente = isEditing ? obtenerProveedorPorId(proveedorId) : undefined;
 
-  // Estado del formulario
-  const [formData, setFormData] = useState<Partial<NuevoProveedorInput>>({
+  // Estado del formulario — usa ProveedorFormState (superset de NuevoProveedorInput)
+  const [formData, setFormData] = useState<ProveedorFormState>({
     ruc: '',
     razonSocial: '',
     nombreComercial: '',
@@ -53,12 +81,15 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
     ciudad: 'Lima',
     pais: 'Perú',
     contactoPrincipal: undefined,
+    cuentasBancarias: [],
+    datosTributarios: { sujetoDetraccion: false, tasaDetraccion: undefined, codigoBienServicio: undefined, sujetoRetencion: false, verificadoSunat: false },
     observaciones: ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showContactoPrincipal, setShowContactoPrincipal] = useState(false);
+  const [verifyingSunat, setVerifyingSunat] = useState(false);
 
   // Cargar datos si es edición
   useEffect(() => {
@@ -76,6 +107,24 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
         ciudad: proveedorExistente.ciudad,
         pais: proveedorExistente.pais,
         contactoPrincipal: proveedorExistente.contactoPrincipal || undefined,
+        // Mapear datosBancarios (objeto único del store) → cuentasBancarias[] (UI multi-cuenta)
+        cuentasBancarias: proveedorExistente.datosBancarios
+          ? [{
+              banco: proveedorExistente.datosBancarios.banco,
+              numeroCuenta: proveedorExistente.datosBancarios.numeroCuenta,
+              cci: proveedorExistente.datosBancarios.cci ?? '',
+              tipoCuenta: proveedorExistente.datosBancarios.tipoCuenta,
+              moneda: proveedorExistente.datosBancarios.moneda,
+              titular: '',
+            }]
+          : [],
+        datosTributarios: {
+          sujetoDetraccion: proveedorExistente.datosTributarios?.sujetoDetraccion ?? false,
+          tasaDetraccion: proveedorExistente.datosTributarios?.tasaDetraccion ?? undefined,
+          codigoBienServicio: proveedorExistente.datosTributarios?.codigoBienServicio ?? undefined,
+          sujetoRetencion: proveedorExistente.datosTributarios?.sujetoRetencion ?? false,
+          verificadoSunat: false,
+        },
         observaciones: proveedorExistente.observaciones || ''
       });
       setShowContactoPrincipal(!!proveedorExistente.contactoPrincipal);
@@ -184,9 +233,9 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
   };
 
   // Manejar submit
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       toast.error('Por favor, corrige los errores del formulario');
       return;
@@ -195,16 +244,59 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
     setIsSubmitting(true);
 
     try {
+      // Mapear cuentasBancarias[0] → datosBancarios (el store persiste 1 cuenta)
+      const primeraCuenta = formData.cuentasBancarias?.[0];
+      const datosBancarios: NuevoProveedorInput['datosBancarios'] = primeraCuenta?.banco
+        ? {
+            banco: primeraCuenta.banco,
+            numeroCuenta: primeraCuenta.numeroCuenta,
+            cci: primeraCuenta.cci || undefined,
+            // 'detraccion' es tipo de UI — persiste como 'corriente' en DB
+            tipoCuenta: primeraCuenta.tipoCuenta === 'detraccion' ? 'corriente' : primeraCuenta.tipoCuenta,
+            moneda: primeraCuenta.moneda,
+          }
+        : undefined;
+
+      // Limpiar campos de UI (verificadoSunat, etc.) antes de pasar al store
+      const datosTributarios: NuevoProveedorInput['datosTributarios'] = formData.datosTributarios
+        ? {
+            sujetoDetraccion: formData.datosTributarios.sujetoDetraccion,
+            tasaDetraccion: formData.datosTributarios.tasaDetraccion,
+            codigoBienServicio: formData.datosTributarios.codigoBienServicio,
+            sujetoRetencion: formData.datosTributarios.sujetoRetencion,
+          }
+        : undefined;
+
+      const input: NuevoProveedorInput = {
+        ruc: formData.ruc!,
+        razonSocial: formData.razonSocial!,
+        nombreComercial: formData.nombreComercial,
+        tipo: formData.tipo!,
+        categorias: formData.categorias!,
+        email: formData.email!,
+        telefono: formData.telefono!,
+        telefonoAlternativo: formData.telefonoAlternativo,
+        direccion: formData.direccion!,
+        ciudad: formData.ciudad!,
+        pais: formData.pais!,
+        contactoPrincipal: showContactoPrincipal ? formData.contactoPrincipal : undefined,
+        datosBancarios,
+        datosTributarios,
+        observaciones: formData.observaciones,
+      };
+
       if (isEditing) {
-        // Actualizar proveedor
-        actualizarProveedor(proveedorId, formData);
-        toast.success('Proveedor actualizado correctamente');
-        onSuccess(proveedorId);
+        const result = await actualizarProveedor(proveedorId, input);
+        if (result.exito) {
+          toast.success('Proveedor actualizado correctamente');
+          onSuccess(proveedorId);
+        } else {
+          toast.error(result.errores?.[0] ?? 'Error al actualizar');
+        }
       } else {
-        // Crear proveedor
-        const nuevoProveedor = crearProveedor(formData as NuevoProveedorInput);
-        toast.success(`Proveedor ${nuevoProveedor.id} creado correctamente`);
-        onSuccess(nuevoProveedor.id);
+        const nuevo = await crearProveedor(input);
+        toast.success(`Proveedor ${nuevo.id} creado correctamente`);
+        onSuccess(nuevo.id);
       }
     } catch (error) {
       toast.error('Error al guardar el proveedor');
@@ -214,12 +306,65 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
     }
   };
 
+  // Autocompletar desde SUNAT
+  const handleSunatData = (data: SunatRucResult) => {
+    const dir = formatearDireccionSunat(data);
+    setFormData(prev => ({
+      ...prev,
+      razonSocial: data.razonSocial || prev.razonSocial,
+      nombreComercial: data.nombreComercial || prev.nombreComercial,
+      // SUNAT retorna 'persona_natural'|'empresa' — mapear a TipoProveedor válido
+      tipo: prev.tipo ?? (data.tipo === 'persona_natural' ? 'servicios' : 'bienes'),
+      ...(dir ? { direccion: dir } : {}),
+      ...(data.departamento ? { ciudad: data.departamento } : {}),
+    }));
+    // Limpiar errores de los campos rellenados automáticamente
+    setErrors(prev => ({ ...prev, razonSocial: '', ruc: '' }));
+    toast.success('Datos cargados desde SUNAT', { description: data.razonSocial });
+  };
+
+  // Verificar datos tributarios en SUNAT
+  const handleVerificarSunat = async () => {
+    if (!formData.ruc || formData.ruc.length !== 11) {
+      toast.error('Ingresa el RUC primero');
+      return;
+    }
+    setVerifyingSunat(true);
+    try {
+      const data = await consultarRUC(formData.ruc);
+      if (!data) {
+        toast.error('RUC no encontrado en SUNAT');
+        return;
+      }
+      const ahora = new Date().toISOString();
+      // Determine detracción from condicion/estado data
+      const esActivo = data.estado?.toUpperCase().includes('ACTIVO');
+      const esHabido = data.condicion?.toUpperCase().includes('HABIDO');
+      setFormData(prev => ({
+        ...prev,
+        datosTributarios: {
+          ...prev.datosTributarios!,
+          verificadoSunat: true,
+          verificacionSunatEn: ahora,
+          // Only set sujetoDetraccion if SUNAT indicates it (API may include it)
+          ...(data.estado && { _sunatEstado: data.estado }),
+          ...(data.condicion && { _sunatCondicion: data.condicion }),
+        }
+      }));
+      toast.success('Verificado en SUNAT', {
+        description: `${data.razonSocial} — ${data.estado} / ${data.condicion}`,
+      });
+    } finally {
+      setVerifyingSunat(false);
+    }
+  };
+
   // Manejar cambio de categorías
-  const handleCategoriaToggle = (categoria: CategoriaProveedor) => {
+  const handleCategoriaToggle = (categoriaKey: string) => {
     const current = formData.categorias || [];
-    const updated = current.includes(categoria)
-      ? current.filter(c => c !== categoria)
-      : [...current, categoria];
+    const updated = current.includes(categoriaKey)
+      ? current.filter(c => c !== categoriaKey)
+      : [...current, categoriaKey];
     setFormData({ ...formData, categorias: updated });
     if (errors.categorias) setErrors({ ...errors, categorias: '' });
   };
@@ -237,7 +382,7 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
           </p>
         </div>
         <Button variant="ghost" onClick={onCancel}>
-          <X className="size-4 mr-2" />
+          <X className="size-4" />
           Cancelar
         </Button>
       </div>
@@ -252,25 +397,21 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* RUC */}
-                <div className="space-y-2">
+                {/* RUC con búsqueda SUNAT */}
+                <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="ruc">RUC *</Label>
-                  <Input
-                    id="ruc"
-                    value={formData.ruc}
-                    onChange={(e) => {
-                      setFormData({ ...formData, ruc: e.target.value });
-                      if (errors.ruc) setErrors({ ...errors, ruc: '' });
-                    }}
-                    placeholder="20512345678"
-                    maxLength={11}
-                    disabled={isEditing} // No se puede editar RUC
-                  />
-                  {errors.ruc && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle className="size-3" />
-                      {errors.ruc}
-                    </p>
+                  {isEditing ? (
+                    <Input value={formData.ruc} disabled className="bg-muted" />
+                  ) : (
+                    <SunatRucInput
+                      value={formData.ruc ?? ''}
+                      onChange={(v) => {
+                        setFormData({ ...formData, ruc: v });
+                        if (errors.ruc) setErrors({ ...errors, ruc: '' });
+                      }}
+                      onSunatData={handleSunatData}
+                      error={errors.ruc}
+                    />
                   )}
                 </div>
 
@@ -333,22 +474,22 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
                 </div>
               </div>
 
-              {/* Categorías */}
+              {/* Categorías — dinámicas desde DB */}
               <div className="space-y-2">
                 <Label>Categorías *</Label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 border rounded-lg p-4">
-                  {Object.entries(PROVEEDOR_CATEGORIA_LABELS).map(([key, label]) => (
-                    <div key={key} className="flex items-center space-x-2">
+                  {categorias.map(cat => (
+                    <div key={cat.key} className="flex items-center space-x-2">
                       <Checkbox
-                        id={`cat-${key}`}
-                        checked={formData.categorias?.includes(key as CategoriaProveedor)}
-                        onCheckedChange={() => handleCategoriaToggle(key as CategoriaProveedor)}
+                        id={`cat-${cat.key}`}
+                        checked={formData.categorias?.includes(cat.key)}
+                        onCheckedChange={() => handleCategoriaToggle(cat.key)}
                       />
                       <label
-                        htmlFor={`cat-${key}`}
+                        htmlFor={`cat-${cat.key}`}
                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
-                        {label}
+                        {cat.label}
                       </label>
                     </div>
                   ))}
@@ -361,11 +502,10 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
                 )}
                 {formData.categorias && formData.categorias.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.categorias.map(cat => (
-                      <Badge key={cat} variant="secondary">
-                        {PROVEEDOR_CATEGORIA_LABELS[cat]}
-                      </Badge>
-                    ))}
+                    {formData.categorias.map(key => {
+                      const cat = categorias.find(c => c.key === key);
+                      return <Badge key={key} variant="secondary">{cat?.label ?? key}</Badge>;
+                    })}
                   </div>
                 )}
               </div>
@@ -622,6 +762,275 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
             )}
           </Card>
 
+          {/* Datos Bancarios — múltiples cuentas */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="size-5" />
+                  Cuentas Bancarias
+                </CardTitle>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFormData(prev => ({
+                    ...prev,
+                    cuentasBancarias: [
+                      ...(prev.cuentasBancarias ?? []),
+                      { banco: '', tipoCuenta: 'corriente', moneda: 'PEN', numeroCuenta: '', cci: '', titular: '' }
+                    ]
+                  }))}
+                >
+                  <Plus className="size-4" />
+                  Agregar cuenta
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(!formData.cuentasBancarias || formData.cuentasBancarias.length === 0) && (
+                <p className="text-sm text-muted-foreground text-center py-4 border-2 border-dashed rounded-lg">
+                  Sin cuentas bancarias registradas. Haga clic en "Agregar cuenta" para añadir una.
+                </p>
+              )}
+              {formData.cuentasBancarias?.map((cuenta, idx) => (
+                <div key={idx} className="border rounded-lg p-4 space-y-3 relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-muted-foreground">Cuenta #{idx + 1}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 w-7 p-0"
+                      onClick={() => setFormData(prev => ({
+                        ...prev,
+                        cuentasBancarias: prev.cuentasBancarias?.filter((_, i) => i !== idx)
+                      }))}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Banco</Label>
+                      <Select
+                        value={cuenta.banco}
+                        onValueChange={(v) => setFormData(prev => ({
+                          ...prev,
+                          cuentasBancarias: prev.cuentasBancarias?.map((c, i) => i === idx ? { ...c, banco: v } : c)
+                        }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccione banco" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {['BCP', 'BBVA', 'Scotiabank', 'Interbank', 'BanBif', 'Banco Pichincha', 'Mibanco', 'Banco de la Nación', 'Otro'].map(b => (
+                            <SelectItem key={b} value={b}>{b}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs">Tipo de Cuenta</Label>
+                      <Select
+                        value={cuenta.tipoCuenta}
+                        onValueChange={(v) => setFormData(prev => ({
+                          ...prev,
+                          cuentasBancarias: prev.cuentasBancarias?.map((c, i) => i === idx ? { ...c, tipoCuenta: v as 'corriente' | 'ahorros' | 'detraccion' } : c)
+                        }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="corriente">Cuenta Corriente</SelectItem>
+                          <SelectItem value="ahorros">Cuenta de Ahorros</SelectItem>
+                          <SelectItem value="detraccion">Cuenta de Detracción</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs">Moneda</Label>
+                      <Select
+                        value={cuenta.moneda}
+                        onValueChange={(v) => setFormData(prev => ({
+                          ...prev,
+                          cuentasBancarias: prev.cuentasBancarias?.map((c, i) => i === idx ? { ...c, moneda: v as 'PEN' | 'USD' } : c)
+                        }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="PEN">Soles (PEN)</SelectItem>
+                          <SelectItem value="USD">Dólares (USD)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs">Número de Cuenta</Label>
+                      <Input
+                        value={cuenta.numeroCuenta}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          cuentasBancarias: prev.cuentasBancarias?.map((c, i) => i === idx ? { ...c, numeroCuenta: e.target.value } : c)
+                        }))}
+                        placeholder="000-123456789-0-00"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs">CCI (Código Interbancario)</Label>
+                      <Input
+                        value={cuenta.cci}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          cuentasBancarias: prev.cuentasBancarias?.map((c, i) => i === idx ? { ...c, cci: e.target.value } : c)
+                        }))}
+                        placeholder="00219300012345678900"
+                        maxLength={20}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs">Titular (opcional)</Label>
+                      <Input
+                        value={cuenta.titular ?? ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          cuentasBancarias: prev.cuentasBancarias?.map((c, i) => i === idx ? { ...c, titular: e.target.value } : c)
+                        }))}
+                        placeholder="Razón social del titular"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Datos Tributarios */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="size-5" />
+                  Datos Tributarios
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {formData.datosTributarios?.verificadoSunat && (
+                    <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 gap-1">
+                      <CheckCircle className="size-3" />
+                      Verificado SUNAT
+                      {formData.datosTributarios.verificacionSunatEn && (
+                        <span className="text-green-500 ml-1">
+                          · {new Date(formData.datosTributarios.verificacionSunatEn).toLocaleDateString('es-PE')}
+                        </span>
+                      )}
+                    </Badge>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleVerificarSunat}
+                    disabled={verifyingSunat || !formData.ruc || formData.ruc.length !== 11}
+                  >
+                    {verifyingSunat ? (
+                      <><Loader2 className="size-4 animate-spin" />Verificando...</>
+                    ) : (
+                      <><ShieldCheck className="size-4" />Verificar en SUNAT</>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Detracción */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">Sujeto a Detracción</p>
+                    <p className="text-xs text-muted-foreground">El proveedor está sujeto al Sistema de Pago de Obligaciones Tributarias (SPOT)</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={formData.datosTributarios?.sujetoDetraccion}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 ${formData.datosTributarios?.sujetoDetraccion ? 'bg-primary' : 'bg-input'}`}
+                    onClick={() => setFormData(prev => ({
+                      ...prev,
+                      datosTributarios: { sujetoRetencion: false, ...prev.datosTributarios, sujetoDetraccion: !prev.datosTributarios?.sujetoDetraccion }
+                    }))}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-900 transition-transform ${formData.datosTributarios?.sujetoDetraccion ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+
+                {formData.datosTributarios?.sujetoDetraccion && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-0 border-l-2 border-primary/20 pl-4">
+                    <div className="space-y-2">
+                      <Label>Tasa de Detracción (%)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={formData.datosTributarios?.tasaDetraccion ?? ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          datosTributarios: { sujetoDetraccion: true, sujetoRetencion: false, ...prev.datosTributarios, tasaDetraccion: parseFloat(e.target.value) || undefined }
+                        }))}
+                        placeholder="12"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Código Bien/Servicio SUNAT</Label>
+                      <Input
+                        value={formData.datosTributarios?.codigoBienServicio ?? ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          datosTributarios: { sujetoDetraccion: true, sujetoRetencion: false, ...prev.datosTributarios, codigoBienServicio: e.target.value }
+                        }))}
+                        placeholder="Ej: 037 - Demás servicios"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t pt-4">
+                {/* Retención */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">Sujeto a Retención</p>
+                    <p className="text-xs text-muted-foreground">El proveedor está sujeto al Régimen de Retenciones del IGV (3%)</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={formData.datosTributarios?.sujetoRetencion}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 ${formData.datosTributarios?.sujetoRetencion ? 'bg-primary' : 'bg-input'}`}
+                    onClick={() => setFormData(prev => ({
+                      ...prev,
+                      datosTributarios: { sujetoDetraccion: false, ...prev.datosTributarios, sujetoRetencion: !prev.datosTributarios?.sujetoRetencion }
+                    }))}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-900 transition-transform ${formData.datosTributarios?.sujetoRetencion ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+                {formData.datosTributarios?.sujetoRetencion && (
+                  <p className="text-xs text-muted-foreground mt-2 pl-4 border-l-2 border-primary/20">
+                    Tasa aplicable: <strong>3%</strong> — Se retendrá automáticamente en las órdenes de compra/servicio.
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Observaciones */}
           <Card>
             <CardHeader>
@@ -640,11 +1049,11 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
           {/* Botones de Acción */}
           <div className="flex items-center justify-end gap-3">
             <Button type="button" variant="outline" onClick={onCancel}>
-              <X className="size-4 mr-2" />
+              <X className="size-4" />
               Cancelar
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              <Save className="size-4 mr-2" />
+              <Save className="size-4" />
               {isSubmitting ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Crear Proveedor')}
             </Button>
           </div>

@@ -10,13 +10,14 @@ import { toast } from 'sonner';
 import {
   loadModulesConfigFromDB,
   saveModulesConfigToDB,
+  saveModulesConfig,
   MODULES_DEFAULT,
   type ModuleConfig,
 } from '../../../lib/config/modules-config';
 import { useAuth } from '../../../auth/AuthProvider';
 
 export function GestionModulos() {
-  const { tenantId } = useAuth();
+  const { tenantId, loading: authLoading } = useAuth();
   const [modules, setModules] = useState<ModuleConfig[]>(MODULES_DEFAULT);
   const [saving, setSaving] = useState(false);
 
@@ -31,19 +32,41 @@ export function GestionModulos() {
   };
 
   const handleSave = async () => {
-    if (!tenantId) return;
     setSaving(true);
-    await saveModulesConfigToDB(tenantId, modules);
+    const dispatchUpdate = () => window.dispatchEvent(new Event('memphis-modules-updated'));
+
+    if (!tenantId) {
+      saveModulesConfig(modules);
+      dispatchUpdate();
+      setSaving(false);
+      toast.warning('Guardado localmente', {
+        description: 'No se detectó tenant activo. Los cambios aplican solo en este navegador.',
+      });
+      return;
+    }
+
+    const result = await saveModulesConfigToDB(tenantId, modules);
+    dispatchUpdate();
     setSaving(false);
-    window.dispatchEvent(new Event('memphis-modules-updated'));
-    toast.success('Configuración guardada', {
-      description: 'Los módulos del menú se actualizaron para todos los usuarios.',
-    });
+
+    if (result.dbSaved) {
+      toast.success('Configuración guardada', {
+        description: 'Los módulos del menú se actualizaron para todos los usuarios.',
+      });
+    } else {
+      toast.warning('Guardado solo localmente (sin sincronización)', {
+        description: 'Los cambios aplican en este navegador. Error DB: ' + (result.error ?? 'desconocido'),
+      });
+    }
   };
 
   const handleReset = () => {
     setModules([...MODULES_DEFAULT]);
   };
+
+  if (authLoading) {
+    return <div className="py-8 text-center text-sm text-muted-foreground">Cargando configuración...</div>;
+  }
 
   return (
     <div className="space-y-4">
@@ -67,7 +90,7 @@ export function GestionModulos() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{m.label}</span>
                     {locked && <Badge variant="secondary" className="text-xs">Fijo</Badge>}
-                    {!locked && m.enabled && <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-xs">Activo</Badge>}
+                    {!locked && m.enabled && <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100 text-xs">Activo</Badge>}
                     {!locked && !m.enabled && <Badge variant="outline" className="text-xs text-muted-foreground">Inactivo</Badge>}
                   </div>
                   <p className="text-xs text-muted-foreground">{m.descripcion}</p>

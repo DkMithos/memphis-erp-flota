@@ -111,11 +111,11 @@ export function Proyectos() {
       case 'planificacion':
         return <Badge variant="secondary">Planificación</Badge>;
       case 'en_curso':
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">En Curso</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100">En Curso</Badge>;
       case 'en_pausa':
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">En Pausa</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 hover:bg-yellow-100">En Pausa</Badge>;
       case 'completado':
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Completado</Badge>;
+        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100">Completado</Badge>;
       default:
         return <Badge>{estado}</Badge>;
     }
@@ -132,7 +132,7 @@ export function Proyectos() {
           </p>
         </div>
         <Button>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Nuevo Proyecto
         </Button>
       </div>
@@ -320,7 +320,7 @@ export function Proyectos() {
                             ? 'border-green-500'
                             : 'border-border'
                         }`}>
-                          {event.tipo === 'actual' && <div className="size-2 rounded-full bg-white"></div>}
+                          {event.tipo === 'actual' && <div className="size-2 rounded-full bg-white dark:bg-gray-900"></div>}
                           {event.tipo === 'hito' && <CheckCircle2 className="size-3 text-green-500" />}
                         </div>
                       </div>

@@ -169,7 +169,7 @@ export function VehicleQRSection({ vehiculoId, placa, onNavigate }: VehicleQRSec
           <div className="flex flex-col md:flex-row gap-6">
             {/* QR Code */}
             <div className="flex flex-col items-center gap-4">
-              <div className="bg-white p-4 rounded-lg border">
+              <div className="bg-white dark:bg-gray-900 p-4 rounded-lg border">
                 <QRCodeWrapper
                   value={publicUrl}
                   size={180}
@@ -212,7 +212,7 @@ export function VehicleQRSection({ vehiculoId, placa, onNavigate }: VehicleQRSec
                   variant="outline"
                   className="flex-1"
                 >
-                  <Eye className="size-4 mr-2" />
+                  <Eye className="size-4" />
                   Ver Vista Pública
                 </Button>
                 <Button
@@ -220,7 +220,7 @@ export function VehicleQRSection({ vehiculoId, placa, onNavigate }: VehicleQRSec
                   variant="outline"
                   className="flex-1"
                 >
-                  <Printer className="size-4 mr-2" />
+                  <Printer className="size-4" />
                   Imprimir QR
                 </Button>
                 <Button
@@ -228,7 +228,7 @@ export function VehicleQRSection({ vehiculoId, placa, onNavigate }: VehicleQRSec
                   variant="outline"
                   className="flex-1"
                 >
-                  <Copy className="size-4 mr-2" />
+                  <Copy className="size-4" />
                   Copiar URL
                 </Button>
               </div>

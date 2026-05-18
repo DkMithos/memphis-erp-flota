@@ -3,10 +3,10 @@
  * Abstracción de datos para el módulo de Flota.
  * Implementa el patrón Repository para facilitar la migración a API REST.
  */
-import { Vehiculo, ValidacionResult, validarVehiculo } from './vehiculos-config';
+import { Vehiculo, ValidacionResult, validarVehiculo } from '../../lib/flota/vehiculos-config';
 
-const STORAGE_KEY = 'memphis_flota_vehiculos';
-const AUDIT_KEY = 'memphis_flota_auditoria';
+const STORAGE_KEY = 'kesa_flota_vehiculos';
+const AUDIT_KEY = 'kesa_flota_auditoria';
 
 export interface AuditEntry {
   id: string;
@@ -60,11 +60,12 @@ export const VehiculoService = {
     const vins = existentes.map(v => v.vin || '').filter(Boolean);
 
     const validacion = validarVehiculo(nuevo, placas, vins);
-
+    
     if (!validacion.valido) {
       return { exito: false, errores: validacion.errores };
     }
 
+    // Aquí se asignaría el ID real en un backend
     const vehiculoFinal = {
       ...nuevo,
       id: `VH-${(existentes.length + 1).toString().padStart(3, '0')}`,
@@ -73,9 +74,10 @@ export const VehiculoService = {
 
     const updatedList = [...existentes, vehiculoFinal];
     VehiculoService.saveAll(updatedList);
-
-    VehiculoService.logEvent(vehiculoFinal.id, 'CREACION', 'sistema', 'Vehículo creado');
-
+    
+    // Audit Trail
+    VehiculoService.logEvent(vehiculoFinal.id, 'CREACION', 'admin@kesa.com', 'Vehículo creado inicialmente');
+    
     return { exito: true, data: vehiculoFinal };
   },
 
@@ -85,7 +87,7 @@ export const VehiculoService = {
   update: (id: string, patch: Partial<Vehiculo>): { exito: boolean; errores?: string[] } => {
     const existentes = VehiculoService.getAll();
     const index = existentes.findIndex(v => v.id === id);
-
+    
     if (index === -1) return { exito: false, errores: ['Vehículo no encontrado'] };
 
     const vehiculoActualizado = {
@@ -94,17 +96,18 @@ export const VehiculoService = {
       modificadoEn: new Date().toISOString(),
     };
 
+    // Validar unicidad excluyendo el actual
     const placas = existentes.filter(v => v.id !== id).map(v => v.placa);
     const vins = existentes.filter(v => v.id !== id).map(v => v.vin || '').filter(Boolean);
-
+    
     const validacion = validarVehiculo(vehiculoActualizado, placas, vins, id);
     if (!validacion.valido) return { exito: false, errores: validacion.errores };
 
     existentes[index] = vehiculoActualizado as Vehiculo;
     VehiculoService.saveAll(existentes);
-
-    VehiculoService.logEvent(id, 'ACTUALIZACION', 'sistema', JSON.stringify(patch));
-
+    
+    VehiculoService.logEvent(id, 'ACTUALIZACION', 'admin@kesa.com', JSON.stringify(patch));
+    
     return { exito: true };
   },
 

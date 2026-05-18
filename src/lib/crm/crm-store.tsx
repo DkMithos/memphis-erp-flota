@@ -7,6 +7,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { dbClientes, dbOportunidades, dbActividadesCRM } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { logAudit } from '../shared/audit';
+import { validateTransition, OPORTUNIDAD_TRANSITIONS } from '../shared/state-machine';
 import type { ClienteDB, OportunidadDB, ActividadCRMDB } from '../supabase/types';
 
 // ============================================================================
@@ -293,31 +294,31 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     if (!user) return { exito: false };
     const dbData: Partial<ClienteDB> = {
       razon_social: data.razonSocial,
-      nombre_comercial: data.nombreComercial ?? null,
+      nombre_comercial: data.nombreComercial,
       tipo: data.tipo,
-      sector: data.sector ?? null,
+      sector: data.sector,
       estado: data.estado,
-      contacto_nombre: data.contactoNombre ?? null,
-      contacto_cargo: data.contactoCargo ?? null,
-      contacto_telefono: data.contactoTelefono ?? null,
-      contacto_email: data.contactoEmail ?? null,
-      departamento: data.departamento ?? null,
-      provincia: data.provincia ?? null,
-      distrito: data.distrito ?? null,
-      direccion: data.direccion ?? null,
-      ruc: data.ruc ?? null,
-      credito_limite: data.creditoLimite ?? null,
-      credito_dias: data.creditoDias ?? null,
+      contacto_nombre: data.contactoNombre,
+      contacto_cargo: data.contactoCargo,
+      contacto_telefono: data.contactoTelefono,
+      contacto_email: data.contactoEmail,
+      departamento: data.departamento,
+      provincia: data.provincia,
+      distrito: data.distrito,
+      direccion: data.direccion,
+      ruc: data.ruc,
+      credito_limite: data.creditoLimite,
+      credito_dias: data.creditoDias,
       moneda: data.moneda,
-      categoria: data.categoria ?? null,
-      origen: data.origen ?? null,
-      descripcion: data.descripcion ?? null,
-      observaciones: data.observaciones ?? null,
-      ejecutivo_cuenta: data.ejecutivoCuenta ?? null,
+      categoria: data.categoria,
+      origen: data.origen,
+      descripcion: data.descripcion,
+      observaciones: data.observaciones,
+      ejecutivo_cuenta: data.ejecutivoCuenta,
       modificado_por: user.id,
       modificado_en: new Date().toISOString(),
     };
-    // Remove undefined keys
+    // Remove undefined keys so we only update fields that were explicitly passed
     Object.keys(dbData).forEach(k => { if ((dbData as Record<string, unknown>)[k] === undefined) delete (dbData as Record<string, unknown>)[k]; });
     const { data: row, error } = await dbClientes.update(dbId, dbData);
     if (error) { console.error('[CRM] actualizarCliente:', error.message); return { exito: false }; }
@@ -368,6 +369,16 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     data: Partial<Oportunidad>
   ): Promise<{ exito: boolean }> => {
     if (!user) return { exito: false };
+
+    // Validar transición de etapa si se está cambiando
+    if (data.etapa) {
+      const opActual = oportunidades.find(o => o._dbId === dbId);
+      if (opActual && opActual.etapa !== data.etapa) {
+        const check = validateTransition(opActual.etapa, data.etapa, OPORTUNIDAD_TRANSITIONS, 'Oportunidad');
+        if (!check.valid) return { exito: false };
+      }
+    }
+
     const dbData: Partial<OportunidadDB> = {
       titulo: data.titulo,
       descripcion: data.descripcion ?? null,
@@ -433,19 +444,21 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     resultado: string,
     proximaAccion?: string
   ): Promise<{ exito: boolean }> => {
+    const ahora = new Date().toISOString();
     const { error } = await dbActividadesCRM.update(dbId, {
       estado: 'realizada',
       resultado,
       proxima_accion: proximaAccion ?? null,
-      fecha_realizada: new Date().toISOString(),
+      fecha_realizada: ahora,
+      realizado_por: user?.id ?? null,
     });
     if (error) { console.error('[CRM] completarActividad:', error.message); return { exito: false }; }
     setActividades(prev => prev.map(a => a._dbId === dbId
-      ? { ...a, estado: 'realizada' as const, resultado, proximaAccion, fechaRealizada: new Date().toISOString() }
+      ? { ...a, estado: 'realizada' as const, resultado, proximaAccion, fechaRealizada: ahora }
       : a
     ));
     return { exito: true };
-  }, []);
+  }, [user]);
 
   return (
     <CRMContext.Provider value={{

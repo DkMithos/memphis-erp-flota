@@ -66,6 +66,26 @@ export interface Database {
         Insert: GpsSyncLogInsert;
         Update: never;
       };
+      clientes_bio: {
+        Row: ClienteBio;
+        Insert: ClienteBioInsert;
+        Update: ClienteBioUpdate;
+      };
+      sedes: {
+        Row: Sede;
+        Insert: SedeInsert;
+        Update: SedeUpdate;
+      };
+      areas_clinicas: {
+        Row: AreaClinica;
+        Insert: AreaClinicaInsert;
+        Update: AreaClinicaUpdate;
+      };
+      historial_ubicacion_equipo: {
+        Row: HistorialUbicacionEquipo;
+        Insert: Omit<HistorialUbicacionEquipo, 'id'>;
+        Update: never;
+      };
       equipos_biomedicos: {
         Row: EquipoBiomedico;
         Insert: EquipoBiomedicoInsert;
@@ -115,6 +135,156 @@ export interface Database {
         Row: RecepcionItem;
         Insert: RecepcionItemInsert;
         Update: RecepcionItemUpdate;
+      };
+      calibraciones_biomedicas: {
+        Row: CalibracionBiomedica;
+        Insert: Omit<CalibracionBiomedica, 'id' | 'creado_en' | 'equipo'>;
+        Update: Partial<Omit<CalibracionBiomedica, 'id' | 'tenant_id' | 'creado_en' | 'equipo'>>;
+      };
+      incidencias_biomedicas: {
+        Row: IncidenciaBiomedica;
+        Insert: Omit<IncidenciaBiomedica, 'id' | 'creado_en' | 'equipo'>;
+        Update: Partial<Omit<IncidenciaBiomedica, 'id' | 'tenant_id' | 'creado_en' | 'equipo'>>;
+      };
+      documentos_biomedicos: {
+        Row: DocumentoBiomedico;
+        Insert: Omit<DocumentoBiomedico, 'id' | 'creado_en' | 'equipo'>;
+        Update: never;
+      };
+      contratos_bio: {
+        Row: ContratoBioDB;
+        Insert: Omit<ContratoBioDB, 'id' | 'equipo'>;
+        Update: Partial<Omit<ContratoBioDB, 'id' | 'tenant_id' | 'equipo'>>;
+      };
+      evaluaciones_proveedores: {
+        Row: EvaluacionProveedor;
+        Insert: Omit<EvaluacionProveedor, 'id' | 'creado_en' | 'proveedor'>;
+        Update: Partial<Omit<EvaluacionProveedor, 'id' | 'tenant_id' | 'creado_en' | 'proveedor'>>;
+      };
+      contratos_proveedores: {
+        Row: ContratoProveedor;
+        Insert: Omit<ContratoProveedor, 'id' | 'creado_en' | 'proveedor'>;
+        Update: Partial<Omit<ContratoProveedor, 'id' | 'tenant_id' | 'creado_en' | 'proveedor'>>;
+      };
+      talleres: {
+        Row: TallerDB;
+        Insert: Omit<TallerDB, 'id' | 'creado_en' | 'proveedor'>;
+        Update: Partial<Omit<TallerDB, 'id' | 'tenant_id' | 'creado_en' | 'proveedor'>>;
+      };
+      roles: {
+        Row: RolDB;
+        Insert: Omit<RolDB, 'id' | 'creado_en' | 'permisos'>;
+        Update: Partial<Omit<RolDB, 'id' | 'tenant_id' | 'creado_en' | 'permisos'>>;
+      };
+      permisos: {
+        Row: PermisoDBRow;
+        Insert: Omit<PermisoDBRow, 'id'>;
+        Update: Partial<Omit<PermisoDBRow, 'id'>>;
+      };
+      roles_permisos: {
+        Row: { id: string; rol_id: string; permiso_id: string };
+        Insert: { rol_id: string; permiso_id: string };
+        Update: never;
+      };
+      usuarios_tenant: {
+        Row: UsuarioTenantDB;
+        Insert: Omit<UsuarioTenantDB, 'id' | 'creado_en' | 'roles'>;
+        Update: Partial<Omit<UsuarioTenantDB, 'id' | 'tenant_id' | 'creado_en' | 'roles'>>;
+      };
+      usuarios_roles: {
+        Row: UsuarioRolDB;
+        Insert: Omit<UsuarioRolDB, 'id' | 'asignado_en' | 'rol'>;
+        Update: never;
+      };
+      gps_posiciones: {
+        Row: GpsPosicionDB;
+        Insert: Omit<GpsPosicionDB, 'id' | 'recibido_en' | 'vehiculo'>;
+        Update: never;
+      };
+      categorias_inventario: {
+        Row: CategoriaInventarioDB;
+        Insert: Omit<CategoriaInventarioDB, 'id' | 'creado_en'>;
+        Update: Partial<Omit<CategoriaInventarioDB, 'id' | 'tenant_id' | 'creado_en'>>;
+      };
+      almacenes: {
+        Row: AlmacenDB;
+        Insert: Omit<AlmacenDB, 'id' | 'creado_en'>;
+        Update: Partial<Omit<AlmacenDB, 'id' | 'tenant_id' | 'creado_en'>>;
+      };
+      articulos: {
+        Row: ArticuloDB;
+        Insert: Omit<ArticuloDB, 'id' | 'creado_en' | 'categoria'>;
+        Update: Partial<Omit<ArticuloDB, 'id' | 'tenant_id' | 'creado_en' | 'categoria'>>;
+      };
+      movimientos_inventario: {
+        Row: MovimientoInventarioDB;
+        Insert: Omit<MovimientoInventarioDB, 'id' | 'creado_en' | 'articulo' | 'almacen'>;
+        Update: never;
+      };
+      clientes: {
+        Row: ClienteDB;
+        Insert: Omit<ClienteDB, 'id' | 'creado_en'>;
+        Update: Partial<Omit<ClienteDB, 'id' | 'tenant_id' | 'creado_en'>>;
+      };
+      oportunidades: {
+        Row: OportunidadDB;
+        Insert: Omit<OportunidadDB, 'id' | 'creado_en' | 'cliente'>;
+        Update: Partial<Omit<OportunidadDB, 'id' | 'tenant_id' | 'creado_en' | 'cliente'>>;
+      };
+      actividades_crm: {
+        Row: ActividadCRMDB;
+        Insert: Omit<ActividadCRMDB, 'id' | 'creado_en' | 'cliente' | 'oportunidad'>;
+        Update: Partial<Omit<ActividadCRMDB, 'id' | 'tenant_id' | 'creado_en' | 'cliente' | 'oportunidad'>>;
+      };
+      transacciones: {
+        Row: TransaccionDB;
+        Insert: Omit<TransaccionDB, 'id' | 'creado_en'>;
+        Update: Partial<Omit<TransaccionDB, 'id' | 'tenant_id' | 'creado_en'>>;
+      };
+      presupuestos: {
+        Row: PresupuestoDB;
+        Insert: Omit<PresupuestoDB, 'id' | 'creado_en' | 'lineas'>;
+        Update: Partial<Omit<PresupuestoDB, 'id' | 'tenant_id' | 'creado_en' | 'lineas'>>;
+      };
+      presupuesto_lineas: {
+        Row: PresupuestoLineaDB;
+        Insert: Omit<PresupuestoLineaDB, 'id'>;
+        Update: Partial<Omit<PresupuestoLineaDB, 'id' | 'tenant_id'>>;
+      };
+      cajas_chicas: {
+        Row: CajaChicaDB;
+        Insert: Omit<CajaChicaDB, 'id' | 'creado_en'>;
+        Update: Partial<Omit<CajaChicaDB, 'id' | 'tenant_id' | 'creado_en'>>;
+      };
+      gastos_caja_chica: {
+        Row: GastoCajaChicaDB;
+        Insert: Omit<GastoCajaChicaDB, 'id' | 'creado_en' | 'caja'>;
+        Update: Partial<Omit<GastoCajaChicaDB, 'id' | 'tenant_id' | 'creado_en' | 'caja'>>;
+      };
+      proyectos: {
+        Row: ProyectoDB;
+        Insert: Omit<ProyectoDB, 'id' | 'creado_en' | 'fases' | 'tareas' | 'miembros'>;
+        Update: Partial<Omit<ProyectoDB, 'id' | 'tenant_id' | 'creado_en' | 'fases' | 'tareas' | 'miembros'>>;
+      };
+      fases_proyecto: {
+        Row: FaseProyectoDB;
+        Insert: Omit<FaseProyectoDB, 'id'>;
+        Update: Partial<Omit<FaseProyectoDB, 'id' | 'tenant_id'>>;
+      };
+      tareas_proyecto: {
+        Row: TareaProyectoDB;
+        Insert: Omit<TareaProyectoDB, 'id' | 'creado_en'>;
+        Update: Partial<Omit<TareaProyectoDB, 'id' | 'tenant_id' | 'creado_en'>>;
+      };
+      miembros_proyecto: {
+        Row: MiembroProyectoDB;
+        Insert: Omit<MiembroProyectoDB, 'id'>;
+        Update: Partial<Omit<MiembroProyectoDB, 'id' | 'tenant_id'>>;
+      };
+      centros_costo: {
+        Row: CentroCostoDB;
+        Insert: Omit<CentroCostoDB, 'id' | 'creado_en'>;
+        Update: Partial<Omit<CentroCostoDB, 'id' | 'tenant_id' | 'creado_en'>>;
       };
     };
     Functions: {
@@ -208,6 +378,14 @@ export interface Proveedor {
   banco: string | null;
   cuenta_bancaria: string | null;
   cci: string | null;
+  tipo_cuenta: string | null;
+  moneda_cuenta: string | null;
+  sujeto_detraccion: boolean;
+  tasa_detraccion: number | null;
+  codigo_bien_servicio: string | null;
+  sujeto_retencion: boolean;
+  observaciones: string | null;
+  motivo_cambio_estado: string | null;
   creado_por: string | null;
   creado_en: string;
   modificado_por: string | null;
@@ -345,6 +523,8 @@ export interface OrdenTrabajoDB {
   modificado_por: string | null;
   modificado_en: string | null;
   cerrado_por: string | null;
+  proyecto_id?: string | null;
+  centro_costo_id?: string | null;
 }
 export type OrdenTrabajoInsert = Omit<OrdenTrabajoDB, 'id' | 'costo_total' | 'creado_en'>;
 export type OrdenTrabajoUpdate = Partial<Omit<OrdenTrabajoInsert, 'tenant_id' | 'vehiculo_id'>>;
@@ -440,6 +620,92 @@ export interface GpsSyncLog {
 export type GpsSyncLogInsert = Omit<GpsSyncLog, 'id' | 'diferencia' | 'sync_datetime'>;
 
 // =============================================================================
+// BIOMÉDICO — CLIENTES / SEDES / ÁREAS
+// =============================================================================
+
+export interface ClienteBio {
+  id: string;
+  tenant_id: string;
+  codigo: string;
+  nombre: string;
+  ruc: string | null;
+  tipo: 'hospital' | 'clinica' | 'centro_salud' | 'laboratorio' | 'otro';
+  sector: 'publico' | 'privado' | 'mixto';
+  estado: 'activo' | 'inactivo';
+  telefono: string | null;
+  email: string | null;
+  direccion: string | null;
+  distrito: string | null;
+  provincia: string | null;
+  departamento: string | null;
+  contrato_activo: boolean;
+  contrato_inicio: string | null;
+  contrato_fin: string | null;
+  observaciones: string | null;
+  creado_por: string | null;
+  creado_en: string;
+  modificado_por: string | null;
+  modificado_en: string | null;
+}
+export type ClienteBioInsert = Omit<ClienteBio, 'id' | 'creado_en'>;
+export type ClienteBioUpdate = Partial<Omit<ClienteBioInsert, 'tenant_id'>>;
+
+export interface Sede {
+  id: string;
+  tenant_id: string;
+  cliente_id: string;
+  codigo: string;
+  nombre: string;
+  direccion: string | null;
+  distrito: string | null;
+  provincia: string | null;
+  departamento: string | null;
+  telefono: string | null;
+  responsable: string | null;
+  estado: 'activo' | 'inactivo';
+  creado_por: string | null;
+  creado_en: string;
+  modificado_por: string | null;
+  modificado_en: string | null;
+}
+export type SedeInsert = Omit<Sede, 'id' | 'creado_en'>;
+export type SedeUpdate = Partial<Omit<SedeInsert, 'tenant_id'>>;
+
+export interface AreaClinica {
+  id: string;
+  tenant_id: string;
+  sede_id: string;
+  codigo: string;
+  nombre: string;
+  tipo: string | null;
+  piso: string | null;
+  responsable: string | null;
+  estado: 'activo' | 'inactivo';
+  creado_por: string | null;
+  creado_en: string;
+  modificado_por: string | null;
+  modificado_en: string | null;
+}
+export type AreaClinicaInsert = Omit<AreaClinica, 'id' | 'creado_en'>;
+export type AreaClinicaUpdate = Partial<Omit<AreaClinicaInsert, 'tenant_id'>>;
+
+export interface HistorialUbicacionEquipo {
+  id: string;
+  tenant_id: string;
+  equipo_id: string;
+  cliente_id_anterior: string | null;
+  sede_id_anterior: string | null;
+  area_id_anterior: string | null;
+  ubicacion_anterior: string | null;
+  cliente_id_nuevo: string | null;
+  sede_id_nuevo: string | null;
+  area_id_nuevo: string | null;
+  ubicacion_nueva: string | null;
+  motivo: string | null;
+  fecha_cambio: string;
+  realizado_por: string | null;
+}
+
 // BIOMÉDICO
 // =============================================================================
 
@@ -463,6 +729,9 @@ export interface EquipoBiomedico {
   estado: EstadoEquipoBiomedico;
   ubicacion: string;
   servicio_clinico: string | null;
+  cliente_id: string | null;
+  sede_id: string | null;
+  area_id: string | null;
   fecha_adquisicion: string | null;
   proveedor_id: string | null;
   costo_adquisicion: number | null;
@@ -473,10 +742,19 @@ export interface EquipoBiomedico {
   motivo_baja: string | null;
   dado_de_baja_por: string | null;
   dado_de_baja_en: string | null;
+  // Campos adicionales persistibles
+  especificaciones: Record<string, unknown> | null;
+  fecha_instalacion: string | null;
+  garantia_proveedor: string | null;
+  garantia_fecha_inicio: string | null;
+  observaciones: string | null;
   creado_por: string | null;
   creado_en: string;
   modificado_por: string | null;
   modificado_en: string | null;
+  // QR público
+  public_token?: string | null;
+  public_view_enabled?: boolean;
 }
 export type EquipoBiomedicoInsert = Omit<EquipoBiomedico, 'id' | 'creado_en'>;
 export type EquipoBiomedicoUpdate = Partial<Omit<EquipoBiomedicoInsert, 'tenant_id'>>;
@@ -511,6 +789,8 @@ export interface MantenimientoBiomedico {
   creado_en: string;
   modificado_por: string | null;
   modificado_en: string | null;
+  proyecto_id?: string | null;
+  centro_costo_id?: string | null;
 }
 export type MantenimientoBiomedicoInsert = Omit<MantenimientoBiomedico, 'id' | 'costo_total' | 'creado_en'>;
 export type MantenimientoBiomedicoUpdate = Partial<Omit<MantenimientoBiomedicoInsert, 'tenant_id' | 'equipo_id'>>;
@@ -542,6 +822,8 @@ export interface RequerimientoCompra {
   creado_en: string;
   modificado_por: string | null;
   modificado_en: string | null;
+  proyecto_id?: string | null;
+  centro_costo_id?: string | null;
 }
 export type RequerimientoCompraInsert = Omit<RequerimientoCompra, 'id' | 'creado_en'>;
 export type RequerimientoCompraUpdate = Partial<Omit<RequerimientoCompraInsert, 'tenant_id'>>;
@@ -578,10 +860,19 @@ export interface Cotizacion {
   plazo_entrega: string | null;
   condiciones_pago: string | null;
   observaciones: string | null;
+  // Aprobación / Rechazo
+  aprobado_por: string | null;
+  aprobado_en: string | null;
+  rechazado_por: string | null;
+  rechazado_en: string | null;
+  motivo_rechazo: string | null;
+  motivo_anulacion: string | null;
   creado_por: string | null;
   creado_en: string;
   modificado_por: string | null;
   modificado_en: string | null;
+  proyecto_id?: string | null;
+  centro_costo_id?: string | null;
 }
 export type CotizacionInsert = Omit<Cotizacion, 'id' | 'creado_en'>;
 export type CotizacionUpdate = Partial<Omit<CotizacionInsert, 'tenant_id'>>;
@@ -622,11 +913,17 @@ export interface OrdenCompra {
   observaciones: string | null;
   aprobado_por: string | null;
   aprobado_en: string | null;
+  rechazado_por: string | null;
+  rechazado_en: string | null;
+  motivo_rechazo: string | null;
   motivo_anulacion: string | null;
+  en_ejecucion_desde: string | null;
   creado_por: string | null;
   creado_en: string;
   modificado_por: string | null;
   modificado_en: string | null;
+  proyecto_id?: string | null;
+  centro_costo_id?: string | null;
 }
 export type OrdenCompraInsert = Omit<OrdenCompra, 'id' | 'creado_en'>;
 export type OrdenCompraUpdate = Partial<Omit<OrdenCompraInsert, 'tenant_id'>>;
@@ -754,6 +1051,32 @@ export interface DocumentoBiomedico {
   creado_en: string;
   // joined
   equipo?: { codigo: string; nombre: string; } | null;
+}
+
+// ── Contratos Biomédicos ─────────────────────────────────
+export interface ContratoBioDB {
+  id: string;
+  tenant_id: string;
+  numero: string;
+  equipo_id: string;
+  tipo: 'garantia' | 'mantenimiento_preventivo' | 'correctivo' | 'sla' | 'oem' | 'integral';
+  estado: 'activo' | 'vencido' | 'cancelado' | 'en_renovacion' | 'borrador';
+  proveedor_nombre: string;
+  proveedor_id?: string | null;
+  fecha_inicio: string;
+  fecha_fin: string;
+  valor_contrato?: number | null;
+  moneda: string;
+  cobertura?: string | null;
+  sla_tiempo_respuesta_hrs?: number | null;
+  sla_disponibilidad_pct?: number | null;
+  sla_penalidades?: string | null;
+  observaciones?: string | null;
+  creado_por?: string | null;
+  creado_en: string;
+  modificado_por?: string | null;
+  modificado_en?: string | null;
+  equipo?: { codigo: string; nombre: string } | null;
 }
 
 // ── Evaluaciones de Proveedores ───────────────────────────
@@ -964,7 +1287,7 @@ export interface TransaccionDB {
   estado: 'pendiente' | 'aprobada' | 'rechazada' | 'pagada' | 'anulada';
   monto: number; moneda: string; tipo_cambio?: number | null; monto_soles?: number | null;
   fecha: string; fecha_pago?: string | null; descripcion: string;
-  cuenta_id?: string | null; centro_costo_id?: string | null;
+  cuenta_id?: string | null; centro_costo_id?: string | null; proyecto_id?: string | null;
   referencia_numero?: string | null; referencia_tipo?: string | null;
   proveedor_nombre?: string | null;
   aprobado_por?: string | null; aprobado_en?: string | null;
@@ -976,7 +1299,7 @@ export interface PresupuestoLineaDB {
   id: string; tenant_id: string; presupuesto_id: string;
   categoria: string; subcategoria?: string | null;
   monto_presupuestado: number; monto_ejecutado: number;
-  centro_costo_id?: string | null;
+  centro_costo_id?: string | null; proyecto_id?: string | null;
 }
 export interface PresupuestoDB {
   id: string; tenant_id: string; nombre: string; periodo: string;
@@ -1000,6 +1323,7 @@ export interface GastoCajaChicaDB {
   estado: 'pendiente' | 'aprobado' | 'rechazado';
   aprobado_por?: string | null; notas?: string | null;
   realizado_por?: string | null; creado_en: string;
+  proyecto_id?: string | null; centro_costo_id?: string | null;
   caja?: { nombre: string; codigo: string } | null;
 }
 
@@ -1038,4 +1362,10 @@ export interface TareaProyectoDB {
 export interface MiembroProyectoDB {
   id: string; tenant_id: string; proyecto_id: string; user_id?: string | null;
   nombre: string; rol: string; horas_asignadas?: number | null;
+}
+
+// ── Centros de Costo ─────────────────────────────────────
+export interface CentroCostoDB {
+  id: string; tenant_id: string; codigo: string; nombre: string;
+  descripcion?: string | null; activo: boolean; creado_en: string;
 }

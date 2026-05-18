@@ -87,11 +87,11 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
         
         <div className="flex items-center gap-2">
           <Button variant="outline">
-            <Download className="size-4 mr-2" />
+            <Download className="size-4" />
             Exportar
           </Button>
           <Button onClick={() => onNavigate('/flota/vehiculos/nuevo')}>
-            <Plus className="size-4 mr-2" />
+            <Plus className="size-4" />
             Nuevo Vehículo
           </Button>
         </div>
@@ -210,7 +210,7 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
                 size="sm"
                 onClick={limpiarFiltros}
               >
-                <X className="size-4 mr-2" />
+                <X className="size-4" />
                 Limpiar Filtros
               </Button>
             )}

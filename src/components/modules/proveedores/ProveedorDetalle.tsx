@@ -55,7 +55,7 @@ export function ProveedorDetalle({ proveedorId, onNavigate }: ProveedorDetallePr
           </AlertDescription>
         </Alert>
         <Button variant="outline" onClick={() => onNavigate?.('/proveedores/directorio')}>
-          <ArrowLeft className="size-4 mr-2" />
+          <ArrowLeft className="size-4" />
           Volver al Directorio
         </Button>
       </div>
@@ -102,7 +102,7 @@ export function ProveedorDetalle({ proveedorId, onNavigate }: ProveedorDetallePr
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <Button variant="ghost" size="sm" onClick={() => onNavigate?.('/proveedores/directorio')}>
-            <ArrowLeft className="size-4 mr-2" />
+            <ArrowLeft className="size-4" />
             Volver al Directorio
           </Button>
           <div className="flex items-center gap-3 mt-2">
@@ -116,7 +116,7 @@ export function ProveedorDetalle({ proveedorId, onNavigate }: ProveedorDetallePr
               )}
               <div className="flex items-center gap-2 mt-2">
                 <Badge className={estadoConfig.className}>
-                  <estadoConfig.icon className="size-3 mr-1" />
+                  <estadoConfig.icon className="size-3" />
                   {estadoConfig.label}
                 </Badge>
                 <Badge className={condicionConfig.className}>
@@ -131,19 +131,19 @@ export function ProveedorDetalle({ proveedorId, onNavigate }: ProveedorDetallePr
         <div className="flex items-center gap-2">
           {puedeActivar && (
             <Button variant="outline" onClick={handleActivar}>
-              <CheckCircle className="size-4 mr-2" />
+              <CheckCircle className="size-4" />
               Activar
             </Button>
           )}
           {puedeEditar && (
             <Button onClick={() => onNavigate?.(`/proveedores/directorio/${proveedorId}/editar`)}>
-              <Edit className="size-4 mr-2" />
+              <Edit className="size-4" />
               Editar
             </Button>
           )}
           {puedeInactivar && (
             <Button variant="destructive" onClick={() => setShowInactivarDialog(true)}>
-              <XCircle className="size-4 mr-2" />
+              <XCircle className="size-4" />
               Inactivar
             </Button>
           )}

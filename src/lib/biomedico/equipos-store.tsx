@@ -4,7 +4,7 @@
  * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { dbEquiposBiomedicos } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import type { EquipoBiomedico as EquipoDBRow } from '../supabase/types';
@@ -16,6 +16,7 @@ import {
   type CategoriaEquipoBiomedico,
   type RiesgoBiomedico,
 } from './equipos-config';
+import { validateTransition, EQUIPO_BIO_TRANSITIONS } from '../shared/state-machine';
 
 // ============================================================================
 // TIPOS FRONTEND
@@ -36,7 +37,10 @@ export interface EquipoBiomedico {
   riesgo: RiesgoBiomedico;
   estado: EstadoEquipoBiomedico;
 
-  // Ubicación (mapeada desde campos planos de DB)
+  // Ubicación — jerarquía FK + campo libre legacy
+  clienteId: string | null;
+  sedeId: string | null;
+  areaId: string | null;
   ubicacion: {
     area: string;
     subarea: string;
@@ -85,6 +89,10 @@ export interface EquipoBiomedico {
   };
 
   observaciones: string | null;
+
+  // QR público
+  publicToken: string | null;
+  publicViewEnabled: boolean;
 }
 
 export interface NuevoEquipoBiomedicoInput {
@@ -94,6 +102,11 @@ export interface NuevoEquipoBiomedicoInput {
   serie: string;
   categoria: CategoriaEquipoBiomedico;
   riesgo: RiesgoBiomedico;
+  // Jerarquía FK (preferida)
+  clienteId?: string | null;
+  sedeId?: string | null;
+  areaId?: string | null;
+  // Campo libre legacy (fallback si no hay jerarquía)
   ubicacion: {
     area: string;
     subarea: string;
@@ -135,6 +148,7 @@ interface EquiposStoreContext {
   crearEquipo: (input: NuevoEquipoBiomedicoInput) => Promise<EquipoBiomedico>;
   actualizarEquipo: (codigo: string, input: Partial<NuevoEquipoBiomedicoInput>) => Promise<CrudResult>;
   actualizarEstadoEquipo: (codigo: string, nuevoEstado: EstadoEquipoBiomedico) => Promise<CrudResult>;
+  togglePublicView: (codigo: string) => Promise<CrudResult>;
   cargarEquiposIniciales: () => void;
 }
 
@@ -184,17 +198,20 @@ function mapFromDB(row: EquipoDBRow): EquipoBiomedico {
     categoria: row.categoria as CategoriaEquipoBiomedico,
     riesgo: row.riesgo as RiesgoBiomedico,
     estado: row.estado as EstadoEquipoBiomedico,
+    clienteId: row.cliente_id ?? null,
+    sedeId: row.sede_id ?? null,
+    areaId: row.area_id ?? null,
     ubicacion: { area, subarea, responsable },
-    especificaciones: {},  // no almacenado en DB; campo para compatibilidad UI
+    especificaciones: row.especificaciones ?? {},
     fechaAdquisicion: row.fecha_adquisicion ?? '',
-    fechaInstalacion: row.fecha_adquisicion ?? '',  // no existe fecha_instalacion en DB
+    fechaInstalacion: row.fecha_instalacion ?? row.fecha_adquisicion ?? '',
     fechaUltimoMantenimiento: row.ultimo_mantenimiento ?? null,
     fechaProximoMantenimiento: row.proximo_mantenimiento ?? '',
     fechaUltimaCalibracion: null,
     fechaProximaCalibracion: null,
     garantia: {
-      proveedor: '',  // no almacenado en columna separada en DB
-      fechaInicio: '',
+      proveedor: row.garantia_proveedor ?? '',
+      fechaInicio: row.garantia_fecha_inicio ?? '',
       fechaVencimiento: garantiaVence ?? '',
       vigente: garantiaVigente,
     },
@@ -210,7 +227,9 @@ function mapFromDB(row: EquipoDBRow): EquipoBiomedico {
       modificadoPor: row.modificado_por,
       modificadoEn: row.modificado_en,
     },
-    observaciones: null,
+    observaciones: row.observaciones ?? null,
+    publicToken: row.public_token ?? null,
+    publicViewEnabled: row.public_view_enabled ?? true,
   };
 }
 
@@ -221,6 +240,8 @@ function mapFromDB(row: EquipoDBRow): EquipoBiomedico {
 export function EquiposStoreProvider({ children }: { children: React.ReactNode }) {
   const { tenantId, user } = useAuth();
   const [equipos, setEquipos] = useState<EquipoBiomedico[]>([]);
+  const equiposRef = useRef(equipos);
+  useEffect(() => { equiposRef.current = equipos; }, [equipos]);
   const [loading, setLoading] = useState(true);
 
   // Carga inicial desde Supabase
@@ -314,7 +335,15 @@ export function EquiposStoreProvider({ children }: { children: React.ReactNode }
       estado: 'operativo' as EstadoEquipoBiomedico,
       ubicacion: ubicacionJson,
       servicio_clinico: input.ubicacion.subarea,
+      cliente_id: input.clienteId ?? null,
+      sede_id: input.sedeId ?? null,
+      area_id: input.areaId ?? null,
       fecha_adquisicion: input.fechaAdquisicion,
+      fecha_instalacion: input.fechaInstalacion,
+      especificaciones: input.especificaciones ?? null,
+      garantia_proveedor: input.garantia.proveedor || null,
+      garantia_fecha_inicio: input.garantia.fechaInicio || null,
+      observaciones: input.observaciones?.trim() ?? null,
       proveedor_id: null,
       costo_adquisicion: input.costos.adquisicion,
       garantia_vence: input.garantia.fechaVencimiento || null,
@@ -371,13 +400,7 @@ export function EquiposStoreProvider({ children }: { children: React.ReactNode }
   ): Promise<CrudResult> => {
     if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-    // Read _dbId without stale closure
-    let dbId: string | undefined;
-    setEquipos(prev => {
-      dbId = prev.find(e => e.codigo === codigo)?._dbId;
-      return prev;
-    });
-
+    const dbId = equiposRef.current.find(e => e.codigo === codigo)?._dbId;
     if (!dbId) return { exito: false, errores: ['Equipo no encontrado'] };
 
     const ahora = new Date().toISOString();
@@ -396,10 +419,18 @@ export function EquiposStoreProvider({ children }: { children: React.ReactNode }
       updatePayload.ubicacion = JSON.stringify(input.ubicacion);
       updatePayload.servicio_clinico = input.ubicacion.subarea;
     }
+    if (input.clienteId !== undefined) updatePayload.cliente_id = input.clienteId;
+    if (input.sedeId !== undefined) updatePayload.sede_id = input.sedeId;
+    if (input.areaId !== undefined) updatePayload.area_id = input.areaId;
     if (input.fechaAdquisicion !== undefined) updatePayload.fecha_adquisicion = input.fechaAdquisicion;
+    if (input.fechaInstalacion !== undefined) updatePayload.fecha_instalacion = input.fechaInstalacion;
+    if (input.especificaciones !== undefined) updatePayload.especificaciones = input.especificaciones;
     if (input.garantia?.fechaVencimiento !== undefined) {
       updatePayload.garantia_vence = input.garantia.fechaVencimiento;
     }
+    if (input.garantia?.proveedor !== undefined) updatePayload.garantia_proveedor = input.garantia.proveedor;
+    if (input.garantia?.fechaInicio !== undefined) updatePayload.garantia_fecha_inicio = input.garantia.fechaInicio;
+    if (input.observaciones !== undefined) updatePayload.observaciones = input.observaciones?.trim() ?? null;
     if (input.costos?.adquisicion !== undefined) {
       updatePayload.costo_adquisicion = input.costos.adquisicion;
     }
@@ -422,6 +453,9 @@ export function EquiposStoreProvider({ children }: { children: React.ReactNode }
         ...(input.categoria !== undefined && { categoria: input.categoria }),
         ...(input.riesgo !== undefined && { riesgo: input.riesgo }),
         ...(input.ubicacion !== undefined && { ubicacion: input.ubicacion }),
+        ...(input.clienteId !== undefined && { clienteId: input.clienteId }),
+        ...(input.sedeId !== undefined && { sedeId: input.sedeId }),
+        ...(input.areaId !== undefined && { areaId: input.areaId }),
         ...(input.especificaciones !== undefined && { especificaciones: input.especificaciones }),
         ...(input.garantia !== undefined && {
           garantia: {
@@ -463,13 +497,14 @@ export function EquiposStoreProvider({ children }: { children: React.ReactNode }
   ): Promise<CrudResult> => {
     if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-    let dbId: string | undefined;
-    setEquipos(prev => {
-      dbId = prev.find(e => e.codigo === codigo)?._dbId;
-      return prev;
-    });
-
+    const equipoActual = equiposRef.current.find(e => e.codigo === codigo);
+    const dbId = equipoActual?._dbId;
+    const estadoActual = equipoActual?.estado;
     if (!dbId) return { exito: false, errores: ['Equipo no encontrado'] };
+
+    // Validar transición de estado
+    const check = validateTransition(estadoActual!, nuevoEstado, EQUIPO_BIO_TRANSITIONS, 'Equipo Biomédico');
+    if (!check.valid) return { exito: false, errores: [check.error] };
 
     const ahora = new Date().toISOString();
     const { error } = await dbEquiposBiomedicos.update(dbId, {
@@ -496,6 +531,27 @@ export function EquiposStoreProvider({ children }: { children: React.ReactNode }
     return { exito: true };
   }, [user]);
 
+  const togglePublicView = useCallback(async (codigo: string): Promise<CrudResult> => {
+    const equipo = equipos.find(e => e.codigo === codigo);
+    if (!equipo) return { exito: false, errores: ['Equipo no encontrado'] };
+
+    const nuevoValor = !equipo.publicViewEnabled;
+    const { error } = await dbEquiposBiomedicos.update(equipo._dbId, {
+      public_view_enabled: nuevoValor,
+    });
+
+    if (error) {
+      console.error('[EQUIPOS_BIO] Error al cambiar vista pública:', error.message);
+      return { exito: false, errores: [error.message] };
+    }
+
+    setEquipos(prev => prev.map(eq =>
+      eq.codigo === codigo ? { ...eq, publicViewEnabled: nuevoValor } : eq
+    ));
+
+    return { exito: true };
+  }, [equipos]);
+
   // ============================================================================
   // CONTEXT VALUE
   // ============================================================================
@@ -510,6 +566,7 @@ export function EquiposStoreProvider({ children }: { children: React.ReactNode }
     crearEquipo,
     actualizarEquipo,
     actualizarEstadoEquipo,
+    togglePublicView,
     cargarEquiposIniciales,
   };
 

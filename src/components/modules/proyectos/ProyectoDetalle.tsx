@@ -28,22 +28,23 @@ import { useProyectos, type Proyecto, type Tarea, type Fase, type MiembroProyect
 import { useAuth } from '../../../auth/AuthProvider';
 import { dbProyectos } from '../../../lib/supabase/helpers';
 import { toast } from 'sonner';
+import { useConfirmAction } from '@/components/shared/ConfirmDialogProvider';
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
 const ESTADO_PROYECTO_CONFIG: Record<Proyecto['estado'], { label: string; color: string }> = {
   planificacion: { label: 'Planificación', color: 'bg-slate-100 text-slate-700' },
-  en_ejecucion:  { label: 'En Ejecución',  color: 'bg-blue-100 text-blue-700' },
-  pausado:       { label: 'Pausado',        color: 'bg-yellow-100 text-yellow-700' },
-  completado:    { label: 'Completado',     color: 'bg-green-100 text-green-700' },
-  cancelado:     { label: 'Cancelado',      color: 'bg-red-100 text-red-700' },
+  en_ejecucion:  { label: 'En Ejecución',  color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  pausado:       { label: 'Pausado',        color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  completado:    { label: 'Completado',     color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  cancelado:     { label: 'Cancelado',      color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
 const PRIORIDAD_CONFIG: Record<Tarea['prioridad'], { label: string; color: string }> = {
   baja:    { label: 'Baja',    color: 'bg-slate-100 text-slate-600' },
-  media:   { label: 'Media',   color: 'bg-blue-100 text-blue-700' },
-  alta:    { label: 'Alta',    color: 'bg-orange-100 text-orange-700' },
-  critica: { label: 'Crítica', color: 'bg-red-100 text-red-700' },
+  media:   { label: 'Media',   color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  alta:    { label: 'Alta',    color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+  critica: { label: 'Crítica', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
 const KANBAN_COLS: { key: Tarea['estado']; label: string; color: string }[] = [
@@ -77,9 +78,10 @@ function TareaDialog({ open, tarea, proyectoDbId, tenantId, fases, estadoInicial
   const [fechaVencimiento, setFechaVencimiento] = useState(tarea?.fechaVencimiento ?? '');
   const [estimacionHoras, setEstimacionHoras] = useState(tarea?.estimacionHoras?.toString() ?? '');
   const [saving, setSaving] = useState(false);
+  const [tituloError, setTituloError] = useState('');
 
   const handleSave = async () => {
-    if (!titulo.trim()) { toast.error('El título es requerido'); return; }
+    if (!titulo.trim()) { setTituloError('El título es requerido'); toast.error('El título es requerido'); return; }
     setSaving(true);
     try {
       const data = {
@@ -123,7 +125,8 @@ function TareaDialog({ open, tarea, proyectoDbId, tenantId, fases, estadoInicial
         <div className="space-y-3 py-2">
           <div>
             <Label>Título *</Label>
-            <Input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Título de la tarea" className="mt-1" />
+            <Input value={titulo} onChange={e => { setTitulo(e.target.value); if (tituloError) setTituloError(''); }} placeholder="Título de la tarea" className="mt-1" />
+            {tituloError && <p className="text-sm text-red-600 mt-1">{tituloError}</p>}
           </div>
           <div>
             <Label>Descripción</Label>
@@ -205,9 +208,10 @@ function FaseDialog({ open, fase, proyectoDbId, tenantId, ordenSiguiente, onClos
   const [fechaInicio, setFechaInicio] = useState(fase?.fechaInicio ?? '');
   const [fechaFin, setFechaFin] = useState(fase?.fechaFin ?? '');
   const [saving, setSaving] = useState(false);
+  const [nombreError, setNombreError] = useState('');
 
   const handleSave = async () => {
-    if (!nombre.trim()) { toast.error('El nombre es requerido'); return; }
+    if (!nombre.trim()) { setNombreError('El nombre es requerido'); toast.error('El nombre es requerido'); return; }
     setSaving(true);
     try {
       const data = {
@@ -245,7 +249,8 @@ function FaseDialog({ open, fase, proyectoDbId, tenantId, ordenSiguiente, onClos
         <div className="space-y-3 py-2">
           <div>
             <Label>Nombre *</Label>
-            <Input value={nombre} onChange={e => setNombre(e.target.value)} className="mt-1" />
+            <Input value={nombre} onChange={e => { setNombre(e.target.value); if (nombreError) setNombreError(''); }} className="mt-1" />
+            {nombreError && <p className="text-sm text-red-600 mt-1">{nombreError}</p>}
           </div>
           <div>
             <Label>Descripción</Label>
@@ -359,6 +364,7 @@ interface Props {
 export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
   const { proyectos, actualizarEstado, actualizarFase, eliminarFase, eliminarTarea, eliminarMiembro } = useProyectos();
   const { tenantId } = useAuth();
+  const confirmAction = useConfirmAction();
 
   const [proyecto, setProyecto] = useState<Proyecto | null>(null);
   const [loadingDetalle, setLoadingDetalle] = useState(true);
@@ -448,7 +454,8 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
   const [miembroDialog, setMiembroDialog] = useState(false);
 
   const handleEliminarTarea = async (dbId: string) => {
-    if (!confirm('¿Eliminar esta tarea?')) return;
+    const ok = await confirmAction({ title: 'Confirmar eliminación', description: '¿Eliminar esta tarea?', confirmLabel: 'Eliminar', variant: 'destructive' });
+    if (!ok) return;
     try {
       await eliminarTarea(dbId);
       setProyecto(prev => prev ? {
@@ -462,7 +469,8 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
   };
 
   const handleEliminarFase = async (dbId: string) => {
-    if (!confirm('¿Eliminar esta fase?')) return;
+    const ok = await confirmAction({ title: 'Confirmar eliminación', description: '¿Eliminar esta fase?', confirmLabel: 'Eliminar', variant: 'destructive' });
+    if (!ok) return;
     try {
       await eliminarFase(dbId);
       setProyecto(prev => prev ? { ...prev, fases: prev.fases.filter(f => f._dbId !== dbId) } : prev);
@@ -493,7 +501,8 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
   };
 
   const handleEliminarMiembro = async (dbId: string) => {
-    if (!confirm('¿Eliminar este miembro?')) return;
+    const ok = await confirmAction({ title: 'Confirmar eliminación', description: '¿Eliminar este miembro?', confirmLabel: 'Eliminar', variant: 'destructive' });
+    if (!ok) return;
     try {
       await eliminarMiembro(dbId);
       setProyecto(prev => prev ? { ...prev, miembros: prev.miembros.filter(m => m._dbId !== dbId) } : prev);
@@ -541,7 +550,7 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
             <p className="font-mono text-sm text-muted-foreground">{proyecto.id}</p>
             <Badge className={`${estadoCfg.color} border-0`}>{estadoCfg.label}</Badge>
             {proyecto.estaRetrasado && (
-              <Badge className="bg-red-100 text-red-700 border-0 flex items-center gap-1">
+              <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-0 flex items-center gap-1">
                 <AlertTriangle className="size-3" /> Retrasado
               </Badge>
             )}
@@ -619,7 +628,7 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
         <TabsContent value="tareas" className="mt-4">
           <div className="flex justify-end mb-3">
             <Button size="sm" onClick={() => setTareaDialog({ open: true, estadoInicial: 'pendiente' })}>
-              <Plus className="size-3.5 mr-1" /> Nueva Tarea
+              <Plus className="size-3.5" /> Nueva Tarea
             </Button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -657,13 +666,13 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => setTareaDialog({ open: true, tarea: t })}>
-                                  <Pencil className="size-3 mr-2" /> Editar
+                                  <Pencil className="size-3" /> Editar
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   className="text-red-600"
                                   onClick={() => handleEliminarTarea(t._dbId)}
                                 >
-                                  <Trash2 className="size-3 mr-2" /> Eliminar
+                                  <Trash2 className="size-3" /> Eliminar
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -697,7 +706,7 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
         <TabsContent value="fases" className="mt-4">
           <div className="flex justify-end mb-3">
             <Button size="sm" onClick={() => setFaseDialog({ open: true })}>
-              <Plus className="size-3.5 mr-1" /> Nueva Fase
+              <Plus className="size-3.5" /> Nueva Fase
             </Button>
           </div>
           {proyecto.fases.length === 0 ? (
@@ -717,9 +726,9 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
                           </span>
                           <h4 className="font-medium">{f.nombre}</h4>
                           <Badge className={
-                            f.estado === 'completada' ? 'bg-green-100 text-green-700 border-0' :
-                            f.estado === 'en_progreso' ? 'bg-blue-100 text-blue-700 border-0' :
-                            f.estado === 'cancelada' ? 'bg-red-100 text-red-700 border-0' :
+                            f.estado === 'completada' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0' :
+                            f.estado === 'en_progreso' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-0' :
+                            f.estado === 'cancelada' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-0' :
                             'bg-slate-100 text-slate-700 border-0'
                           }>
                             {f.estado === 'completada' ? 'Completada' :
@@ -777,7 +786,7 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
         <TabsContent value="equipo" className="mt-4">
           <div className="flex justify-end mb-3">
             <Button size="sm" onClick={() => setMiembroDialog(true)}>
-              <Plus className="size-3.5 mr-1" /> Agregar Miembro
+              <Plus className="size-3.5" /> Agregar Miembro
             </Button>
           </div>
           {proyecto.miembros.length === 0 ? (

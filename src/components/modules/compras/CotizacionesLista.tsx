@@ -123,12 +123,12 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
         <div className="flex items-center gap-2 flex-wrap">
           {puedeCrear && (
             <Button onClick={() => onNavigate?.('/compras/cotizaciones/nuevo')}>
-              <Plus className="size-4 mr-2" />
+              <Plus className="size-4" />
               Nueva Cotización
             </Button>
           )}
           <Button variant="outline">
-            <Download className="size-4 mr-2" />
+            <Download className="size-4" />
             Exportar
           </Button>
         </div>
@@ -308,6 +308,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
                   </p>
                 </div>
               ) : (
+                <>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -349,7 +350,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
                           </TableCell>
                           <TableCell>
                             <Badge className={estadoConfig.className}>
-                              <estadoConfig.icon className="size-3 mr-1" />
+                              <estadoConfig.icon className="size-3" />
                               {estadoConfig.label}
                             </Badge>
                           </TableCell>
@@ -402,6 +403,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
                     </div>
                   </div>
                 )}
+                </>
               )}
             </TabsContent>
           </Tabs>

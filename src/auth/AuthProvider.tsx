@@ -9,6 +9,8 @@ type AuthContextValue = {
   profile: Profile | null;
   tenantId: string | null;
   tenantName: string | null;
+  tenantLogoUrl: string | null;
+  tenantColor: string | null;
   loading: boolean;
 
   signInWithPassword: (email: string, password: string) => Promise<void>;
@@ -21,30 +23,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
+  const [tenantLogoUrl, setTenantLogoUrl] = useState<string | null>(null);
+  const [tenantColor, setTenantColor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function loadProfile(userId: string) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
 
-    if (error) {
-      console.error("[auth.loadProfile]", error.message);
-      setProfile(null);
-      setTenantName(null);
-    } else {
+      if (error) {
+        console.error("[auth.loadProfile]", error.message);
+        setProfile(null);
+        setTenantName(null);
+        setTenantLogoUrl(null);
+        setTenantColor(null);
+        return;
+      }
+
       setProfile(data);
       // Cargar nombre del tenant
       if (data?.tenant_id) {
         const { data: tenantData } = await supabase
           .from("tenants")
-          .select("nombre")
+          .select("nombre, logo_url, primary_color")
           .eq("id", data.tenant_id)
           .single();
         setTenantName(tenantData?.nombre ?? null);
+        setTenantLogoUrl((tenantData as any)?.logo_url ?? null);
+        setTenantColor((tenantData as any)?.primary_color ?? null);
       }
+    } catch (err) {
+      console.error('[auth.loadProfile] Unexpected error:', err);
+      setProfile(null);
+      setTenantName(null);
+      setTenantLogoUrl(null);
+      setTenantColor(null);
     }
   }
 
@@ -108,6 +125,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     tenantId: profile?.tenant_id ?? null,
     tenantName,
+    tenantLogoUrl,
+    tenantColor,
     loading,
 
     signInWithPassword: async (email, password) => {
@@ -124,11 +143,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(null);
         setProfile(null);
         setTenantName(null);
+        setTenantLogoUrl(null);
+        setTenantColor(null);
         // Hard reset para garantizar estado limpio
         window.location.href = '/';
       }
     },
-  }), [session, profile, tenantName, loading]);
+  }), [session, profile, tenantName, tenantLogoUrl, tenantColor, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

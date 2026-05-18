@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback } from 'react';
-import { Bell, Search, Moon, Sun, Monitor, ChevronDown, LogOut, User, Settings, CheckCheck, Loader2 } from 'lucide-react';
+import { Bell, Search, Moon, Sun, Monitor, ChevronDown, LogOut, User, Settings, CheckCheck, Loader2, Languages } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -24,11 +25,11 @@ interface SearchResult {
 }
 
 const TIPO_BADGE: Record<string, string> = {
-  'OT': 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  'OT': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   'Vehículo': 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
   'Proyecto': 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-  'Cliente': 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-  'Artículo': 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
+  'Cliente': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  'Artículo': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
 };
 
 interface ERPTopbarProps {
@@ -61,6 +62,7 @@ function formatRelative(iso: string): string {
 
 export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onSetTheme, tenantName, userName, onNavigate }: ERPTopbarProps) {
 
+  const { t, i18n } = useTranslation();
   const { signOut, user, tenantId } = useAuth();
   const { notificaciones, noLeidas, marcarLeida, marcarTodasLeidas } = useNotifications();
 
@@ -89,11 +91,11 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
           supabase.from('articulos').select('codigo,nombre').ilike('nombre', term).limit(3),
         ]);
         const res: SearchResult[] = [
-          ...(ots.data ?? []).map((r: Record<string, string>) => ({ tipo: 'OT', label: `${r.numero_ot} — ${r.titulo}`, route: '/flota/ordenes' })),
-          ...(vehiculos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Vehículo', label: `${r.placa} — ${r.marca} ${r.modelo}`, route: '/flota/vehiculos' })),
-          ...(proyectos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Proyecto', label: r.nombre, route: '/proyectos' })),
-          ...(clientes.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Cliente', label: `${r.codigo} — ${r.razon_social}`, route: '/crm/clientes' })),
-          ...(articulos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Artículo', label: `${r.codigo} — ${r.nombre}`, route: '/inventario' })),
+          ...(ots.data ?? []).map((r: Record<string, string>) => ({ tipo: 'OT', label: `${r.numero_ot} — ${r.titulo}`, route: `/flota/mantenimientos/${r.numero_ot}` })),
+          ...(vehiculos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Vehículo', label: `${r.placa} — ${r.marca} ${r.modelo}`, route: `/flota/vehiculos/${r.codigo}` })),
+          ...(proyectos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Proyecto', label: r.nombre, route: `/proyectos/detalle/${r.id}` })),
+          ...(clientes.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Cliente', label: `${r.codigo} — ${r.razon_social}`, route: `/crm/clientes/${r.codigo}` })),
+          ...(articulos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Artículo', label: `${r.codigo} — ${r.nombre}`, route: `/inventario/articulos/${r.codigo}` })),
         ];
         setResults(res);
         setShowResults(true);
@@ -120,7 +122,7 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
             : <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           }
           <Input
-            placeholder="Buscar en Memphis ERP..."
+            placeholder={t('topbar.search_placeholder')}
             className="pl-10 bg-secondary border-0"
             value={query}
             onChange={e => handleSearch(e.target.value)}
@@ -145,7 +147,7 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
           )}
           {showResults && query.length >= 2 && results.length === 0 && !searching && (
             <div className="absolute top-full mt-1 left-0 right-0 z-50 bg-popover border rounded-lg shadow-lg px-4 py-3 text-sm text-muted-foreground">
-              Sin resultados para &ldquo;{query}&rdquo;
+              {t('topbar.no_results')} &ldquo;{query}&rdquo;
             </div>
           )}
         </div>
@@ -172,13 +174,13 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
             <div className="flex items-center justify-between px-3 py-2">
-              <span className="font-semibold text-sm">Notificaciones</span>
+              <span className="font-semibold text-sm">{t('topbar.notifications')}</span>
               {noLeidas > 0 && (
                 <Button
                   variant="ghost" size="sm" className="h-7 text-xs gap-1"
                   onClick={marcarTodasLeidas}
                 >
-                  <CheckCheck className="size-3" /> Marcar todas
+                  <CheckCheck className="size-3" /> {t('topbar.mark_all_read')}
                 </Button>
               )}
             </div>
@@ -186,7 +188,7 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
             <div className="max-h-80 overflow-y-auto">
               {notificaciones.length === 0 ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
-                  Sin notificaciones
+                  {t('topbar.no_notifications')}
                 </div>
               ) : (
                 notificaciones.slice(0, 20).map(n => (
@@ -210,6 +212,29 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {/* Language Toggle */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" title={t('topbar.language')}>
+              <Languages className="size-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-36">
+            <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">{t('topbar.language')}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => i18n.changeLanguage('es')}>
+              <span className="text-base">🇵🇪</span>
+              <span>{t('topbar.lang_es')}</span>
+              {i18n.language.startsWith('es') && <span className="ml-auto text-primary text-xs">✓</span>}
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => i18n.changeLanguage('en')}>
+              <span className="text-base">🇺🇸</span>
+              <span>{t('topbar.lang_en')}</span>
+              {i18n.language.startsWith('en') && <span className="ml-auto text-primary text-xs">✓</span>}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {/* Theme Toggle */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -218,21 +243,21 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Apariencia</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">{t('topbar.appearance')}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => onSetTheme?.('light')}>
               <Sun className="size-4" />
-              <span>Claro</span>
+              <span>{t('topbar.light')}</span>
               {themeMode === 'light' && <span className="ml-auto text-primary text-xs">✓</span>}
             </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => onSetTheme?.('dark')}>
               <Moon className="size-4" />
-              <span>Oscuro</span>
+              <span>{t('topbar.dark')}</span>
               {themeMode === 'dark' && <span className="ml-auto text-primary text-xs">✓</span>}
             </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => onSetTheme?.('system')}>
               <Monitor className="size-4" />
-              <span>Sistema</span>
+              <span>{t('topbar.system')}</span>
               {themeMode === 'system' && <span className="ml-auto text-primary text-xs">✓</span>}
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -260,20 +285,20 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="cursor-pointer" onClick={() => onNavigate?.('/perfil')}>
-              <User className="size-4 mr-2" />
-              Mi Perfil
+              <User className="size-4" />
+              {t('topbar.profile')}
             </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer" onClick={() => onNavigate?.('/admin/usuarios')}>
-              <Settings className="size-4 mr-2" />
-              Configuración
+              <Settings className="size-4" />
+              {t('topbar.settings')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive cursor-pointer"
               onClick={() => signOut()}
             >
-              <LogOut className="size-4 mr-2" />
-              Cerrar Sesión
+              <LogOut className="size-4" />
+              {t('topbar.logout')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -1,7 +1,6 @@
 /**
  * Configuración de módulos habilitados/deshabilitados
  * Persiste en Supabase (tenants.modules_config). localStorage como fallback offline.
- * Memphis Maquinarias ERP
  */
 import { supabase } from '../supabase/client';
 
@@ -13,19 +12,19 @@ export interface ModuleConfig {
 }
 
 export const MODULES_DEFAULT: ModuleConfig[] = [
-  { id: 'dashboard',   label: 'Dashboard',      descripcion: 'Panel principal con KPIs globales',      enabled: true  },
-  { id: 'flota',       label: 'Flota',           descripcion: 'Gestión de vehículos y mantenimientos',  enabled: true  },
-  { id: 'biomedico',   label: 'Biomédico',       descripcion: 'Gestión de equipos biomédicos',          enabled: false },
-  { id: 'compras',     label: 'Compras',         descripcion: 'Requerimientos, cotizaciones y órdenes', enabled: false },
-  { id: 'proveedores', label: 'Proveedores',     descripcion: 'Directorio, contratos y evaluaciones',   enabled: false },
-  { id: 'inventario',  label: 'Inventario',      descripcion: 'Artículos, almacenes y movimientos',     enabled: false },
-  { id: 'finanzas',    label: 'Finanzas',        descripcion: 'Transacciones, presupuestos y reportes', enabled: false },
-  { id: 'proyectos',   label: 'Proyectos',       descripcion: 'Gestión de proyectos y tareas',          enabled: false },
-  { id: 'crm',         label: 'CRM',             descripcion: 'Clientes, oportunidades y actividades',  enabled: false },
-  { id: 'bi',          label: 'BI & Reportería', descripcion: 'Dashboard cruzado de inteligencia',      enabled: false },
+  { id: 'dashboard',   label: 'Dashboard',      descripcion: 'Panel principal con KPIs globales',      enabled: true },
+  { id: 'flota',       label: 'Flota',           descripcion: 'Gestión de vehículos y mantenimientos',  enabled: true },
+  { id: 'biomedico',   label: 'Biomédico',       descripcion: 'Gestión de equipos biomédicos',          enabled: true },
+  { id: 'compras',     label: 'Compras',         descripcion: 'Requerimientos, cotizaciones y órdenes', enabled: true },
+  { id: 'proveedores', label: 'Proveedores',     descripcion: 'Directorio, contratos y evaluaciones',   enabled: true },
+  { id: 'inventario',  label: 'Inventario',      descripcion: 'Artículos, almacenes y movimientos',     enabled: true },
+  { id: 'finanzas',    label: 'Finanzas',        descripcion: 'Transacciones, presupuestos y reportes', enabled: true },
+  { id: 'proyectos',   label: 'Proyectos',       descripcion: 'Gestión de proyectos y tareas',          enabled: true },
+  { id: 'crm',         label: 'CRM',             descripcion: 'Clientes, oportunidades y actividades',  enabled: true },
+  { id: 'bi',          label: 'BI & Reportería', descripcion: 'Dashboard cruzado de inteligencia',      enabled: true },
 ];
 
-const STORAGE_KEY = 'memphis_modules_config';
+const STORAGE_KEY = 'kesa_modules_config';
 const ALWAYS_ON = new Set(['dashboard', 'admin']);
 
 // ── Helpers locales (fallback offline) ───────────────────────────────────────
@@ -37,9 +36,21 @@ function mergeWithDefaults(overrides: { id: string; enabled: boolean }[]): Modul
   });
 }
 
+const LEGACY_STORAGE_KEY = 'memphis_modules_config';
+
 export function loadModulesConfig(): ModuleConfig[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    // Leer de la clave nueva primero
+    let raw = localStorage.getItem(STORAGE_KEY);
+    // Migración: si existe la clave antigua, migrar y eliminar
+    if (!raw) {
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacy) {
+        localStorage.setItem(STORAGE_KEY, legacy);
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+        raw = legacy;
+      }
+    }
     if (!raw) return MODULES_DEFAULT;
     return mergeWithDefaults(JSON.parse(raw));
   } catch {
@@ -73,14 +84,21 @@ export async function loadModulesConfigFromDB(tenantId: string): Promise<ModuleC
 export async function saveModulesConfigToDB(
   tenantId: string,
   modules: ModuleConfig[]
-): Promise<void> {
+): Promise<{ ok: boolean; dbSaved: boolean; error?: string }> {
   const toSave = modules.map(m => ({ id: m.id, enabled: m.enabled }));
-  // Optimistic local update
+  // Always save to localStorage first (works offline / as fallback)
   saveModulesConfig(modules);
-  await supabase
+
+  const { error } = await supabase
     .from('tenants')
     .update({ modules_config: toSave })
     .eq('id', tenantId);
+
+  if (error) {
+    console.warn('[modules] DB save failed (localStorage OK):', error.message);
+    return { ok: true, dbSaved: false, error: error.message };
+  }
+  return { ok: true, dbSaved: true };
 }
 
 export function isModuleEnabled(moduleId: string): boolean {

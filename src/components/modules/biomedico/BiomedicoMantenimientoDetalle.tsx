@@ -34,7 +34,7 @@ import {
   MANTENIMIENTO_PRIORIDAD_CONFIG,
   type EstadoMantenimientoBio
 } from '../../../lib/biomedico/mantenimientos-config';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface BiomedicoMantenimientoDetalleProps {
   numeroMantenimiento: string;
@@ -62,7 +62,7 @@ export function BiomedicoMantenimientoDetalle({
           </AlertDescription>
         </Alert>
         <Button variant="outline" onClick={onBack}>
-          <ArrowLeft className="size-4 mr-2" />
+          <ArrowLeft className="size-4" />
           Volver
         </Button>
       </div>
@@ -97,14 +97,14 @@ export function BiomedicoMantenimientoDetalle({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={onBack}>
-            <ArrowLeft className="size-4 mr-2" />
+            <ArrowLeft className="size-4" />
             Volver
           </Button>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold">{mantenimiento.titulo}</h1>
               <Badge variant={estadoConfig.variant} className={estadoConfig.className}>
-                <EstadoIcon className="size-3 mr-1" />
+                <EstadoIcon className="size-3" />
                 {estadoConfig.label}
               </Badge>
             </div>
@@ -118,11 +118,11 @@ export function BiomedicoMantenimientoDetalle({
       {/* Badges de clasificación */}
       <div className="flex gap-2">
         <Badge variant="secondary" className={tipoConfig.className}>
-          <TipoIcon className="size-3 mr-1" />
+          <TipoIcon className="size-3" />
           {tipoConfig.label}
         </Badge>
         <Badge variant={prioridadConfig.variant} className={prioridadConfig.className}>
-          <PrioridadIcon className="size-3 mr-1" />
+          <PrioridadIcon className="size-3" />
           Prioridad {prioridadConfig.label}
         </Badge>
       </div>
@@ -243,7 +243,7 @@ export function BiomedicoMantenimientoDetalle({
             <div>
               <div className="text-sm text-muted-foreground mb-2">Estado Actual</div>
               <Badge variant={estadoConfig.variant} className={estadoConfig.className}>
-                <EstadoIcon className="size-3 mr-1" />
+                <EstadoIcon className="size-3" />
                 {estadoConfig.label}
               </Badge>
             </div>

@@ -6,6 +6,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { dbProyectos, dbFasesProyecto, dbTareasProyecto, dbMiembrosProyecto } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { logAudit } from '../shared/audit';
+import { validateTransition, PROYECTO_TRANSITIONS } from '../shared/state-machine';
 import type { ProyectoDB, FaseProyectoDB, TareaProyectoDB, MiembroProyectoDB } from '../supabase/types';
 
 // ============================================================================
@@ -207,9 +208,8 @@ export function ProyectosProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error: err } = await dbProyectos.list(tenantId);
       if (err) throw err;
-      // For list view, fases/tareas/miembros are not included; we provide empty arrays
       const mapped = (data ?? []).map((row) =>
-        mapProyecto({ ...row, fases: [], tareas: [], miembros: [] })
+        mapProyecto({ ...row, fases: row.fases ?? [], tareas: row.tareas ?? [], miembros: row.miembros ?? [] })
       );
       setProyectos(mapped);
     } catch (e: unknown) {
@@ -237,27 +237,25 @@ export function ProyectosProvider({ children }: { children: React.ReactNode }) {
     if (err || !row) throw err ?? new Error('Error actualizando proyecto');
     setProyectos(prev => prev.map(p => {
       if (p._dbId !== dbId) return p;
-      return mapProyecto({ ...row, fases: p.fases.map(f => ({
-        id: f._dbId, tenant_id: row.tenant_id, proyecto_id: f.proyectoDbId,
-        nombre: f.nombre, descripcion: f.descripcion ?? null, orden: f.orden, estado: f.estado,
-        fecha_inicio: f.fechaInicio ?? null, fecha_fin: f.fechaFin ?? null, porcentaje_avance: f.porcentajeAvance,
-      })), tareas: p.tareas.map(t => ({
-        id: t._dbId, tenant_id: row.tenant_id, proyecto_id: t.proyectoDbId,
-        fase_id: t.faseDbId ?? null, titulo: t.titulo, descripcion: t.descripcion ?? null,
-        estado: t.estado, prioridad: t.prioridad, asignado_a: t.asignadoA ?? null,
-        fecha_inicio: t.fechaInicio ?? null, fecha_vencimiento: t.fechaVencimiento ?? null,
-        fecha_completada: t.fechaCompletada ?? null, estimacion_horas: t.estimacionHoras ?? null,
-        horas_reales: t.horasReales ?? null, orden: t.orden, creado_por: null, creado_en: '',
-      })), miembros: p.miembros.map(m => ({
-        id: m._dbId, tenant_id: row.tenant_id, proyecto_id: m.proyectoDbId,
-        user_id: m.userId ?? null, nombre: m.nombre, rol: m.rol, horas_asignadas: m.horasAsignadas ?? null,
-      })) });
+      // Preserve existing fases/tareas/miembros — only project-level fields changed
+      const base = mapProyecto({ ...row, fases: [], tareas: [], miembros: [] });
+      return { ...base, fases: p.fases, tareas: p.tareas, miembros: p.miembros,
+        tareasTotal: p.tareasTotal, tareasCompletadas: p.tareasCompletadas };
     }));
   }, []);
 
   const actualizarEstado = useCallback(async (dbId: string, estado: ProyectoDB['estado']) => {
+    // Validar transición de estado
+    const proyActual = proyectos.find(p => p._dbId === dbId);
+    if (proyActual) {
+      const check = validateTransition(proyActual.estado, estado, PROYECTO_TRANSITIONS, `Proyecto`);
+      if (!check.valid) {
+        console.warn('[PROYECTOS]', check.error);
+        return;
+      }
+    }
     await actualizarProyecto(dbId, { estado });
-  }, [actualizarProyecto]);
+  }, [actualizarProyecto, proyectos]);
 
   const crearFase = useCallback(async (data: Omit<FaseProyectoDB, 'id'>): Promise<Fase> => {
     const { data: row, error: err } = await dbFasesProyecto.insert(data);
@@ -284,13 +282,18 @@ export function ProyectosProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const eliminarFase = useCallback(async (dbId: string) => {
+    // Verificar que no hay tareas vinculadas a esta fase
+    const tareasVinculadas = proyectos.flatMap(p => p.tareas).filter(t => t.faseDbId === dbId);
+    if (tareasVinculadas.length > 0) {
+      throw new Error(`No se puede eliminar la fase: tiene ${tareasVinculadas.length} tarea(s) vinculada(s). Mueva o elimine las tareas primero.`);
+    }
     const { error: err } = await dbFasesProyecto.delete(dbId);
     if (err) throw err;
     setProyectos(prev => prev.map(p => ({
       ...p,
       fases: p.fases.filter(f => f._dbId !== dbId),
     })));
-  }, []);
+  }, [proyectos]);
 
   const crearTarea = useCallback(async (data: Omit<TareaProyectoDB, 'id' | 'creado_en'>): Promise<Tarea> => {
     const { data: row, error: err } = await dbTareasProyecto.insert(data);

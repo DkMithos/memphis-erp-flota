@@ -28,7 +28,7 @@ import {
   validarPlanPreventivo,
   calcPreventivosUsadosRestantes,
 } from '../../../../lib/flota/vehiculos-config';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface PlanPreventivoTabProps {
   vehiculoId: string;

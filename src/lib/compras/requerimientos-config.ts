@@ -10,7 +10,7 @@ import { FileText, Clock, CheckCircle, XCircle, AlertTriangle, Ban, type LucideI
 // DEBUG FLAG
 // ============================================================================
 
-export const DEBUG_REQUERIMIENTOS = true;
+export const DEBUG_REQUERIMIENTOS = import.meta.env.DEV;
 
 // ============================================================================
 // TIPOS Y ESTADOS

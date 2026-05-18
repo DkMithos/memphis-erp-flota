@@ -21,6 +21,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '../../ui/dialog';
 import { useCRMStore, type Oportunidad } from '../../../lib/crm/crm-store';
+import { convertirAMonedaBase, formatMontoBase } from '../../../lib/shared/currency-utils';
 import { toast } from 'sonner';
 
 // ── Badge helpers ────────────────────────────────────────────────────────────
@@ -31,11 +32,11 @@ type Prioridad = Oportunidad['prioridad'];
 function badgeEtapa(etapa: Etapa) {
   const map: Record<Etapa, { label: string; className: string }> = {
     prospecto:       { label: 'Prospecto',    className: 'bg-slate-100 text-slate-700 border-slate-200' },
-    calificado:      { label: 'Calificado',   className: 'bg-blue-100 text-blue-700 border-blue-200' },
-    propuesta:       { label: 'Propuesta',    className: 'bg-purple-100 text-purple-700 border-purple-200' },
+    calificado:      { label: 'Calificado',   className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200' },
+    propuesta:       { label: 'Propuesta',    className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200' },
     negociacion:     { label: 'Negociación',  className: 'bg-amber-100 text-amber-700 border-amber-200' },
-    cerrado_ganado:  { label: 'Ganado',       className: 'bg-green-100 text-green-700 border-green-200' },
-    cerrado_perdido: { label: 'Perdido',      className: 'bg-red-100 text-red-700 border-red-200' },
+    cerrado_ganado:  { label: 'Ganado',       className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200' },
+    cerrado_perdido: { label: 'Perdido',      className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200' },
   };
   const cfg = map[etapa] ?? map.prospecto;
   return <Badge className={`text-xs ${cfg.className}`}>{cfg.label}</Badge>;
@@ -44,9 +45,9 @@ function badgeEtapa(etapa: Etapa) {
 function badgePrioridad(p: Prioridad) {
   const map: Record<Prioridad, { label: string; className: string }> = {
     baja:    { label: 'Baja',    className: 'bg-slate-100 text-slate-600 border-slate-200' },
-    media:   { label: 'Media',   className: 'bg-blue-100 text-blue-700 border-blue-200' },
-    alta:    { label: 'Alta',    className: 'bg-orange-100 text-orange-700 border-orange-200' },
-    urgente: { label: 'Urgente', className: 'bg-red-100 text-red-700 border-red-200' },
+    media:   { label: 'Media',   className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200' },
+    alta:    { label: 'Alta',    className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200' },
+    urgente: { label: 'Urgente', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200' },
   };
   const cfg = map[p] ?? map.media;
   return <Badge className={`text-xs ${cfg.className}`}>{cfg.label}</Badge>;
@@ -99,7 +100,7 @@ export function CRMOportunidades({ onNavigate }: Props) {
 
   // ── KPIs ─────────────────────────────────────────────────────────────────
   const abiertas = oportunidades.filter(o => !o.etapa.startsWith('cerrado'));
-  const valorPipeline = abiertas.reduce((s, o) => s + (o.montoEstimado ?? 0), 0);
+  const valorPipeline = abiertas.reduce((s, o) => s + convertirAMonedaBase(o.montoEstimado ?? 0, o.moneda), 0);
   const promProb = abiertas.length > 0 ? Math.round(abiertas.reduce((s, o) => s + o.probabilidad, 0) / abiertas.length) : 0;
   const now = new Date();
   const ganadasEsteMes = oportunidades.filter(o => {
@@ -194,7 +195,7 @@ export function CRMOportunidades({ onNavigate }: Props) {
           <p className="text-sm text-muted-foreground mt-1">Pipeline de ventas y seguimiento de oportunidades</p>
         </div>
         <Button onClick={openCrear}>
-          <Plus className="size-4 mr-2" /> Nueva Oportunidad
+          <Plus className="size-4" /> Nueva Oportunidad
         </Button>
       </div>
 
@@ -202,7 +203,7 @@ export function CRMOportunidades({ onNavigate }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Oportunidades Abiertas', value: abiertas.length, icon: Target, sub: 'en pipeline' },
-          { label: 'Valor Pipeline', value: `S/ ${(valorPipeline / 1000).toFixed(0)}K`, icon: DollarSign, sub: 'monto bruto' },
+          { label: 'Valor Pipeline', value: formatMontoBase(valorPipeline), icon: DollarSign, sub: 'monto en PEN' },
           { label: 'Probabilidad Promedio', value: `${promProb}%`, icon: TrendingUp, sub: 'promedio abiertas' },
           { label: 'Ganadas este Mes', value: ganadasEsteMes, icon: Trophy, sub: new Date().toLocaleString('es-PE', { month: 'long' }) },
         ].map(k => (
@@ -475,7 +476,7 @@ export function CRMOportunidades({ onNavigate }: Props) {
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDetalleOpen(false)}>Cerrar</Button>
                 <Button onClick={() => { setDetalleOpen(false); openEditar(opoDetalle); }}>
-                  <Pencil className="size-3.5 mr-1" /> Editar
+                  <Pencil className="size-3.5" /> Editar
                 </Button>
               </DialogFooter>
             </>

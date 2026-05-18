@@ -24,7 +24,6 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../../ui/table';
 import { useProyectos, type Proyecto } from '../../../lib/proyectos/proyectos-store';
-import { usePagination } from '../../../lib/shared/usePagination';
 import { useAuth } from '../../../auth/AuthProvider';
 import { toast } from 'sonner';
 
@@ -32,17 +31,17 @@ import { toast } from 'sonner';
 
 const ESTADO_CONFIG: Record<Proyecto['estado'], { label: string; color: string }> = {
   planificacion: { label: 'Planificación', color: 'bg-slate-100 text-slate-700' },
-  en_ejecucion:  { label: 'En Ejecución',  color: 'bg-blue-100 text-blue-700' },
-  pausado:       { label: 'Pausado',        color: 'bg-yellow-100 text-yellow-700' },
-  completado:    { label: 'Completado',     color: 'bg-green-100 text-green-700' },
-  cancelado:     { label: 'Cancelado',      color: 'bg-red-100 text-red-700' },
+  en_ejecucion:  { label: 'En Ejecución',  color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  pausado:       { label: 'Pausado',        color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  completado:    { label: 'Completado',     color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  cancelado:     { label: 'Cancelado',      color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
 const PRIORIDAD_CONFIG: Record<Proyecto['prioridad'], { label: string; color: string }> = {
   baja:    { label: 'Baja',    color: 'bg-slate-100 text-slate-600' },
-  media:   { label: 'Media',   color: 'bg-blue-100 text-blue-700' },
-  alta:    { label: 'Alta',    color: 'bg-orange-100 text-orange-700' },
-  critica: { label: 'Crítica', color: 'bg-red-100 text-red-700' },
+  media:   { label: 'Media',   color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  alta:    { label: 'Alta',    color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+  critica: { label: 'Crítica', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
 const TIPO_LABELS: Record<Proyecto['tipo'], string> = {
@@ -333,8 +332,6 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
     });
   }, [proyectos, busqueda, filtroEstado, filtroTipo, filtroPrioridad]);
 
-  const { paged: filtradosPaged, page, totalPages, totalItems: totalFiltrados, setPage } = usePagination(filtrados);
-
   const abrirNuevo = () => { setEditando(undefined); setDialogOpen(true); };
   const abrirEditar = (p: Proyecto) => { setEditando(p); setDialogOpen(true); };
   const cerrarDialog = () => { setDialogOpen(false); setEditando(undefined); };
@@ -348,7 +345,7 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
           <p className="text-muted-foreground mt-1 text-sm">{proyectos.length} proyecto(s) registrados</p>
         </div>
         <Button onClick={abrirNuevo}>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Nuevo Proyecto
         </Button>
       </div>
@@ -434,7 +431,7 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
           <p className="font-medium">No se encontraron proyectos</p>
           <p className="text-sm mt-1">Ajusta los filtros o crea un nuevo proyecto</p>
           <Button className="mt-4" onClick={abrirNuevo}>
-            <Plus className="size-4 mr-2" />
+            <Plus className="size-4" />
             Crear Proyecto
           </Button>
         </div>
@@ -443,7 +440,7 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
       {/* Vista Cards */}
       {!loading && vista === 'cards' && filtrados.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtradosPaged.map(p => {
+          {filtrados.map(p => {
             const estadoCfg = ESTADO_CONFIG[p.estado];
             const priorCfg = PRIORIDAD_CONFIG[p.prioridad];
             return (
@@ -518,7 +515,7 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
                       className="flex-1 h-7 text-xs"
                       onClick={() => onVerDetalle?.(p._dbId)}
                     >
-                      <ChevronRight className="size-3 mr-1" />
+                      <ChevronRight className="size-3" />
                       Ver detalle
                     </Button>
                     <Button
@@ -557,7 +554,7 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtradosPaged.map(p => {
+                {filtrados.map(p => {
                   const estadoCfg = ESTADO_CONFIG[p.estado];
                   const priorCfg = PRIORIDAD_CONFIG[p.prioridad];
                   return (
@@ -610,23 +607,6 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
             </Table>
           </CardContent>
         </Card>
-      )}
-
-      {/* Paginación */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2 py-3 border rounded-lg bg-card">
-          <span className="text-sm text-muted-foreground">
-            Página {page} de {totalPages} · {totalFiltrados} proyectos
-          </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
-              Anterior
-            </Button>
-            <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
-              Siguiente
-            </Button>
-          </div>
-        </div>
       )}
 
       {/* Dialog */}

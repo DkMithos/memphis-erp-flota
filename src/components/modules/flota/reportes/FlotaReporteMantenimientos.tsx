@@ -43,7 +43,7 @@ import {
 } from '../../../../lib/flota/flota-reports';
 import { exportToCSV, exportToExcel, exportToPDF, formatDateForExport } from '../../../../lib/shared/export-utils';
 import { OT_TIPO_CONFIG, OT_CRITICIDAD_CONFIG, OT_ESTADO_CONFIG } from '../../../../lib/flota/ot-config';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface FlotaReporteMantenimientosProps {
   onNavigate: (route: string) => void;

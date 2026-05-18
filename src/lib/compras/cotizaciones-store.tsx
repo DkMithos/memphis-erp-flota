@@ -4,10 +4,11 @@
  * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../supabase/client';
 import { dbCotizaciones } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
+import { validateTransition, COTIZACION_TRANSITIONS } from '../shared/state-machine';
 import type {
   Cotizacion as CotizacionDB,
   CotizacionItem as CotizacionItemDB,
@@ -70,6 +71,10 @@ export interface Cotizacion {
   terminos: string | null;
   observaciones: string | null;
 
+  // Imputación dual
+  proyectoId: string | null;
+  centroCostoId: string | null;
+
   // Aprobación
   aprobadoPor: string | null;
   aprobadoEn: string | null;
@@ -91,6 +96,7 @@ export interface Cotizacion {
 
 export interface NuevaCotizacionInput {
   requerimientoId: string;
+  requerimientoDbId?: string; // UUID from DB — preferred for FK
   proveedorId?: string | null;
   proveedorNombre: string;
   tipo: TipoCotizacion;
@@ -177,11 +183,13 @@ function mapFromDB(row: CotizacionWithRelations): Cotizacion {
     total: row.total,
     terminos: row.condiciones_pago,
     observaciones: row.observaciones,
-    aprobadoPor: null,
-    aprobadoEn: null,
-    rechazadoPor: null,
-    rechazadoEn: null,
-    motivoRechazo: null,
+    proyectoId: row.proyecto_id ?? null,
+    centroCostoId: row.centro_costo_id ?? null,
+    aprobadoPor: row.aprobado_por ?? null,
+    aprobadoEn: row.aprobado_en ?? null,
+    rechazadoPor: row.rechazado_por ?? null,
+    rechazadoEn: row.rechazado_en ?? null,
+    motivoRechazo: row.motivo_rechazo ?? null,
     auditoria: {
       creadoPor: row.creado_por ?? '',
       creadoEn: row.creado_en,
@@ -189,7 +197,7 @@ function mapFromDB(row: CotizacionWithRelations): Cotizacion {
       modificadoEn: row.modificado_en,
       anuladoPor: row.estado === 'anulada' ? row.modificado_por : null,
       anuladoEn: row.estado === 'anulada' ? row.modificado_en : null,
-      motivoAnulacion: null,
+      motivoAnulacion: row.motivo_anulacion ?? null,
     },
   };
 }
@@ -201,10 +209,12 @@ function mapFromDB(row: CotizacionWithRelations): Cotizacion {
 export function CotizacionStoreProvider({ children }: { children: React.ReactNode }) {
   const { tenantId, user, profile } = useAuth();
   const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([]);
+  const cotizacionesRef = useRef(cotizaciones);
+  useEffect(() => { cotizacionesRef.current = cotizaciones; }, [cotizaciones]);
   const [loading, setLoading] = useState(true);
 
   const usuarioActual = {
-    email: user?.email ?? profile?.email ?? 'admin@memphis.com.pe',
+    email: user?.email ?? profile?.email ?? 'admin@kesa.com',
     nombre: profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Usuario',
     rol: (profile?.rol as RolUsuario) ?? ('admin_empresa' as RolUsuario),
   };
@@ -301,7 +311,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
       const { data: inserted, error: errCot } = await dbCotizaciones.create({
         tenant_id: tenantId,
         numero: nuevoCodigo,
-        requerimiento_id: input.requerimientoId || null, // This is the display code; caller should pass _dbId
+        requerimiento_id: input.requerimientoDbId || input.requerimientoId || null, // Prefer UUID (_dbId); fall back to display code
         proveedor_id: proveedorDbId,
         estado: 'borrador' as EstadoCotizacion,
         fecha_emision: timestamp,
@@ -325,28 +335,23 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
 
       const dbRow = inserted as CotizacionDB;
 
-      // Insert items
-      const itemsInserted: CotizacionItemDB[] = [];
-      for (const item of itemsConSubtotal) {
-        const { data: itemData, error: errItem } = await supabase
-          .from('cotizacion_items')
-          .insert({
-            tenant_id: tenantId,
-            cotizacion_id: dbRow.id,
-            descripcion: item.descripcion.trim(),
-            unidad: item.unidad,
-            cantidad: item.cantidad,
-            precio_unitario: item.precioUnitario,
-          })
-          .select()
-          .single();
-
-        if (errItem) {
-          console.error('[COTIZACIONES] Error al crear item:', errItem.message);
-        } else if (itemData) {
-          itemsInserted.push(itemData as CotizacionItemDB);
-        }
+      // Insert items en batch (atómico)
+      const itemsPayload = itemsConSubtotal.map(item => ({
+        tenant_id: tenantId,
+        cotizacion_id: dbRow.id,
+        descripcion: item.descripcion.trim(),
+        unidad: item.unidad,
+        cantidad: item.cantidad,
+        precio_unitario: item.precioUnitario,
+      }));
+      const { data: itemsData, error: errItems } = await supabase
+        .from('cotizacion_items')
+        .insert(itemsPayload)
+        .select();
+      if (errItems) {
+        console.error('[COTIZACIONES] Error al crear items:', errItems.message);
       }
+      const itemsInserted = (itemsData ?? []) as CotizacionItemDB[];
 
       const nueva = mapFromDB({ ...dbRow, items: itemsInserted, proveedor: { razon_social: normalizeProveedorNombre(input.proveedorNombre), ruc: '' } });
       setCotizaciones(prev => [nueva, ...prev]);
@@ -364,11 +369,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
     async (id: string, input: ActualizarCotizacionInput): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setCotizaciones(prev => {
-        dbId = prev.find(c => c.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = cotizacionesRef.current.find(c => c.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Cotización no encontrada'] };
 
       const ahora = new Date().toISOString();
@@ -410,23 +411,19 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
       if (input.items !== undefined && tenantId) {
         await supabase.from('cotizacion_items').delete().eq('cotizacion_id', dbId);
 
-        const newItemsInserted: CotizacionItemDB[] = [];
-        for (const item of input.items) {
-          const { data: itemData } = await supabase
-            .from('cotizacion_items')
-            .insert({
-              tenant_id: tenantId,
-              cotizacion_id: dbId,
-              descripcion: item.descripcion.trim(),
-              unidad: item.unidad,
-              cantidad: item.cantidad,
-              precio_unitario: item.precioUnitario,
-            })
-            .select()
-            .single();
-
-          if (itemData) newItemsInserted.push(itemData as CotizacionItemDB);
-        }
+        const itemsPayload = input.items.map(item => ({
+          tenant_id: tenantId,
+          cotizacion_id: dbId,
+          descripcion: item.descripcion.trim(),
+          unidad: item.unidad,
+          cantidad: item.cantidad,
+          precio_unitario: item.precioUnitario,
+        }));
+        const { data: newItemsData } = await supabase
+          .from('cotizacion_items')
+          .insert(itemsPayload)
+          .select();
+        const newItemsInserted = (newItemsData ?? []) as CotizacionItemDB[];
 
         setCotizaciones(prev =>
           prev.map(c => {
@@ -484,11 +481,14 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
     async (id: string, nuevoEstado: EstadoCotizacion): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setCotizaciones(prev => {
-        dbId = prev.find(c => c.id === id)?._dbId;
-        return prev;
-      });
+      // Validar transición de estado
+      const cotActual = cotizaciones.find(c => c.id === id);
+      if (cotActual) {
+        const check = validateTransition(cotActual.estado, nuevoEstado, COTIZACION_TRANSITIONS, `Cotización ${id}`);
+        if (!check.valid) return { exito: false, errores: [check.error] };
+      }
+
+      const dbId = cotizacionesRef.current.find(c => c.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Cotización no encontrada'] };
 
       const ahora = new Date().toISOString();
@@ -520,16 +520,14 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
     async (id: string, aprobadoPor: string): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setCotizaciones(prev => {
-        dbId = prev.find(c => c.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = cotizacionesRef.current.find(c => c.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Cotización no encontrada'] };
 
       const ahora = new Date().toISOString();
       const { error } = await dbCotizaciones.update(dbId, {
         estado: 'aprobada' as EstadoCotizacion,
+        aprobado_por: aprobadoPor,
+        aprobado_en: ahora,
         modificado_por: user.id,
         modificado_en: ahora,
       });
@@ -566,16 +564,15 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
     async (id: string, rechazadoPor: string, motivo: string): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setCotizaciones(prev => {
-        dbId = prev.find(c => c.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = cotizacionesRef.current.find(c => c.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Cotización no encontrada'] };
 
       const ahora = new Date().toISOString();
       const { error } = await dbCotizaciones.update(dbId, {
         estado: 'rechazada' as EstadoCotizacion,
+        rechazado_por: rechazadoPor,
+        rechazado_en: ahora,
+        motivo_rechazo: motivo.trim(),
         modificado_por: user.id,
         modificado_en: ahora,
       });
@@ -609,16 +606,13 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
     async (id: string, motivo: string): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setCotizaciones(prev => {
-        dbId = prev.find(c => c.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = cotizacionesRef.current.find(c => c.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Cotización no encontrada'] };
 
       const ahora = new Date().toISOString();
       const { error } = await dbCotizaciones.update(dbId, {
         estado: 'anulada' as EstadoCotizacion,
+        motivo_anulacion: motivo.trim(),
         modificado_por: user.id,
         modificado_en: ahora,
       });

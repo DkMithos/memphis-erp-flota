@@ -11,17 +11,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { useCRMStore, type Oportunidad } from '../../../lib/crm/crm-store';
+import { convertirAMonedaBase, formatMontoBase } from '../../../lib/shared/currency-utils';
 import { toast } from 'sonner';
 
 // ── Etapa config ────────────────────────────────────────────────────────────
 
 const ETAPAS: { key: Oportunidad['etapa']; label: string; color: string }[] = [
   { key: 'prospecto',       label: 'Prospecto',     color: 'bg-slate-100 text-slate-700 border-slate-200' },
-  { key: 'calificado',      label: 'Calificado',    color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  { key: 'propuesta',       label: 'Propuesta',     color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  { key: 'calificado',      label: 'Calificado',    color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200' },
+  { key: 'propuesta',       label: 'Propuesta',     color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200' },
   { key: 'negociacion',     label: 'Negociación',   color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  { key: 'cerrado_ganado',  label: 'Ganado',        color: 'bg-green-100 text-green-700 border-green-200' },
-  { key: 'cerrado_perdido', label: 'Perdido',       color: 'bg-red-100 text-red-700 border-red-200' },
+  { key: 'cerrado_ganado',  label: 'Ganado',        color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200' },
+  { key: 'cerrado_perdido', label: 'Perdido',       color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200' },
 ];
 
 const ACTIVE_ETAPAS: Oportunidad['etapa'][] = ['prospecto', 'calificado', 'propuesta', 'negociacion'];
@@ -46,7 +47,7 @@ export function CRMDashboard({ onNavigate }: Props) {
   // ── KPIs ────────────────────────────────────────────────────────────────
   const clientesActivos = clientes.filter(c => c.estado === 'activo').length;
   const oportunidadesAbiertas = oportunidades.filter(o => ACTIVE_ETAPAS.includes(o.etapa));
-  const valorPipelineTotal = oportunidadesAbiertas.reduce((s, o) => s + (o.valorPonderado ?? 0), 0);
+  const valorPipelineTotal = oportunidadesAbiertas.reduce((s, o) => s + convertirAMonedaBase(o.valorPonderado ?? 0, o.moneda), 0);
 
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
@@ -97,7 +98,7 @@ export function CRMDashboard({ onNavigate }: Props) {
           <p className="text-sm text-muted-foreground mt-1">Pipeline de ventas y relaciones con clientes</p>
         </div>
         <Button onClick={() => onNavigate?.('/crm/clientes')}>
-          <Users className="size-4 mr-2" /> Ver Clientes
+          <Users className="size-4" /> Ver Clientes
         </Button>
       </div>
 
@@ -133,7 +134,7 @@ export function CRMDashboard({ onNavigate }: Props) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              S/ {(valorPipelineTotal / 1000).toFixed(0)}K
+              {formatMontoBase(valorPipelineTotal)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Valor ponderado</p>
           </CardContent>
@@ -161,7 +162,7 @@ export function CRMDashboard({ onNavigate }: Props) {
             {ACTIVE_ETAPAS.map(etapa => {
               const cfg = ETAPAS.find(e => e.key === etapa)!;
               const opsList = pipelineByEtapa.get(etapa) ?? [];
-              const valorEtapa = opsList.reduce((s, o) => s + (o.montoEstimado ?? 0), 0);
+              const valorEtapa = opsList.reduce((s, o) => s + convertirAMonedaBase(o.montoEstimado ?? 0, o.moneda), 0);
               return (
                 <div key={etapa} className="flex flex-col gap-2">
                   <div className="flex items-center justify-between mb-1">
@@ -169,7 +170,7 @@ export function CRMDashboard({ onNavigate }: Props) {
                     <span className="text-xs text-muted-foreground">{opsList.length}</span>
                   </div>
                   {valorEtapa > 0 && (
-                    <p className="text-xs text-muted-foreground mb-1">S/ {valorEtapa.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground mb-1">{formatMontoBase(valorEtapa)}</p>
                   )}
                   <div className="flex flex-col gap-2 min-h-[80px]">
                     {opsList.length === 0 && (

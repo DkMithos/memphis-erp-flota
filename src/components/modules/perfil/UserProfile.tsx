@@ -161,7 +161,7 @@ export function UserProfile() {
 
               <div className="flex gap-2">
                 <Button onClick={handleChangePassword} disabled={savingPw} size="sm">
-                  <Save className="size-3.5 mr-1.5" />
+                  <Save className="size-3.5" />
                   {savingPw ? 'Guardando...' : 'Guardar contraseña'}
                 </Button>
                 <Button

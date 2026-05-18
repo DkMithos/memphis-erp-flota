@@ -43,7 +43,7 @@ import {
 } from '../../../../lib/flota/flota-reports';
 import { exportToCSV, exportToExcel, exportToPDF, formatDateForExport } from '../../../../lib/shared/export-utils';
 import { TIPO_VEHICULO_LABELS, ESTADO_VEHICULO_CONFIG } from '../../../../lib/flota/vehiculos-config';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface FlotaReporteVehiculosProps {
   onNavigate: (route: string) => void;

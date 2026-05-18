@@ -26,18 +26,18 @@ interface Props {
 type FiltroEstado = 'todos' | EstadoStock;
 
 function EstadoStockBadge({ estado }: { estado: EstadoStock }) {
-  if (estado === 'normal') return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Normal</Badge>;
-  if (estado === 'bajo') return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">Bajo</Badge>;
-  if (estado === 'critico') return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Crítico</Badge>;
-  return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Sobrestock</Badge>;
+  if (estado === 'normal') return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100">Normal</Badge>;
+  if (estado === 'bajo') return <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 hover:bg-orange-100">Bajo</Badge>;
+  if (estado === 'critico') return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100">Crítico</Badge>;
+  return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100">Sobrestock</Badge>;
 }
 
 function TipoBadge({ tipo }: { tipo: Articulo['tipo'] }) {
   const map: Record<Articulo['tipo'], string> = {
-    repuesto: 'bg-purple-100 text-purple-800',
-    suministro: 'bg-blue-100 text-blue-800',
-    herramienta: 'bg-yellow-100 text-yellow-800',
-    consumible: 'bg-gray-100 text-gray-800',
+    repuesto: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+    suministro: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    herramienta: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+    consumible: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
     equipo: 'bg-teal-100 text-teal-800',
   };
   const labels: Record<Articulo['tipo'], string> = {
@@ -161,6 +161,10 @@ export function InventarioArticulos({ onNavigate: _onNavigate }: Props) {
       toast.error('El nombre es obligatorio');
       return;
     }
+    if (!form.unidadMedida) {
+      toast.error('La unidad de medida es obligatoria');
+      return;
+    }
     setGuardando(true);
     try {
       const catSeleccionada = categorias.find(c => c._dbId === form.categoriaDbId);
@@ -223,7 +227,7 @@ export function InventarioArticulos({ onNavigate: _onNavigate }: Props) {
           <p className="text-muted-foreground mt-1">{articulos.length} artículos en catálogo</p>
         </div>
         <Button onClick={abrirNuevo}>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Nuevo Artículo
         </Button>
       </div>
@@ -495,7 +499,7 @@ export function InventarioArticulos({ onNavigate: _onNavigate }: Props) {
             <Button variant="outline" onClick={() => setDialogDetalle(false)}>Cerrar</Button>
             {articuloSeleccionado && (
               <Button onClick={() => { setDialogDetalle(false); abrirEditar(articuloSeleccionado); }}>
-                <Edit className="size-4 mr-2" />Editar
+                <Edit className="size-4" />Editar
               </Button>
             )}
           </div>

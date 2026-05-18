@@ -10,7 +10,7 @@ import { Package, CheckCircle, AlertTriangle, Ban, type LucideIcon } from 'lucid
 // DEBUG FLAG
 // ============================================================================
 
-export const DEBUG_RECEPCIONES = true;
+export const DEBUG_RECEPCIONES = import.meta.env.DEV;
 
 // ============================================================================
 // TIPOS Y ESTADOS

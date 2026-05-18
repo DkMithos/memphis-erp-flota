@@ -34,6 +34,9 @@ export interface Transaccion {
   comprobanteUrl?: string;
   creadoPor?: string;
   creadoEn: string;
+  // Imputación dual
+  proyectoId?: string;
+  centroCostoId?: string;
 }
 
 export interface PresupuestoLinea {
@@ -44,6 +47,9 @@ export interface PresupuestoLinea {
   montoEjecutado: number;
   porcentajeEjecucion: number;
   variacion: number;
+  // Imputación dual
+  proyectoId?: string;
+  centroCostoId?: string;
 }
 
 export interface Presupuesto {
@@ -92,6 +98,9 @@ export interface GastoCajaChica {
   notas?: string;
   realizadoPor?: string;
   creadoEn: string;
+  // Imputación dual
+  proyectoId?: string;
+  centroCostoId?: string;
 }
 
 // ============================================================================
@@ -120,6 +129,8 @@ function mapTransaccion(row: TransaccionDB): Transaccion {
     comprobanteUrl: row.comprobante_url ?? undefined,
     creadoPor: row.creado_por ?? undefined,
     creadoEn: row.creado_en,
+    proyectoId: row.proyecto_id ?? undefined,
+    centroCostoId: row.centro_costo_id ?? undefined,
   };
 }
 
@@ -136,6 +147,8 @@ function mapPresupuesto(row: PresupuestoDB): Presupuesto {
       montoEjecutado: l.monto_ejecutado,
       porcentajeEjecucion: pct,
       variacion: l.monto_presupuestado - l.monto_ejecutado,
+      proyectoId: l.proyecto_id ?? undefined,
+      centroCostoId: l.centro_costo_id ?? undefined,
     };
   });
   const totalPresupuestado = lineas.reduce((s, l) => s + l.montoPresupuestado, 0);
@@ -194,6 +207,8 @@ function mapGasto(row: GastoCajaChicaDB): GastoCajaChica {
     notas: row.notas ?? undefined,
     realizadoPor: row.realizado_por ?? undefined,
     creadoEn: row.creado_en,
+    proyectoId: row.proyecto_id ?? undefined,
+    centroCostoId: row.centro_costo_id ?? undefined,
   };
 }
 
@@ -392,12 +407,17 @@ export function FinanzasProvider({ children }: { children: React.ReactNode }) {
 
   // ── Gastos Caja Chica ──
   const addGasto = useCallback(async (data: Omit<GastoCajaChicaDB, 'id' | 'creado_en' | 'caja'>) => {
+    // Validar saldo disponible en caja chica antes de registrar gasto
+    const caja = cajasChicas.find(c => c._dbId === data.caja_id);
+    if (caja && data.monto > caja.montoDisponible) {
+      throw new Error(`Saldo insuficiente en caja "${caja.nombre}". Disponible: ${caja.montoDisponible.toFixed(2)}, Gasto: ${data.monto.toFixed(2)}`);
+    }
     const { data: row, error } = await dbGastosCajaChica.insert(data);
     if (error || !row) throw new Error(error?.message ?? 'Error al registrar gasto');
-    // Reload gastos to get joined caja data
+    // Reload all data to get joined caja data; return the inserted row mapped
     await load();
-    return gastos[0]; // will be refreshed
-  }, [load, gastos]);
+    return mapGasto(row as GastoCajaChicaDB);
+  }, [load, cajasChicas]);
 
   const updateGasto = useCallback(async (dbId: string, data: Partial<GastoCajaChicaDB>) => {
     const { data: row, error } = await dbGastosCajaChica.update(dbId, data);

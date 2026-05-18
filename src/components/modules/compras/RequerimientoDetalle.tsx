@@ -78,7 +78,7 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
           </AlertDescription>
         </Alert>
         <Button variant="outline" onClick={() => onNavigate?.('/compras/requerimientos')}>
-          <ArrowLeft className="size-4 mr-2" />
+          <ArrowLeft className="size-4" />
           Volver a Requerimientos
         </Button>
       </div>
@@ -141,7 +141,7 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <Button variant="ghost" size="sm" onClick={() => onNavigate?.('/compras/requerimientos')}>
-            <ArrowLeft className="size-4 mr-2" />
+            <ArrowLeft className="size-4" />
             Volver a Requerimientos
           </Button>
           <div className="flex items-center gap-3 mt-2">
@@ -152,11 +152,11 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
               <div className="flex items-center gap-2">
                 <h2 className="text-xl">{requerimiento.id}</h2>
                 <Badge className={estadoConfig.className}>
-                  <estadoConfig.icon className="size-3 mr-1" />
+                  <estadoConfig.icon className="size-3" />
                   {estadoConfig.label}
                 </Badge>
                 <Badge className={prioridadConfig.className}>
-                  <prioridadConfig.icon className="size-3 mr-1" />
+                  <prioridadConfig.icon className="size-3" />
                   {prioridadConfig.label}
                 </Badge>
               </div>
@@ -168,25 +168,25 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
         <div className="flex items-center gap-2">
           {puedeRechazar && (
             <Button variant="destructive" onClick={() => setShowRechazarDialog(true)}>
-              <XCircle className="size-4 mr-2" />
+              <XCircle className="size-4" />
               Rechazar
             </Button>
           )}
           {puedeAprobar && (
             <Button variant="default" className="bg-green-600 hover:bg-green-700" onClick={handleAprobar}>
-              <CheckCircle className="size-4 mr-2" />
+              <CheckCircle className="size-4" />
               Aprobar
             </Button>
           )}
           {puedeEditar && (
             <Button onClick={() => onNavigate?.(`/compras/requerimientos/${requerimientoId}/editar`)}>
-              <Edit className="size-4 mr-2" />
+              <Edit className="size-4" />
               Editar
             </Button>
           )}
           {puedeAnular && (
             <Button variant="outline" onClick={() => setShowAnularDialog(true)}>
-              <Ban className="size-4 mr-2" />
+              <Ban className="size-4" />
               Anular
             </Button>
           )}
@@ -326,7 +326,7 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
               size="sm"
               onClick={() => onNavigate?.(`/compras/cotizaciones/nuevo?req=${requerimientoId}`)}
             >
-              <Plus className="size-4 mr-2" />
+              <Plus className="size-4" />
               Crear Cotización
             </Button>
           </div>
@@ -343,7 +343,7 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
                 className="mt-4"
                 onClick={() => onNavigate?.(`/compras/cotizaciones/nuevo?req=${requerimientoId}`)}
               >
-                <Plus className="size-4 mr-2" />
+                <Plus className="size-4" />
                 Crear Primera Cotización
               </Button>
             </div>
@@ -368,7 +368,7 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
                       <TableCell>{cot.proveedorNombre}</TableCell>
                       <TableCell>
                         <Badge className={estadoCotConfig.className}>
-                          <estadoCotConfig.icon className="size-3 mr-1" />
+                          <estadoCotConfig.icon className="size-3" />
                           {estadoCotConfig.label}
                         </Badge>
                       </TableCell>

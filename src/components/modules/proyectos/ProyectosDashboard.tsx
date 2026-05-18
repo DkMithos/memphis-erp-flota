@@ -21,17 +21,17 @@ import type { Proyecto } from '../../../lib/proyectos/proyectos-store';
 
 const ESTADO_CONFIG: Record<Proyecto['estado'], { label: string; color: string }> = {
   planificacion: { label: 'Planificación', color: 'bg-slate-100 text-slate-700' },
-  en_ejecucion:  { label: 'En Ejecución',  color: 'bg-blue-100 text-blue-700' },
-  pausado:       { label: 'Pausado',        color: 'bg-yellow-100 text-yellow-700' },
-  completado:    { label: 'Completado',     color: 'bg-green-100 text-green-700' },
-  cancelado:     { label: 'Cancelado',      color: 'bg-red-100 text-red-700' },
+  en_ejecucion:  { label: 'En Ejecución',  color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  pausado:       { label: 'Pausado',        color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  completado:    { label: 'Completado',     color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  cancelado:     { label: 'Cancelado',      color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
 const PRIORIDAD_CONFIG: Record<Proyecto['prioridad'], { label: string; color: string }> = {
   baja:    { label: 'Baja',    color: 'bg-slate-100 text-slate-600' },
-  media:   { label: 'Media',   color: 'bg-blue-100 text-blue-700' },
-  alta:    { label: 'Alta',    color: 'bg-orange-100 text-orange-700' },
-  critica: { label: 'Crítica', color: 'bg-red-100 text-red-700' },
+  media:   { label: 'Media',   color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  alta:    { label: 'Alta',    color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+  critica: { label: 'Crítica', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
 interface Props {
@@ -80,7 +80,7 @@ export function ProyectosDashboard({ onNavigate }: Props) {
           <p className="text-muted-foreground mt-1 text-sm">Panel de control y seguimiento de proyectos</p>
         </div>
         <Button onClick={() => onNavigate?.('/proyectos/lista')}>
-          <FolderKanban className="size-4 mr-2" />
+          <FolderKanban className="size-4" />
           Ver todos los proyectos
         </Button>
       </div>

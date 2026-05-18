@@ -169,12 +169,12 @@ export function FlotaDashboard({ onNavigate }: FlotaDashboardProps) {
         
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline">
-            <Download className="size-4 mr-2" />
+            <Download className="size-4" />
             Exportar
           </Button>
           
           <Button onClick={() => onNavigate('/flota/vehiculos/nuevo')}>
-            <Truck className="size-4 mr-2" />
+            <Truck className="size-4" />
             Nuevo Vehículo
           </Button>
         </div>
@@ -614,7 +614,7 @@ export function FlotaDashboard({ onNavigate }: FlotaDashboardProps) {
                           size="sm"
                           onClick={() => onNavigate(`/flota/mantenimientos/nueva?vehiculo=${vehiculo.id}&tipo=preventivo`)}
                         >
-                          <Wrench className="size-4 mr-1" />
+                          <Wrench className="size-4" />
                           Nueva OT
                         </Button>
                       </TableCell>

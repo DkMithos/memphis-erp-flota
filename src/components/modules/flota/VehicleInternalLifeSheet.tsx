@@ -3,15 +3,12 @@
  * Vista interna completa con costos, extras, auditoría y timeline
  */
 
-import { Truck, DollarSign, Clock, Calendar, Plus, FileText, History } from 'lucide-react';
+import { Truck, DollarSign, Clock, Calendar, Plus, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { useVehiculos } from '../../../lib/flota/vehiculos-store';
 import { useOTStore } from '../../../lib/flota/ot-store';
-import { useAuth } from '../../../auth/AuthProvider';
-import { VehiculoService } from '../../../lib/flota/vehiculo-service';
-import { CenteredLayout } from '../../shared/CenteredLayout';
 import { buildVehicleInternalSummary, formatDateTime } from '../../../lib/flota/vehicle-lifecycle';
 import { formatCurrency } from '../../../lib/flota/metrics';
 import { VehicleClientLifeSheet } from './VehicleClientLifeSheet';
@@ -24,7 +21,6 @@ interface VehicleInternalLifeSheetProps {
 export function VehicleInternalLifeSheet({ vehiculoId, onNavigate }: VehicleInternalLifeSheetProps) {
   const { obtenerVehiculo } = useVehiculos();
   const { ordenes } = useOTStore();
-  const { profile } = useAuth();
 
   const vehiculo = obtenerVehiculo(vehiculoId);
 
@@ -33,19 +29,10 @@ export function VehicleInternalLifeSheet({ vehiculoId, onNavigate }: VehicleInte
   }
 
   const summary = buildVehicleInternalSummary(vehiculo, ordenes);
-  
-  let logs: any[] = [];
-  try {
-    logs = VehiculoService.getAuditLogs(vehiculoId);
-  } catch (err) {
-    console.error("QA Gate: Failed to fetch audit logs", err);
-  }
-
-  const canViewAudit = profile?.rol === 'admin';
 
   return (
-    <div className="min-h-screen bg-background">
-      <CenteredLayout>
+    <div className="min-h-screen bg-background p-4 md:p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
         {/* Header con acciones */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
@@ -57,11 +44,11 @@ export function VehicleInternalLifeSheet({ vehiculoId, onNavigate }: VehicleInte
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onNavigate('/flota/vehiculos')}>
-              <FileText className="size-4 mr-2" />
+              <FileText className="size-4" />
               Ir a Vehículos
             </Button>
             <Button onClick={() => onNavigate(`/flota/mantenimientos/nueva?vehiculo=${vehiculoId}`)}>
-              <Plus className="size-4 mr-2" />
+              <Plus className="size-4" />
               Nueva OT
             </Button>
           </div>
@@ -157,7 +144,7 @@ export function VehicleInternalLifeSheet({ vehiculoId, onNavigate }: VehicleInte
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
-                      <Calendar className="size-3 inline mr-1" />
+                      <Calendar className="size-3 inline" />
                       {formatDateTime(item.fecha)}
                     </p>
                   </div>
@@ -189,41 +176,7 @@ export function VehicleInternalLifeSheet({ vehiculoId, onNavigate }: VehicleInte
             </div>
           </CardContent>
         </Card>
-
-        {/* Historial de Auditoría Real */}
-        {canViewAudit && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <History className="size-5" />
-                Historial de Auditoría del Sistema
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {logs.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">No hay registros de auditoría persistentes.</p>
-                ) : (
-                  logs.map((log) => (
-                    <div key={log.id} className="flex justify-between items-center text-sm border-b pb-2 last:border-0">
-                      <div className="space-y-1">
-                        <Badge variant="outline" className="font-mono text-[10px]">
-                          {log.accion}
-                        </Badge>
-                        <p className="text-muted-foreground text-xs">{log.detalles}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">{log.usuario}</p>
-                        <p className="text-[10px] text-muted-foreground">{formatDateTime(log.fecha)}</p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </CenteredLayout>
+      </div>
     </div>
   );
 }

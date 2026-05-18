@@ -64,7 +64,7 @@ export function VehicleClientLifeSheet({ vehiculoId, onNavigate }: VehicleClient
             <p className="text-muted-foreground">Vista Cliente - Historial Completo</p>
           </div>
           <Button variant="outline" onClick={handleExportCSV}>
-            <Download className="size-4 mr-2" />
+            <Download className="size-4" />
             Exportar CSV
           </Button>
         </div>

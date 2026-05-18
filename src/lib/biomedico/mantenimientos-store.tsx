@@ -4,9 +4,10 @@
  * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { dbMantenimientosBiomedicos } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
+import { validateTransition, MANTENIMIENTO_BIO_TRANSITIONS } from '../shared/state-machine';
 import type { MantenimientoBiomedico as MantenimientoDBRow } from '../supabase/types';
 import {
   generarNumeroMantenimiento,
@@ -72,6 +73,10 @@ export interface MantenimientoBiomedico {
   };
 
   observaciones: string | null;
+
+  // Imputación dual
+  proyectoId: string | null;
+  centroCostoId: string | null;
 }
 
 export interface NuevoMantenimientoBiomedicoInput {
@@ -90,6 +95,8 @@ export interface NuevoMantenimientoBiomedicoInput {
     empresa: string;
   };
   observaciones?: string;
+  proyectoId?: string | null;
+  centroCostoId?: string | null;
 }
 
 interface CrudResult {
@@ -202,6 +209,8 @@ function mapFromDB(row: MantenimientoDBRow): MantenimientoBiomedico {
       completadoEn: row.fecha_cierre ?? null,
     },
     observaciones: row.recomendaciones ?? null,
+    proyectoId: row.proyecto_id ?? null,
+    centroCostoId: row.centro_costo_id ?? null,
   };
 }
 
@@ -212,6 +221,8 @@ function mapFromDB(row: MantenimientoDBRow): MantenimientoBiomedico {
 export function MantenimientosStoreProvider({ children }: { children: React.ReactNode }) {
   const { tenantId, user } = useAuth();
   const [mantenimientos, setMantenimientos] = useState<MantenimientoBiomedico[]>([]);
+  const mantenimientosRef = useRef(mantenimientos);
+  useEffect(() => { mantenimientosRef.current = mantenimientos; }, [mantenimientos]);
   const [loading, setLoading] = useState(true);
 
   // Carga inicial desde Supabase
@@ -319,7 +330,9 @@ export function MantenimientosStoreProvider({ children }: { children: React.Reac
       creado_por: user.id,
       modificado_por: null,
       modificado_en: null,
-    });
+      proyecto_id: input.proyectoId ?? null,
+      centro_costo_id: input.centroCostoId ?? null,
+    } as any);
 
     if (error) {
       console.error('[MANTENIMIENTOS_BIO] Error al crear:', error.message);
@@ -357,13 +370,14 @@ export function MantenimientosStoreProvider({ children }: { children: React.Reac
   ): Promise<CrudResult> => {
     if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-    // Read _dbId without stale closure
-    let dbId: string | undefined;
-    setMantenimientos(prev => {
-      dbId = prev.find(m => m.numeroMantenimiento === numero)?._dbId;
-      return prev;
-    });
+    // Validar transición de estado
+    const mantActual = mantenimientos.find(m => m.numeroMantenimiento === numero);
+    if (mantActual) {
+      const check = validateTransition(mantActual.estado, nuevoEstado, MANTENIMIENTO_BIO_TRANSITIONS, `Mantenimiento ${numero}`);
+      if (!check.valid) return { exito: false, errores: [check.error] };
+    }
 
+    const dbId = mantenimientosRef.current.find(m => m.numeroMantenimiento === numero)?._dbId;
     if (!dbId) return { exito: false, errores: ['Mantenimiento no encontrado'] };
 
     const ahora = new Date().toISOString();
@@ -377,20 +391,17 @@ export function MantenimientosStoreProvider({ children }: { children: React.Reac
     let fechaInicio: string | undefined;
     let fechaCierre: string | undefined;
 
-    setMantenimientos(prev => {
-      const actual = prev.find(m => m.numeroMantenimiento === numero);
-      if (actual) {
-        if (nuevoEstado === 'en_ejecucion' && !actual.fechaInicio) {
-          fechaInicio = ahora;
-          updatePayload.fecha_inicio = ahora;
-        }
-        if (nuevoEstado === 'completado') {
-          fechaCierre = ahora;
-          updatePayload.fecha_cierre = ahora;
-        }
+    const actual = mantenimientosRef.current.find(m => m.numeroMantenimiento === numero);
+    if (actual) {
+      if (nuevoEstado === 'en_ejecucion' && !actual.fechaInicio) {
+        fechaInicio = ahora;
+        updatePayload.fecha_inicio = ahora;
       }
-      return prev;
-    });
+      if (nuevoEstado === 'completado') {
+        fechaCierre = ahora;
+        updatePayload.fecha_cierre = ahora;
+      }
+    }
 
     const { error } = await dbMantenimientosBiomedicos.update(dbId, updatePayload);
 

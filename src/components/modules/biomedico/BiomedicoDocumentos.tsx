@@ -39,6 +39,7 @@ import { Textarea } from '../../ui/textarea';
 import { useDocumentosBioStore, type DocumentoBio, type NuevoDocumentoBioInput } from '../../../lib/biomedico/documentos-bio-store';
 import { useEquiposStore } from '../../../lib/biomedico/equipos-store';
 import { toast } from 'sonner';
+import { useConfirmAction } from '@/components/shared/ConfirmDialogProvider';
 
 // ── Config de tipo ────────────────────────────────────────────────────────────
 
@@ -54,32 +55,32 @@ const TIPO_CONFIG: Record<TipoDoc, TipoConfig> = {
   manual: {
     label: 'Manual',
     icon: <BookOpen className="size-5" />,
-    className: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200',
+    className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   },
   certificado: {
     label: 'Certificado',
     icon: <Award className="size-5" />,
-    className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200',
+    className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
   },
   protocolo: {
     label: 'Protocolo',
     icon: <FileCheck className="size-5" />,
-    className: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-200',
+    className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   },
   garantia: {
     label: 'Garantía',
     icon: <Shield className="size-5" />,
-    className: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200',
+    className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   },
   ficha_tecnica: {
     label: 'Ficha Técnica',
     icon: <FileText className="size-5" />,
-    className: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200',
+    className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
   },
   otro: {
     label: 'Otro',
     icon: <File className="size-5" />,
-    className: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+    className: 'bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400',
   },
 };
 
@@ -98,6 +99,7 @@ interface Props {
 export function BiomedicoDocumentos({ onNavigate }: Props) {
   const { documentos, loading, agregarDocumento, eliminarDocumento } = useDocumentosBioStore();
   const { equipos } = useEquiposStore();
+  const confirmAction = useConfirmAction();
 
   const [search, setSearch] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<TipoDoc | 'todos'>('todos');
@@ -172,7 +174,8 @@ export function BiomedicoDocumentos({ onNavigate }: Props) {
   };
 
   const handleEliminar = async (doc: DocumentoBio) => {
-    if (!confirm(`¿Eliminar el documento "${doc.nombre}"?`)) return;
+    const ok = await confirmAction({ title: 'Confirmar eliminación', description: `¿Eliminar el documento "${doc.nombre}"?`, confirmLabel: 'Eliminar', variant: 'destructive' });
+    if (!ok) return;
     const result = await eliminarDocumento(doc._dbId);
     if (result.exito) {
       toast.success('Documento eliminado');
@@ -202,7 +205,7 @@ export function BiomedicoDocumentos({ onNavigate }: Props) {
           </p>
         </div>
         <Button onClick={() => setDialogAgregar(true)}>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Agregar Documento
         </Button>
       </div>
@@ -310,7 +313,7 @@ export function BiomedicoDocumentos({ onNavigate }: Props) {
                         className="flex-1"
                         onClick={() => window.open(doc.urlStorage, '_blank')}
                       >
-                        <Download className="size-3 mr-1" />
+                        <Download className="size-3" />
                         Descargar
                       </Button>
                     ) : (

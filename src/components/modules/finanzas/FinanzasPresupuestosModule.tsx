@@ -29,9 +29,9 @@ function fmt(n: number) {
 }
 
 const ESTADO_COLORS = {
-  borrador: 'bg-gray-100 text-gray-700 dark:bg-gray-800/50 dark:text-gray-400',
-  aprobado: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-  cerrado: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  borrador: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400',
+  aprobado: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  cerrado: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
 };
 
 interface NuevoPresupuestoForm {
@@ -155,7 +155,7 @@ export function FinanzasPresupuestosModule({ onNavigate: _onNavigate }: Props) {
           <p className="text-muted-foreground mt-1">Gestión de presupuestos y ejecución</p>
         </div>
         <Button onClick={() => setShowNuevo(true)}>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Nuevo Presupuesto
         </Button>
       </div>
@@ -226,12 +226,12 @@ export function FinanzasPresupuestosModule({ onNavigate: _onNavigate }: Props) {
                 <div className="flex gap-2 flex-wrap justify-end">
                   {selected.estado === 'borrador' && (
                     <Button size="sm" variant="outline" onClick={() => handleAprobar(selected)}>
-                      <Check className="size-4 mr-1" />
+                      <Check className="size-4" />
                       Aprobar
                     </Button>
                   )}
                   <Button size="sm" onClick={() => setShowNuevaLinea(true)}>
-                    <Plus className="size-4 mr-1" />
+                    <Plus className="size-4" />
                     Agregar Línea
                   </Button>
                 </div>

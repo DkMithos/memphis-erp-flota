@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, Save, X, Plus, Trash2, AlertTriangle, FileText } from 'lucide-react';
+import { ArrowLeft, Save, X, Plus, Trash2, AlertTriangle, FileText, ChevronDown } from 'lucide-react';
+import { useCatalogos } from '../../../lib/shared/catalogos-store';
+import { loadFlujoAprobacion, determinarNivelAprobacion, nivelAprobacionColor } from '../../../lib/compras/approval-flow';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -14,6 +16,7 @@ import {
 } from '../../ui/select';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { Badge } from '../../ui/badge';
+import { toast } from 'sonner';
 import { useOrdenesStore, type NuevaOrdenInput } from '../../../lib/compras/ordenes-store';
 import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
 import {
@@ -43,6 +46,10 @@ interface ItemForm {
 
 export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onSuccess }: OrdenFormProps) {
   const { crearOrdenDesdeCotizacion, actualizarOrden, obtenerOrdenPorId } = useOrdenesStore();
+  const { getByTipo } = useCatalogos();
+  const unidades = getByTipo('unidad_medida');
+  const condicionesPago = getByTipo('condicion_pago');
+  const flujoConfig = useMemo(() => loadFlujoAprobacion(), []);
   const { cotizaciones } = useCotizacionesStore();
 
   const isEditing = Boolean(ordenId);
@@ -63,6 +70,13 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
   const [proveedorNombre, setProveedorNombre] = useState(
     ordenExistente?.proveedorNombre || cotizacionPrefill?.proveedorNombre || ''
   );
+
+  // Helper to clear a specific error when user changes value
+  const clearError = (field: string) => {
+    if (errors[field]) {
+      setErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
+    }
+  };
   const [moneda, setMoneda] = useState<MonedaOrden>(
     ordenExistente?.moneda || cotizacionPrefill?.moneda || 'PEN'
   );
@@ -143,11 +157,16 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
     const nuevosItems = [...items];
     (nuevosItems[index] as any)[field] = value;
     setItems(nuevosItems);
+    // Clear item-level errors
+    const errorKey = field === 'precioUnitario' ? `item-${index}-precio` : `item-${index}-${field}`;
+    clearError(errorKey);
+    clearError('items');
   };
 
   // Submit
   const handleSubmit = async () => {
     if (!validarFormulario()) {
+      toast.error('Por favor, corrige los errores del formulario');
       return;
     }
 
@@ -212,7 +231,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
           </Alert>
           <div className="flex justify-end mt-4">
             <Button variant="outline" onClick={onCancel}>
-              <ArrowLeft className="size-4 mr-2" />
+              <ArrowLeft className="size-4" />
               Volver
             </Button>
           </div>
@@ -232,7 +251,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
           </p>
         </div>
         <Button variant="ghost" onClick={onCancel}>
-          <X className="size-4 mr-2" />
+          <X className="size-4" />
           Cancelar
         </Button>
       </div>
@@ -275,7 +294,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
             <Input
               id="cotizacionId"
               value={cotizacionId}
-              onChange={(e) => setCotizacionId(e.target.value)}
+              onChange={(e) => { setCotizacionId(e.target.value); clearError('cotizacionId'); }}
               disabled={Boolean(cotizacionIdParam) || isEditing}
               placeholder="COT-0001"
             />
@@ -290,7 +309,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
             <Input
               id="proveedorNombre"
               value={proveedorNombre}
-              onChange={(e) => setProveedorNombre(e.target.value)}
+              onChange={(e) => { setProveedorNombre(e.target.value); clearError('proveedorNombre'); }}
               placeholder="Nombre del proveedor"
             />
             {errors.proveedorNombre && (
@@ -324,14 +343,28 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
           </div>
 
           {/* Condiciones */}
-          <div>
-            <Label htmlFor="condiciones">Condiciones de Pago/Entrega</Label>
+          <div className="space-y-2">
+            <Label>Condiciones de Pago</Label>
+            <Select
+              value={condicionesPago.some(c => c.label === condiciones) ? condiciones : '__custom__'}
+              onValueChange={(v) => { if (v !== '__custom__') setCondiciones(v); }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccione condición..." />
+              </SelectTrigger>
+              <SelectContent>
+                {condicionesPago.map(c => (
+                  <SelectItem key={c.key} value={c.label}>{c.label}</SelectItem>
+                ))}
+                <SelectItem value="__custom__">Personalizado...</SelectItem>
+              </SelectContent>
+            </Select>
             <Textarea
               id="condiciones"
               value={condiciones}
               onChange={(e) => setCondiciones(e.target.value)}
-              placeholder="Ej: Pago a 30 días, entrega en almacén central..."
-              rows={3}
+              placeholder="O escribe condiciones personalizadas..."
+              rows={2}
             />
             {errors.condiciones && (
               <p className="text-sm text-red-600 mt-1">{errors.condiciones}</p>
@@ -345,7 +378,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Items de la Orden</CardTitle>
           <Button onClick={agregarItem} size="sm">
-            <Plus className="size-4 mr-2" />
+            <Plus className="size-4" />
             Agregar Item
           </Button>
         </CardHeader>
@@ -391,12 +424,19 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
 
                 <div>
                   <Label htmlFor={`item-${idx}-unidad`}>Unidad *</Label>
-                  <Input
-                    id={`item-${idx}-unidad`}
+                  <Select
                     value={item.unidad}
-                    onChange={(e) => actualizarItem(idx, 'unidad', e.target.value)}
-                    placeholder="Ej: unidad, caja, litro"
-                  />
+                    onValueChange={(v) => actualizarItem(idx, 'unidad', v)}
+                  >
+                    <SelectTrigger id={`item-${idx}-unidad`}>
+                      <SelectValue placeholder="Seleccione unidad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unidades.map(u => (
+                        <SelectItem key={u.key} value={u.key}>{u.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {errors[`item-${idx}-unidad`] && (
                     <p className="text-sm text-red-600 mt-1">{errors[`item-${idx}-unidad`]}</p>
                   )}
@@ -436,7 +476,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
         </CardContent>
       </Card>
 
-      {/* Totales */}
+      {/* Totales + nivel de aprobación */}
       <Card>
         <CardContent className="p-6">
           <div className="space-y-2">
@@ -452,6 +492,15 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
               <span className="font-semibold">Total:</span>
               <span className="font-semibold">{moneda === 'PEN' ? 'S/' : '$'} {totales.total.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
             </div>
+            {totales.total > 0 && (() => {
+              const nivel = determinarNivelAprobacion(totales.total, moneda, flujoConfig);
+              return (
+                <div className={`mt-3 rounded-lg px-3 py-2 text-xs ${nivelAprobacionColor(nivel.nivel)}`}>
+                  <p className="font-semibold">Nivel {nivel.nivel} — {nivel.label}</p>
+                  <p className="opacity-80">{nivel.descripcion} · {nivel.aprobadoresRequeridos} aprobador{nivel.aprobadoresRequeridos > 1 ? 'es' : ''}</p>
+                </div>
+              );
+            })()}
           </div>
         </CardContent>
       </Card>
@@ -459,11 +508,11 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
       {/* Acciones */}
       <div className="flex items-center justify-end gap-3">
         <Button variant="outline" onClick={onCancel}>
-          <ArrowLeft className="size-4 mr-2" />
+          <ArrowLeft className="size-4" />
           Cancelar
         </Button>
         <Button onClick={handleSubmit}>
-          <Save className="size-4 mr-2" />
+          <Save className="size-4" />
           {isEditing ? 'Guardar Cambios' : 'Crear Orden'}
         </Button>
       </div>

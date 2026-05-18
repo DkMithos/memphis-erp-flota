@@ -616,12 +616,12 @@ export function extractTalleresFromOTs(ots: OrdenTrabajo[]): Array<{ nombre: str
 }
 
 /**
- * Formatea número como moneda USD
+ * Formatea número como moneda PEN (Soles peruanos)
  */
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('es-PE', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'PEN',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(amount);

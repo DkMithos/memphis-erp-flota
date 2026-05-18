@@ -27,9 +27,10 @@ interface VehiculoDetalleProps {
   vehiculoId: string;
   onBack: () => void;
   onNavigate: (route: string) => void;
+  initialTab?: string;
 }
 
-export function VehiculoDetalle({ vehiculoId, onBack, onNavigate }: VehiculoDetalleProps) {
+export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: VehiculoDetalleProps) {
   const { obtenerVehiculo, inactivarVehiculo, activarVehiculo } = useVehiculos();
   const vehiculo = obtenerVehiculo(vehiculoId);
 
@@ -167,19 +168,19 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate }: VehiculoDeta
 
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline">
-            <FileText className="size-4 mr-2" />
+            <FileText className="size-4" />
             Documentos
           </Button>
           <Button 
             variant="outline" 
             onClick={() => onNavigate(`/flota/mantenimientos/nueva?vehiculo=${vehiculoId}`)}
           >
-            <Wrench className="size-4 mr-2" />
+            <Wrench className="size-4" />
             Nueva OT
           </Button>
           {puedeEditar && (
             <Button onClick={() => onNavigate(`/flota/vehiculos/${vehiculoId}/editar`)}>
-              <Edit className="size-4 mr-2" />
+              <Edit className="size-4" />
               Editar
             </Button>
           )}
@@ -188,7 +189,7 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate }: VehiculoDeta
               variant="outline"
               onClick={() => setDialogActivarOpen(true)}
             >
-              <Power className="size-4 mr-2" />
+              <Power className="size-4" />
               Activar
             </Button>
           ) : (
@@ -196,7 +197,7 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate }: VehiculoDeta
               variant="destructive"
               onClick={() => setDialogInactivarOpen(true)}
             >
-              <PowerOff className="size-4 mr-2" />
+              <PowerOff className="size-4" />
               Inactivar
             </Button>
           )}
@@ -306,7 +307,7 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate }: VehiculoDeta
               variant="outline"
               onClick={() => onNavigate('/flota/mantenimientos')}
             >
-              <Wrench className="size-4 mr-2" />
+              <Wrench className="size-4" />
               Ver Historial OT
             </Button>
           </div>
@@ -352,7 +353,7 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate }: VehiculoDeta
       </Card>
 
       {/* Tabs */}
-      <Tabs defaultValue="documentos" className="space-y-4">
+      <Tabs defaultValue={initialTab ?? "documentos"} className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
           <TabsTrigger value="contrato">Contrato</TabsTrigger>

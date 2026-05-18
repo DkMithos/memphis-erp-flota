@@ -21,7 +21,7 @@ import {
 // DEBUG FLAG
 // ============================================================================
 
-export const DEBUG_BIOMEDICO = true;
+export const DEBUG_BIOMEDICO = import.meta.env.DEV;
 
 // ============================================================================
 // TIPOS DE ESTADO Y CATEGORÍAS - Estandarizados según SRS

@@ -119,12 +119,12 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
         <div className="flex items-center gap-2 flex-wrap">
           {puedeCrear && (
             <Button onClick={() => onNavigate?.('/compras/requerimientos/nuevo')}>
-              <Plus className="size-4 mr-2" />
+              <Plus className="size-4" />
               Nuevo Requerimiento
             </Button>
           )}
           <Button variant="outline">
-            <Download className="size-4 mr-2" />
+            <Download className="size-4" />
             Exportar
           </Button>
         </div>
@@ -300,6 +300,7 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
                   </p>
                 </div>
               ) : (
+                <>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -340,13 +341,13 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
                           </TableCell>
                           <TableCell>
                             <Badge className={prioridadConfig.className}>
-                              <prioridadConfig.icon className="size-3 mr-1" />
+                              <prioridadConfig.icon className="size-3" />
                               {prioridadConfig.label}
                             </Badge>
                           </TableCell>
                           <TableCell>
                             <Badge className={estadoConfig.className}>
-                              <estadoConfig.icon className="size-3 mr-1" />
+                              <estadoConfig.icon className="size-3" />
                               {estadoConfig.label}
                             </Badge>
                           </TableCell>
@@ -397,6 +398,7 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
                     </div>
                   </div>
                 )}
+                </>
               )}
             </TabsContent>
           </Tabs>

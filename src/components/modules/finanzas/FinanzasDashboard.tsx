@@ -10,6 +10,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import { useFinanzas } from '@/lib/finanzas/finanzas-store';
+import { convertirAMonedaBase } from '@/lib/shared/currency-utils';
 
 interface Props {
   onNavigate: (route: string) => void;
@@ -39,12 +40,12 @@ export function FinanzasDashboard({ onNavigate }: Props) {
   );
 
   const ingresosMes = useMemo(() =>
-    trxMes.filter(t => t.tipo === 'ingreso' && t.estado !== 'anulada').reduce((s, t) => s + t.monto, 0),
+    trxMes.filter(t => t.tipo === 'ingreso' && t.estado !== 'anulada').reduce((s, t) => s + convertirAMonedaBase(t.monto, t.moneda), 0),
     [trxMes]
   );
 
   const egresosMes = useMemo(() =>
-    trxMes.filter(t => t.tipo === 'egreso' && t.estado !== 'anulada').reduce((s, t) => s + t.monto, 0),
+    trxMes.filter(t => t.tipo === 'egreso' && t.estado !== 'anulada').reduce((s, t) => s + convertirAMonedaBase(t.monto, t.moneda), 0),
     [trxMes]
   );
 
@@ -68,13 +69,13 @@ export function FinanzasDashboard({ onNavigate }: Props) {
           const td = new Date(t.fecha);
           return td.getMonth() === m && td.getFullYear() === a && t.tipo === 'ingreso' && t.estado !== 'anulada';
         })
-        .reduce((s, t) => s + t.monto, 0);
+        .reduce((s, t) => s + convertirAMonedaBase(t.monto, t.moneda), 0);
       const egr = transacciones
         .filter(t => {
           const td = new Date(t.fecha);
           return td.getMonth() === m && td.getFullYear() === a && t.tipo === 'egreso' && t.estado !== 'anulada';
         })
-        .reduce((s, t) => s + t.monto, 0);
+        .reduce((s, t) => s + convertirAMonedaBase(t.monto, t.moneda), 0);
       meses.push({ mes: label, ingresos: ing, egresos: egr });
     }
     return meses;

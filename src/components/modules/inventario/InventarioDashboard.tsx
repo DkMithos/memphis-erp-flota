@@ -158,9 +158,9 @@ export function InventarioDashboard({ onNavigate }: Props) {
                       <p className="text-xs text-muted-foreground">{a.id} · Stock: {a.stockActual} / Mín: {a.stockMinimo} {a.unidadMedida}</p>
                     </div>
                     {a.estadoStock === 'critico' ? (
-                      <Badge className="bg-red-100 text-red-800 hover:bg-red-100 shrink-0">Crítico</Badge>
+                      <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100 shrink-0">Crítico</Badge>
                     ) : (
-                      <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100 shrink-0">Bajo</Badge>
+                      <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 hover:bg-orange-100 shrink-0">Bajo</Badge>
                     )}
                   </div>
                 ))}
@@ -201,10 +201,10 @@ export function InventarioDashboard({ onNavigate }: Props) {
                     <TableCell className="text-right text-sm">S/ {a.precioUnitario?.toFixed(2) ?? '—'}</TableCell>
                     <TableCell className="text-right text-sm font-semibold">S/ {formatMoney(a.valorTotal ?? 0)}</TableCell>
                     <TableCell>
-                      {a.estadoStock === 'normal' && <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Normal</Badge>}
-                      {a.estadoStock === 'bajo' && <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">Bajo</Badge>}
-                      {a.estadoStock === 'critico' && <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Crítico</Badge>}
-                      {a.estadoStock === 'sobrestock' && <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Sobrestock</Badge>}
+                      {a.estadoStock === 'normal' && <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100">Normal</Badge>}
+                      {a.estadoStock === 'bajo' && <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 hover:bg-orange-100">Bajo</Badge>}
+                      {a.estadoStock === 'critico' && <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100">Crítico</Badge>}
+                      {a.estadoStock === 'sobrestock' && <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100">Sobrestock</Badge>}
                     </TableCell>
                   </TableRow>
                 ))}

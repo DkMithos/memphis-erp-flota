@@ -152,7 +152,7 @@ export function Finanzas() {
             </SelectContent>
           </Select>
           <Button variant="outline">
-            <Download className="size-4 mr-2" />
+            <Download className="size-4" />
             Exportar
           </Button>
         </div>
@@ -410,13 +410,13 @@ export function Finanzas() {
                       <TableCell>{mov.fecha}</TableCell>
                       <TableCell>
                         {mov.estado === 'aprobado' && (
-                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Aprobado</Badge>
+                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100">Aprobado</Badge>
                         )}
                         {mov.estado === 'pendiente' && (
-                          <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pendiente</Badge>
+                          <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 hover:bg-yellow-100">Pendiente</Badge>
                         )}
                         {mov.estado === 'pagado' && (
-                          <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Pagado</Badge>
+                          <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100">Pagado</Badge>
                         )}
                       </TableCell>
                     </TableRow>

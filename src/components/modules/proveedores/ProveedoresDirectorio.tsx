@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Filter, Download, Eye, Edit, XCircle, Building2 } from 'lucide-react';
+import { Plus, Search, Filter, Download, Eye, Edit, XCircle, Building2, CheckCircle, Clock, Settings2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -22,6 +22,7 @@ import {
 import { Alert, AlertDescription } from '../../ui/alert';
 import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
 import { useAuth } from '../../../auth/AuthProvider';
+import { exportToCSV } from '../../../lib/shared/export-utils';
 import {
   PROVEEDOR_ESTADO_CONFIG,
   PROVEEDOR_CONDICION_CONFIG,
@@ -30,24 +31,26 @@ import {
   tienePermiso,
   type EstadoProveedor,
   type TipoProveedor,
-  type CategoriaProveedor,
   type RolUsuario
 } from '../../../lib/proveedores/proveedores-config';
+import { toast } from 'sonner';
 
 interface ProveedoresDirectorioProps {
   onNavigate?: (route: string) => void;
 }
 
 export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps) {
-  const { proveedores } = useProveedorStore();
-  const { profile } = useAuth();
-  const rolActual = (profile?.rol ?? 'operaciones') as RolUsuario;
-  
+  const { proveedores, aprobarProveedor, rechazarProveedor } = useProveedorStore();
+  const categorias = Object.entries(PROVEEDOR_CATEGORIA_LABELS).map(([key, label]) => ({ key, label }));
+  const { profile, user } = useAuth();
+  const jwtRole = user?.app_metadata?.role as string | undefined;
+  const rolActual = (profile?.rol ?? jwtRole ?? 'operaciones') as RolUsuario;
+
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<EstadoProveedor | 'todos'>('todos');
   const [filtroTipo, setFiltroTipo] = useState<TipoProveedor | 'todos'>('todos');
-  const [filtroCategoria, setFiltroCategoria] = useState<CategoriaProveedor | 'todos'>('todos');
+  const [filtroCategoria, setFiltroCategoria] = useState<string>('todos');
 
   // Proveedores filtrados
   const proveedoresFiltrados = useMemo(() => {
@@ -58,7 +61,7 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
         p.razonSocial.toLowerCase().includes(searchLower) ||
         p.ruc.includes(searchLower) ||
         p.nombreComercial?.toLowerCase().includes(searchLower) ||
-        p.email.toLowerCase().includes(searchLower);
+        (p.email ?? '').toLowerCase().includes(searchLower);
 
       // Filtro por estado
       const matchEstado = filtroEstado === 'todos' || p.estado === filtroEstado;
@@ -78,10 +81,27 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
     total: proveedores.length,
     activos: proveedores.filter(p => p.estado === 'activo').length,
     inactivos: proveedores.filter(p => p.estado === 'inactivo').length,
-    observados: proveedores.filter(p => p.estado === 'observado').length
+    observados: proveedores.filter(p => p.estado === 'observado').length,
+    enEvaluacion: proveedores.filter(p => p.estado === 'en_evaluacion').length,
   }), [proveedores]);
 
+  const puedeAprobar = tienePermiso(rolActual, 'aprobar');
+
   const puedeCrear = tienePermiso(rolActual, 'crear');
+
+  const handleExportar = () => {
+    exportToCSV(`proveedores-${new Date().toISOString().slice(0, 10)}`, proveedoresFiltrados, {
+      id: 'Código',
+      razonSocial: 'Razón Social',
+      ruc: 'RUC',
+      tipo: 'Tipo',
+      estado: 'Estado',
+      email: 'Email',
+      telefono: 'Teléfono',
+      distrito: 'Distrito',
+      departamento: 'Departamento',
+    } as any);
+  };
 
   return (
     <div className="space-y-6">
@@ -100,21 +120,27 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {puedeAprobar && (
+            <Button variant="outline" size="sm" onClick={() => onNavigate?.('/proveedores/categorias')}>
+              <Settings2 className="size-4" />
+              Categorías
+            </Button>
+          )}
           {puedeCrear && (
             <Button onClick={() => onNavigate?.('/proveedores/directorio/nuevo')}>
-              <Plus className="size-4 mr-2" />
+              <Plus className="size-4" />
               Nuevo Proveedor
             </Button>
           )}
-          <Button variant="outline" onClick={() => {}}>
-            <Download className="size-4 mr-2" />
+          <Button variant="outline" onClick={handleExportar}>
+            <Download className="size-4" />
             Exportar
           </Button>
         </div>
       </div>
 
       {/* Stats KPI */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs text-muted-foreground">Total Proveedores</CardTitle>
@@ -152,6 +178,19 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
           <CardContent>
             <div className="text-2xl font-semibold text-gray-600">{stats.inactivos}</div>
             <p className="text-xs text-muted-foreground mt-1">Fuera de operación</p>
+          </CardContent>
+        </Card>
+
+        <Card className={stats.enEvaluacion > 0 ? 'border-blue-300' : ''}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs text-muted-foreground flex items-center gap-1">
+              <Clock className="size-3" />
+              En Evaluación
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold text-blue-600">{stats.enEvaluacion}</div>
+            <p className="text-xs text-muted-foreground mt-1">Pendiente aprobación</p>
           </CardContent>
         </Card>
       </div>
@@ -209,14 +248,14 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
 
           {/* Filtro por Categoría */}
           <div className="mt-4">
-            <Select value={filtroCategoria} onValueChange={(v) => setFiltroCategoria(v as CategoriaProveedor | 'todos')}>
+            <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
               <SelectTrigger>
                 <SelectValue placeholder="Categoría" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todas las Categorías</SelectItem>
-                {Object.entries(PROVEEDOR_CATEGORIA_LABELS).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                {categorias.map(cat => (
+                  <SelectItem key={cat.key} value={cat.key}>{cat.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -230,7 +269,7 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
                 {searchTerm && ` • Búsqueda: "${searchTerm}"`}
                 {filtroEstado !== 'todos' && ` • Estado: ${filtroEstado}`}
                 {filtroTipo !== 'todos' && ` • Tipo: ${filtroTipo}`}
-                {filtroCategoria !== 'todos' && ` • Categoría: ${PROVEEDOR_CATEGORIA_LABELS[filtroCategoria]}`}
+                {filtroCategoria !== 'todos' && ` • Categoría: ${categorias.find(c => c.key === filtroCategoria)?.label ?? filtroCategoria}`}
                 <Button 
                   variant="link" 
                   size="sm" 
@@ -307,7 +346,7 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
                         <div className="flex flex-wrap gap-1">
                           {proveedor.categorias.slice(0, 2).map(cat => (
                             <Badge key={cat} variant="outline" className="text-xs">
-                              {PROVEEDOR_CATEGORIA_LABELS[cat].split(' ')[0]}
+                              {(categorias.find(c => c.key === cat)?.label ?? cat).split(' ')[0]}
                             </Badge>
                           ))}
                           {proveedor.categorias.length > 2 && (
@@ -319,7 +358,7 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
                       </TableCell>
                       <TableCell>
                         <Badge className={estadoConfig.className}>
-                          <estadoConfig.icon className="size-3 mr-1" />
+                          <estadoConfig.icon className="size-3" />
                           {estadoConfig.label}
                         </Badge>
                       </TableCell>
@@ -335,22 +374,52 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                          <Button 
-                            variant="ghost" 
+                        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => onNavigate?.(`/proveedores/directorio/${proveedor.id}`)}
                           >
                             <Eye className="size-4" />
                           </Button>
-                          {puedeEditar && proveedor.estado !== 'inactivo' && (
-                            <Button 
-                              variant="ghost" 
+                          {puedeEditar && proveedor.estado !== 'inactivo' && proveedor.estado !== 'en_evaluacion' && (
+                            <Button
+                              variant="ghost"
                               size="sm"
                               onClick={() => onNavigate?.(`/proveedores/directorio/${proveedor.id}/editar`)}
                             >
                               <Edit className="size-4" />
                             </Button>
+                          )}
+                          {puedeAprobar && proveedor.estado === 'en_evaluacion' && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                title="Aprobar proveedor"
+                                onClick={async () => {
+                                  const r = await aprobarProveedor(proveedor.id);
+                                  if (r.exito) toast.success(`${proveedor.razonSocial} aprobado`);
+                                  else toast.error(r.errores?.[0] ?? 'Error al aprobar');
+                                }}
+                              >
+                                <CheckCircle className="size-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                title="Rechazar proveedor"
+                                onClick={async () => {
+                                  const r = await rechazarProveedor(proveedor.id, 'Rechazado por revisor');
+                                  if (r.exito) toast.warning(`${proveedor.razonSocial} marcado como observado`);
+                                  else toast.error(r.errores?.[0] ?? 'Error al rechazar');
+                                }}
+                              >
+                                <XCircle className="size-4" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>

@@ -20,17 +20,17 @@ import { useProyectos, type Tarea } from '../../../lib/proyectos/proyectos-store
 
 const ESTADO_CONFIG: Record<Tarea['estado'], { label: string; color: string }> = {
   pendiente:   { label: 'Pendiente',   color: 'bg-slate-100 text-slate-700' },
-  en_progreso: { label: 'En Progreso', color: 'bg-blue-100 text-blue-700' },
-  completada:  { label: 'Completada',  color: 'bg-green-100 text-green-700' },
-  bloqueada:   { label: 'Bloqueada',   color: 'bg-red-100 text-red-700' },
-  cancelada:   { label: 'Cancelada',   color: 'bg-gray-100 text-gray-600' },
+  en_progreso: { label: 'En Progreso', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  completada:  { label: 'Completada',  color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  bloqueada:   { label: 'Bloqueada',   color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  cancelada:   { label: 'Cancelada',   color: 'bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400' },
 };
 
 const PRIORIDAD_CONFIG: Record<Tarea['prioridad'], { label: string; color: string }> = {
   baja:    { label: 'Baja',    color: 'bg-slate-100 text-slate-600' },
-  media:   { label: 'Media',   color: 'bg-blue-100 text-blue-700' },
-  alta:    { label: 'Alta',    color: 'bg-orange-100 text-orange-700' },
-  critica: { label: 'Crítica', color: 'bg-red-100 text-red-700' },
+  media:   { label: 'Media',   color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  alta:    { label: 'Alta',    color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+  critica: { label: 'Crítica', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
 // ── Tarea enriquecida ─────────────────────────────────────────────────────────

@@ -28,9 +28,9 @@ type TipoActividad = ActividadCRM['tipo'];
 type EstadoActividad = ActividadCRM['estado'];
 
 const TIPO_CONFIG: Record<TipoActividad, { label: string; icon: React.ReactNode; color: string }> = {
-  llamada:     { label: 'Llamada',     icon: <Phone className="size-3.5" />,        color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  reunion:     { label: 'Reunión',     icon: <Users2 className="size-3.5" />,       color: 'bg-purple-100 text-purple-700 border-purple-200' },
-  email:       { label: 'Email',       icon: <Mail className="size-3.5" />,         color: 'bg-green-100 text-green-700 border-green-200' },
+  llamada:     { label: 'Llamada',     icon: <Phone className="size-3.5" />,        color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200' },
+  reunion:     { label: 'Reunión',     icon: <Users2 className="size-3.5" />,       color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200' },
+  email:       { label: 'Email',       icon: <Mail className="size-3.5" />,         color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200' },
   visita:      { label: 'Visita',      icon: <MapPin className="size-3.5" />,       color: 'bg-amber-100 text-amber-700 border-amber-200' },
   propuesta:   { label: 'Propuesta',   icon: <FileText className="size-3.5" />,     color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
   seguimiento: { label: 'Seguimiento', icon: <ArrowRight className="size-3.5" />,   color: 'bg-slate-100 text-slate-700 border-slate-200' },
@@ -49,8 +49,8 @@ function badgeTipo(tipo: TipoActividad) {
 function badgeEstado(estado: EstadoActividad) {
   const map: Record<EstadoActividad, { label: string; icon: React.ReactNode; className: string }> = {
     pendiente:  { label: 'Pendiente',  icon: <Clock className="size-3" />,        className: 'bg-amber-100 text-amber-700 border-amber-200' },
-    realizada:  { label: 'Realizada',  icon: <CheckCircle2 className="size-3" />, className: 'bg-green-100 text-green-700 border-green-200' },
-    cancelada:  { label: 'Cancelada',  icon: <XCircle className="size-3" />,      className: 'bg-red-100 text-red-700 border-red-200' },
+    realizada:  { label: 'Realizada',  icon: <CheckCircle2 className="size-3" />, className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200' },
+    cancelada:  { label: 'Cancelada',  icon: <XCircle className="size-3" />,      className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200' },
   };
   const cfg = map[estado];
   return <Badge className={`text-xs gap-1 ${cfg.className}`}>{cfg.icon}{cfg.label}</Badge>;
@@ -202,7 +202,7 @@ export function CRMActividades({ onNavigate: _onNavigate }: Props) {
           <p className="text-sm text-muted-foreground mt-1">Registro de llamadas, reuniones y seguimiento comercial</p>
         </div>
         <Button onClick={() => { setForm(FORM_EMPTY); setCrearOpen(true); }}>
-          <Plus className="size-4 mr-2" /> Nueva Actividad
+          <Plus className="size-4" /> Nueva Actividad
         </Button>
       </div>
 
@@ -300,7 +300,7 @@ export function CRMActividades({ onNavigate: _onNavigate }: Props) {
                       <TableCell className="text-right">
                         {a.estado === 'pendiente' && (
                           <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openCompletar(a)}>
-                            <CheckCircle2 className="size-3 mr-1" /> Completar
+                            <CheckCircle2 className="size-3" /> Completar
                           </Button>
                         )}
                         {a.estado === 'realizada' && a.resultado && (

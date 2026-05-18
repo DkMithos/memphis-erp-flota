@@ -418,6 +418,11 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       stockNuevo = stockAnterior;
     }
 
+    // Prevenir stock negativo
+    if (stockNuevo < 0) {
+      throw new Error(`Stock insuficiente para ${articulo.nombre}. Stock actual: ${stockAnterior}, cantidad solicitada: ${input.cantidad}`);
+    }
+
     const costoTotal = input.precioUnitario != null ? input.precioUnitario * input.cantidad : null;
 
     const payload: Omit<MovimientoInventarioDB, 'id' | 'creado_en' | 'articulo' | 'almacen'> = {

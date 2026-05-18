@@ -54,7 +54,7 @@ export function CRM() {
           <p className="text-muted-foreground mt-1">Pipeline de ventas y relaciones con clientes</p>
         </div>
         <Button>
-          <UserCircle className="size-4 mr-2" />
+          <UserCircle className="size-4" />
           Nuevo Cliente
         </Button>
       </div>

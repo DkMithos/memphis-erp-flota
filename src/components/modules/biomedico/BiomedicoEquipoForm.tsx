@@ -5,12 +5,14 @@
  */
 
 import { useState, useEffect } from 'react';
-import { 
-  ArrowLeft, 
-  ArrowRight, 
+import {
+  ArrowLeft,
+  ArrowRight,
   Check,
   Save,
-  AlertCircle
+  AlertCircle,
+  Building2,
+  MapPin
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -25,12 +27,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../ui/select';
-import { toast } from 'sonner@2.0.3';
-import { 
+import { toast } from 'sonner';
+import {
   useEquiposStore,
   type NuevoEquipoBiomedicoInput
 } from '../../../lib/biomedico/equipos-store';
-import { 
+import { useSedesStore } from '../../../lib/biomedico/sedes-store';
+import {
   EQUIPO_CATEGORIA_CONFIG,
   EQUIPO_RIESGO_CONFIG,
   type CategoriaEquipoBiomedico,
@@ -49,7 +52,7 @@ interface FormData {
   marca: string;
   modelo: string;
   serie: string;
-  
+
   // Paso 2
   categoria: CategoriaEquipoBiomedico | '';
   riesgo: RiesgoBiomedico | '';
@@ -58,11 +61,16 @@ interface FormData {
   frecuencia: string;
   dimensiones: string;
   peso: string;
-  
-  // Paso 3
+
+  // Paso 3 — Jerarquía
+  clienteId: string;
+  sedeId: string;
+  areaId: string;
+  // Campo libre legacy (rellenar si no hay jerarquía)
   area: string;
   subarea: string;
   responsable: string;
+  // Fechas / garantía / costos
   fechaAdquisicion: string;
   fechaInstalacion: string;
   proveedorGarantia: string;
@@ -80,15 +88,17 @@ interface BiomedicoEquipoFormProps {
   onSuccess?: (codigo: string) => void;
 }
 
-export function BiomedicoEquipoForm({ 
+export function BiomedicoEquipoForm({
   modo = 'crear',
   codigoEquipo,
-  onCancel, 
-  onSuccess 
+  onCancel,
+  onSuccess
 }: BiomedicoEquipoFormProps) {
   const { crearEquipo, actualizarEquipo, obtenerEquipoPorCodigo } = useEquiposStore();
-  
+  const { clientes, sedesByCliente, areasBySede } = useSedesStore();
+
   const [pasoActual, setPasoActual] = useState(1);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<FormData>({
     nombre: '',
     marca: '',
@@ -101,6 +111,9 @@ export function BiomedicoEquipoForm({
     frecuencia: '',
     dimensiones: '',
     peso: '',
+    clienteId: '',
+    sedeId: '',
+    areaId: '',
     area: '',
     subarea: '',
     responsable: '',
@@ -113,6 +126,9 @@ export function BiomedicoEquipoForm({
     costoMantenimientoAnual: '',
     observaciones: ''
   });
+
+  const sedesDisponibles = formData.clienteId ? sedesByCliente(formData.clienteId) : [];
+  const areasDisponibles = formData.sedeId ? areasBySede(formData.sedeId) : [];
 
   // Cargar datos si es modo editar
   useEffect(() => {
@@ -131,6 +147,9 @@ export function BiomedicoEquipoForm({
           frecuencia: equipo.especificaciones.frecuencia || '',
           dimensiones: equipo.especificaciones.dimensiones || '',
           peso: equipo.especificaciones.peso || '',
+          clienteId: equipo.clienteId ?? '',
+          sedeId: equipo.sedeId ?? '',
+          areaId: equipo.areaId ?? '',
           area: equipo.ubicacion.area,
           subarea: equipo.ubicacion.subarea,
           responsable: equipo.ubicacion.responsable,
@@ -149,30 +168,44 @@ export function BiomedicoEquipoForm({
 
   const updateFormData = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
   };
 
-  // Validaciones por paso
+  // Validaciones por paso con errores inline
   const validarPaso1 = (): boolean => {
-    return !!(formData.nombre && formData.marca && formData.modelo && formData.serie);
+    const e: Record<string, string> = {};
+    if (!formData.nombre.trim()) e.nombre = 'El nombre del equipo es obligatorio';
+    if (!formData.marca.trim()) e.marca = 'La marca es obligatoria';
+    if (!formData.modelo.trim()) e.modelo = 'El modelo es obligatorio';
+    if (!formData.serie.trim()) e.serie = 'El número de serie es obligatorio';
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
   const validarPaso2 = (): boolean => {
-    return !!(formData.categoria && formData.riesgo);
+    const e: Record<string, string> = {};
+    if (!formData.categoria) e.categoria = 'Debe seleccionar una categoría';
+    if (!formData.riesgo) e.riesgo = 'Debe seleccionar el nivel de riesgo';
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
   const validarPaso3 = (): boolean => {
-    return !!(
-      formData.area && 
-      formData.subarea && 
-      formData.responsable &&
-      formData.fechaAdquisicion &&
-      formData.fechaInstalacion &&
-      formData.proveedorGarantia &&
-      formData.fechaInicioGarantia &&
-      formData.fechaVencimientoGarantia &&
-      formData.costoAdquisicion &&
-      formData.costoMantenimientoAnual
-    );
+    const e: Record<string, string> = {};
+    const tieneJerarquia = !!(formData.clienteId && formData.sedeId && formData.areaId);
+    const tieneAreaLibre = !!(formData.area && formData.subarea && formData.responsable);
+    if (!tieneJerarquia && !tieneAreaLibre) {
+      e.ubicacion = 'Debe completar la ubicación (jerarquía o manual)';
+    }
+    if (!formData.fechaAdquisicion) e.fechaAdquisicion = 'La fecha de adquisición es obligatoria';
+    if (!formData.fechaInstalacion) e.fechaInstalacion = 'La fecha de instalación es obligatoria';
+    if (!formData.proveedorGarantia.trim()) e.proveedorGarantia = 'El proveedor de garantía es obligatorio';
+    if (!formData.fechaInicioGarantia) e.fechaInicioGarantia = 'La fecha de inicio es obligatoria';
+    if (!formData.fechaVencimientoGarantia) e.fechaVencimientoGarantia = 'La fecha de vencimiento es obligatoria';
+    if (!formData.costoAdquisicion) e.costoAdquisicion = 'El costo de adquisición es obligatorio';
+    if (!formData.costoMantenimientoAnual) e.costoMantenimientoAnual = 'El costo de mantenimiento es obligatorio';
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
   const handleSiguiente = () => {
@@ -198,6 +231,10 @@ export function BiomedicoEquipoForm({
     }
 
     try {
+      // Si tiene área registrada en la jerarquía, sincronizar campos libres también
+      const areaSeleccionada = areasDisponibles.find(a => a.id === formData.areaId);
+      const sedeSeleccionada = sedesDisponibles.find(s => s.id === formData.sedeId);
+
       const input: NuevoEquipoBiomedicoInput = {
         nombre: formData.nombre,
         marca: formData.marca,
@@ -205,9 +242,12 @@ export function BiomedicoEquipoForm({
         serie: formData.serie,
         categoria: formData.categoria as CategoriaEquipoBiomedico,
         riesgo: formData.riesgo as RiesgoBiomedico,
+        clienteId: formData.clienteId || null,
+        sedeId: formData.sedeId || null,
+        areaId: formData.areaId || null,
         ubicacion: {
-          area: formData.area,
-          subarea: formData.subarea,
+          area: areaSeleccionada?.nombre ?? formData.area,
+          subarea: sedeSeleccionada?.nombre ?? formData.subarea,
           responsable: formData.responsable
         },
         especificaciones: {
@@ -251,7 +291,7 @@ export function BiomedicoEquipoForm({
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={onCancel}>
-          <ArrowLeft className="size-4 mr-2" />
+          <ArrowLeft className="size-4" />
           Volver
         </Button>
         <div>
@@ -306,6 +346,7 @@ export function BiomedicoEquipoForm({
                   onChange={(e) => updateFormData('nombre', e.target.value)}
                   placeholder="Ej: Ventilador Mecánico"
                 />
+                {errors.nombre && <p className="text-sm text-red-600 flex items-center gap-1"><AlertCircle className="size-3" />{errors.nombre}</p>}
               </div>
 
               <div className="space-y-2">
@@ -316,6 +357,7 @@ export function BiomedicoEquipoForm({
                   onChange={(e) => updateFormData('serie', e.target.value)}
                   placeholder="Ej: SN-VM-2024-001"
                 />
+                {errors.serie && <p className="text-sm text-red-600 flex items-center gap-1"><AlertCircle className="size-3" />{errors.serie}</p>}
               </div>
 
               <div className="space-y-2">
@@ -326,6 +368,7 @@ export function BiomedicoEquipoForm({
                   onChange={(e) => updateFormData('marca', e.target.value)}
                   placeholder="Ej: Dräger"
                 />
+                {errors.marca && <p className="text-sm text-red-600 flex items-center gap-1"><AlertCircle className="size-3" />{errors.marca}</p>}
               </div>
 
               <div className="space-y-2">
@@ -336,6 +379,7 @@ export function BiomedicoEquipoForm({
                   onChange={(e) => updateFormData('modelo', e.target.value)}
                   placeholder="Ej: Savina 300"
                 />
+                {errors.modelo && <p className="text-sm text-red-600 flex items-center gap-1"><AlertCircle className="size-3" />{errors.modelo}</p>}
               </div>
             </div>
           )}
@@ -358,6 +402,7 @@ export function BiomedicoEquipoForm({
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.categoria && <p className="text-sm text-red-600 flex items-center gap-1"><AlertCircle className="size-3" />{errors.categoria}</p>}
                 </div>
 
                 <div className="space-y-2">
@@ -374,6 +419,7 @@ export function BiomedicoEquipoForm({
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.riesgo && <p className="text-sm text-red-600 flex items-center gap-1"><AlertCircle className="size-3" />{errors.riesgo}</p>}
                 </div>
               </div>
 
@@ -437,11 +483,96 @@ export function BiomedicoEquipoForm({
           {/* Paso 3: Ubicación y Garantía */}
           {pasoActual === 3 && (
             <div className="space-y-6">
+              {/* Jerarquía Cliente → Sede → Área */}
               <div>
-                <h3 className="font-medium mb-4">Ubicación y Asignación</h3>
+                <div className="flex items-center gap-2 mb-4">
+                  <Building2 className="size-4 text-primary" />
+                  <h3 className="font-medium">Ubicación del Equipo</h3>
+                </div>
+                {clientes.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Cliente */}
+                    <div className="space-y-2">
+                      <Label htmlFor="clienteId">Cliente / Institución</Label>
+                      <Select
+                        value={formData.clienteId}
+                        onValueChange={(v) => {
+                          setFormData(prev => ({ ...prev, clienteId: v, sedeId: '', areaId: '' }));
+                        }}
+                      >
+                        <SelectTrigger id="clienteId">
+                          <SelectValue placeholder="Seleccionar cliente" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clientes.filter(c => c.estado === 'activo').map(c => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Sede */}
+                    <div className="space-y-2">
+                      <Label htmlFor="sedeId">Sede</Label>
+                      <Select
+                        value={formData.sedeId}
+                        onValueChange={(v) => {
+                          setFormData(prev => ({ ...prev, sedeId: v, areaId: '' }));
+                        }}
+                        disabled={!formData.clienteId}
+                      >
+                        <SelectTrigger id="sedeId">
+                          <SelectValue placeholder={formData.clienteId ? 'Seleccionar sede' : 'Primero selecciona cliente'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sedesDisponibles.filter(s => s.estado === 'activo').map(s => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Área */}
+                    <div className="space-y-2">
+                      <Label htmlFor="areaId">Área Clínica</Label>
+                      <Select
+                        value={formData.areaId}
+                        onValueChange={(v) => updateFormData('areaId', v)}
+                        disabled={!formData.sedeId}
+                      >
+                        <SelectTrigger id="areaId">
+                          <SelectValue placeholder={formData.sedeId ? 'Seleccionar área' : 'Primero selecciona sede'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {areasDisponibles.filter(a => a.estado === 'activo').map(a => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.nombre}{a.piso ? ` — ${a.piso}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-3 rounded-md bg-muted text-sm text-muted-foreground">
+                    <MapPin className="size-4" />
+                    No hay clientes registrados. Puedes usar ubicación manual abajo.
+                  </div>
+                )}
+              </div>
+
+              {/* Ubicación manual (fallback / complemento) */}
+              <div>
+                <h3 className="text-sm text-muted-foreground mb-3">
+                  {formData.clienteId ? 'Ubicación adicional (opcional)' : 'Ubicación manual *'}
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="area">Área *</Label>
+                    <Label htmlFor="area">Área</Label>
                     <Input
                       id="area"
                       value={formData.area}
@@ -451,7 +582,7 @@ export function BiomedicoEquipoForm({
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="subarea">Subárea *</Label>
+                    <Label htmlFor="subarea">Subárea / Piso</Label>
                     <Input
                       id="subarea"
                       value={formData.subarea}
@@ -461,7 +592,7 @@ export function BiomedicoEquipoForm({
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="responsable">Responsable *</Label>
+                    <Label htmlFor="responsable">Responsable</Label>
                     <Input
                       id="responsable"
                       value={formData.responsable}
@@ -471,6 +602,10 @@ export function BiomedicoEquipoForm({
                   </div>
                 </div>
               </div>
+
+              {errors.ubicacion && (
+                <Alert variant="destructive"><AlertCircle className="size-4" /><AlertDescription>{errors.ubicacion}</AlertDescription></Alert>
+              )}
 
               <div>
                 <h3 className="font-medium mb-4">Fechas</h3>
@@ -483,6 +618,7 @@ export function BiomedicoEquipoForm({
                       value={formData.fechaAdquisicion}
                       onChange={(e) => updateFormData('fechaAdquisicion', e.target.value)}
                     />
+                    {errors.fechaAdquisicion && <p className="text-sm text-red-600">{errors.fechaAdquisicion}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -493,6 +629,7 @@ export function BiomedicoEquipoForm({
                       value={formData.fechaInstalacion}
                       onChange={(e) => updateFormData('fechaInstalacion', e.target.value)}
                     />
+                    {errors.fechaInstalacion && <p className="text-sm text-red-600">{errors.fechaInstalacion}</p>}
                   </div>
                 </div>
               </div>
@@ -508,6 +645,7 @@ export function BiomedicoEquipoForm({
                       onChange={(e) => updateFormData('proveedorGarantia', e.target.value)}
                       placeholder="Ej: Dräger Medical Perú"
                     />
+                    {errors.proveedorGarantia && <p className="text-sm text-red-600">{errors.proveedorGarantia}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -518,6 +656,7 @@ export function BiomedicoEquipoForm({
                       value={formData.fechaInicioGarantia}
                       onChange={(e) => updateFormData('fechaInicioGarantia', e.target.value)}
                     />
+                    {errors.fechaInicioGarantia && <p className="text-sm text-red-600">{errors.fechaInicioGarantia}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -528,6 +667,7 @@ export function BiomedicoEquipoForm({
                       value={formData.fechaVencimientoGarantia}
                       onChange={(e) => updateFormData('fechaVencimientoGarantia', e.target.value)}
                     />
+                    {errors.fechaVencimientoGarantia && <p className="text-sm text-red-600">{errors.fechaVencimientoGarantia}</p>}
                   </div>
                 </div>
               </div>
@@ -545,6 +685,7 @@ export function BiomedicoEquipoForm({
                       onChange={(e) => updateFormData('costoAdquisicion', e.target.value)}
                       placeholder="0.00"
                     />
+                    {errors.costoAdquisicion && <p className="text-sm text-red-600">{errors.costoAdquisicion}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -557,6 +698,7 @@ export function BiomedicoEquipoForm({
                       onChange={(e) => updateFormData('costoMantenimientoAnual', e.target.value)}
                       placeholder="0.00"
                     />
+                    {errors.costoMantenimientoAnual && <p className="text-sm text-red-600">{errors.costoMantenimientoAnual}</p>}
                   </div>
                 </div>
               </div>
@@ -593,7 +735,7 @@ export function BiomedicoEquipoForm({
           onClick={handleAnterior}
           disabled={pasoActual === 1}
         >
-          <ArrowLeft className="size-4 mr-2" />
+          <ArrowLeft className="size-4" />
           Anterior
         </Button>
 
@@ -604,7 +746,7 @@ export function BiomedicoEquipoForm({
           </Button>
         ) : (
           <Button onClick={handleSubmit}>
-            <Save className="size-4 mr-2" />
+            <Save className="size-4" />
             {modo === 'crear' ? 'Crear Equipo' : 'Guardar Cambios'}
           </Button>
         )}

@@ -10,7 +10,7 @@ import { FileText, Clock, CheckCircle, XCircle, Ban, Send, Package, Truck, type 
 // DEBUG FLAG
 // ============================================================================
 
-export const DEBUG_ORDENES = true;
+export const DEBUG_ORDENES = import.meta.env.DEV;
 
 // ============================================================================
 // TIPOS Y ESTADOS

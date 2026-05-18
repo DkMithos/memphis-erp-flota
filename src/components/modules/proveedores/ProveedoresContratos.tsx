@@ -49,6 +49,7 @@ import { Textarea } from '../../ui/textarea';
 import { Separator } from '../../ui/separator';
 import { useContratosStore, type Contrato, type NuevoContratoInput } from '../../../lib/proveedores/contratos-store';
 import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
+import { convertirAMonedaBase, formatMontoBase } from '../../../lib/shared/currency-utils';
 import { toast } from 'sonner';
 
 // ── Badge helpers ──────────────────────────────────────────────────────────────
@@ -56,14 +57,14 @@ import { toast } from 'sonner';
 function badgeEstado(estado: Contrato['estado'], diasRestantes?: number) {
   // Override: activo pero ya venció
   if (estado === 'activo' && diasRestantes !== undefined && diasRestantes < 0) {
-    return <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200">Vencido</Badge>;
+    return <Badge variant="outline" className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200">Vencido</Badge>;
   }
   const map: Record<Contrato['estado'], { label: string; className: string }> = {
     borrador: { label: 'Borrador', className: 'bg-slate-100 text-slate-700 border-slate-200' },
-    activo: { label: 'Activo', className: 'bg-green-100 text-green-700 border-green-200' },
-    vencido: { label: 'Vencido', className: 'bg-red-100 text-red-700 border-red-200' },
-    rescindido: { label: 'Rescindido', className: 'bg-gray-100 text-gray-700 border-gray-200' },
-    renovacion: { label: 'En renovación', className: 'bg-blue-100 text-blue-700 border-blue-200' },
+    activo: { label: 'Activo', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200' },
+    vencido: { label: 'Vencido', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200' },
+    rescindido: { label: 'Rescindido', className: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400 border-gray-200' },
+    renovacion: { label: 'En renovación', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200' },
   };
   const cfg = map[estado] ?? map.borrador;
   return <Badge variant="outline" className={cfg.className}>{cfg.label}</Badge>;
@@ -173,7 +174,7 @@ export function ProveedoresContratos({ onNavigate: _onNavigate }: Props) {
 
   const kpis = useMemo(() => {
     const activos = contratos.filter(c => c.estado === 'activo' && !c.estaVencido);
-    const montoActivos = activos.reduce((acc, c) => acc + (c.montoTotal ?? 0), 0);
+    const montoActivos = activos.reduce((acc, c) => acc + convertirAMonedaBase(c.montoTotal ?? 0, c.moneda), 0);
     const porVencer = alertasPorVencer.length;
     return { activos: activos.length, porVencer, montoActivos };
   }, [contratos, alertasPorVencer]);
@@ -254,7 +255,7 @@ export function ProveedoresContratos({ onNavigate: _onNavigate }: Props) {
           </p>
         </div>
         <Button onClick={() => setDialogNuevo(true)}>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Nuevo Contrato
         </Button>
       </div>
@@ -305,7 +306,7 @@ export function ProveedoresContratos({ onNavigate: _onNavigate }: Props) {
               <p className="text-xs text-muted-foreground">Monto en contratos activos</p>
               <p className="text-lg font-bold">
                 {kpis.montoActivos > 0
-                  ? `S/ ${kpis.montoActivos.toLocaleString('es-PE', { minimumFractionDigits: 0 })}`
+                  ? formatMontoBase(kpis.montoActivos)
                   : '—'}
               </p>
             </div>
@@ -679,7 +680,7 @@ export function ProveedoresContratos({ onNavigate: _onNavigate }: Props) {
                   className="bg-green-600 hover:bg-green-700"
                   onClick={() => handleCambiarEstado(dialogDetalle, 'activo')}
                 >
-                  <CheckCircle className="size-4 mr-2" />
+                  <CheckCircle className="size-4" />
                   Activar
                 </Button>
               )}
@@ -696,14 +697,14 @@ export function ProveedoresContratos({ onNavigate: _onNavigate }: Props) {
                     className="text-orange-600 border-orange-200"
                     onClick={() => handleCambiarEstado(dialogDetalle, 'rescindido')}
                   >
-                    <XCircle className="size-4 mr-2" />
+                    <XCircle className="size-4" />
                     Rescindir
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => { setDialogRenovar(dialogDetalle); }}
                   >
-                    <RefreshCw className="size-4 mr-2" />
+                    <RefreshCw className="size-4" />
                     Renovar
                   </Button>
                 </>

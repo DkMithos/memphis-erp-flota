@@ -39,10 +39,10 @@ const NIVEL_MAP: Record<string, Record<string, Riesgo['nivel']>> = {
 };
 
 const NIVEL_STYLE: Record<string, { badge: string; dot: string }> = {
-  critico: { badge: 'bg-red-100 text-red-800 border-red-200', dot: 'bg-red-500' },
-  alto: { badge: 'bg-orange-100 text-orange-800 border-orange-200', dot: 'bg-orange-500' },
-  medio: { badge: 'bg-yellow-100 text-yellow-800 border-yellow-200', dot: 'bg-yellow-500' },
-  bajo: { badge: 'bg-green-100 text-green-800 border-green-200', dot: 'bg-green-500' },
+  critico: { badge: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200', dot: 'bg-red-500' },
+  alto: { badge: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200', dot: 'bg-orange-500' },
+  medio: { badge: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200', dot: 'bg-yellow-500' },
+  bajo: { badge: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200', dot: 'bg-green-500' },
 };
 
 function mapRow(r: Record<string, unknown>): Riesgo {
@@ -141,7 +141,7 @@ export function ProyectosRiesgos({ onNavigate }: RiesgosProps) {
           </div>
         </div>
         <Button onClick={() => setShowDialog(true)}>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Nuevo Riesgo
         </Button>
       </div>

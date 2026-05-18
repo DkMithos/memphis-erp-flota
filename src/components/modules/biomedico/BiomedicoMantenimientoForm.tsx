@@ -23,18 +23,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../ui/select';
-import { toast } from 'sonner@2.0.3';
-import { 
+import { toast } from 'sonner';
+import {
   useMantenimientosStore,
   type NuevoMantenimientoBiomedicoInput
 } from '../../../lib/biomedico/mantenimientos-store';
 import { useEquiposStore } from '../../../lib/biomedico/equipos-store';
-import { 
+import {
   MANTENIMIENTO_TIPO_CONFIG,
   MANTENIMIENTO_PRIORIDAD_CONFIG,
   type TipoMantenimientoBio,
   type PrioridadMantenimientoBio
 } from '../../../lib/biomedico/mantenimientos-config';
+import { ProyectoSelector } from '../../shared/ProyectoSelector';
+import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
 
 interface FormData {
   equipoId: string;
@@ -46,6 +48,8 @@ interface FormData {
   tecnicoNombre: string;
   tecnicoEmpresa: string;
   observaciones: string;
+  proyectoId: string | null;
+  centroCostoId: string | null;
 }
 
 interface BiomedicoMantenimientoFormProps {
@@ -71,7 +75,9 @@ export function BiomedicoMantenimientoForm({
     fechaProgramada: '',
     tecnicoNombre: '',
     tecnicoEmpresa: '',
-    observaciones: ''
+    observaciones: '',
+    proyectoId: null,
+    centroCostoId: null
   });
 
   // Inicializar equipoId desde el código si viene en equipoIdInicial
@@ -138,7 +144,9 @@ export function BiomedicoMantenimientoForm({
           nombre: formData.tecnicoNombre,
           empresa: formData.tecnicoEmpresa
         },
-        observaciones: formData.observaciones || undefined
+        observaciones: formData.observaciones || undefined,
+        proyectoId: formData.proyectoId,
+        centroCostoId: formData.centroCostoId
       };
 
       const mantenimiento = await crearMantenimiento(input);
@@ -155,7 +163,7 @@ export function BiomedicoMantenimientoForm({
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={onCancel}>
-          <ArrowLeft className="size-4 mr-2" />
+          <ArrowLeft className="size-4" />
           Volver
         </Button>
         <div>
@@ -294,6 +302,27 @@ export function BiomedicoMantenimientoForm({
             </div>
           </div>
 
+          {/* Imputación — Proyecto y Centro de Costo */}
+          <div>
+            <h3 className="font-medium mb-4">Imputación</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Proyecto</Label>
+                <ProyectoSelector
+                  value={formData.proyectoId}
+                  onChange={(v) => setFormData(prev => ({ ...prev, proyectoId: v }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Centro de Costo</Label>
+                <CentroCostoSelector
+                  value={formData.centroCostoId}
+                  onChange={(v) => setFormData(prev => ({ ...prev, centroCostoId: v }))}
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Observaciones */}
           <div className="space-y-2">
             <Label htmlFor="observaciones">Observaciones</Label>
@@ -322,7 +351,7 @@ export function BiomedicoMantenimientoForm({
           Cancelar
         </Button>
         <Button onClick={handleSubmit}>
-          <Save className="size-4 mr-2" />
+          <Save className="size-4" />
           Crear Mantenimiento
         </Button>
       </div>

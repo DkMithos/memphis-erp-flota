@@ -44,6 +44,7 @@ import { Checkbox } from '../../ui/checkbox';
 import { useIncidenciasStore, type Incidencia, type NuevaIncidenciaInput } from '../../../lib/biomedico/incidencias-store';
 import { useEquiposStore } from '../../../lib/biomedico/equipos-store';
 import { toast } from 'sonner';
+import { useConfirmAction } from '@/components/shared/ConfirmDialogProvider';
 
 // ── Config de badges ──────────────────────────────────────────────────────────
 
@@ -51,17 +52,17 @@ type EstadoInc = Incidencia['estado'];
 type SeveridadInc = Incidencia['severidad'];
 
 const ESTADO_CONFIG: Record<EstadoInc, { label: string; className: string }> = {
-  abierta: { label: 'Abierta', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
-  en_investigacion: { label: 'En investigación', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
-  resuelta: { label: 'Resuelta', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-  cerrada: { label: 'Cerrada', className: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
+  abierta: { label: 'Abierta', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
+  en_investigacion: { label: 'En investigación', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  resuelta: { label: 'Resuelta', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
+  cerrada: { label: 'Cerrada', className: 'bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400' },
 };
 
 const SEVERIDAD_CONFIG: Record<SeveridadInc, { label: string; className: string }> = {
-  baja: { label: 'Baja', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-  media: { label: 'Media', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
-  alta: { label: 'Alta', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
-  critica: { label: 'Crítica', className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
+  baja: { label: 'Baja', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
+  media: { label: 'Media', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  alta: { label: 'Alta', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' },
+  critica: { label: 'Crítica', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
 };
 
 const TIPO_LABELS: Record<Incidencia['tipo'], string> = {
@@ -99,6 +100,7 @@ interface Props {
 export function BiomedicoIncidencias({ onNavigate }: Props) {
   const { incidencias, loading, crearIncidencia, actualizarEstado, eliminarIncidencia } = useIncidenciasStore();
   const { equipos } = useEquiposStore();
+  const confirmAction = useConfirmAction();
 
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<EstadoInc | 'todos'>('todos');
@@ -232,7 +234,8 @@ export function BiomedicoIncidencias({ onNavigate }: Props) {
   };
 
   const handleEliminar = async (inc: Incidencia) => {
-    if (!confirm(`¿Eliminar la incidencia ${inc.id}?`)) return;
+    const ok = await confirmAction({ title: 'Confirmar eliminación', description: `¿Eliminar la incidencia ${inc.id}?`, confirmLabel: 'Eliminar', variant: 'destructive' });
+    if (!ok) return;
     const result = await eliminarIncidencia(inc._dbId);
     if (result.exito) {
       toast.success('Incidencia eliminada');
@@ -256,7 +259,7 @@ export function BiomedicoIncidencias({ onNavigate }: Props) {
           </p>
         </div>
         <Button onClick={() => setDialogCrear(true)}>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Nueva Incidencia
         </Button>
       </div>

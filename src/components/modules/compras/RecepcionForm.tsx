@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { toast } from 'sonner';
 import { ArrowLeft, Save, X, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -72,12 +73,21 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
       }
     }
 
-    itemsRecibidos.forEach((item, idx) => {
-      const validacion = validarCantidadRecibida(item.cantidadRecibida, item.cantidadOrdenada);
-      if (!validacion.valid) {
-        newErrors[`item-${idx}`] = validacion.error!;
+    if (itemsRecibidos.length === 0) {
+      newErrors.items = 'Debe tener al menos un item para recepcionar';
+    } else {
+      const hayAlMenosUno = itemsRecibidos.some(item => item.cantidadRecibida > 0);
+      if (!hayAlMenosUno) {
+        newErrors.items = 'Al menos un item debe tener cantidad recibida mayor a 0';
       }
-    });
+
+      itemsRecibidos.forEach((item, idx) => {
+        const validacion = validarCantidadRecibida(item.cantidadRecibida, item.cantidadOrdenada);
+        if (!validacion.valid) {
+          newErrors[`item-${idx}`] = validacion.error!;
+        }
+      });
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -88,14 +98,21 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
     const nuevos = [...itemsRecibidos];
     (nuevos[index] as any)[field] = value;
     setItemsRecibidos(nuevos);
+    // Clear errors for this item
+    if (errors[`item-${index}`]) {
+      setErrors(prev => { const n = { ...prev }; delete n[`item-${index}`]; delete n['items']; return n; });
+    }
   };
 
   // Submit
   const handleSubmit = async () => {
-    if (!validarFormulario()) return;
+    if (!validarFormulario()) {
+      toast.error('Por favor, corrige los errores del formulario');
+      return;
+    }
 
     if (!orden) {
-      alert('No se encontró la orden');
+      toast.error('No se encontró la orden');
       return;
     }
 
@@ -148,7 +165,7 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
           </p>
         </div>
         <Button variant="ghost" onClick={onCancel}>
-          <X className="size-4 mr-2" />
+          <X className="size-4" />
           Cancelar
         </Button>
       </div>
@@ -186,6 +203,12 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
           <CardTitle>Items Recibidos</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {errors.items && (
+            <Alert variant="destructive">
+              <AlertTriangle className="size-4" />
+              <AlertDescription>{errors.items}</AlertDescription>
+            </Alert>
+          )}
           {itemsRecibidos.map((item, idx) => (
             <div key={idx} className="border rounded-lg p-4 space-y-3">
               <div className="flex justify-between items-start">
@@ -246,7 +269,7 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
         <CardContent>
           <Textarea
             value={observaciones}
-            onChange={(e) => setObservaciones(e.target.value)}
+            onChange={(e) => { setObservaciones(e.target.value); if (errors.observaciones) setErrors(prev => ({ ...prev, observaciones: '' })); }}
             rows={4}
             placeholder="Observaciones sobre la recepción..."
           />
@@ -259,11 +282,11 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
       {/* Acciones */}
       <div className="flex items-center justify-end gap-3">
         <Button variant="outline" onClick={onCancel}>
-          <ArrowLeft className="size-4 mr-2" />
+          <ArrowLeft className="size-4" />
           Cancelar
         </Button>
         <Button onClick={handleSubmit}>
-          <Save className="size-4 mr-2" />
+          <Save className="size-4" />
           Crear Recepción
         </Button>
       </div>

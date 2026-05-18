@@ -118,11 +118,11 @@ export function BiomedicoEquipos({ onNavigateToNuevo, onNavigateToDetalle }: Bio
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExportPDF}>
-            <Download className="size-4 mr-2" />
+            <Download className="size-4" />
             PDF
           </Button>
           <Button size="sm" onClick={onNavigateToNuevo}>
-            <Plus className="size-4 mr-2" />
+            <Plus className="size-4" />
             Nuevo Equipo
           </Button>
         </div>
@@ -201,7 +201,7 @@ export function BiomedicoEquipos({ onNavigateToNuevo, onNavigateToDetalle }: Bio
             
             <Select value={filtroEstado} onValueChange={(v) => setFiltroEstado(v as EstadoEquipoBiomedico | 'todos')}>
               <SelectTrigger className="w-[180px]">
-                <Filter className="size-4 mr-2" />
+                <Filter className="size-4" />
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
@@ -296,7 +296,7 @@ export function BiomedicoEquipos({ onNavigateToNuevo, onNavigateToDetalle }: Bio
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={categoriaConfig.className}>
-                          <CategoriaIcon className="size-3 mr-1" />
+                          <CategoriaIcon className="size-3" />
                           {categoriaConfig.label}
                         </Badge>
                       </TableCell>
@@ -310,13 +310,13 @@ export function BiomedicoEquipos({ onNavigateToNuevo, onNavigateToDetalle }: Bio
                       </TableCell>
                       <TableCell>
                         <Badge variant={riesgoConfig.variant} className={riesgoConfig.className}>
-                          <RiesgoIcon className="size-3 mr-1" />
+                          <RiesgoIcon className="size-3" />
                           {riesgoConfig.label}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant={estadoConfig.variant} className={estadoConfig.className}>
-                          <Icon className="size-3 mr-1" />
+                          <Icon className="size-3" />
                           {estadoConfig.label}
                         </Badge>
                       </TableCell>

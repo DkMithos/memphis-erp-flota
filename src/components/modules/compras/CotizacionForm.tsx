@@ -232,7 +232,7 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
           </p>
         </div>
         <Button variant="ghost" onClick={onCancel}>
-          <X className="size-4 mr-2" />
+          <X className="size-4" />
           Cancelar
         </Button>
       </div>
@@ -370,7 +370,7 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
               <div className="flex items-center justify-between">
                 <CardTitle>Items de la Cotización *</CardTitle>
                 <Button type="button" variant="outline" size="sm" onClick={agregarItem}>
-                  <Plus className="size-4 mr-2" />
+                  <Plus className="size-4" />
                   Agregar Item
                 </Button>
               </div>
@@ -535,11 +535,11 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
           {/* Botones de Acción */}
           <div className="flex items-center justify-end gap-3">
             <Button type="button" variant="outline" onClick={onCancel}>
-              <X className="size-4 mr-2" />
+              <X className="size-4" />
               Cancelar
             </Button>
             <Button type="submit" variant="secondary" disabled={isSubmitting}>
-              <Save className="size-4 mr-2" />
+              <Save className="size-4" />
               Guardar como Borrador
             </Button>
             <Button 
@@ -547,7 +547,7 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
               onClick={(e) => handleSubmit(e, true)} 
               disabled={isSubmitting}
             >
-              <Save className="size-4 mr-2" />
+              <Save className="size-4" />
               {isSubmitting ? 'Guardando...' : 'Guardar y Enviar'}
             </Button>
           </div>

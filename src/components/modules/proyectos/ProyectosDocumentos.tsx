@@ -133,7 +133,7 @@ export function ProyectosDocumentos({ onNavigate }: DocumentosProps) {
           </div>
         </div>
         <Button onClick={() => setShowDialog(true)}>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Nuevo Documento
         </Button>
       </div>
@@ -197,7 +197,7 @@ export function ProyectosDocumentos({ onNavigate }: DocumentosProps) {
                           size="sm" variant="ghost" className="h-6 px-2 text-xs"
                           onClick={() => window.open(d.url, '_blank')}
                         >
-                          <ExternalLink className="size-3 mr-1" />Abrir
+                          <ExternalLink className="size-3" />Abrir
                         </Button>
                         <Button
                           size="sm" variant="ghost" className="h-6 px-2 text-xs text-red-500 hover:text-red-600"

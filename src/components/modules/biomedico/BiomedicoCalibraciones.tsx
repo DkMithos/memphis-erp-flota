@@ -44,17 +44,18 @@ import { Textarea } from '../../ui/textarea';
 import { useCalibracionesStore, type Calibracion, type NuevaCalibracionInput } from '../../../lib/biomedico/calibraciones-store';
 import { useEquiposStore } from '../../../lib/biomedico/equipos-store';
 import { toast } from 'sonner';
+import { useConfirmAction } from '@/components/shared/ConfirmDialogProvider';
 
 // ── Config de badges ──────────────────────────────────────────────────────────
 
 type EstadoCal = Calibracion['estado'];
 
 const ESTADO_CONFIG: Record<EstadoCal, { label: string; className: string }> = {
-  programada: { label: 'Programada', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
-  en_proceso: { label: 'En proceso', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
-  aprobada: { label: 'Aprobada', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-  rechazada: { label: 'Rechazada', className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
-  vencida: { label: 'Vencida', className: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
+  programada: { label: 'Programada', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
+  en_proceso: { label: 'En proceso', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  aprobada: { label: 'Aprobada', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
+  rechazada: { label: 'Rechazada', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
+  vencida: { label: 'Vencida', className: 'bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400' },
 };
 
 const TIPO_LABELS: Record<Calibracion['tipo'], string> = {
@@ -96,6 +97,7 @@ interface Props {
 export function BiomedicoCalibraciones({ onNavigate }: Props) {
   const { calibraciones, loading, crearCalibracion, actualizarEstado, eliminarCalibracion } = useCalibracionesStore();
   const { equipos } = useEquiposStore();
+  const confirmAction = useConfirmAction();
 
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<EstadoCal | 'todos'>('todos');
@@ -228,7 +230,8 @@ export function BiomedicoCalibraciones({ onNavigate }: Props) {
   };
 
   const handleEliminar = async (cal: Calibracion) => {
-    if (!confirm(`¿Eliminar la calibración ${cal.id}?`)) return;
+    const ok = await confirmAction({ title: 'Confirmar eliminación', description: `¿Eliminar la calibración ${cal.id}?`, confirmLabel: 'Eliminar', variant: 'destructive' });
+    if (!ok) return;
     const result = await eliminarCalibracion(cal._dbId);
     if (result.exito) {
       toast.success('Calibración eliminada');
@@ -252,7 +255,7 @@ export function BiomedicoCalibraciones({ onNavigate }: Props) {
           </p>
         </div>
         <Button onClick={() => setDialogCrear(true)}>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Nueva Calibración
         </Button>
       </div>

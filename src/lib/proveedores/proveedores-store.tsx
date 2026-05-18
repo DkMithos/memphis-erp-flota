@@ -4,7 +4,7 @@
  * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { dbProveedores } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import type { Proveedor as ProveedorDB } from '../supabase/types';
@@ -50,13 +50,22 @@ export interface Proveedor {
   // Contacto principal — no almacenado en DB todavía
   contactoPrincipal: null;
 
-  // Datos bancarios — no almacenados en columnas separadas todavía
-  bancos: Array<{
+  // Datos bancarios
+  datosBancarios: {
     banco: string;
     numeroCuenta: string;
+    cci: string;
     tipoCuenta: 'corriente' | 'ahorros';
     moneda: 'PEN' | 'USD';
-  }>;
+  } | null;
+
+  // Datos tributarios
+  datosTributarios: {
+    sujetoDetraccion: boolean;
+    tasaDetraccion: number | null;
+    codigoBienServicio: string | null;
+    sujetoRetencion: boolean;
+  };
 
   // Evaluación
   calificacion: number;   // maps from DB score
@@ -96,6 +105,19 @@ export interface NuevoProveedorInput {
     email: string;
     telefono: string;
   };
+  datosBancarios?: {
+    banco: string;
+    numeroCuenta: string;
+    cci?: string;
+    tipoCuenta: 'corriente' | 'ahorros';
+    moneda: 'PEN' | 'USD';
+  };
+  datosTributarios?: {
+    sujetoDetraccion: boolean;
+    tasaDetraccion?: number;
+    codigoBienServicio?: string;
+    sujetoRetencion: boolean;
+  };
   observaciones?: string;
 }
 
@@ -115,6 +137,8 @@ interface ProveedorStoreContext {
   actualizarProveedor: (id: string, input: ActualizarProveedorInput) => Promise<CrudResult>;
   inactivarProveedor: (id: string, motivo: string) => Promise<CrudResult>;
   activarProveedor: (id: string) => Promise<CrudResult>;
+  aprobarProveedor: (id: string) => Promise<CrudResult>;
+  rechazarProveedor: (id: string, motivo: string) => Promise<CrudResult>;
 }
 
 // ============================================================================
@@ -135,7 +159,9 @@ function mapFromDB(row: ProveedorDB): Proveedor {
     razonSocial: row.razon_social,
     nombreComercial: row.nombre_comercial,
     tipo: row.tipo as TipoProveedor,
-    categorias: [row.categoria as CategoriaProveedor],
+    categorias: row.categoria
+      ? (row.categoria.split(',').map(c => c.trim()).filter(Boolean) as CategoriaProveedor[])
+      : ['otros' as CategoriaProveedor],
     estado: row.estado as EstadoProveedor,
     condicion: row.condicion as CondicionProveedor,
     email: row.email,
@@ -145,9 +171,21 @@ function mapFromDB(row: ProveedorDB): Proveedor {
     ciudad: row.departamento,
     pais: row.pais,
     contactoPrincipal: null,
-    bancos: row.banco && row.cuenta_bancaria
-      ? [{ banco: row.banco, numeroCuenta: row.cuenta_bancaria, tipoCuenta: 'corriente', moneda: 'PEN' }]
-      : [],
+    datosBancarios: row.banco && row.cuenta_bancaria
+      ? {
+          banco: row.banco,
+          numeroCuenta: row.cuenta_bancaria,
+          cci: row.cci ?? '',
+          tipoCuenta: (row.tipo_cuenta as 'corriente' | 'ahorros') ?? 'corriente',
+          moneda: (row.moneda_cuenta as 'PEN' | 'USD') ?? 'PEN',
+        }
+      : null,
+    datosTributarios: {
+      sujetoDetraccion: row.sujeto_detraccion ?? false,
+      tasaDetraccion: row.tasa_detraccion ?? null,
+      codigoBienServicio: row.codigo_bien_servicio ?? null,
+      sujetoRetencion: row.sujeto_retencion ?? false,
+    },
     calificacion: row.score,
     totalCompras: 0,
     numeroOrdenes: 0,
@@ -158,9 +196,9 @@ function mapFromDB(row: ProveedorDB): Proveedor {
       modificadoEn: row.modificado_en,
       inactivadoPor: null,
       inactivadoEn: null,
-      motivoInactivacion: null,
+      motivoInactivacion: row.motivo_cambio_estado ?? null,
     },
-    observaciones: null,
+    observaciones: row.observaciones ?? null,
     documentosAdjuntos: [],
   };
 }
@@ -172,6 +210,8 @@ function mapFromDB(row: ProveedorDB): Proveedor {
 export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
   const { tenantId, user } = useAuth();
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const proveedoresRef = useRef(proveedores);
+  useEffect(() => { proveedoresRef.current = proveedores; }, [proveedores]);
   const [loading, setLoading] = useState(true);
 
   // Carga inicial desde Supabase
@@ -218,6 +258,13 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
       throw new Error('Sin sesión activa');
     }
 
+    // Validar RUC duplicado
+    const rucNorm = normalizeRUC(input.ruc);
+    const existente = proveedores.find(p => p.ruc === rucNorm);
+    if (existente) {
+      throw new Error(`Ya existe un proveedor con RUC ${rucNorm}: ${existente.razonSocial} (${existente.id})`);
+    }
+
     // Determinar siguiente número secuencial
     const numeros = proveedores
       .map(p => extraerNumeroSecuencial(p.id))
@@ -232,8 +279,8 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
       nombre_comercial: input.nombreComercial?.trim() ?? null,
       ruc: normalizeRUC(input.ruc),
       tipo: input.tipo,
-      categoria: input.categorias[0] ?? 'otros',
-      estado: 'activo' as EstadoProveedor,
+      categoria: input.categorias.join(',') || 'otros',
+      estado: 'en_evaluacion' as EstadoProveedor,
       condicion: 'sin_evaluar' as CondicionProveedor,
       score: 0,
       email: normalizeEmail(input.email),
@@ -245,9 +292,16 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
       provincia: null,
       distrito: null,
       direccion: input.direccion.trim(),
-      banco: null,
-      cuenta_bancaria: null,
-      cci: null,
+      banco: input.datosBancarios?.banco ?? null,
+      cuenta_bancaria: input.datosBancarios?.numeroCuenta ?? null,
+      cci: input.datosBancarios?.cci ?? null,
+      tipo_cuenta: input.datosBancarios?.tipoCuenta ?? null,
+      moneda_cuenta: input.datosBancarios?.moneda ?? null,
+      sujeto_detraccion: input.datosTributarios?.sujetoDetraccion ?? false,
+      tasa_detraccion: input.datosTributarios?.tasaDetraccion ?? null,
+      codigo_bien_servicio: input.datosTributarios?.codigoBienServicio ?? null,
+      sujeto_retencion: input.datosTributarios?.sujetoRetencion ?? false,
+      observaciones: input.observaciones?.trim() ?? null,
       creado_por: user.id,
       modificado_por: null,
       modificado_en: null,
@@ -274,14 +328,7 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
   ): Promise<CrudResult> => {
     if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-    // Use functional setState to avoid stale closure when reading _dbId
-    let dbId: string | undefined;
-    setProveedores(prev => {
-      const existing = prev.find(p => p.id === id);
-      dbId = existing?._dbId;
-      return prev;
-    });
-
+    const dbId = proveedoresRef.current.find(p => p.id === id)?._dbId;
     if (!dbId) return { exito: false, errores: ['Proveedor no encontrado'] };
 
     const ahora = new Date().toISOString();
@@ -293,7 +340,7 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
     if (input.razonSocial !== undefined) updatePayload.razon_social = input.razonSocial.trim();
     if (input.nombreComercial !== undefined) updatePayload.nombre_comercial = input.nombreComercial?.trim() ?? null;
     if (input.tipo !== undefined) updatePayload.tipo = input.tipo;
-    if (input.categorias !== undefined) updatePayload.categoria = input.categorias[0] ?? 'otros';
+    if (input.categorias !== undefined) updatePayload.categoria = input.categorias.join(',') || 'otros';
     if (input.email !== undefined) updatePayload.email = normalizeEmail(input.email);
     if (input.telefono !== undefined) updatePayload.telefono = normalizeTelefono(input.telefono);
     if (input.telefonoAlternativo !== undefined) {
@@ -302,8 +349,21 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
     if (input.direccion !== undefined) updatePayload.direccion = input.direccion.trim();
     if (input.ciudad !== undefined) updatePayload.departamento = input.ciudad.trim();
     if (input.pais !== undefined) updatePayload.pais = input.pais.trim();
+    if (input.datosBancarios !== undefined) {
+      updatePayload.banco = input.datosBancarios?.banco ?? null;
+      updatePayload.cuenta_bancaria = input.datosBancarios?.numeroCuenta ?? null;
+      updatePayload.cci = input.datosBancarios?.cci ?? null;
+      updatePayload.tipo_cuenta = input.datosBancarios?.tipoCuenta ?? null;
+      updatePayload.moneda_cuenta = input.datosBancarios?.moneda ?? null;
+    }
+    if (input.datosTributarios !== undefined) {
+      updatePayload.sujeto_detraccion = input.datosTributarios?.sujetoDetraccion ?? false;
+      updatePayload.tasa_detraccion = input.datosTributarios?.tasaDetraccion ?? null;
+      updatePayload.codigo_bien_servicio = input.datosTributarios?.codigoBienServicio ?? null;
+      updatePayload.sujeto_retencion = input.datosTributarios?.sujetoRetencion ?? false;
+    }
     if (input.observaciones !== undefined) {
-      // observaciones not in DB yet; no-op — kept for interface compatibility
+      updatePayload.observaciones = input.observaciones?.trim() ?? null;
     }
 
     const { error } = await dbProveedores.update(dbId, updatePayload);
@@ -331,6 +391,8 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
           ...(input.ciudad !== undefined && { ciudad: input.ciudad.trim() }),
           ...(input.pais !== undefined && { pais: input.pais.trim() }),
           ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() ?? null }),
+          ...(input.datosBancarios !== undefined && { datosBancarios: input.datosBancarios ?? null }),
+          ...(input.datosTributarios !== undefined && { datosTributarios: { sujetoDetraccion: false, tasaDetraccion: null, codigoBienServicio: null, sujetoRetencion: false, ...input.datosTributarios } }),
           auditoria: {
             ...p.auditoria,
             modificadoPor: user.id,
@@ -357,6 +419,7 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
     const ahora = new Date().toISOString();
     const { error } = await dbProveedores.update(proveedor._dbId, {
       estado: 'inactivo',
+      motivo_cambio_estado: motivo.trim(),
       modificado_por: user.id,
       modificado_en: ahora,
     });
@@ -434,6 +497,29 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
     return { exito: true };
   };
 
+  const aprobarProveedor = async (id: string): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+    const proveedor = proveedores.find(p => p.id === id);
+    if (!proveedor) return { exito: false, errores: ['Proveedor no encontrado'] };
+    if (proveedor.estado !== 'en_evaluacion') return { exito: false, errores: ['El proveedor no está en evaluación'] };
+    const ahora = new Date().toISOString();
+    const { error } = await dbProveedores.update(proveedor._dbId, { estado: 'activo', modificado_por: user.id, modificado_en: ahora });
+    if (error) return { exito: false, errores: [error.message] };
+    setProveedores(prev => prev.map(p => p.id === id ? { ...p, estado: 'activo' as EstadoProveedor } : p));
+    return { exito: true };
+  };
+
+  const rechazarProveedor = async (id: string, _motivo: string): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+    const proveedor = proveedores.find(p => p.id === id);
+    if (!proveedor) return { exito: false, errores: ['Proveedor no encontrado'] };
+    const ahora = new Date().toISOString();
+    const { error } = await dbProveedores.update(proveedor._dbId, { estado: 'observado', modificado_por: user.id, modificado_en: ahora });
+    if (error) return { exito: false, errores: [error.message] };
+    setProveedores(prev => prev.map(p => p.id === id ? { ...p, estado: 'observado' as EstadoProveedor } : p));
+    return { exito: true };
+  };
+
   // ============================================================================
   // CONTEXT VALUE
   // ============================================================================
@@ -447,6 +533,8 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
     actualizarProveedor,
     inactivarProveedor,
     activarProveedor,
+    aprobarProveedor,
+    rechazarProveedor,
   };
 
   return <ProveedorContext.Provider value={value}>{children}</ProveedorContext.Provider>;

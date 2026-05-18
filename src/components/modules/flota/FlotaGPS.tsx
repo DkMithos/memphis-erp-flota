@@ -1,7 +1,6 @@
 /**
  * Memphis ERP - Flota → Monitoreo GPS
- * Página de monitoreo en tiempo real de posiciones GPS por vehículo.
- * Sin librerías de mapas — usa window.open links a Google Maps.
+ * Página de monitoreo en tiempo real con mapa interactivo (react-leaflet).
  */
 
 import React, { useEffect, useState } from 'react';
@@ -25,8 +24,11 @@ import {
   Car,
   Navigation,
   AlertCircle,
+  List,
+  Map,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { MapaLeaflet, iconVerde, iconAmarillo, iconRojo, type MapaMarcador } from '../../ui/MapaLeaflet';
 
 interface FlotaGPSProps {
   onNavigate: (route: string) => void;
@@ -110,7 +112,6 @@ function VehiculoCard({ pos, onClick }: VehiculoCardProps) {
       </CardHeader>
 
       <CardContent className="space-y-2">
-        {/* Velocidad e ignición */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-sm">
             <Gauge className="size-4 text-muted-foreground" />
@@ -131,13 +132,11 @@ function VehiculoCard({ pos, onClick }: VehiculoCardProps) {
           </div>
         </div>
 
-        {/* Tiempo desde última señal */}
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <Clock className="size-4" />
           <span>{formatMins(pos.minutosDesdeUltima)}</span>
         </div>
 
-        {/* Coordenadas + enlace mapa */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Navigation className="size-3" />
@@ -152,12 +151,11 @@ function VehiculoCard({ pos, onClick }: VehiculoCardProps) {
               window.open(mapsLink(pos.latitud, pos.longitud), '_blank');
             }}
           >
-            <MapPin className="size-3 mr-1" />
+            <MapPin className="size-3" />
             Ver mapa
           </Button>
         </div>
 
-        {/* Dirección de texto */}
         {pos.evento && (
           <p className="text-xs text-muted-foreground truncate">{pos.evento}</p>
         )}
@@ -241,7 +239,7 @@ function HistorialDialog({ pos, open, onClose, cargarHistorial }: HistorialDialo
                         className="h-6 px-2 text-xs text-primary"
                         onClick={() => window.open(mapsLink(punto.latitud, punto.longitud), '_blank')}
                       >
-                        <MapPin className="size-3 mr-1" />
+                        <MapPin className="size-3" />
                         {punto.latitud.toFixed(5)}, {punto.longitud.toFixed(5)}
                       </Button>
                     </td>
@@ -256,11 +254,72 @@ function HistorialDialog({ pos, open, onClose, cargarHistorial }: HistorialDialo
   );
 }
 
+// ─── Mapa GPS ─────────────────────────────────────────────────────────────────
+
+function MapaGPS({ posiciones, onVehiculoClick }: {
+  posiciones: UltimaPos[];
+  onVehiculoClick: (pos: UltimaPos) => void;
+}) {
+  const marcadores: MapaMarcador[] = posiciones.map(pos => ({
+    id: pos.vehiculoId,
+    lat: pos.latitud,
+    lng: pos.longitud,
+    icon: pos.sinSenal ? iconRojo : pos.estaMoviendo ? iconVerde : iconAmarillo,
+    popupContent: (
+      <div className="min-w-[160px] text-sm">
+        <p className="font-semibold">{pos.vehiculoPlaca}</p>
+        <p className="text-gray-500 text-xs">{pos.vehiculoCodigo}</p>
+        {(pos.vehiculoMarca || pos.vehiculoModelo) && (
+          <p className="text-gray-500 text-xs">{[pos.vehiculoMarca, pos.vehiculoModelo].filter(Boolean).join(' ')}</p>
+        )}
+        <p className="mt-1">{Math.round(pos.velocidad)} km/h · {pos.ignicion ? 'Encendido' : 'Apagado'}</p>
+        <p className="text-gray-500 text-xs">{formatMins(pos.minutosDesdeUltima)}</p>
+        <button
+          className="mt-2 text-blue-600 text-xs underline"
+          onClick={() => onVehiculoClick(pos)}
+        >
+          Ver historial
+        </button>
+      </div>
+    ),
+  }));
+
+  if (marcadores.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Map className="size-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Sin posiciones GPS para mostrar</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">Mapa en tiempo real</CardTitle>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1"><span className="inline-block size-3 rounded-full bg-green-500" /> En movimiento</span>
+            <span className="flex items-center gap-1"><span className="inline-block size-3 rounded-full bg-yellow-500" /> Detenido</span>
+            <span className="flex items-center gap-1"><span className="inline-block size-3 rounded-full bg-red-500" /> Sin señal</span>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0 pb-0">
+        <MapaLeaflet marcadores={marcadores} height="520px" className="rounded-b-lg rounded-t-none border-0" />
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export function FlotaGPS({ onNavigate: _onNavigate }: FlotaGPSProps) {
   const { ultimasPosiciones, loading, lastSync, cargarPosiciones, cargarHistorial } = useGPSStore();
   const [selectedPos, setSelectedPos] = useState<UltimaPos | null>(null);
+  const [vistaActiva, setVistaActiva] = useState<'lista' | 'mapa'>('mapa');
 
   useEffect(() => {
     cargarPosiciones();
@@ -271,7 +330,6 @@ export function FlotaGPS({ onNavigate: _onNavigate }: FlotaGPSProps) {
     toast.success('Posiciones actualizadas');
   };
 
-  // KPIs
   const conSenal = ultimasPosiciones.filter((p) => !p.sinSenal).length;
   const enMovimiento = ultimasPosiciones.filter((p) => p.estaMoviendo && !p.sinSenal).length;
   const detenidosEncendidos = ultimasPosiciones.filter(
@@ -292,10 +350,33 @@ export function FlotaGPS({ onNavigate: _onNavigate }: FlotaGPSProps) {
             )}
           </p>
         </div>
-        <Button onClick={handleActualizar} disabled={loading} className="gap-2 w-fit">
-          <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-          Actualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Toggle vista */}
+          <div className="flex border rounded-lg overflow-hidden">
+            <Button
+              variant={vistaActiva === 'mapa' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none gap-1.5"
+              onClick={() => setVistaActiva('mapa')}
+            >
+              <Map className="size-4" />
+              Mapa
+            </Button>
+            <Button
+              variant={vistaActiva === 'lista' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none gap-1.5"
+              onClick={() => setVistaActiva('lista')}
+            >
+              <List className="size-4" />
+              Lista
+            </Button>
+          </div>
+          <Button onClick={handleActualizar} disabled={loading} className="gap-2">
+            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </Button>
+        </div>
       </div>
 
       {/* KPI cards */}
@@ -357,7 +438,7 @@ export function FlotaGPS({ onNavigate: _onNavigate }: FlotaGPSProps) {
         </Card>
       </div>
 
-      {/* Grid de vehículos */}
+      {/* Contenido según vista */}
       {loading && ultimasPosiciones.length === 0 ? (
         <div className="py-16 text-center text-sm text-muted-foreground">
           Cargando posiciones GPS...
@@ -372,6 +453,8 @@ export function FlotaGPS({ onNavigate: _onNavigate }: FlotaGPSProps) {
             </p>
           </CardContent>
         </Card>
+      ) : vistaActiva === 'mapa' ? (
+        <MapaGPS posiciones={ultimasPosiciones} onVehiculoClick={setSelectedPos} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {ultimasPosiciones.map((pos) => (

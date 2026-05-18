@@ -142,9 +142,9 @@ export function Inventario() {
   const getEstadoBadge = (estado: string) => {
     switch (estado) {
       case 'normal':
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Normal</Badge>;
+        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100">Normal</Badge>;
       case 'critico':
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Crítico</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 hover:bg-yellow-100">Crítico</Badge>;
       case 'agotado':
         return <Badge variant="destructive">Agotado</Badge>;
       default:
@@ -167,11 +167,11 @@ export function Inventario() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline">
-            <Download className="size-4 mr-2" />
+            <Download className="size-4" />
             Exportar
           </Button>
           <Button>
-            <Plus className="size-4 mr-2" />
+            <Plus className="size-4" />
             Nuevo Producto
           </Button>
         </div>
@@ -260,7 +260,7 @@ export function Inventario() {
               </SelectContent>
             </Select>
             <Button variant="outline">
-              <Filter className="size-4 mr-2" />
+              <Filter className="size-4" />
               Más filtros
             </Button>
           </div>

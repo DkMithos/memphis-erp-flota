@@ -3,7 +3,7 @@
  * Conectado a Supabase — tabla evaluaciones_proveedores
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { dbEvaluaciones } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import type { EvaluacionProveedor } from '../supabase/types';
@@ -130,6 +130,8 @@ function mapFromDB(row: EvaluacionProveedor): Evaluacion {
 export function EvaluacionesProvider({ children }: { children: React.ReactNode }) {
   const { tenantId, user } = useAuth();
   const [evaluaciones, setEvaluaciones] = useState<Evaluacion[]>([]);
+  const evaluacionesRef = useRef(evaluaciones);
+  useEffect(() => { evaluacionesRef.current = evaluaciones; }, [evaluaciones]);
   const [loading, setLoading] = useState(true);
 
   const fetchEvaluaciones = useCallback(async () => {
@@ -227,28 +229,21 @@ export function EvaluacionesProvider({ children }: { children: React.ReactNode }
       updates.servicio !== undefined ||
       updates.documentacion !== undefined;
 
-    // Use functional setState to safely read existing state for recalculation
-    let notFound = false;
+    const existingEval = evaluacionesRef.current.find(e => e._dbId === dbId);
+    if (!existingEval) return { exito: false, errores: ['Evaluación no encontrada'] };
+
     let recalcPayload: { puntaje_total?: number; resultado?: string } = {};
-
-    setEvaluaciones(prev => {
-      const existingEval = prev.find(e => e._dbId === dbId);
-      if (!existingEval) { notFound = true; return prev; }
-      if (hasCriteriaUpdate) {
-        const cal = updates.calidad ?? existingEval.calidad;
-        const ent = updates.entrega ?? existingEval.entrega;
-        const pre = updates.precio ?? existingEval.precio;
-        const ser = updates.servicio ?? existingEval.servicio;
-        const doc = updates.documentacion ?? existingEval.documentacion;
-        const { puntajeTotal, resultado } = calcularPuntaje(cal, ent, pre, ser, doc);
-        if (puntajeTotal !== undefined) {
-          recalcPayload = { puntaje_total: puntajeTotal, resultado: resultado ?? undefined };
-        }
+    if (hasCriteriaUpdate) {
+      const cal = updates.calidad ?? existingEval.calidad;
+      const ent = updates.entrega ?? existingEval.entrega;
+      const pre = updates.precio ?? existingEval.precio;
+      const ser = updates.servicio ?? existingEval.servicio;
+      const doc = updates.documentacion ?? existingEval.documentacion;
+      const { puntajeTotal, resultado } = calcularPuntaje(cal, ent, pre, ser, doc);
+      if (puntajeTotal !== undefined) {
+        recalcPayload = { puntaje_total: puntajeTotal, resultado: resultado ?? undefined };
       }
-      return prev;
-    });
-
-    if (notFound) return { exito: false, errores: ['Evaluación no encontrada'] };
+    }
 
     Object.assign(payload, recalcPayload);
 

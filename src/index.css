@@ -3698,24 +3698,24 @@
 
 :root {
   --font-size: 14px;
-  --memphis-gold: #d4a017;
-  --memphis-gold-dark: #b8891a;
-  --memphis-gold-light: #e8c040;
-  --memphis-gray: #f3f4f6;
-  --memphis-gray-dark: #6b7280;
-  --memphis-white: #fff;
-  --memphis-black: #111827;
-  --memphis-success: #10b981;
-  --memphis-warning: #f59e0b;
-  --memphis-danger: #ef4444;
-  --memphis-info: #3b82f6;
+  --kesa-blue: #0a66c2;
+  --kesa-blue-dark: #084d92;
+  --kesa-blue-light: #3b82f6;
+  --kesa-gray: #f3f4f6;
+  --kesa-gray-dark: #6b7280;
+  --kesa-white: #fff;
+  --kesa-black: #111827;
+  --kesa-success: #10b981;
+  --kesa-warning: #f59e0b;
+  --kesa-danger: #ef4444;
+  --kesa-info: #3b82f6;
   --background: #fafbfc;
   --foreground: #111827;
   --card: #fff;
   --card-foreground: #111827;
   --popover: #fff;
   --popover-foreground: #111827;
-  --primary: #d4a017;
+  --primary: #0a66c2;
   --primary-foreground: #fff;
   --secondary: #f3f4f6;
   --secondary-foreground: #111827;

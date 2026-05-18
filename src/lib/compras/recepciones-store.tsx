@@ -4,7 +4,7 @@
  * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../supabase/client';
 import { dbRecepciones } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
@@ -62,9 +62,13 @@ export interface Recepcion {
   };
 }
 
+export interface ItemRecepcionInput extends Omit<ItemRecibido, 'id' | '_dbId'> {
+  cantidadPedida?: number;
+}
+
 export interface NuevaRecepcionInput {
   ordenId: string;
-  itemsRecibidos: Omit<ItemRecibido, 'id' | '_dbId'>[];
+  itemsRecibidos: ItemRecepcionInput[];
   estado: EstadoRecepcion;
   observaciones?: string;
   // DB FK: proveedor UUID and orden UUID must be provided from calling context
@@ -174,10 +178,12 @@ function estadoFrontendToDb(estado: EstadoRecepcion): string {
 export function RecepcionStoreProvider({ children }: { children: React.ReactNode }) {
   const { tenantId, user, profile } = useAuth();
   const [recepciones, setRecepciones] = useState<Recepcion[]>([]);
+  const recepcionesRef = useRef(recepciones);
+  useEffect(() => { recepcionesRef.current = recepciones; }, [recepciones]);
   const [loading, setLoading] = useState(true);
 
   const usuarioActual = {
-    email: user?.email ?? profile?.email ?? 'operaciones@memphis.com.pe',
+    email: user?.email ?? profile?.email ?? 'operaciones@kesa.com',
     nombre: profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Operaciones',
     rol: (profile?.rol as RolUsuario) ?? ('operaciones' as RolUsuario),
   };
@@ -273,30 +279,25 @@ export function RecepcionStoreProvider({ children }: { children: React.ReactNode
 
       const dbRow = inserted as RecepcionDB;
 
-      // Insert items
-      const itemsInserted: RecepcionItemDB[] = [];
-      for (const item of input.itemsRecibidos) {
-        const { data: itemData, error: errItem } = await supabase
-          .from('recepcion_items')
-          .insert({
-            tenant_id: tenantId,
-            recepcion_id: dbRow.id,
-            descripcion: item.descripcion.trim(),
-            unidad: item.unidad,
-            cantidad_pedida: item.cantidadRecibida, // We only track received in frontend
-            cantidad_recibida: item.cantidadRecibida,
-            conforme,
-            observaciones: item.observacionItem ?? null,
-          })
-          .select()
-          .single();
-
-        if (errItem) {
-          console.error('[RECEPCIONES] Error al crear item:', errItem.message);
-        } else if (itemData) {
-          itemsInserted.push(itemData as RecepcionItemDB);
-        }
+      // Insert items en batch (atómico)
+      const itemsPayload = input.itemsRecibidos.map(item => ({
+        tenant_id: tenantId,
+        recepcion_id: dbRow.id,
+        descripcion: item.descripcion.trim(),
+        unidad: item.unidad,
+        cantidad_pedida: item.cantidadRecibida,
+        cantidad_recibida: item.cantidadRecibida,
+        conforme,
+        observaciones: item.observacionItem ?? null,
+      }));
+      const { data: itemsData, error: errItems } = await supabase
+        .from('recepcion_items')
+        .insert(itemsPayload)
+        .select();
+      if (errItems) {
+        console.error('[RECEPCIONES] Error al crear items:', errItems.message);
       }
+      const itemsInserted = (itemsData ?? []) as RecepcionItemDB[];
 
       const nueva = mapFromDB({
         ...dbRow,
@@ -310,9 +311,11 @@ export function RecepcionStoreProvider({ children }: { children: React.ReactNode
         console.log('[REC_CREATED]', { id: nueva.id, ordenId: nueva.ordenId, estado: nueva.estado });
       }
 
-      // Trigger order state update
-      const totalRecibido = input.itemsRecibidos.reduce((sum, item) => sum + item.cantidadRecibida, 0);
-      const esCompleta = totalRecibido > 0;
+      // Trigger order state update — recepción completa solo si cada item tiene cantidadPedida
+      // y cantidadRecibida >= cantidadPedida. Sin cantidadPedida no se puede afirmar completitud.
+      const tieneInfoPedida = input.itemsRecibidos.every(item => item.cantidadPedida != null);
+      const esCompleta = tieneInfoPedida && input.itemsRecibidos.length > 0 &&
+        input.itemsRecibidos.every(item => item.cantidadRecibida >= (item.cantidadPedida!));
       onOrdenUpdated(input.ordenId, esCompleta);
 
       return { exito: true, recepcion: nueva };
@@ -324,11 +327,7 @@ export function RecepcionStoreProvider({ children }: { children: React.ReactNode
     async (id: string, input: ActualizarRecepcionInput): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setRecepciones(prev => {
-        dbId = prev.find(r => r.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = recepcionesRef.current.find(r => r.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Recepción no encontrada'] };
 
       const ahora = new Date().toISOString();
@@ -351,25 +350,21 @@ export function RecepcionStoreProvider({ children }: { children: React.ReactNode
         await supabase.from('recepcion_items').delete().eq('recepcion_id', dbId);
 
         const conforme = (input.estado ?? 'conforme') === 'conforme';
-        const newItemsInserted: RecepcionItemDB[] = [];
-        for (const item of input.itemsRecibidos) {
-          const { data: itemData } = await supabase
-            .from('recepcion_items')
-            .insert({
-              tenant_id: tenantId,
-              recepcion_id: dbId,
-              descripcion: item.descripcion.trim(),
-              unidad: item.unidad,
-              cantidad_pedida: item.cantidadRecibida,
-              cantidad_recibida: item.cantidadRecibida,
-              conforme,
-              observaciones: item.observacionItem ?? null,
-            })
-            .select()
-            .single();
-
-          if (itemData) newItemsInserted.push(itemData as RecepcionItemDB);
-        }
+        const itemsPayload = input.itemsRecibidos.map(item => ({
+          tenant_id: tenantId,
+          recepcion_id: dbId,
+          descripcion: item.descripcion.trim(),
+          unidad: item.unidad,
+          cantidad_pedida: item.cantidadRecibida,
+          cantidad_recibida: item.cantidadRecibida,
+          conforme,
+          observaciones: item.observacionItem ?? null,
+        }));
+        const { data: newItemsData } = await supabase
+          .from('recepcion_items')
+          .insert(itemsPayload)
+          .select();
+        const newItemsInserted = (newItemsData ?? []) as RecepcionItemDB[];
 
         setRecepciones(prev =>
           prev.map(r => {
@@ -418,11 +413,7 @@ export function RecepcionStoreProvider({ children }: { children: React.ReactNode
     async (id: string, motivo: string): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setRecepciones(prev => {
-        dbId = prev.find(r => r.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = recepcionesRef.current.find(r => r.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Recepción no encontrada'] };
 
       const ahora = new Date().toISOString();

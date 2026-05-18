@@ -110,26 +110,26 @@ export function VehiclePublicLifeSheet({ vehiculo: vehiculoProp, vehiculoId }: V
   const getEstadoBadge = (estado: Vehiculo['estado']) => {
     switch (estado) {
       case 'activo':
-        return <Badge className="bg-green-100 text-green-800 border-green-300">Activo</Badge>;
+        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-300">Activo</Badge>;
       case 'en_taller':
-        return <Badge className="bg-amber-100 text-amber-800 border-amber-300">En Taller</Badge>;
+        return <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300">En Taller</Badge>;
       case 'inactivo':
-        return <Badge className="bg-red-100 text-red-800 border-red-300">Inactivo</Badge>;
+        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-300">Inactivo</Badge>;
     }
   };
 
   const getMantenimientoBadge = (estado: string) => {
     switch (estado) {
       case 'vigente':
-        return <Badge className="bg-green-100 text-green-800 border-green-300 flex items-center gap-1">
+        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-300 flex items-center gap-1">
           <CheckCircle2 className="size-3" /> Vigente
         </Badge>;
       case 'proximo':
-        return <Badge className="bg-amber-100 text-amber-800 border-amber-300 flex items-center gap-1">
+        return <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300 flex items-center gap-1">
           <AlertTriangle className="size-3" /> Próximo
         </Badge>;
       case 'vencido':
-        return <Badge className="bg-red-100 text-red-800 border-red-300 flex items-center gap-1">
+        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-300 flex items-center gap-1">
           <XCircle className="size-3" /> Vencido
         </Badge>;
     }
@@ -141,11 +141,11 @@ export function VehiclePublicLifeSheet({ vehiculo: vehiculoProp, vehiculoId }: V
     }
     switch (estado) {
       case 'vigente':
-        return <Badge className="bg-green-100 text-green-800 border-green-300">Vigente</Badge>;
+        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-300">Vigente</Badge>;
       case 'proximo_a_vencer':
-        return <Badge className="bg-amber-100 text-amber-800 border-amber-300">Próximo a Vencer</Badge>;
+        return <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300">Próximo a Vencer</Badge>;
       case 'vencido':
-        return <Badge className="bg-red-100 text-red-800 border-red-300">Vencido</Badge>;
+        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-300">Vencido</Badge>;
       default:
         return <Badge variant="outline">Desconocido</Badge>;
     }

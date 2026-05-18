@@ -28,7 +28,7 @@ export function SimpleQR({ value, size = 180 }: SimpleQRProps) {
 
   return (
     <div 
-      className="bg-white border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center p-4"
+      className="bg-white dark:bg-gray-900 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center p-4"
       style={{ width: size, height: size }}
     >
       <QrCode className="size-12 text-gray-400 mb-3" />
@@ -45,12 +45,12 @@ export function SimpleQR({ value, size = 180 }: SimpleQRProps) {
       >
         {copied ? (
           <>
-            <CheckCircle2 className="size-3 mr-1" />
+            <CheckCircle2 className="size-3" />
             Copiado
           </>
         ) : (
           <>
-            <Copy className="size-3 mr-1" />
+            <Copy className="size-3" />
             Copiar URL
           </>
         )}

@@ -18,7 +18,7 @@ import {
 // DEBUG FLAG
 // ============================================================================
 
-export const DEBUG_MANTENIMIENTO_BIO = true;
+export const DEBUG_MANTENIMIENTO_BIO = import.meta.env.DEV;
 
 // ============================================================================
 // TIPOS DE ESTADO Y MANTENIMIENTO - Estandarizados

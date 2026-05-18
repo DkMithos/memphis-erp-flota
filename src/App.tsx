@@ -10,6 +10,11 @@ import { ERPTopbar } from './components/layout/ERPTopbar';
 
 // Shared
 import { ResponsiveIndicator } from './components/shared/ResponsiveIndicator';
+import { TutorialOnboarding } from './components/shared/TutorialOnboarding';
+import { ConfirmDialogProvider } from './components/shared/ConfirmDialogProvider';
+
+// Home
+import { HomeWelcome } from './components/modules/HomeWelcome';
 
 // Main Modules
 import { Dashboard } from './components/modules/Dashboard';
@@ -48,6 +53,8 @@ import { BiomedicoMantenimientoForm } from './components/modules/biomedico/Biome
 import { BiomedicoCalibraciones } from './components/modules/biomedico/BiomedicoCalibraciones';
 import { BiomedicoIncidencias } from './components/modules/biomedico/BiomedicoIncidencias';
 import { BiomedicoDocumentos } from './components/modules/biomedico/BiomedicoDocumentos';
+import { BiomedicoContratos } from './components/modules/biomedico/BiomedicoContratos';
+import { BiomedicoContratoForm } from './components/modules/biomedico/BiomedicoContratoForm';
 
 // Compras
 import { RequerimientosLista } from './components/modules/compras/RequerimientosLista';
@@ -70,6 +77,7 @@ import { ProveedorForm } from './components/modules/proveedores/ProveedorForm';
 import { ProveedoresEvaluaciones } from './components/modules/proveedores/ProveedoresEvaluaciones';
 import { ProveedoresContratos } from './components/modules/proveedores/ProveedoresContratos';
 import { ProveedoresTalleres } from './components/modules/proveedores/ProveedoresTalleres';
+import { GestionCategorias } from './components/modules/proveedores/GestionCategorias';
 
 // Proyectos
 import { ProyectosDashboard } from './components/modules/proyectos/ProyectosDashboard';
@@ -111,10 +119,34 @@ import { InventarioAlmacenes } from './components/modules/inventario/InventarioA
 
 // BI
 import { BIDashboard } from './components/modules/bi/BIDashboard';
+import { ReporteCruzado } from './components/modules/bi/ReporteCruzado';
 import { BIProvider } from './lib/bi/bi-store';
+
+// Contabilidad
+import { ContabilidadDashboard } from './components/modules/contabilidad/ContabilidadDashboard';
+import { PlanCuentas } from './components/modules/contabilidad/PlanCuentas';
+import { PeriodosContables } from './components/modules/contabilidad/PeriodosContables';
+import { AsientosLista } from './components/modules/contabilidad/AsientosLista';
+import { AsientoForm } from './components/modules/contabilidad/AsientoForm';
+import { ComprobantesLista } from './components/modules/contabilidad/ComprobantesLista';
+import { ComprobantePagoForm } from './components/modules/contabilidad/ComprobantePagoForm';
+import { RegistroCompras } from './components/modules/contabilidad/RegistroCompras';
+import { RegistroVentas } from './components/modules/contabilidad/RegistroVentas';
+import { PeriodosProvider } from './lib/contabilidad/periodos-store';
+import { PlanCuentasProvider } from './lib/contabilidad/plan-cuentas-store';
+import { AsientosProvider } from './lib/contabilidad/asientos-store';
+import { ComprobantesProvider } from './lib/contabilidad/comprobantes-store';
 
 // Admin
 import { GestionUsuarios } from './components/modules/admin/GestionUsuarios';
+import { GestionCatalogos } from './components/modules/admin/GestionCatalogos';
+import { GestionFlujoAprobacion } from './components/modules/admin/GestionFlujoAprobacion';
+import { CentrosCostoAdmin } from './components/modules/admin/CentrosCostoAdmin';
+import { CentrosCostoProvider } from './lib/centros-costo/centros-costo-store';
+
+// QR Público — Biomédico
+import { EquipoPublicView } from './components/modules/biomedico/EquipoPublicView';
+import { EquipoQRPrint } from './components/modules/biomedico/EquipoQRPrint';
 
 // Perfil
 import { UserProfile } from './components/modules/perfil/UserProfile';
@@ -124,15 +156,19 @@ import { OTStoreProvider } from './lib/flota/ot-store';
 import { GPSProvider } from './lib/flota/gps-store';
 import { VehiculosStoreProvider } from './lib/flota/vehiculos-store';
 import { ProveedorStoreProvider } from './lib/proveedores/proveedores-store';
+import { CatalogosProvider } from './lib/shared/catalogos-store';
+import { TipoCambioProvider } from './lib/shared/tipo-cambio-store';
 import { RequerimientoStoreProvider } from './lib/compras/requerimientos-store';
 import { CotizacionStoreProvider } from './lib/compras/cotizaciones-store';
 import { OrdenStoreProvider } from './lib/compras/ordenes-store';
 import { RecepcionStoreProvider } from './lib/compras/recepciones-store';
 import { EquiposStoreProvider } from './lib/biomedico/equipos-store';
+import { SedesStoreProvider } from './lib/biomedico/sedes-store';
 import { MantenimientosStoreProvider } from './lib/biomedico/mantenimientos-store';
 import { CalibracionesProvider } from './lib/biomedico/calibraciones-store';
 import { IncidenciasProvider } from './lib/biomedico/incidencias-store';
 import { DocumentosBioProvider } from './lib/biomedico/documentos-bio-store';
+import { ContratosBioProvider } from './lib/biomedico/contratos-bio-store';
 import { EvaluacionesProvider } from './lib/proveedores/evaluaciones-store';
 import { ContratosProvider } from './lib/proveedores/contratos-store';
 import { TalleresProvider } from './lib/proveedores/talleres-store';
@@ -149,12 +185,12 @@ import { LoadingScreen } from './components/ui/LoadingScreen';
 
 const ENABLE_PUBLIC_LEGACY_ROUTES = false;
 
-// Inicializa themeMode desde localStorage
+// ─── Helpers de tema ────────────────────────────────────────────────────────
 function getInitialThemeMode(): 'light' | 'dark' | 'system' {
   try {
     const stored = localStorage.getItem('memphis-theme');
     if (stored === 'dark' || stored === 'light' || stored === 'system') return stored;
-  } catch { /* SSR / private mode */ }
+  } catch { /* SSR / modo privado */ }
   return 'system';
 }
 
@@ -165,23 +201,29 @@ function applyTheme(mode: 'light' | 'dark' | 'system'): boolean {
   else document.documentElement.classList.remove('dark');
   return isDark;
 }
+// ────────────────────────────────────────────────────────────────────────────
 
 export default function App() {
   const { user, profile, tenantName, loading } = useAuth();
 
-  const [currentModule, setCurrentModule] = useState('dashboard');
-  const [currentRoute, setCurrentRoute] = useState('/dashboard');
+  const [currentModule, setCurrentModule] = useState(() => {
+    const path = window.location.pathname || '/home';
+    return path.split('/')[1] || 'home';
+  });
+  const [currentRoute, setCurrentRoute] = useState(() => {
+    return window.location.pathname || '/home';
+  });
+  const [onboardingDone, setOnboardingDone] = useState(false);
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(getInitialThemeMode);
   const [darkMode, setDarkMode] = useState<boolean>(() => applyTheme(getInitialThemeMode()));
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  // Aplicar tema y persistir
+  // Aplicar tema, persistir en localStorage y escuchar cambios del sistema
   useEffect(() => {
     localStorage.setItem('memphis-theme', themeMode);
     const isDark = applyTheme(themeMode);
     setDarkMode(isDark);
 
-    // Listener para modo sistema: responde a cambios del OS en tiempo real
     if (themeMode === 'system') {
       const mq = window.matchMedia('(prefers-color-scheme: dark)');
       const handler = (e: MediaQueryListEvent) => {
@@ -194,19 +236,50 @@ export default function App() {
     }
   }, [themeMode]);
 
+  // Listener del botón atrás/adelante del navegador
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname || '/home';
+      setCurrentRoute(path);
+      const modulePart = path.split('/')[1] || 'home';
+      setCurrentModule(modulePart);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   const handleSetTheme = (mode: 'light' | 'dark' | 'system') => setThemeMode(mode);
   const handleToggleDarkMode = () => setThemeMode(prev => prev === 'dark' ? 'light' : 'dark');
 
   const handleModuleChange = (moduleId: string, subRoute?: string) => {
+    const route = subRoute ? subRoute : `/${moduleId}`;
     setCurrentModule(moduleId);
-    setCurrentRoute(subRoute ? subRoute : `/${moduleId}`);
+    setCurrentRoute(route);
     setIsMobileSidebarOpen(false);
+    if (window.location.pathname !== route) {
+      window.history.pushState({ route }, '', route);
+    }
+    window.scrollTo(0, 0);
   };
 
   const navigateTo = (route: string) => {
     setCurrentRoute(route);
     const modulePart = route.split('/')[1];
     if (modulePart) setCurrentModule(modulePart);
+    // Sync URL del navegador (deep linking + botón atrás)
+    if (window.location.pathname !== route) {
+      window.history.pushState({ route }, '', route);
+    }
+    window.scrollTo(0, 0);
+  };
+
+  const publicNavigateTo = (route: string) => {
+    const allowed = route.startsWith('/v/') ||
+      route.startsWith('/e/') ||
+      (route.startsWith('/flota/vehiculos/') && route.includes('/print-qr')) ||
+      (route.startsWith('/biomedico/equipos/') && route.includes('/print-qr'));
+    if (!allowed) return;
+    navigateTo(route);
   };
 
   const isSpecialRoute = () => {
@@ -218,6 +291,7 @@ export default function App() {
 
   const isPublicAllowedWithoutAuth = () => {
     if (currentRoute.startsWith('/v/')) return true;
+    if (currentRoute.startsWith('/e/')) return true; // QR público biomédico
     if (currentRoute.startsWith('/flota/vehiculos/') && currentRoute.includes('/print-qr')) return true;
     if (ENABLE_PUBLIC_LEGACY_ROUTES && currentRoute.startsWith('/public/vehiculo/')) return true;
     return false;
@@ -243,7 +317,16 @@ export default function App() {
       const cleanPath = currentRoute.split('?')[0];
       const segments = cleanPath.split('/').filter(Boolean);
       const token = segments[1];
-      if (token) return <VehiclePublicView token={token} onNavigate={navigateTo} />;
+      if (token) return <VehiclePublicView token={token} onNavigate={publicNavigateTo} />;
+      return <div className="p-6 text-sm text-muted-foreground">Token inválido.</div>;
+    }
+
+    // /e/:token — QR público equipo biomédico
+    if (currentRoute.startsWith('/e/')) {
+      const cleanPath = currentRoute.split('?')[0];
+      const segments = cleanPath.split('/').filter(Boolean);
+      const token = segments[1];
+      if (token) return <EquipoPublicView token={token} />;
       return <div className="p-6 text-sm text-muted-foreground">Token inválido.</div>;
     }
 
@@ -252,7 +335,7 @@ export default function App() {
       const cleanPath = currentRoute.split('?')[0];
       const segments = cleanPath.split('/').filter(Boolean);
       const vehiculoId = segments[2];
-      if (vehiculoId) return <VehicleQRPrint vehiculoId={vehiculoId} onNavigate={navigateTo} />;
+      if (vehiculoId) return <VehicleQRPrint vehiculoId={vehiculoId} onNavigate={publicNavigateTo} />;
       return <div className="p-6 text-sm text-muted-foreground">Vehículo inválido.</div>;
     }
 
@@ -269,6 +352,11 @@ export default function App() {
     // RUTAS INTERNAS (CON AUTH)
     // =========================
     if (!user) return <Login />;
+
+    // Home de bienvenida
+    if (currentRoute === '/home') {
+      return <HomeWelcome onNavigate={navigateTo} />;
+    }
 
     // Biomédico
     if (currentRoute.startsWith('/biomedico')) {
@@ -315,6 +403,13 @@ export default function App() {
         );
       }
 
+      // /biomedico/equipos/:codigo/print-qr
+      if (currentRoute.match(/^\/biomedico\/equipos\/EB-\d{4}-\d{3}\/print-qr$/)) {
+        const segments = currentRoute.split('/');
+        const codigo = segments[3];
+        return <EquipoQRPrint codigoEquipo={codigo} onNavigate={navigateTo} />;
+      }
+
       if (currentRoute.match(/^\/biomedico\/equipos\/EB-\d{4}-\d{3}\/editar$/)) {
         const segments = currentRoute.split('/');
         const codigo = segments[3];
@@ -337,6 +432,7 @@ export default function App() {
             onNavigateToEditar={() => navigateTo(`/biomedico/equipos/${codigo}/editar`)}
             onNavigateToMantenimiento={(numero) => navigateTo(`/biomedico/mantenimientos/${numero}`)}
             onNavigateToNuevoMantenimiento={() => navigateTo(`/biomedico/mantenimientos/nuevo?equipo=${codigo}`)}
+            onNavigate={navigateTo}
             onBack={() => navigateTo('/biomedico/equipos')}
           />
         );
@@ -354,6 +450,27 @@ export default function App() {
       if (currentRoute === '/biomedico/calibraciones') return <BiomedicoCalibraciones onNavigate={navigateTo} />;
       if (currentRoute === '/biomedico/incidencias') return <BiomedicoIncidencias onNavigate={navigateTo} />;
       if (currentRoute === '/biomedico/documentos') return <BiomedicoDocumentos onNavigate={navigateTo} />;
+
+      // Contratos de servicio biomédico
+      if (currentRoute === '/biomedico/contratos/nuevo') {
+        return (
+          <BiomedicoContratoForm
+            onCancel={() => navigateTo('/biomedico/contratos')}
+            onSuccess={() => navigateTo('/biomedico/contratos')}
+          />
+        );
+      }
+      if (currentRoute.match(/^\/biomedico\/contratos\/CB-\d{4}-\d{3}\/editar$/)) {
+        const contratoId = currentRoute.match(/CB-\d{4}-\d{3}/)![0];
+        return (
+          <BiomedicoContratoForm
+            contratoId={contratoId}
+            onCancel={() => navigateTo('/biomedico/contratos')}
+            onSuccess={() => navigateTo('/biomedico/contratos')}
+          />
+        );
+      }
+      if (currentRoute === '/biomedico/contratos') return <BiomedicoContratos onNavigate={navigateTo} />;
 
       return <BiomedicoDashboard onNavigate={navigateTo} />;
     }
@@ -393,12 +510,28 @@ export default function App() {
       return <ProyectosDashboard onNavigate={navigateTo} />;
     }
 
+    // Contabilidad
+    if (currentRoute.startsWith('/contabilidad')) {
+      if (currentRoute === '/contabilidad/plan-cuentas') return <PlanCuentas />;
+      if (currentRoute === '/contabilidad/periodos') return <PeriodosContables />;
+      if (currentRoute === '/contabilidad/asientos/nuevo') return <AsientoForm onNavigate={navigateTo} />;
+      if (currentRoute.startsWith('/contabilidad/asientos/AST-')) {
+        const numero = currentRoute.split('/')[3];
+        return <AsientosLista onNavigate={navigateTo} detalleNumero={numero} />;
+      }
+      if (currentRoute === '/contabilidad/asientos') return <AsientosLista onNavigate={navigateTo} />;
+      if (currentRoute === '/contabilidad/comprobantes/nuevo') return <ComprobantePagoForm onNavigate={navigateTo} />;
+      if (currentRoute === '/contabilidad/comprobantes') return <ComprobantesLista onNavigate={navigateTo} />;
+      if (currentRoute === '/contabilidad/registro-compras') return <RegistroCompras onNavigate={navigateTo} />;
+      if (currentRoute === '/contabilidad/registro-ventas') return <RegistroVentas onNavigate={navigateTo} />;
+      return <ContabilidadDashboard onNavigate={navigateTo} />;
+    }
+
     // Finanzas
     if (currentRoute.startsWith('/finanzas')) {
       if (currentRoute === '/finanzas/transacciones') return <FinanzasTransacciones onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/presupuestos') return <FinanzasPresupuestosModule onNavigate={navigateTo} />;
-      // FIX: /finanzas/cuentas-pagar tenía el mismo componente que /transacciones
-      if (currentRoute === '/finanzas/cuentas-pagar') return <FinanzasPresupuestosModule onNavigate={navigateTo} />;
+      if (currentRoute === '/finanzas/cuentas-pagar') return <FinanzasTransacciones onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/caja-chica') return <FinanzasCajaChica onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/flujo-caja') return <FinanzasFlujoCaja onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/reportes') return <FinanzasReportes onNavigate={navigateTo} />;
@@ -411,7 +544,6 @@ export default function App() {
       if (currentRoute === '/inventario/productos') return <InventarioArticulos onNavigate={navigateTo} />;
       if (currentRoute === '/inventario/movimientos') return <InventarioMovimientos onNavigate={navigateTo} />;
       if (currentRoute === '/inventario/almacenes') return <InventarioAlmacenes onNavigate={navigateTo} />;
-      // FIX: /inventario/ordenes tenía el mismo componente que /almacenes — usar movimientos hasta tener componente propio
       if (currentRoute === '/inventario/ordenes') return <InventarioMovimientos onNavigate={navigateTo} />;
       if (currentRoute === '/inventario/stock-critico') return <InventarioDashboard onNavigate={navigateTo} />;
       return <InventarioDashboard onNavigate={navigateTo} />;
@@ -571,6 +703,7 @@ export default function App() {
       if (currentRoute === '/proveedores/evaluaciones') return <ProveedoresEvaluaciones onNavigate={navigateTo} />;
       if (currentRoute === '/proveedores/contratos') return <ProveedoresContratos onNavigate={navigateTo} />;
       if (currentRoute === '/proveedores/talleres') return <ProveedoresTalleres onNavigate={navigateTo} />;
+      if (currentRoute === '/proveedores/categorias') return <GestionCategorias />;
       return <Proveedores onNavigate={navigateTo} />;
     }
 
@@ -612,12 +745,13 @@ export default function App() {
           );
         }
 
-        if (param && param !== 'nuevo' && !action) {
+        if (param && param !== 'nuevo' && (!action || ['documentos', 'contrato', 'plan-preventivo'].includes(action))) {
           return (
             <VehiculoDetalle
               vehiculoId={param}
               onBack={() => navigateTo('/flota/vehiculos')}
               onNavigate={navigateTo}
+              initialTab={action}
             />
           );
         }
@@ -629,10 +763,12 @@ export default function App() {
         if (param === 'nueva') {
           const urlParams = new URLSearchParams(currentRoute.split('?')[1] || '');
           const tipoParam = urlParams.get('tipo') as 'preventivo' | 'correctivo' | 'predictivo' | null;
+          const vehiculoParam = urlParams.get('vehiculo') || undefined;
 
           return (
             <MantenimientoForm
               tipoInicial={tipoParam || undefined}
+              vehiculoIdInicial={vehiculoParam}
               onCancel={() => navigateTo('/flota/mantenimientos')}
               onSuccess={(numeroOT) => navigateTo(`/flota/mantenimientos/${numeroOT}`)}
             />
@@ -664,6 +800,7 @@ export default function App() {
 
     // BI
     if (currentRoute.startsWith('/bi')) {
+      if (currentRoute === '/bi/cruzado') return <ReporteCruzado />;
       return <BIDashboard onNavigate={navigateTo} />;
     }
 
@@ -675,6 +812,9 @@ export default function App() {
     // Admin
     if (currentRoute.startsWith('/admin')) {
       if (currentRoute === '/admin/usuarios') return <GestionUsuarios />;
+      if (currentRoute === '/admin/catalogos') return <GestionCatalogos />;
+      if (currentRoute === '/admin/flujo-aprobacion') return <GestionFlujoAprobacion />;
+      if (currentRoute === '/admin/centros-costo') return <CentrosCostoAdmin />;
       return <GestionUsuarios />;
     }
 
@@ -682,11 +822,18 @@ export default function App() {
   };
 
   return (
-    <ErrorBoundary>
+    <ConfirmDialogProvider>
+    <PeriodosProvider>
+    <PlanCuentasProvider>
+    <AsientosProvider>
+    <ComprobantesProvider>
     <BIProvider>
     <ProyectosProvider>
+    <CentrosCostoProvider>
     <FinanzasProvider>
     <CRMProvider>
+    <TipoCambioProvider>
+    <CatalogosProvider>
     <RolesProvider>
     <InventarioProvider>
     <OTStoreProvider>
@@ -700,11 +847,13 @@ export default function App() {
             <CotizacionStoreProvider>
               <OrdenStoreProvider>
                 <RecepcionStoreProvider>
+                  <SedesStoreProvider>
                   <EquiposStoreProvider>
                     <MantenimientosStoreProvider>
                       <CalibracionesProvider>
                         <IncidenciasProvider>
                           <DocumentosBioProvider>
+                          <ContratosBioProvider>
                       <div className="min-h-screen bg-background">
                         {/* Desktop Sidebar */}
                         {!isSpecialRoute() && user && (
@@ -758,18 +907,27 @@ export default function App() {
 
                         <main className={isSpecialRoute() ? '' : 'lg:ml-64 mt-16 p-4 md:p-6'}>
                           <div className={isSpecialRoute() ? '' : 'max-w-[1600px] mx-auto'}>
-                            {renderModule()}
+                            <ErrorBoundary>
+                              {renderModule()}
+                            </ErrorBoundary>
                           </div>
                         </main>
+
+                        {/* Tutorial de onboarding — primer login */}
+                        {user && profile && (profile as any).onboarding_completado === false && !onboardingDone && (
+                          <TutorialOnboarding onComplete={() => setOnboardingDone(true)} />
+                        )}
 
                         <Toaster />
                         {import.meta.env.DEV && <ResponsiveIndicator />}
                       </div>
+                          </ContratosBioProvider>
                           </DocumentosBioProvider>
                         </IncidenciasProvider>
                       </CalibracionesProvider>
                     </MantenimientosStoreProvider>
                   </EquiposStoreProvider>
+                  </SedesStoreProvider>
                 </RecepcionStoreProvider>
               </OrdenStoreProvider>
             </CotizacionStoreProvider>
@@ -783,10 +941,17 @@ export default function App() {
     </OTStoreProvider>
     </InventarioProvider>
     </RolesProvider>
+    </CatalogosProvider>
+    </TipoCambioProvider>
     </CRMProvider>
     </FinanzasProvider>
+    </CentrosCostoProvider>
     </ProyectosProvider>
     </BIProvider>
-    </ErrorBoundary>
+    </ComprobantesProvider>
+    </AsientosProvider>
+    </PlanCuentasProvider>
+    </PeriodosProvider>
+    </ConfirmDialogProvider>
   );
 }

@@ -16,7 +16,10 @@ import {
   Trash2,
   X,
   Building2,
+  List,
+  Map,
 } from 'lucide-react';
+import { MapaLeaflet, iconAzul, iconAmarillo, iconRojo, type MapaMarcador } from '../../ui/MapaLeaflet';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -42,13 +45,52 @@ import { useTalleresStore, type TallerFrontend, type NuevoTallerInput } from '..
 import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
 import { toast } from 'sonner';
 
+// ── Coordenadas de capitales de departamentos del Perú ─────────────────────────
+const COORDS_PERU: Record<string, [number, number]> = {
+  'lima':        [-12.046374, -77.042793],
+  'arequipa':    [-16.409047, -71.537451],
+  'cusco':       [-13.531950, -71.967463],
+  'piura':       [-5.194, -80.633],
+  'la libertad': [-8.112, -79.028],
+  'lambayeque':  [-6.771, -79.841],
+  'junin':       [-12.065, -75.204],
+  'puno':        [-15.840, -70.022],
+  'cajamarca':   [-7.164, -78.500],
+  'ica':         [-14.067, -75.729],
+  'ancash':      [-9.529, -77.528],
+  'loreto':      [-3.749, -73.253],
+  'san martin':  [-6.485, -76.361],
+  'ucayali':     [-8.379, -74.553],
+  'huanuco':     [-9.931, -76.242],
+  'madre de dios': [-12.594, -69.189],
+  'moquegua':    [-17.194, -70.935],
+  'tacna':       [-18.014, -70.251],
+  'tumbes':      [-3.566, -80.451],
+  'apurimac':    [-13.635, -72.881],
+  'ayacucho':    [-13.164, -74.224],
+  'huancavelica': [-12.787, -74.973],
+  'amazonas':    [-6.231, -77.869],
+  'pasco':       [-10.686, -76.257],
+  'callao':      [-12.056, -77.118],
+};
+
+function coordsParaTaller(taller: TallerFrontend): [number, number] | null {
+  const dpto = taller.departamento?.toLowerCase().trim();
+  if (!dpto) return null;
+  // Busqueda flexible
+  for (const [key, coords] of Object.entries(COORDS_PERU)) {
+    if (dpto.includes(key) || key.includes(dpto)) return coords;
+  }
+  return null;
+}
+
 // ── Badge helpers ──────────────────────────────────────────────────────────────
 
 function badgeEstado(estado: TallerFrontend['estado']) {
   const map: Record<TallerFrontend['estado'], { label: string; className: string }> = {
-    activo: { label: 'Activo', className: 'bg-green-100 text-green-700 border-green-200' },
+    activo: { label: 'Activo', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200' },
     inactivo: { label: 'Inactivo', className: 'bg-slate-100 text-slate-700 border-slate-200' },
-    suspendido: { label: 'Suspendido', className: 'bg-red-100 text-red-700 border-red-200' },
+    suspendido: { label: 'Suspendido', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200' },
   };
   const cfg = map[estado];
   return <Badge variant="outline" className={cfg.className}>{cfg.label}</Badge>;
@@ -184,6 +226,7 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
   const [dialogDetalle, setDialogDetalle] = useState<TallerFrontend | null>(null);
   const [form, setForm] = useState<FormState>(formVacio);
   const [guardando, setGuardando] = useState(false);
+  const [vistaActiva, setVistaActiva] = useState<'lista' | 'mapa'>('lista');
 
   // ── Filtrado ────────────────────────────────────────────────────────────────
 
@@ -281,10 +324,32 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
             Talleres autorizados y especializados en la red de servicio
           </p>
         </div>
-        <Button onClick={() => setDialogNuevo(true)}>
-          <Plus className="size-4 mr-2" />
-          Nuevo Taller
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex border rounded-lg overflow-hidden">
+            <Button
+              variant={vistaActiva === 'lista' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none gap-1.5"
+              onClick={() => setVistaActiva('lista')}
+            >
+              <List className="size-4" />
+              Lista
+            </Button>
+            <Button
+              variant={vistaActiva === 'mapa' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none gap-1.5"
+              onClick={() => setVistaActiva('mapa')}
+            >
+              <Map className="size-4" />
+              Mapa
+            </Button>
+          </div>
+          <Button onClick={() => setDialogNuevo(true)}>
+            <Plus className="size-4" />
+            Nuevo Taller
+          </Button>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -360,8 +425,56 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
         />
       </div>
 
+      {/* Vista mapa */}
+      {vistaActiva === 'mapa' && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Mapa de talleres</CardTitle>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="inline-block size-3 rounded-full bg-blue-500" /> Activo</span>
+                <span className="flex items-center gap-1"><span className="inline-block size-3 rounded-full bg-yellow-500" /> Inactivo</span>
+                <span className="flex items-center gap-1"><span className="inline-block size-3 rounded-full bg-red-500" /> Suspendido</span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0 pb-0">
+            <MapaLeaflet
+              marcadores={filtrados
+                .map(t => {
+                  const coords = coordsParaTaller(t);
+                  if (!coords) return null;
+                  return {
+                    id: t._dbId,
+                    lat: coords[0],
+                    lng: coords[1],
+                    icon: t.estado === 'activo' ? iconAzul : t.estado === 'inactivo' ? iconAmarillo : iconRojo,
+                    popupContent: (
+                      <div className="min-w-[180px] text-sm">
+                        <p className="font-semibold">{t.nombre}</p>
+                        <p className="text-gray-500 text-xs">{t.id} · {tipoLabels[t.tipo]}</p>
+                        {t.departamento && <p className="text-gray-500 text-xs mt-0.5">{[t.distrito, t.provincia, t.departamento].filter(Boolean).join(', ')}</p>}
+                        {t.contactoTelefono && <p className="mt-1 text-xs">{t.contactoTelefono}</p>}
+                        <button
+                          className="mt-2 text-blue-600 text-xs underline"
+                          onClick={() => setDialogDetalle(t)}
+                        >
+                          Ver detalle
+                        </button>
+                      </div>
+                    ),
+                  } satisfies MapaMarcador;
+                })
+                .filter((m): m is MapaMarcador => m !== null)}
+              height="520px"
+              className="rounded-b-lg rounded-t-none border-0"
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Cards grid */}
-      {loading ? (
+      {vistaActiva === 'lista' && (loading ? (
         <div className="py-12 text-center text-sm text-muted-foreground">Cargando talleres...</div>
       ) : filtrados.length === 0 ? (
         <div className="py-12 text-center text-sm text-muted-foreground">
@@ -439,7 +552,7 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
                     className="flex-1"
                     onClick={() => setDialogDetalle(taller)}
                   >
-                    <Eye className="size-3.5 mr-1.5" />
+                    <Eye className="size-3.5" />
                     Ver detalle
                   </Button>
                   <Button
@@ -455,7 +568,7 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
             </Card>
           ))}
         </div>
-      )}
+      ))}
 
       {/* Dialog nuevo taller */}
       <Dialog open={dialogNuevo} onOpenChange={open => { setDialogNuevo(open); if (!open) setForm(formVacio); }}>
@@ -757,7 +870,7 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
                   <p className="text-xs text-muted-foreground mb-1.5">Especialidades</p>
                   <div className="flex flex-wrap gap-1.5">
                     {dialogDetalle.especialidades.map(e => (
-                      <span key={e} className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{e}</span>
+                      <span key={e} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full">{e}</span>
                     ))}
                   </div>
                 </div>
@@ -823,7 +936,7 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
                 className="text-red-500"
                 onClick={() => handleEliminar(dialogDetalle._dbId)}
               >
-                <Trash2 className="size-4 mr-2" />
+                <Trash2 className="size-4" />
                 Eliminar
               </Button>
               <Button variant="ghost" onClick={() => setDialogDetalle(null)}>Cerrar</Button>

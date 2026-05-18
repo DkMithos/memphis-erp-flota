@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, CheckCircle, XCircle, Ban, Truck, Package, FileText, Calendar, DollarSign } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle, XCircle, Ban, Truck, Package, FileText, Calendar, DollarSign, ShieldAlert, ShieldCheck, Users } from 'lucide-react';
+import { loadFlujoAprobacion, determinarNivelAprobacion, nivelAprobacionColor } from '../../../lib/compras/approval-flow';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
@@ -62,6 +63,16 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
   }
 
   const estadoConfig = ORDEN_ESTADO_CONFIG[orden.estado];
+
+  // Flujo de aprobación configurable
+  const flujoConfig = useMemo(() => loadFlujoAprobacion(), []);
+  const nivelAprobacion = useMemo(
+    () => determinarNivelAprobacion(orden.total, orden.moneda, flujoConfig),
+    [orden.total, orden.moneda, flujoConfig]
+  );
+  const rolActualPuedeAprobarEsteNivel = nivelAprobacion.roles.includes(usuarioActual.nombre) ||
+    nivelAprobacion.roles.some(r => r.toLowerCase() === usuarioActual.rol.toLowerCase().replace(/_/g, ' '));
+
   const puedeAprobar = tienePermiso(usuarioActual.rol, 'aprobar') && puedeRevisarOrden(orden.estado);
   const puedeRechazar = tienePermiso(usuarioActual.rol, 'rechazar') && puedeRevisarOrden(orden.estado);
   const puedeEditar = tienePermiso(usuarioActual.rol, 'editar') && puedeEditarOrden(orden.estado);
@@ -131,14 +142,14 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
         <div>
           <div className="flex items-center gap-3 mb-2">
             <Button variant="ghost" size="sm" onClick={() => onNavigate('/compras/ordenes')}>
-              <ArrowLeft className="size-4 mr-2" />
+              <ArrowLeft className="size-4" />
               Volver a Órdenes
             </Button>
           </div>
           <div className="flex items-center gap-3">
             <h2>{orden.id}</h2>
             <Badge className={estadoConfig.className}>
-              <estadoConfig.icon className="size-3 mr-1" />
+              <estadoConfig.icon className="size-3" />
               {estadoConfig.label}
             </Badge>
             <Badge variant="outline">{orden.tipo === 'oc' ? 'OC' : 'OS'}</Badge>
@@ -152,37 +163,37 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
         <div className="flex items-center gap-2 flex-wrap">
           {puedeEditar && (
             <Button onClick={() => onNavigate(`/compras/ordenes/${orden.id}/editar`)}>
-              <Edit className="size-4 mr-2" />
+              <Edit className="size-4" />
               Editar
             </Button>
           )}
           {puedeAprobar && (
             <Button onClick={() => setShowAprobarDialog(true)} variant="default">
-              <CheckCircle className="size-4 mr-2" />
+              <CheckCircle className="size-4" />
               Aprobar
             </Button>
           )}
           {puedeRechazar && (
             <Button onClick={() => setShowRechazarDialog(true)} variant="destructive">
-              <XCircle className="size-4 mr-2" />
+              <XCircle className="size-4" />
               Rechazar
             </Button>
           )}
           {puedeIniciarEjecucion && (
             <Button onClick={handleIniciarEjecucion} variant="outline">
-              <Truck className="size-4 mr-2" />
+              <Truck className="size-4" />
               Marcar en Ejecución
             </Button>
           )}
           {puedeCrearRecepcion && (
             <Button onClick={() => onNavigate(`/compras/recepciones/nuevo?orden=${orden.id}`)} variant="default">
-              <Package className="size-4 mr-2" />
+              <Package className="size-4" />
               Crear Recepción
             </Button>
           )}
           {puedeAnular && (
             <Button onClick={() => setShowAnularDialog(true)} variant="outline">
-              <Ban className="size-4 mr-2" />
+              <Ban className="size-4" />
               Anular
             </Button>
           )}
@@ -277,6 +288,35 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
             <div className="flex justify-between text-lg border-t pt-2">
               <span className="font-semibold">Total</span>
               <span className="font-semibold">{formatearMonto(orden.total, orden.moneda)}</span>
+            </div>
+
+            {/* Nivel de aprobación requerido */}
+            <div className="border-t pt-3 mt-1">
+              <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                <ShieldAlert className="size-3" />
+                Nivel de aprobación requerido
+              </p>
+              <div className={`rounded-lg px-3 py-2 text-xs space-y-1.5 ${nivelAprobacionColor(nivelAprobacion.nivel)}`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">{nivelAprobacion.label}</span>
+                  <Badge variant="outline" className="text-xs py-0 h-5 bg-white dark:bg-gray-900/50">
+                    Nivel {nivelAprobacion.nivel}
+                  </Badge>
+                </div>
+                <p className="opacity-80">{nivelAprobacion.descripcion}</p>
+                <div className="flex items-center gap-1 pt-0.5">
+                  <Users className="size-3 opacity-70" />
+                  <span className="opacity-80">
+                    {nivelAprobacion.aprobadoresRequeridos} aprobador{nivelAprobacion.aprobadoresRequeridos > 1 ? 'es' : ''} requerido{nivelAprobacion.aprobadoresRequeridos > 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 pt-0.5">
+                  {rolActualPuedeAprobarEsteNivel
+                    ? <><ShieldCheck className="size-3" /> <span>Tu rol puede aprobar este nivel</span></>
+                    : <><ShieldAlert className="size-3" /> <span>Tu rol no está configurado para este nivel</span></>
+                  }
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

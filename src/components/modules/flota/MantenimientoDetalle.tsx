@@ -57,7 +57,7 @@ import {
   type OTExtraItem
 } from '../../../lib/flota/ot-config';
 import { useOTStore, type OrdenTrabajo } from '../../../lib/flota/ot-store';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { AdicionalesTab } from './AdicionalesTab';
 
 interface MantenimientoDetalleProps {
@@ -94,7 +94,7 @@ export function MantenimientoDetalle({
     return (
       <div className="space-y-6">
         <Button variant="ghost" onClick={onBack}>
-          <ArrowLeft className="size-4 mr-2" />
+          <ArrowLeft className="size-4" />
           Volver
         </Button>
         <Alert variant="destructive">
@@ -119,7 +119,7 @@ export function MantenimientoDetalle({
     const { variant, icon: Icon, label, className } = config;
     return (
       <Badge variant={variant} className={className}>
-        <Icon className="size-3 mr-1" />
+        <Icon className="size-3" />
         {label}
       </Badge>
     );
@@ -187,7 +187,7 @@ export function MantenimientoDetalle({
       <div className="flex items-center justify-between">
         <div>
           <Button variant="ghost" size="sm" onClick={onBack} className="mb-2">
-            <ArrowLeft className="size-4 mr-2" />
+            <ArrowLeft className="size-4" />
             Volver a lista de OTs
           </Button>
           <div className="flex items-center gap-3">
@@ -207,19 +207,19 @@ export function MantenimientoDetalle({
         <div className="flex items-center gap-2">
           {ot.estado === 'programada' && (
             <Button onClick={() => handleCambiarEstado('en_ejecucion')}>
-              <PlayCircle className="size-4 mr-2" />
+              <PlayCircle className="size-4" />
               Iniciar Ejecución
             </Button>
           )}
           {ot.estado === 'en_ejecucion' && (
             <Button onClick={() => setShowCerrarDialog(true)}>
-              <CheckCircle className="size-4 mr-2" />
+              <CheckCircle className="size-4" />
               Cerrar OT
             </Button>
           )}
           {ot.estado === 'espera_aprobacion' && (
             <Button onClick={() => handleCambiarEstado('programada')}>
-              <CheckCircle className="size-4 mr-2" />
+              <CheckCircle className="size-4" />
               Aprobar OT
             </Button>
           )}
@@ -228,7 +228,7 @@ export function MantenimientoDetalle({
               variant="destructive" 
               onClick={() => setShowAnularDialog(true)}
             >
-              <XCircle className="size-4 mr-2" />
+              <XCircle className="size-4" />
               Anular
             </Button>
           )}
@@ -250,7 +250,7 @@ export function MantenimientoDetalle({
         <Alert variant="destructive">
           <XCircle className="size-4" />
           <AlertDescription>
-            <strong>OT Anulada:</strong> {ot.notasCierre || 'Sin motivo especificado'}
+            <strong>OT Anulada:</strong> {ot.motivoAnulacion || ot.notasCierre || 'Sin motivo especificado'}
           </AlertDescription>
         </Alert>
       )}
@@ -259,23 +259,23 @@ export function MantenimientoDetalle({
       <Tabs defaultValue="resumen">
         <TabsList>
           <TabsTrigger value="resumen">
-            <Eye className="size-4 mr-2" />
+            <Eye className="size-4" />
             Resumen
           </TabsTrigger>
           <TabsTrigger value="diagnostico">
-            <FileText className="size-4 mr-2" />
+            <FileText className="size-4" />
             Diagnóstico
           </TabsTrigger>
           <TabsTrigger value="repuestos">
-            <Package className="size-4 mr-2" />
+            <Package className="size-4" />
             Repuestos ({ot.repuestos.length})
           </TabsTrigger>
           <TabsTrigger value="adicionales">
-            <Plus className="size-4 mr-2" />
+            <Plus className="size-4" />
             Adicionales
           </TabsTrigger>
           <TabsTrigger value="auditoria">
-            <History className="size-4 mr-2" />
+            <History className="size-4" />
             Auditoría
           </TabsTrigger>
         </TabsList>
@@ -679,7 +679,7 @@ export function MantenimientoDetalle({
               onClick={handleCerrar}
               disabled={isCerrando}
             >
-              <CheckCircle className="size-4 mr-2" />
+              <CheckCircle className="size-4" />
               {isCerrando ? 'Cerrando...' : 'Confirmar Cierre'}
             </Button>
           </DialogFooter>

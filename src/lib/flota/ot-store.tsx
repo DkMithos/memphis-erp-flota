@@ -4,11 +4,12 @@
  * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../supabase/client';
 import { useAuth } from '../../auth/AuthProvider';
 import type { OrdenTrabajoDB, OTRepuesto, OTExtra } from '../supabase/types';
 import { logAudit } from '../shared/audit';
+import { validateTransition, OT_TRANSITIONS } from '../shared/state-machine';
 import {
   generarNumeroOT,
   extraerNumeroSecuencial,
@@ -87,7 +88,12 @@ export interface OrdenTrabajo {
   };
 
   observaciones: string | null;
+  motivoAnulacion: string | null;
   notasCierre: string | null;
+
+  // Imputación dual
+  proyectoId: string | null;
+  centroCostoId: string | null;
 
   // Extras (hallazgos)
   extras: OTExtraItem[];
@@ -219,8 +225,11 @@ function mapFromDB(
       cerradoPor: ot.cerrado_por,
       cerradoEn: ot.fecha_cierre,
     },
-    observaciones: ot.motivo_anulacion ?? null, // reuse for general observaciones field
+    observaciones: ot.descripcion ?? null,
+    motivoAnulacion: ot.motivo_anulacion ?? null,
     notasCierre: null,
+    proyectoId: ot.proyecto_id ?? null,
+    centroCostoId: ot.centro_costo_id ?? null,
     extras: extras.map(mapExtraFromDB),
   };
 }
@@ -232,6 +241,8 @@ function mapFromDB(
 export function OTStoreProvider({ children }: { children: React.ReactNode }) {
   const { tenantId, user } = useAuth();
   const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([]);
+  const ordenesRef = useRef(ordenes);
+  useEffect(() => { ordenesRef.current = ordenes; }, [ordenes]);
   const [loading, setLoading] = useState(true);
 
   // --------------------------------------------------------------------------
@@ -323,7 +334,7 @@ export function OTStoreProvider({ children }: { children: React.ReactNode }) {
       costo_terceros: costos.terceros,
       costo_otros: costos.otros,
       creado_por: user?.email ?? null,
-      motivo_anulacion: input.observaciones ?? null,
+      motivo_anulacion: null, // Solo se llena al anular la OT
     };
 
     const { data, error } = await supabase
@@ -357,13 +368,7 @@ export function OTStoreProvider({ children }: { children: React.ReactNode }) {
     patch: Record<string, unknown>,
     localPatch: (ot: OrdenTrabajo) => Partial<OrdenTrabajo>
   ): Promise<CrudResult> => {
-    // Read current OT from state snapshot via functional update trick
-    let dbId: string | undefined;
-    setOrdenes(prev => {
-      dbId = prev.find(o => o.numeroOT === numeroOT)?._dbId;
-      return prev;
-    });
-
+    const dbId = ordenesRef.current.find(o => o.numeroOT === numeroOT)?._dbId;
     if (!dbId) return { exito: false, errores: ['OT no encontrada'] };
 
     const { error } = await supabase
@@ -387,6 +392,13 @@ export function OTStoreProvider({ children }: { children: React.ReactNode }) {
   // --------------------------------------------------------------------------
 
   const actualizarEstadoOT = useCallback(async (numeroOT: string, nuevoEstado: EstadoOT): Promise<CrudResult> => {
+    // Validar transición de estado
+    const otActual = ordenes.find(o => o.numero === numeroOT);
+    if (otActual) {
+      const check = validateTransition(otActual.estado, nuevoEstado, OT_TRANSITIONS, `OT ${numeroOT}`);
+      if (!check.valid) return { exito: false, error: check.error };
+    }
+
     const ts = new Date().toISOString();
     const email = user?.email ?? null;
     const isFinal = nuevoEstado === 'cerrada' || nuevoEstado === 'anulada';
@@ -463,7 +475,7 @@ export function OTStoreProvider({ children }: { children: React.ReactNode }) {
     const result = await updateOT(
       numeroOT,
       { estado: 'anulada', motivo_anulacion: motivo, cerrado_por: email, fecha_cierre: ts, modificado_por: email, modificado_en: ts },
-      () => ({ estado: 'anulada', observaciones: motivo, notasCierre: motivo, fechaCierre: ts })
+      () => ({ estado: 'anulada', motivoAnulacion: motivo, notasCierre: motivo, fechaCierre: ts })
     );
     if (result.exito && tenantId) logAudit({ tenantId, usuarioEmail: email, accion: 'eliminar', entidadTipo: 'orden_trabajo', entidadId: numeroOT, entidadLabel: `Anulada: ${motivo}` });
     return result;

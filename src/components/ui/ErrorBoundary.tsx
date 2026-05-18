@@ -62,7 +62,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             </div>
             <div className="flex gap-3 justify-center">
               <Button onClick={this.handleReset} variant="outline" size="sm">
-                <RefreshCw className="size-4 mr-2" />
+                <RefreshCw className="size-4" />
                 Reintentar
               </Button>
               <Button onClick={() => window.location.reload()} size="sm">

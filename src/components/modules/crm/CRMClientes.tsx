@@ -30,10 +30,10 @@ import { toast } from 'sonner';
 
 function badgeEstado(estado: Cliente['estado']) {
   const map: Record<Cliente['estado'], { label: string; className: string }> = {
-    activo:    { label: 'Activo',    className: 'bg-green-100 text-green-700 border-green-200' },
+    activo:    { label: 'Activo',    className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200' },
     inactivo:  { label: 'Inactivo',  className: 'bg-slate-100 text-slate-600 border-slate-200' },
-    prospecto: { label: 'Prospecto', className: 'bg-blue-100 text-blue-700 border-blue-200' },
-    perdido:   { label: 'Perdido',   className: 'bg-red-100 text-red-700 border-red-200' },
+    prospecto: { label: 'Prospecto', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200' },
+    perdido:   { label: 'Perdido',   className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200' },
   };
   const cfg = map[estado] ?? map.activo;
   return <Badge className={`text-xs ${cfg.className}`}>{cfg.label}</Badge>;
@@ -58,7 +58,7 @@ function badgeTipo(tipo: Cliente['tipo']) {
 
 function badgeCategoria(cat?: 'A' | 'B' | 'C') {
   if (!cat) return null;
-  const colors = { A: 'bg-amber-100 text-amber-700 border-amber-200', B: 'bg-blue-100 text-blue-700 border-blue-200', C: 'bg-slate-100 text-slate-600 border-slate-200' };
+  const colors = { A: 'bg-amber-100 text-amber-700 border-amber-200', B: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200', C: 'bg-slate-100 text-slate-600 border-slate-200' };
   return <Badge className={`text-xs font-bold ${colors[cat]}`}>{cat}</Badge>;
 }
 
@@ -144,7 +144,8 @@ export function CRMClientes({ onNavigate }: Props) {
   };
 
   const handleSubmit = async () => {
-    if (!form.razonSocial.trim()) { toast.error('La razón social es requerida'); return; }
+    if (!form.razonSocial.trim()) { toast.error('La razón social es obligatoria'); return; }
+    if (form.tipo === 'empresa' && form.ruc && !/^\d{11}$/.test(form.ruc)) { toast.error('El RUC debe tener 11 dígitos'); return; }
     setSaving(true);
     try {
       if (dialogMode === 'crear') {
@@ -177,7 +178,7 @@ export function CRMClientes({ onNavigate }: Props) {
           <p className="text-sm text-muted-foreground mt-1">Directorio y gestión de cuentas de clientes</p>
         </div>
         <Button onClick={openCrear}>
-          <Plus className="size-4 mr-2" /> Nuevo Cliente
+          <Plus className="size-4" /> Nuevo Cliente
         </Button>
       </div>
 
@@ -512,7 +513,7 @@ export function CRMClientes({ onNavigate }: Props) {
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDetalleOpen(false)}>Cerrar</Button>
                 <Button onClick={() => { setDetalleOpen(false); openEditar(clienteDetalle); }}>
-                  <Pencil className="size-3.5 mr-1" /> Editar
+                  <Pencil className="size-3.5" /> Editar
                 </Button>
               </DialogFooter>
             </>

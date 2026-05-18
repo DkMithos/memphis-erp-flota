@@ -3,7 +3,7 @@
  * Conectado a Supabase — tabla calibraciones_biomedicas
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { dbCalibraciones } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import type { CalibracionBiomedica } from '../supabase/types';
@@ -96,6 +96,8 @@ function mapFromDB(row: CalibracionBiomedica): Calibracion {
 export function CalibracionesProvider({ children }: { children: React.ReactNode }) {
   const { tenantId, user } = useAuth();
   const [calibraciones, setCalibraciones] = useState<Calibracion[]>([]);
+  const calibracionesRef = useRef(calibraciones);
+  useEffect(() => { calibracionesRef.current = calibraciones; }, [calibraciones]);
   const [loading, setLoading] = useState(true);
 
   const fetchCalibraciones = useCallback(async () => {
@@ -154,11 +156,7 @@ export function CalibracionesProvider({ children }: { children: React.ReactNode 
   ): Promise<CrudResult> => {
     if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-    let found = false;
-    setCalibraciones(prev => {
-      found = prev.some(c => c._dbId === dbId);
-      return prev;
-    });
+    const found = calibracionesRef.current.some(c => c._dbId === dbId);
     if (!found) return { exito: false, errores: ['Calibración no encontrada'] };
 
     const ahora = new Date().toISOString();

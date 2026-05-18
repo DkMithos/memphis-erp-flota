@@ -4,10 +4,11 @@
  * Mantiene la misma interfaz de contexto → sin cambios en componentes UI
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../supabase/client';
 import { dbRequerimientos } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
+import { validateTransition, REQUERIMIENTO_TRANSITIONS } from '../shared/state-machine';
 import type {
   RequerimientoCompra,
   RequerimientoItem as RequerimientoItemDB,
@@ -60,6 +61,10 @@ export interface Requerimiento {
   items: ItemRequerimiento[];
   totalEstimado: number;
 
+  // Imputación dual
+  proyectoId: string | null;
+  centroCostoId: string | null;
+
   // Aprobación
   aprobadoPor: string | null;
   aprobadoEn: string | null;
@@ -88,6 +93,9 @@ export interface NuevoRequerimientoInput {
   solicitanteEmail: string;
   fechaRequerida?: string;
   items: Omit<ItemRequerimiento, 'id' | '_dbId'>[];
+  // Imputación dual (opcional — se guardan como FK en DB)
+  proyectoId?: string | null;
+  centroCostoId?: string | null;
 }
 
 export interface ActualizarRequerimientoInput extends Partial<NuevoRequerimientoInput> {}
@@ -155,6 +163,8 @@ function mapFromDB(row: RequerimientoWithItems): Requerimiento {
     fechaRequerida: row.fecha_requerida,
     items,
     totalEstimado,
+    proyectoId: row.proyecto_id ?? null,
+    centroCostoId: row.centro_costo_id ?? null,
     aprobadoPor: row.aprobado_por,
     aprobadoEn: row.aprobado_en,
     rechazadoPor: null,
@@ -179,11 +189,13 @@ function mapFromDB(row: RequerimientoWithItems): Requerimiento {
 export function RequerimientoStoreProvider({ children }: { children: React.ReactNode }) {
   const { tenantId, user, profile } = useAuth();
   const [requerimientos, setRequerimientos] = useState<Requerimiento[]>([]);
+  const requerimientosRef = useRef(requerimientos);
+  useEffect(() => { requerimientosRef.current = requerimientos; }, [requerimientos]);
   const [loading, setLoading] = useState(true);
 
   // Usuario actual derivado del perfil autenticado
   const usuarioActual = {
-    email: user?.email ?? profile?.email ?? 'admin@memphis.com.pe',
+    email: user?.email ?? profile?.email ?? 'admin@kesa.com',
     nombre: profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Usuario',
     rol: (profile?.rol as RolUsuario) ?? ('admin_empresa' as RolUsuario),
   };
@@ -277,29 +289,25 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
 
       const dbRow = inserted as RequerimientoCompra;
 
-      // Insertar items
-      const itemsInserted: RequerimientoItemDB[] = [];
-      for (const item of input.items) {
-        const { data: itemData, error: errItem } = await supabase
-          .from('requerimiento_items')
-          .insert({
-            tenant_id: tenantId,
-            requerimiento_id: dbRow.id,
-            descripcion: item.descripcion.trim(),
-            unidad: item.unidad,
-            cantidad: item.cantidad,
-            costo_estimado_unitario: item.precioEstimado,
-            observaciones: item.comentario ?? null,
-          })
-          .select()
-          .single();
+      // Insertar items en batch (atómico)
+      const itemsPayload = input.items.map(item => ({
+        tenant_id: tenantId,
+        requerimiento_id: dbRow.id,
+        descripcion: item.descripcion.trim(),
+        unidad: item.unidad,
+        cantidad: item.cantidad,
+        costo_estimado_unitario: item.precioEstimado,
+        observaciones: item.comentario ?? null,
+      }));
+      const { data: itemsData, error: errItems } = await supabase
+        .from('requerimiento_items')
+        .insert(itemsPayload)
+        .select();
 
-        if (errItem) {
-          console.error('[REQUERIMIENTOS] Error al crear item:', errItem.message);
-        } else if (itemData) {
-          itemsInserted.push(itemData as RequerimientoItemDB);
-        }
+      if (errItems) {
+        console.error('[REQUERIMIENTOS] Error al crear items:', errItems.message);
       }
+      const itemsInserted = (itemsData ?? []) as RequerimientoItemDB[];
 
       const nuevo = mapFromDB({ ...dbRow, items: itemsInserted });
       // Override totalEstimado since it is computed from local items
@@ -319,11 +327,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
     async (id: string, input: ActualizarRequerimientoInput): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setRequerimientos(prev => {
-        dbId = prev.find(r => r.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = requerimientosRef.current.find(r => r.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Requerimiento no encontrado'] };
 
       const ahora = new Date().toISOString();
@@ -350,24 +354,20 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
         // Delete all existing items for this requerimiento
         await supabase.from('requerimiento_items').delete().eq('requerimiento_id', dbId);
 
-        const newItemsInserted: RequerimientoItemDB[] = [];
-        for (const item of input.items) {
-          const { data: itemData } = await supabase
-            .from('requerimiento_items')
-            .insert({
-              tenant_id: tenantId,
-              requerimiento_id: dbId,
-              descripcion: item.descripcion.trim(),
-              unidad: item.unidad,
-              cantidad: item.cantidad,
-              costo_estimado_unitario: item.precioEstimado,
-              observaciones: item.comentario ?? null,
-            })
-            .select()
-            .single();
-
-          if (itemData) newItemsInserted.push(itemData as RequerimientoItemDB);
-        }
+        const itemsPayload = input.items.map(item => ({
+          tenant_id: tenantId,
+          requerimiento_id: dbId,
+          descripcion: item.descripcion.trim(),
+          unidad: item.unidad,
+          cantidad: item.cantidad,
+          costo_estimado_unitario: item.precioEstimado,
+          observaciones: item.comentario ?? null,
+        }));
+        const { data: newItemsData } = await supabase
+          .from('requerimiento_items')
+          .insert(itemsPayload)
+          .select();
+        const newItemsInserted = (newItemsData ?? []) as RequerimientoItemDB[];
 
         setRequerimientos(prev =>
           prev.map(r => {
@@ -428,11 +428,14 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
     async (id: string, nuevoEstado: EstadoRequerimiento): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setRequerimientos(prev => {
-        dbId = prev.find(r => r.id === id)?._dbId;
-        return prev;
-      });
+      // Validar transición de estado
+      const reqActual = requerimientos.find(r => r.id === id);
+      if (reqActual) {
+        const check = validateTransition(reqActual.estado, nuevoEstado, REQUERIMIENTO_TRANSITIONS, `Requerimiento ${id}`);
+        if (!check.valid) return { exito: false, errores: [check.error] };
+      }
+
+      const dbId = requerimientosRef.current.find(r => r.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Requerimiento no encontrado'] };
 
       const ahora = new Date().toISOString();
@@ -468,11 +471,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
     async (id: string, aprobadoPor: string): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setRequerimientos(prev => {
-        dbId = prev.find(r => r.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = requerimientosRef.current.find(r => r.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Requerimiento no encontrado'] };
 
       const ahora = new Date().toISOString();
@@ -516,11 +515,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
     async (id: string, rechazadoPor: string, motivo: string): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setRequerimientos(prev => {
-        dbId = prev.find(r => r.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = requerimientosRef.current.find(r => r.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Requerimiento no encontrado'] };
 
       const ahora = new Date().toISOString();
@@ -564,11 +559,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
     async (id: string, motivo: string): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-      let dbId: string | undefined;
-      setRequerimientos(prev => {
-        dbId = prev.find(r => r.id === id)?._dbId;
-        return prev;
-      });
+      const dbId = requerimientosRef.current.find(r => r.id === id)?._dbId;
       if (!dbId) return { exito: false, errores: ['Requerimiento no encontrado'] };
 
       const ahora = new Date().toISOString();

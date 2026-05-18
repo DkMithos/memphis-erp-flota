@@ -34,6 +34,7 @@ import {
   type TipoOrden,
   type MonedaOrden
 } from '../../../lib/compras/ordenes-config';
+import { convertirAMonedaBase, formatMontoBase } from '../../../lib/shared/currency-utils';
 
 interface OrdenesListaProps {
   onNavigate?: (route: string) => void;
@@ -99,10 +100,10 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
     enEjecucion: ordenes.filter(o => o.estado === 'en_ejecucion').length,
     completas: ordenes.filter(o => o.estado === 'recepcion_completa').length,
     anuladas: ordenes.filter(o => o.estado === 'anulada').length,
-    // Total en PEN de órdenes aprobadas
+    // Total convertido a PEN de órdenes aprobadas (todas las monedas)
     totalAprobadoPEN: ordenes
-      .filter(o => (o.estado === 'aprobada' || o.estado === 'en_ejecucion') && o.moneda === 'PEN')
-      .reduce((sum, o) => sum + o.total, 0)
+      .filter(o => o.estado === 'aprobada' || o.estado === 'en_ejecucion')
+      .reduce((sum, o) => sum + convertirAMonedaBase(o.total, o.moneda), 0)
   }), [ordenes]);
 
   const puedeCrear = tienePermiso(usuarioActual.rol, 'crear');
@@ -129,12 +130,12 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
 
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline">
-            <Download className="size-4 mr-2" />
+            <Download className="size-4" />
             Exportar
           </Button>
           {puedeCrear && (
             <Button onClick={() => onNavigate?.('/compras/ordenes/nuevo')}>
-              <Plus className="size-4 mr-2" />
+              <Plus className="size-4" />
               Nueva Orden
             </Button>
           )}
@@ -178,8 +179,8 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
             <CardTitle className="text-xs text-muted-foreground">Total en Proceso</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">S/ {stats.totalAprobadoPEN.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</div>
-            <p className="text-xs text-muted-foreground mt-1">En soles</p>
+            <div className="text-2xl font-semibold">{formatMontoBase(stats.totalAprobadoPEN)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Convertido a PEN</p>
           </CardContent>
         </Card>
       </div>
@@ -338,7 +339,7 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
                           </TableCell>
                           <TableCell>
                             <Badge className={estadoConfig.className}>
-                              <estadoConfig.icon className="size-3 mr-1" />
+                              <estadoConfig.icon className="size-3" />
                               {estadoConfig.label}
                             </Badge>
                           </TableCell>

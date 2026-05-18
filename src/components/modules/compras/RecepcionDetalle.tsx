@@ -73,14 +73,14 @@ export function RecepcionDetalle({ recepcionId, onNavigate }: RecepcionDetallePr
         <div>
           <div className="flex items-center gap-3 mb-2">
             <Button variant="ghost" size="sm" onClick={() => onNavigate('/compras/recepciones')}>
-              <ArrowLeft className="size-4 mr-2" />
+              <ArrowLeft className="size-4" />
               Volver a Recepciones
             </Button>
           </div>
           <div className="flex items-center gap-3">
             <h2>{recepcion.id}</h2>
             <Badge className={estadoConfig.className}>
-              <estadoConfig.icon className="size-3 mr-1" />
+              <estadoConfig.icon className="size-3" />
               {estadoConfig.label}
             </Badge>
           </div>
@@ -93,12 +93,12 @@ export function RecepcionDetalle({ recepcionId, onNavigate }: RecepcionDetallePr
         <div className="flex items-center gap-2">
           {puedeAnular && (
             <Button onClick={() => setShowAnularDialog(true)} variant="outline">
-              <Ban className="size-4 mr-2" />
+              <Ban className="size-4" />
               Anular
             </Button>
           )}
           <Button variant="outline" onClick={() => onNavigate(`/compras/ordenes/${recepcion.ordenId}`)}>
-            <FileText className="size-4 mr-2" />
+            <FileText className="size-4" />
             Ver Orden
           </Button>
         </div>

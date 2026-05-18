@@ -53,11 +53,11 @@ export function VehicleQRPrint({ vehiculoId, onNavigate }: VehicleQRPrintProps) 
             variant="outline" 
             onClick={() => onNavigate(`/flota/vehiculos/${vehiculoId}`)}
           >
-            <ArrowLeft className="size-4 mr-2" />
+            <ArrowLeft className="size-4" />
             Volver
           </Button>
           <Button onClick={handlePrint}>
-            <Printer className="size-4 mr-2" />
+            <Printer className="size-4" />
             Imprimir
           </Button>
         </>
@@ -77,7 +77,7 @@ export function VehicleQRPrint({ vehiculoId, onNavigate }: VehicleQRPrintProps) 
 
         {/* QR Code */}
         <div className="mb-8 flex justify-center">
-          <div className="bg-white p-6 border-4 border-gray-200 rounded-lg inline-block">
+          <div className="bg-white dark:bg-gray-900 p-6 border-4 border-gray-200 rounded-lg inline-block">
             <QRCodeWrapper
               value={publicUrl}
               size={320}

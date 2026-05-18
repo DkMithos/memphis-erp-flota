@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '../supabase/client';
 import { useAuth } from '../../auth/AuthProvider';
+import { convertirAMonedaBase } from '../shared/currency-utils';
 
 // ============================================================================
 // TIPOS
@@ -198,20 +199,20 @@ export function BIProvider({ children }: { children: React.ReactNode }) {
         (a) => (a.stock_actual ?? 0) <= (a.stock_minimo ?? 0)
       ).length;
       const valorTotalInventario = articulos.reduce(
-        (acc, a) => acc + (a.stock_actual ?? 0) * (a.precio_unitario ?? 0),
+        (acc, a) => acc + convertirAMonedaBase((a.stock_actual ?? 0) * (a.precio_unitario ?? 0), (a as any).moneda),
         0
       );
 
-      // Procesar oportunidades
+      // Procesar oportunidades — convertir a moneda base
       const oportunidades = resOportunidades.data ?? [];
       const valorPipelineCRM = oportunidades.reduce(
-        (acc, o) => acc + ((o.monto_estimado ?? 0) * (o.probabilidad ?? 0)) / 100,
+        (acc, o) => acc + convertirAMonedaBase(((o.monto_estimado ?? 0) * (o.probabilidad ?? 0)) / 100, o.moneda),
         0
       );
 
-      // Procesar ingresos/egresos
-      const ingresosMes = (resIngresos.data ?? []).reduce((acc, t) => acc + (t.monto ?? 0), 0);
-      const egresosMes = (resEgresos.data ?? []).reduce((acc, t) => acc + (t.monto ?? 0), 0);
+      // Procesar ingresos/egresos — convertir a moneda base
+      const ingresosMes = (resIngresos.data ?? []).reduce((acc, t) => acc + convertirAMonedaBase(t.monto ?? 0, t.moneda), 0);
+      const egresosMes = (resEgresos.data ?? []).reduce((acc, t) => acc + convertirAMonedaBase(t.monto ?? 0, t.moneda), 0);
 
       setMetricas({
         vehiculosActivos: resVehiculos.count ?? 0,

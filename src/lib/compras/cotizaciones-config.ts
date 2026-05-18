@@ -10,7 +10,7 @@ import { FileText, Clock, CheckCircle, XCircle, Ban, Send, type LucideIcon } fro
 // DEBUG FLAG
 // ============================================================================
 
-export const DEBUG_COTIZACIONES = true;
+export const DEBUG_COTIZACIONES = import.meta.env.DEV;
 
 // ============================================================================
 // TIPOS Y ESTADOS

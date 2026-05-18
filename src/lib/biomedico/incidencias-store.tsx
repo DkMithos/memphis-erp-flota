@@ -3,7 +3,7 @@
  * Conectado a Supabase — tabla incidencias_biomedicas
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { dbIncidencias } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import type { IncidenciaBiomedica } from '../supabase/types';
@@ -94,6 +94,8 @@ function mapFromDB(row: IncidenciaBiomedica): Incidencia {
 export function IncidenciasProvider({ children }: { children: React.ReactNode }) {
   const { tenantId, user } = useAuth();
   const [incidencias, setIncidencias] = useState<Incidencia[]>([]);
+  const incidenciasRef = useRef(incidencias);
+  useEffect(() => { incidenciasRef.current = incidencias; }, [incidencias]);
   const [loading, setLoading] = useState(true);
 
   const fetchIncidencias = useCallback(async () => {
@@ -154,11 +156,7 @@ export function IncidenciasProvider({ children }: { children: React.ReactNode })
   ): Promise<CrudResult> => {
     if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-    let found = false;
-    setIncidencias(prev => {
-      found = prev.some(i => i._dbId === dbId);
-      return prev;
-    });
+    const found = incidenciasRef.current.some(i => i._dbId === dbId);
     if (!found) return { exito: false, errores: ['Incidencia no encontrada'] };
 
     const ahora = new Date().toISOString();

@@ -115,7 +115,7 @@ export function ModulePlaceholderPage({
       {/* Back Button */}
       {showBackButton && onBack && (
         <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="size-4 mr-2" />
+          <ArrowLeft className="size-4" />
           Volver
         </Button>
       )}
@@ -149,7 +149,7 @@ export function ModulePlaceholderPage({
                 onClick={action.onClick}
                 disabled={action.disabled}
               >
-                <action.icon className="size-4 mr-2" />
+                <action.icon className="size-4" />
                 {action.label}
               </Button>
             ))}

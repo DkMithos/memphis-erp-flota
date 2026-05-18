@@ -18,17 +18,17 @@ import { toast } from 'sonner';
 
 const ESTADO_CONFIG: Record<Tarea['estado'], { label: string; color: string }> = {
   pendiente:   { label: 'Pendiente',   color: 'bg-slate-100 text-slate-700' },
-  en_progreso: { label: 'En Progreso', color: 'bg-blue-100 text-blue-700' },
-  completada:  { label: 'Completada',  color: 'bg-green-100 text-green-700' },
-  bloqueada:   { label: 'Bloqueada',   color: 'bg-red-100 text-red-700' },
-  cancelada:   { label: 'Cancelada',   color: 'bg-gray-100 text-gray-600' },
+  en_progreso: { label: 'En Progreso', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  completada:  { label: 'Completada',  color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  bloqueada:   { label: 'Bloqueada',   color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  cancelada:   { label: 'Cancelada',   color: 'bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400' },
 };
 
 const PRIORIDAD_CONFIG: Record<Tarea['prioridad'], { label: string; color: string }> = {
   baja:    { label: 'Baja',    color: 'bg-slate-100 text-slate-600' },
-  media:   { label: 'Media',   color: 'bg-blue-100 text-blue-700' },
-  alta:    { label: 'Alta',    color: 'bg-orange-100 text-orange-700' },
-  critica: { label: 'Crítica', color: 'bg-red-100 text-red-700' },
+  media:   { label: 'Media',   color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  alta:    { label: 'Alta',    color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+  critica: { label: 'Crítica', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
 interface Props {
@@ -95,7 +95,7 @@ export function TareaDetalle({ tareaDbId, onNavigate, onBack }: Props) {
       <div className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
         <p className="text-sm">Tarea no encontrada.</p>
         <Button variant="outline" size="sm" onClick={() => onNavigate?.('/proyectos/tareas')}>
-          <ArrowLeft className="size-4 mr-2" /> Volver a Tareas
+          <ArrowLeft className="size-4" /> Volver a Tareas
         </Button>
       </div>
     );
@@ -121,13 +121,13 @@ export function TareaDetalle({ tareaDbId, onNavigate, onBack }: Props) {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold">{tarea.titulo}</h1>
-              {vencida && <Badge className="bg-red-100 text-red-700 text-xs">Vencida</Badge>}
+              {vencida && <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs">Vencida</Badge>}
             </div>
             <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
               <FolderKanban className="size-3.5" />
               <button
                 className="hover:underline"
-                onClick={() => onNavigate?.(`/proyectos/lista/${proyecto._dbId}`)}
+                onClick={() => onNavigate?.(`/proyectos/detalle/${proyecto._dbId}`)}
               >
                 {proyecto.nombre}
               </button>
@@ -137,7 +137,7 @@ export function TareaDetalle({ tareaDbId, onNavigate, onBack }: Props) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="outline" size="sm" onClick={handleEditOpen}>
-            <Pencil className="size-4 mr-1" /> Editar
+            <Pencil className="size-4" /> Editar
           </Button>
           <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600" onClick={() => setDelOpen(true)}>
             <Trash2 className="size-4" />
@@ -149,7 +149,7 @@ export function TareaDetalle({ tareaDbId, onNavigate, onBack }: Props) {
       <div className="flex flex-wrap gap-3">
         <Badge className={`${estadoCfg.color} text-sm px-3 py-1`}>{estadoCfg.label}</Badge>
         <Badge className={`${prioridadCfg.color} text-sm px-3 py-1`}>
-          <Flag className="size-3 mr-1" />{prioridadCfg.label}
+          <Flag className="size-3" />{prioridadCfg.label}
         </Badge>
       </div>
 

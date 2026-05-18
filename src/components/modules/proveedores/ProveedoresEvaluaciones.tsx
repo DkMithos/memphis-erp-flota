@@ -55,9 +55,9 @@ import { toast } from 'sonner';
 function badgeEstado(estado: Evaluacion['estado']) {
   const map: Record<Evaluacion['estado'], { label: string; className: string }> = {
     borrador: { label: 'Borrador', className: 'bg-slate-100 text-slate-700 border-slate-200' },
-    en_revision: { label: 'En revisión', className: 'bg-blue-100 text-blue-700 border-blue-200' },
-    aprobada: { label: 'Aprobada', className: 'bg-green-100 text-green-700 border-green-200' },
-    rechazada: { label: 'Rechazada', className: 'bg-red-100 text-red-700 border-red-200' },
+    en_revision: { label: 'En revisión', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200' },
+    aprobada: { label: 'Aprobada', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200' },
+    rechazada: { label: 'Rechazada', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200' },
   };
   const cfg = map[estado] ?? map.borrador;
   return <Badge variant="outline" className={cfg.className}>{cfg.label}</Badge>;
@@ -272,7 +272,7 @@ export function ProveedoresEvaluaciones({ onNavigate: _onNavigate }: Props) {
           </p>
         </div>
         <Button onClick={() => setDialogNueva(true)}>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Nueva Evaluación
         </Button>
       </div>
@@ -654,14 +654,14 @@ export function ProveedoresEvaluaciones({ onNavigate: _onNavigate }: Props) {
                     className="text-red-600 border-red-200"
                     onClick={() => { setDialogRechazar(dialogDetalle); }}
                   >
-                    <XCircle className="size-4 mr-2" />
+                    <XCircle className="size-4" />
                     Rechazar
                   </Button>
                   <Button
                     className="bg-green-600 hover:bg-green-700"
                     onClick={() => handleAprobar(dialogDetalle)}
                   >
-                    <CheckCircle className="size-4 mr-2" />
+                    <CheckCircle className="size-4" />
                     Aprobar
                   </Button>
                 </>
@@ -674,7 +674,7 @@ export function ProveedoresEvaluaciones({ onNavigate: _onNavigate }: Props) {
                     else toast.error(r.errores?.[0] ?? 'Error');
                   })}
                 >
-                  <Clock className="size-4 mr-2" />
+                  <Clock className="size-4" />
                   Enviar a revisión
                 </Button>
               )}

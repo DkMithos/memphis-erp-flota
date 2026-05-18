@@ -128,7 +128,7 @@ export function Dashboard() {
           <CardContent>
             <div className="text-2xl font-semibold">24</div>
             <div className="flex items-center text-xs text-green-600 mt-1">
-              <TrendingDown className="size-3 mr-1" />
+              <TrendingDown className="size-3" />
               <span>12% menos que el mes anterior</span>
             </div>
           </CardContent>
@@ -142,7 +142,7 @@ export function Dashboard() {
           <CardContent>
             <div className="text-2xl font-semibold">5</div>
             <div className="flex items-center text-xs text-yellow-600 mt-1">
-              <TrendingUp className="size-3 mr-1" />
+              <TrendingUp className="size-3" />
               <span>Requiere atención inmediata</span>
             </div>
           </CardContent>
@@ -156,7 +156,7 @@ export function Dashboard() {
           <CardContent>
             <div className="text-2xl font-semibold">12</div>
             <div className="flex items-center text-xs text-green-600 mt-1">
-              <TrendingUp className="size-3 mr-1" />
+              <TrendingUp className="size-3" />
               <span>3 nuevos este mes</span>
             </div>
           </CardContent>

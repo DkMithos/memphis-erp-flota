@@ -55,7 +55,7 @@ import {
   type OTExtraItem,
   type EstadoOT
 } from '../../../lib/flota/ot-config';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface AdicionalesTabProps {
   extras: OTExtraItem[];
@@ -129,7 +129,7 @@ export function AdicionalesTab({
       motivo.trim(),
       cantidad,
       costoUnitario,
-      'admin@memphis.com.pe', // Mock - en producción viene del auth
+      'admin@kesa.com', // Mock - en producción viene del auth
       tipo === 'pieza' ? categoria : undefined
     );
 
@@ -215,7 +215,7 @@ export function AdicionalesTab({
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetTrigger asChild>
               <Button>
-                <Plus className="size-4 mr-2" />
+                <Plus className="size-4" />
                 Agregar Adicional
               </Button>
             </SheetTrigger>
@@ -387,9 +387,9 @@ export function AdicionalesTab({
                     <TableCell>
                       <Badge variant={extra.tipo === 'pieza' ? 'default' : 'secondary'}>
                         {extra.tipo === 'pieza' ? (
-                          <><Package className="size-3 mr-1" /> Pieza</>
+                          <><Package className="size-3" /> Pieza</>
                         ) : (
-                          <><Wrench className="size-3 mr-1" /> Servicio</>
+                          <><Wrench className="size-3" /> Servicio</>
                         )}
                       </Badge>
                     </TableCell>

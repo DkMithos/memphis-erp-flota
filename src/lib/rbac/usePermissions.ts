@@ -29,7 +29,7 @@ interface PermisoEntry {
 }
 
 export function usePermissions() {
-  const { user, tenantId } = useAuth();
+  const { user, profile, tenantId } = useAuth();
   const [permisos, setPermisos] = useState<PermisoEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -37,36 +37,61 @@ export function usePermissions() {
   useEffect(() => {
     if (!user) {
       setPermisos([]);
+      setIsAdmin(false);
       setLoading(false);
       return;
     }
 
+    let mounted = true;
+
     const load = async () => {
       setLoading(true);
       try {
-        // Fast path: admin role in JWT bypasses DB query (works even without tenantId)
+        // Fast path 1: admin role in JWT bypasses DB query
         const jwtRole = user?.app_metadata?.role;
         if (jwtRole === 'admin') {
-          setIsAdmin(true);
-          setPermisos([]);
+          if (mounted) {
+            setIsAdmin(true);
+            setPermisos([]);
+          }
+          return;
+        }
+
+        // Fast path 2: profile.rol is superadmin or admin_empresa
+        const profileRol = profile?.rol;
+        if (profileRol === 'superadmin' || profileRol === 'admin_empresa') {
+          if (mounted) {
+            setIsAdmin(true);
+            setPermisos([]);
+          }
           return;
         }
 
         // Non-admin users need tenantId to query roles
         if (!tenantId) {
-          setPermisos([]);
+          if (mounted) setPermisos([]);
           return;
         }
 
-        // Cargar roles del usuario
-        const { data: userRoles } = await supabase
+        // Cargar roles del usuario desde DB
+        const { data: userRoles, error } = await supabase
           .from('usuarios_roles')
           .select('rol_id, roles(nombre, roles_permisos(permiso_id, permisos(modulo, accion)))')
           .eq('tenant_id', tenantId)
           .eq('user_id', user.id);
 
-        if (!userRoles) {
-          setLoading(false);
+        if (!mounted) return;
+
+        if (error) {
+          console.error('[usePermissions] Error loading roles:', error.message);
+          // Fallback: si hay error en la consulta, verificar si el email es admin conocido
+          setPermisos([]);
+          return;
+        }
+
+        if (!userRoles || userRoles.length === 0) {
+          // No roles assigned — could be first user / admin without DB roles
+          setPermisos([]);
           return;
         }
 
@@ -90,15 +115,32 @@ export function usePermissions() {
           }
         }
 
-        setIsAdmin(adminFlag);
-        setPermisos(allPermisos);
+        if (mounted) {
+          setIsAdmin(adminFlag);
+          setPermisos(allPermisos);
+        }
+      } catch (err) {
+        console.error('[usePermissions] Unexpected error:', err);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
-    load();
-  }, [user, tenantId]);
+    // Safety timeout: if query takes >3s, unblock with current state
+    const safetyTimer = setTimeout(() => {
+      if (mounted) {
+        console.warn('[usePermissions] timeout — unblocking UI');
+        setLoading(false);
+      }
+    }, 3000);
+
+    load().finally(() => clearTimeout(safetyTimer));
+
+    return () => {
+      mounted = false;
+      clearTimeout(safetyTimer);
+    };
+  }, [user, profile, tenantId]);
 
   const can = useCallback(
     (modulo: Modulo, accion: Accion): boolean => {

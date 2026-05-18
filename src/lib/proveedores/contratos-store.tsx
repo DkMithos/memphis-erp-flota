@@ -3,7 +3,7 @@
  * Conectado a Supabase — tabla contratos_proveedores
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { dbContratos } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import type { ContratoProveedor } from '../supabase/types';
@@ -122,6 +122,8 @@ function mapFromDB(row: ContratoProveedor): Contrato {
 export function ContratosProvider({ children }: { children: React.ReactNode }) {
   const { tenantId, user } = useAuth();
   const [contratos, setContratos] = useState<Contrato[]>([]);
+  const contratosRef = useRef(contratos);
+  useEffect(() => { contratosRef.current = contratos; }, [contratos]);
   const [loading, setLoading] = useState(true);
 
   const fetchContratos = useCallback(async () => {
@@ -188,11 +190,7 @@ export function ContratosProvider({ children }: { children: React.ReactNode }) {
   ): Promise<CrudResult> => {
     if (!user) return { exito: false, errores: ['Sin sesión activa'] };
 
-    let found = false;
-    setContratos(prev => {
-      found = prev.some(c => c._dbId === dbId);
-      return prev;
-    });
+    const found = contratosRef.current.some(c => c._dbId === dbId);
     if (!found) return { exito: false, errores: ['Contrato no encontrado'] };
 
     const ahora = new Date().toISOString();

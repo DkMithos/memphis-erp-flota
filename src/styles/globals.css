@@ -5,18 +5,18 @@
 :root {
   --font-size: 14px;
   
-  /* Memphis Maquinarias Color Palette */
-  --memphis-gold: #D4A017;
-  --memphis-gold-dark: #B8891A;
-  --memphis-gold-light: #E8C040;
-  --memphis-gray: #F3F4F6;
-  --memphis-gray-dark: #6B7280;
-  --memphis-white: #FFFFFF;
-  --memphis-black: #111827;
-  --memphis-success: #10B981;
-  --memphis-warning: #F59E0B;
-  --memphis-danger: #EF4444;
-  --memphis-info: #3B82F6;
+  /* KESA ERP Color Palette */
+  --kesa-blue: #0A66C2;
+  --kesa-blue-dark: #084d92;
+  --kesa-blue-light: #3b82f6;
+  --kesa-gray: #F3F4F6;
+  --kesa-gray-dark: #6B7280;
+  --kesa-white: #FFFFFF;
+  --kesa-black: #111827;
+  --kesa-success: #10B981;
+  --kesa-warning: #F59E0B;
+  --kesa-danger: #EF4444;
+  --kesa-info: #3B82F6;
   
   --background: #FAFBFC;
   --foreground: #111827;
@@ -24,14 +24,14 @@
   --card-foreground: #111827;
   --popover: #FFFFFF;
   --popover-foreground: #111827;
-  --primary: #D4A017;
+  --primary: #0A66C2;
   --primary-foreground: #FFFFFF;
   --secondary: #F3F4F6;
   --secondary-foreground: #111827;
   --muted: #F9FAFB;
   --muted-foreground: #6B7280;
-  --accent: #FFF8E7;
-  --accent-foreground: #B8891A;
+  --accent: #EFF6FF;
+  --accent-foreground: #0A66C2;
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
   --border: #E5E7EB;
@@ -42,21 +42,21 @@
   --font-weight-normal: 400;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
-  --ring: #D4A017;
-  --chart-1: #D4A017;
+  --ring: #0A66C2;
+  --chart-1: #0A66C2;
   --chart-2: #10B981;
-  --chart-3: #3B82F6;
+  --chart-3: #F59E0B;
   --chart-4: #8B5CF6;
   --chart-5: #EC4899;
   --radius: 0.5rem;
   --sidebar: #FFFFFF;
   --sidebar-foreground: #111827;
-  --sidebar-primary: #D4A017;
+  --sidebar-primary: #0A66C2;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #FFF8E7;
-  --sidebar-accent-foreground: #B8891A;
+  --sidebar-accent: #F3F4F6;
+  --sidebar-accent-foreground: #111827;
   --sidebar-border: #E5E7EB;
-  --sidebar-ring: #D4A017;
+  --sidebar-ring: #0A66C2;
 }
 
 .dark {
@@ -66,33 +66,33 @@
   --card-foreground: #F1F5F9;
   --popover: #1E293B;
   --popover-foreground: #F1F5F9;
-  --primary: #E8C040;
-  --primary-foreground: #111827;
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
   --secondary: #334155;
   --secondary-foreground: #F1F5F9;
   --muted: #1E293B;
   --muted-foreground: #94A3B8;
-  --accent: #2D2310;
-  --accent-foreground: #E8C040;
+  --accent: #1E3A5F;
+  --accent-foreground: #60A5FA;
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
   --border: #334155;
   --input: #334155;
   --input-background: #1E293B;
-  --ring: #E8C040;
-  --chart-1: #E8C040;
+  --ring: #3B82F6;
+  --chart-1: #3B82F6;
   --chart-2: #10B981;
-  --chart-3: #60A5FA;
-  --chart-4: #A78BFA;
-  --chart-5: #F472B6;
+  --chart-3: #F59E0B;
+  --chart-4: #8B5CF6;
+  --chart-5: #EC4899;
   --sidebar: #1E293B;
   --sidebar-foreground: #F1F5F9;
-  --sidebar-primary: #E8C040;
-  --sidebar-primary-foreground: #111827;
-  --sidebar-accent: #2D2310;
-  --sidebar-accent-foreground: #E8C040;
+  --sidebar-primary: #3B82F6;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #334155;
+  --sidebar-accent-foreground: #F1F5F9;
   --sidebar-border: #334155;
-  --sidebar-ring: #E8C040;
+  --sidebar-ring: #3B82F6;
 }
 
 @theme inline {
@@ -150,7 +150,7 @@
 }
 
 /**
- * Base typography.
+ * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
  */
 @layer base {
   :where(:not(:has([class*=' text-']), :not(:has([class^='text-'])))) {
@@ -210,8 +210,8 @@ html {
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -224,7 +224,7 @@ html {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #D4A017;
+  background: #9CA3AF;
 }
 
 .dark ::-webkit-scrollbar-thumb {
@@ -232,5 +232,11 @@ html {
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #E8C040;
+  background: #64748B;
+}
+
+/* Fix: prevent Radix dropdown body scroll-lock from shifting fixed topbar */
+body[data-scroll-locked] {
+  padding-right: 0 !important;
+  margin-right: 0 !important;
 }
