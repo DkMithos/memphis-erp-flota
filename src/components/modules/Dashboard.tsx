@@ -118,6 +118,14 @@ const proyectosActivos = [
 export function Dashboard() {
   return (
     <div className="space-y-6">
+      {/* Banner de datos demo */}
+      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3 flex items-center gap-3">
+        <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400 shrink-0" />
+        <p className="text-sm text-amber-700 dark:text-amber-300">
+          <strong>Vista previa:</strong> Este dashboard muestra datos de demostración. Los datos reales se cargarán conforme se registren operaciones en el sistema.
+        </p>
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>

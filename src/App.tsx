@@ -353,8 +353,8 @@ export default function App() {
     // =========================
     if (!user) return <Login />;
 
-    // Home de bienvenida
-    if (currentRoute === '/home') {
+    // Home de bienvenida — ruta raíz y /home
+    if (currentRoute === '/home' || currentRoute === '/' || currentRoute === '') {
       return <HomeWelcome onNavigate={navigateTo} />;
     }
 
