@@ -39,3 +39,6 @@ npm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+
+# Lockfile excluded - platform-specific deps cause cross-platform issues
+package-lock.json
