@@ -31,6 +31,7 @@ import { MantenimientoDetalle } from './components/modules/flota/MantenimientoDe
 import { MantenimientoForm } from './components/modules/flota/MantenimientoForm';
 import { FlotaPreventiveAnalytics } from './components/modules/flota/FlotaPreventiveAnalytics';
 import { FlotaGPS } from './components/modules/flota/FlotaGPS';
+import { FlotaPorProyecto } from './components/modules/flota/FlotaPorProyecto';
 
 // Flota - Reportes
 import { FlotaReporteVehiculos } from './components/modules/flota/reportes/FlotaReporteVehiculos';
@@ -791,6 +792,7 @@ export default function App() {
       if (submodulo === 'reportes' && param === 'mantenimientos') return <FlotaReporteMantenimientos onNavigate={navigateTo} />;
       if (submodulo === 'reportes' && param === 'documentos') return <FlotaReporteDocumentos onNavigate={navigateTo} />;
 
+      if (submodulo === 'por-proyecto') return <FlotaPorProyecto onNavigate={navigateTo} />;
       if (submodulo === 'analisis-preventivo') return <FlotaPreventiveAnalytics onNavigate={navigateTo} />;
       if (submodulo === 'gps') return <FlotaGPS onNavigate={navigateTo} />;
       if (submodulo === 'dashboard' || !submodulo) return <FlotaDashboard onNavigate={navigateTo} />;

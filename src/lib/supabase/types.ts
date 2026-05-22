@@ -436,12 +436,17 @@ export interface VehiculoDB {
   contrato_tipo: TipoContratoFlota | null;
   contrato_fecha_inicio: string | null;
   contrato_fecha_fin: string | null;
+  // Proyecto y tipo de flota
+  proyecto_id: string | null;
+  tipo_flota: string | null;
   // Plan preventivo
   plan_preventivo_habilitado: boolean;
   plan_preventivo_tipo: TipoPlanPreventivo | null;
   plan_preventivo_total_contratados: number;
   plan_preventivo_intervalo_km: number | null;
   plan_preventivo_intervalo_meses: number | null;
+  plan_preventivo_costo_total: number;
+  plan_preventivo_costo_por_servicio: number;
   // Inactivación
   motivo_inactivacion: string | null;
   inactivado_por: string | null;

@@ -45,6 +45,8 @@ export function PlanPreventivoTab({ vehiculoId, vehiculo }: PlanPreventivoTabPro
     totalPreventivosContratados: 0,
     intervaloKm: undefined,
     intervaloMeses: undefined,
+    costoTotal: 0,
+    costoPorServicio: 0,
   });
 
   const [errores, setErrores] = useState<string[]>([]);
@@ -53,21 +55,25 @@ export function PlanPreventivoTab({ vehiculoId, vehiculo }: PlanPreventivoTabPro
 
   // Cargar datos del vehículo al montar
   useEffect(() => {
-    if (vehiculo.planPreventivo) {
+    if (vehiculo.planPreventivoContratado) {
+      setFormData({ ...vehiculo.planPreventivoContratado });
+    } else if (vehiculo.planPreventivo) {
       // Mapear del legacy al nuevo formato
       setFormData({
         habilitado: true,
-        tipoPlan: vehiculo.planPreventivo.frecuenciaKm && vehiculo.planPreventivo.frecuenciaDias 
-          ? 'mixto' 
-          : vehiculo.planPreventivo.frecuenciaKm 
-            ? 'por_km' 
+        tipoPlan: vehiculo.planPreventivo.frecuenciaKm && vehiculo.planPreventivo.frecuenciaDias
+          ? 'mixto'
+          : vehiculo.planPreventivo.frecuenciaKm
+            ? 'por_km'
             : 'por_meses',
         totalPreventivosContratados: vehiculo.planPreventivo.totalPreventivosContratados || 0,
         intervaloKm: vehiculo.planPreventivo.frecuenciaKm,
         intervaloMeses: vehiculo.planPreventivo.frecuenciaDias ? Math.floor(vehiculo.planPreventivo.frecuenciaDias / 30) : undefined,
+        costoTotal: 0,
+        costoPorServicio: 0,
       });
     }
-  }, [vehiculo.planPreventivo]);
+  }, [vehiculo.planPreventivoContratado, vehiculo.planPreventivo]);
 
   // Detectar cambios
   useEffect(() => {
@@ -130,18 +136,8 @@ export function PlanPreventivoTab({ vehiculoId, vehiculo }: PlanPreventivoTabPro
   };
 
   const handleRestablecer = () => {
-    if (vehiculo.planPreventivo) {
-      setFormData({
-        habilitado: true,
-        tipoPlan: vehiculo.planPreventivo.frecuenciaKm && vehiculo.planPreventivo.frecuenciaDias 
-          ? 'mixto' 
-          : vehiculo.planPreventivo.frecuenciaKm 
-            ? 'por_km' 
-            : 'por_meses',
-        totalPreventivosContratados: vehiculo.planPreventivo.totalPreventivosContratados || 0,
-        intervaloKm: vehiculo.planPreventivo.frecuenciaKm,
-        intervaloMeses: vehiculo.planPreventivo.frecuenciaDias ? Math.floor(vehiculo.planPreventivo.frecuenciaDias / 30) : undefined,
-      });
+    if (vehiculo.planPreventivoContratado) {
+      setFormData({ ...vehiculo.planPreventivoContratado });
     } else {
       setFormData({
         habilitado: false,
@@ -149,6 +145,8 @@ export function PlanPreventivoTab({ vehiculoId, vehiculo }: PlanPreventivoTabPro
         totalPreventivosContratados: 0,
         intervaloKm: undefined,
         intervaloMeses: undefined,
+        costoTotal: 0,
+        costoPorServicio: 0,
       });
     }
     setErrores([]);
@@ -308,6 +306,53 @@ export function PlanPreventivoTab({ vehiculoId, vehiculo }: PlanPreventivoTabPro
                 />
               </div>
             )}
+
+            {/* Separador costos */}
+            <div className="pt-2 border-t">
+              <p className="text-sm font-medium text-muted-foreground mb-3">Costos del contrato (modelo prepago)</p>
+            </div>
+
+            {/* Costo Total Contratado */}
+            <div className="space-y-2">
+              <Label htmlFor="costoTotal">
+                Costo Total Contratado (S/) <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="costoTotal"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Ej: 45000.00"
+                value={formData.costoTotal || ''}
+                onChange={(e) => handleChange('costoTotal', parseFloat(e.target.value) || 0)}
+                disabled={guardando || !formData.habilitado}
+              />
+              <p className="text-xs text-muted-foreground">
+                Monto total que la concesionaria cobra por todos los mantenimientos preventivos
+              </p>
+            </div>
+
+            {/* Costo Por Servicio */}
+            <div className="space-y-2">
+              <Label htmlFor="costoPorServicio">
+                Costo por cada Preventivo (S/)
+              </Label>
+              <Input
+                id="costoPorServicio"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Ej: 2250.00"
+                value={formData.costoPorServicio || ''}
+                onChange={(e) => handleChange('costoPorServicio', parseFloat(e.target.value) || 0)}
+                disabled={guardando || !formData.habilitado}
+              />
+              <p className="text-xs text-muted-foreground">
+                {formData.totalPreventivosContratados > 0 && formData.costoTotal > 0
+                  ? `Referencia: ${new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(formData.costoTotal / formData.totalPreventivosContratados)} por preventivo (total ÷ cantidad)`
+                  : 'Costo unitario por cada servicio preventivo'}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

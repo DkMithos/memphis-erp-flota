@@ -94,6 +94,8 @@ export interface PlanPreventivoContratado {
   totalPreventivosContratados: number;
   intervaloKm?: number; // Solo si tipoPlan incluye 'km'
   intervaloMeses?: number; // Solo si tipoPlan incluye 'meses'
+  costoTotal: number; // Monto total contratado (ej: S/ 45,000 por todos los preventivos)
+  costoPorServicio: number; // Costo por cada preventivo individual
 }
 
 /**
@@ -169,11 +171,15 @@ export interface Vehiculo {
   // Documentos del vehículo (LEGACY - mantener por compatibilidad)
   documentos?: DocumentoVehiculo[];
   
+  // Proyecto y tipo de flota
+  proyectoId?: string | null; // FK a proyectos (UUID)
+  tipoFlota?: string | null; // Configurable desde catálogos admin (patrulleros, ambulancias, etc.)
+
   // NUEVOS: Contrato, Plan Preventivo y Documentos
   vinculoContrato?: VehiculoVinculoContrato;
   planPreventivoContratado?: PlanPreventivoContratado;
   documentosVehiculo?: VehiculoDocumento[];
-  
+
   // Vista pública (QR)
   publicViewEnabled?: boolean; // Si false, QR no funciona
   publicToken?: string; // UUID para /v/:token (generado automáticamente)
@@ -707,12 +713,68 @@ export const TIPO_PLAN_PREVENTIVO_LABELS: Record<TipoPlanPreventivo, string> = {
 };
 
 /**
- * Calcula preventivos usados y restantes para un vehículo
- * 
- * @param vehiculoId - ID del vehículo
+ * Resultado del cálculo de saldo preventivo (modelo crédito prepago)
+ */
+export interface SaldoPreventivo {
+  // Conteo de servicios
+  preventivosRealizados: number;
+  preventivosRestantes: number;
+  preventivosTotal: number;
+  porcentajeServicios: number;
+  // Costos (modelo prepago)
+  costoTotalContratado: number;
+  costoConsumido: number;
+  costoRestante: number;
+  porcentajeCosto: number;
+}
+
+/**
+ * Calcula preventivos usados/restantes Y saldo de costos para un vehículo
+ * Modelo de crédito prepago: costoConsumido = SUM(costo_total) de OTs preventivas cerradas
+ *
+ * @param vehiculoId - ID del vehículo (codigo)
  * @param ots - Lista completa de OTs del sistema
  * @param planPreventivo - Plan preventivo del vehículo
- * @returns Objeto con usados, restantes y porcentaje
+ * @returns SaldoPreventivo con conteos y costos
+ */
+export function calcSaldoPreventivo(
+  vehiculoId: string,
+  ots: Array<{ vehiculoId: string; tipo: string; estado: string; costos?: { total: number } }>,
+  planPreventivo?: PlanPreventivoContratado
+): SaldoPreventivo {
+  // Filtrar OTs preventivas cerradas del vehículo
+  const otsPreventivas = ots.filter(
+    ot =>
+      ot.vehiculoId === vehiculoId &&
+      ot.tipo === 'preventivo' &&
+      ot.estado === 'cerrada'
+  );
+
+  const preventivosRealizados = otsPreventivas.length;
+  const preventivosTotal = planPreventivo?.totalPreventivosContratados || 0;
+  const preventivosRestantes = Math.max(0, preventivosTotal - preventivosRealizados);
+  const porcentajeServicios = preventivosTotal > 0 ? Math.round((preventivosRealizados / preventivosTotal) * 100) : 0;
+
+  // Costos — modelo prepago
+  const costoTotalContratado = planPreventivo?.costoTotal || 0;
+  const costoConsumido = otsPreventivas.reduce((sum, ot) => sum + (ot.costos?.total ?? 0), 0);
+  const costoRestante = Math.max(0, costoTotalContratado - costoConsumido);
+  const porcentajeCosto = costoTotalContratado > 0 ? Math.round((costoConsumido / costoTotalContratado) * 100) : 0;
+
+  return {
+    preventivosRealizados,
+    preventivosRestantes,
+    preventivosTotal,
+    porcentajeServicios,
+    costoTotalContratado,
+    costoConsumido,
+    costoRestante,
+    porcentajeCosto,
+  };
+}
+
+/**
+ * @deprecated Usar calcSaldoPreventivo en su lugar
  */
 export function calcPreventivosUsadosRestantes(
   vehiculoId: string,
@@ -724,24 +786,12 @@ export function calcPreventivosUsadosRestantes(
   total: number;
   porcentajeUsado: number;
 } {
-  // Filtrar OTs preventivas cerradas del vehículo
-  const otsPreventivas = ots.filter(
-    ot => 
-      ot.vehiculoId === vehiculoId && 
-      ot.tipo === 'preventivo' && 
-      ot.estado === 'cerrada'
-  );
-  
-  const usados = otsPreventivas.length;
-  const total = planPreventivo?.totalPreventivosContratados || 0;
-  const restantes = Math.max(0, total - usados);
-  const porcentajeUsado = total > 0 ? Math.round((usados / total) * 100) : 0;
-  
+  const saldo = calcSaldoPreventivo(vehiculoId, ots, planPreventivo);
   return {
-    usados,
-    restantes,
-    total,
-    porcentajeUsado
+    usados: saldo.preventivosRealizados,
+    restantes: saldo.preventivosRestantes,
+    total: saldo.preventivosTotal,
+    porcentajeUsado: saldo.porcentajeServicios,
   };
 }
 

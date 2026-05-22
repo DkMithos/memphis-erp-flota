@@ -168,7 +168,9 @@ export function MantenimientoForm({
           terceros: costoTerceros,
           otros: costoOtros
         },
-        observaciones: observaciones || undefined
+        observaciones: observaciones || undefined,
+        proyectoId: proyectoId ?? null,
+        centroCostoId: centroCostoId ?? null,
       };
 
       const nuevaOT = await crearOrdenTrabajo(input);

@@ -121,6 +121,8 @@ export interface NuevaOrdenTrabajoInput {
     otros: number;
   };
   observaciones?: string;
+  proyectoId?: string | null;
+  centroCostoId?: string | null;
 }
 
 type CrudResult = { exito: boolean; errores?: string[] };
@@ -335,6 +337,8 @@ export function OTStoreProvider({ children }: { children: React.ReactNode }) {
       costo_otros: costos.otros,
       creado_por: user?.email ?? null,
       motivo_anulacion: null, // Solo se llena al anular la OT
+      proyecto_id: input.proyectoId ?? null,
+      centro_costo_id: input.centroCostoId ?? null,
     };
 
     const { data, error } = await supabase

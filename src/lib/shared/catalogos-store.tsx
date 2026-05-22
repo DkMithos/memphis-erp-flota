@@ -20,7 +20,14 @@ export type TipoCatalogo =
   | 'tipo_comprobante'
   | 'zona_igv'
   | 'banco'
-  | 'moneda';
+  | 'moneda'
+  // Catálogos operativos
+  | 'tipo_vehiculo'
+  | 'tipo_flota'
+  | 'tipo_contrato_flota'
+  | 'tipo_doc_vehiculo'
+  | 'categoria_proveedor'
+  | 'categoria_equipo_bio';
 
 export interface ItemCatalogo {
   id: string;
@@ -34,13 +41,19 @@ export interface ItemCatalogo {
 }
 
 export const TIPO_CATALOGO_LABELS: Record<TipoCatalogo, string> = {
-  unidad_medida:    'Unidades de Medida',
-  condicion_pago:   'Condiciones de Pago',
-  forma_pago:       'Formas de Pago',
-  tipo_comprobante: 'Tipos de Comprobante',
-  zona_igv:         'Zonas / IGV',
-  banco:            'Bancos',
-  moneda:           'Monedas',
+  unidad_medida:       'Unidades de Medida',
+  condicion_pago:      'Condiciones de Pago',
+  forma_pago:          'Formas de Pago',
+  tipo_comprobante:    'Tipos de Comprobante',
+  zona_igv:            'Zonas / IGV',
+  banco:               'Bancos',
+  moneda:              'Monedas',
+  tipo_vehiculo:       'Tipos de Vehículo',
+  tipo_flota:          'Tipos de Flota',
+  tipo_contrato_flota: 'Tipos de Contrato Flota',
+  tipo_doc_vehiculo:   'Tipos de Doc. Vehículo',
+  categoria_proveedor: 'Categorías de Proveedor',
+  categoria_equipo_bio:'Categorías Equipo Biomédico',
 };
 
 // ============================================================================
@@ -100,6 +113,57 @@ const CATALOGOS_DEFAULT: ItemCatalogo[] = [
   { id: 'm1', tipo: 'moneda', key: 'PEN', label: 'Soles (PEN)', activo: true, orden: 1, esSistema: true },
   { id: 'm2', tipo: 'moneda', key: 'USD', label: 'Dólares (USD)', activo: true, orden: 2, esSistema: true },
   { id: 'm3', tipo: 'moneda', key: 'EUR', label: 'Euros (EUR)', activo: false, orden: 3, esSistema: false },
+  // Tipos de Vehículo
+  { id: 'tv1', tipo: 'tipo_vehiculo', key: 'ambulancia', label: 'Ambulancia', activo: true, orden: 1, esSistema: true },
+  { id: 'tv2', tipo: 'tipo_vehiculo', key: 'camioneta', label: 'Camioneta', activo: true, orden: 2, esSistema: true },
+  { id: 'tv3', tipo: 'tipo_vehiculo', key: 'motocicleta', label: 'Motocicleta', activo: true, orden: 3, esSistema: true },
+  { id: 'tv4', tipo: 'tipo_vehiculo', key: 'van', label: 'Van', activo: true, orden: 4, esSistema: true },
+  { id: 'tv5', tipo: 'tipo_vehiculo', key: 'auto', label: 'Auto', activo: true, orden: 5, esSistema: true },
+  { id: 'tv6', tipo: 'tipo_vehiculo', key: 'patrullero', label: 'Patrullero', activo: true, orden: 6, esSistema: false },
+  { id: 'tv7', tipo: 'tipo_vehiculo', key: 'hidro_ambulancia', label: 'Hidro Ambulancia', activo: true, orden: 7, esSistema: false },
+  { id: 'tv8', tipo: 'tipo_vehiculo', key: 'hidro_patrulla', label: 'Hidro Patrulla', activo: true, orden: 8, esSistema: false },
+  { id: 'tv9', tipo: 'tipo_vehiculo', key: 'camioneta_supervision', label: 'Camioneta de Supervisión', activo: true, orden: 9, esSistema: false },
+  { id: 'tv10', tipo: 'tipo_vehiculo', key: 'otro', label: 'Otro', activo: true, orden: 10, esSistema: true },
+  // Tipos de Flota (categoría de uso en proyecto)
+  { id: 'tf1', tipo: 'tipo_flota', key: 'patrulleros', label: 'Patrulleros', descripcion: 'Vehículos de patrullaje', activo: true, orden: 1, esSistema: true },
+  { id: 'tf2', tipo: 'tipo_flota', key: 'ambulancias', label: 'Ambulancias', descripcion: 'Ambulancias terrestres', activo: true, orden: 2, esSistema: true },
+  { id: 'tf3', tipo: 'tipo_flota', key: 'hidro_ambulancias', label: 'Hidro Ambulancias', descripcion: 'Ambulancias acuáticas', activo: true, orden: 3, esSistema: false },
+  { id: 'tf4', tipo: 'tipo_flota', key: 'hidro_patrullas', label: 'Hidro Patrullas', descripcion: 'Patrullas acuáticas', activo: true, orden: 4, esSistema: false },
+  { id: 'tf5', tipo: 'tipo_flota', key: 'supervision', label: 'Supervisión', descripcion: 'Camionetas de supervisión', activo: true, orden: 5, esSistema: false },
+  { id: 'tf6', tipo: 'tipo_flota', key: 'carga', label: 'Carga', descripcion: 'Vehículos de carga', activo: true, orden: 6, esSistema: false },
+  { id: 'tf7', tipo: 'tipo_flota', key: 'otro', label: 'Otro', descripcion: 'Otros tipos de flota', activo: true, orden: 7, esSistema: true },
+  // Tipos de Contrato Flota
+  { id: 'tcf1', tipo: 'tipo_contrato_flota', key: 'solo_garantia', label: 'Solo Garantía', activo: true, orden: 1, esSistema: true },
+  { id: 'tcf2', tipo: 'tipo_contrato_flota', key: 'mantenimiento_y_garantia', label: 'Mantenimiento + Garantía', activo: true, orden: 2, esSistema: true },
+  { id: 'tcf3', tipo: 'tipo_contrato_flota', key: 'solo_mantenimiento', label: 'Solo Mantenimiento', activo: true, orden: 3, esSistema: true },
+  { id: 'tcf4', tipo: 'tipo_contrato_flota', key: 'full_service', label: 'Full Service', activo: true, orden: 4, esSistema: true },
+  { id: 'tcf5', tipo: 'tipo_contrato_flota', key: 'otro', label: 'Otro', activo: true, orden: 5, esSistema: true },
+  // Tipos de Documento Vehículo
+  { id: 'tdv1', tipo: 'tipo_doc_vehiculo', key: 'SOAT', label: 'SOAT', activo: true, orden: 1, esSistema: true },
+  { id: 'tdv2', tipo: 'tipo_doc_vehiculo', key: 'REVISION_TECNICA', label: 'Revisión Técnica', activo: true, orden: 2, esSistema: true },
+  { id: 'tdv3', tipo: 'tipo_doc_vehiculo', key: 'TARJETA_PROPIEDAD', label: 'Tarjeta de Propiedad', activo: true, orden: 3, esSistema: true },
+  { id: 'tdv4', tipo: 'tipo_doc_vehiculo', key: 'SEGURO_VEHICULAR', label: 'Seguro Vehicular', activo: true, orden: 4, esSistema: true },
+  { id: 'tdv5', tipo: 'tipo_doc_vehiculo', key: 'PERMISO_OPERACION', label: 'Permiso de Operación', activo: true, orden: 5, esSistema: true },
+  { id: 'tdv6', tipo: 'tipo_doc_vehiculo', key: 'OTRO', label: 'Otro', activo: true, orden: 6, esSistema: true },
+  // Categorías de Proveedor
+  { id: 'cp1', tipo: 'categoria_proveedor', key: 'repuestos', label: 'Repuestos', activo: true, orden: 1, esSistema: true },
+  { id: 'cp2', tipo: 'categoria_proveedor', key: 'taller', label: 'Taller', activo: true, orden: 2, esSistema: true },
+  { id: 'cp3', tipo: 'categoria_proveedor', key: 'combustible', label: 'Combustible', activo: true, orden: 3, esSistema: true },
+  { id: 'cp4', tipo: 'categoria_proveedor', key: 'seguros', label: 'Seguros', activo: true, orden: 4, esSistema: true },
+  { id: 'cp5', tipo: 'categoria_proveedor', key: 'equipos_medicos', label: 'Equipos Médicos', activo: true, orden: 5, esSistema: true },
+  { id: 'cp6', tipo: 'categoria_proveedor', key: 'insumos', label: 'Insumos', activo: true, orden: 6, esSistema: true },
+  { id: 'cp7', tipo: 'categoria_proveedor', key: 'servicios_profesionales', label: 'Servicios Profesionales', activo: true, orden: 7, esSistema: true },
+  { id: 'cp8', tipo: 'categoria_proveedor', key: 'construccion', label: 'Construcción', activo: true, orden: 8, esSistema: false },
+  { id: 'cp9', tipo: 'categoria_proveedor', key: 'tecnologia', label: 'Tecnología', activo: true, orden: 9, esSistema: false },
+  { id: 'cp10', tipo: 'categoria_proveedor', key: 'otros', label: 'Otros', activo: true, orden: 10, esSistema: true },
+  // Categorías de Equipo Biomédico
+  { id: 'ceb1', tipo: 'categoria_equipo_bio', key: 'diagnostico', label: 'Diagnóstico', activo: true, orden: 1, esSistema: true },
+  { id: 'ceb2', tipo: 'categoria_equipo_bio', key: 'terapeutico', label: 'Terapéutico', activo: true, orden: 2, esSistema: true },
+  { id: 'ceb3', tipo: 'categoria_equipo_bio', key: 'soporte_vital', label: 'Soporte Vital', activo: true, orden: 3, esSistema: true },
+  { id: 'ceb4', tipo: 'categoria_equipo_bio', key: 'laboratorio', label: 'Laboratorio', activo: true, orden: 4, esSistema: true },
+  { id: 'ceb5', tipo: 'categoria_equipo_bio', key: 'rehabilitacion', label: 'Rehabilitación', activo: true, orden: 5, esSistema: true },
+  { id: 'ceb6', tipo: 'categoria_equipo_bio', key: 'imagenologia', label: 'Imagenología', activo: true, orden: 6, esSistema: false },
+  { id: 'ceb7', tipo: 'categoria_equipo_bio', key: 'odontologia', label: 'Odontología', activo: true, orden: 7, esSistema: false },
 ];
 
 // ============================================================================

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Car, Edit, FileText, Wrench, MapPin, Calendar, Gauge, Power, PowerOff, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Car, Edit, FileText, Wrench, MapPin, Calendar, Gauge, Power, PowerOff, AlertCircle, FolderKanban } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
@@ -16,11 +16,13 @@ import {
 } from '../../ui/dialog';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { useVehiculos } from '../../../lib/flota/vehiculos-store';
-import { getEstadoBadge, getTipoBadge, formatearFecha, validarMotivoInactivacion } from '../../../lib/flota/vehiculos-config';
+import { useOTStore } from '../../../lib/flota/ot-store';
+import { getEstadoBadge, getTipoBadge, formatearFecha, validarMotivoInactivacion, calcSaldoPreventivo } from '../../../lib/flota/vehiculos-config';
 import { VehicleQRSection } from './VehicleQRSection';
 import { ContratoTab } from './vehiculo/ContratoTab';
 import { PlanPreventivoTab } from './vehiculo/PlanPreventivoTab';
 import { DocumentosTab } from './vehiculo/DocumentosTab';
+import { SaldoPreventivoCard } from './SaldoPreventivoCard';
 import { toast } from 'sonner';
 
 interface VehiculoDetalleProps {
@@ -32,6 +34,7 @@ interface VehiculoDetalleProps {
 
 export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: VehiculoDetalleProps) {
   const { obtenerVehiculo, inactivarVehiculo, activarVehiculo } = useVehiculos();
+  const { ordenes } = useOTStore();
   const vehiculo = obtenerVehiculo(vehiculoId);
 
   const [dialogInactivarOpen, setDialogInactivarOpen] = useState(false);
@@ -162,6 +165,17 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
               <div className="flex items-center gap-1 text-muted-foreground font-mono">
                 ID: {vehiculo.id}
               </div>
+              {vehiculo.tipoFlota && (
+                <Badge variant="outline" className="text-xs">
+                  {vehiculo.tipoFlota.replace(/_/g, ' ')}
+                </Badge>
+              )}
+              {vehiculo.proyectoId && (
+                <div className="flex items-center gap-1 text-primary text-xs font-medium">
+                  <FolderKanban className="size-3.5" />
+                  Asignado a proyecto
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -351,6 +365,24 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
           </div>
         </CardContent>
       </Card>
+
+      {/* Saldo Preventivo Card — siempre visible */}
+      {(() => {
+        const otsParaCalculo = ordenes.map(ot => ({
+          vehiculoId: ot.vehiculoId,
+          tipo: ot.tipo,
+          estado: ot.estado,
+          costos: ot.costos,
+        }));
+        const saldo = calcSaldoPreventivo(vehiculo.id, otsParaCalculo, vehiculo.planPreventivoContratado);
+        return (
+          <SaldoPreventivoCard
+            saldo={saldo}
+            kilometrajeActual={vehiculo.kilometraje}
+            intervaloKm={vehiculo.planPreventivoContratado?.intervaloKm}
+          />
+        );
+      })()}
 
       {/* Tabs */}
       <Tabs defaultValue={initialTab ?? "documentos"} className="space-y-4">

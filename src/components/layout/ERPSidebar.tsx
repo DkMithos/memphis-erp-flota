@@ -221,6 +221,11 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
           id: 'flota-mantenimientos',
         },
         {
+          label: 'Por Proyecto',
+          href: '/flota/por-proyecto',
+          id: 'flota-por-proyecto',
+        },
+        {
           label: t('nav.sub.analisis_preventivo'),
           href: '/flota/analisis-preventivo',
           id: 'flota-analisis-preventivo',

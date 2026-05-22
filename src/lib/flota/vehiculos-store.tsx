@@ -48,6 +48,7 @@ interface VehiculosContextType {
   obtenerVehiculoPorToken: (token: string) => Vehiculo | undefined;
   obtenerVehiculosPorEstado: (estado: EstadoVehiculo) => Vehiculo[];
   obtenerVehiculosPorTipo: (tipo: TipoVehiculo) => Vehiculo[];
+  obtenerVehiculosPorProyecto: (proyectoId: string) => Vehiculo[];
   buscarVehiculos: (query: string) => Vehiculo[];
   ensurePublicToken: (id: string) => void;
   actualizarVinculoContrato: (vehiculoId: string, vinculo: VehiculoVinculoContrato) => Promise<CrudResult>;
@@ -102,6 +103,8 @@ function mapFromDB(v: VehiculoDB, docs: VehiculoDocumentoDB[]): Vehiculo {
     proximoMantenimiento: v.proximo_mantenimiento ?? undefined,
     publicViewEnabled: v.public_view_enabled,
     publicToken: v.public_token ?? undefined,
+    proyectoId: v.proyecto_id ?? null,
+    tipoFlota: v.tipo_flota ?? null,
     vinculoContrato: v.contrato_cliente_nombre ? {
       clienteNombre: v.contrato_cliente_nombre,
       proyectoNombre: v.contrato_proyecto_nombre ?? '',
@@ -116,6 +119,8 @@ function mapFromDB(v: VehiculoDB, docs: VehiculoDocumentoDB[]): Vehiculo {
       totalPreventivosContratados: v.plan_preventivo_total_contratados ?? 0,
       intervaloKm: v.plan_preventivo_intervalo_km ?? undefined,
       intervaloMeses: v.plan_preventivo_intervalo_meses ?? undefined,
+      costoTotal: (v as any).plan_preventivo_costo_total ?? 0,
+      costoPorServicio: (v as any).plan_preventivo_costo_por_servicio ?? 0,
     } : undefined,
     documentosVehiculo: docs.map(mapDocFromDB),
     documentos: [],  // legacy — vacío, se usa documentosVehiculo
@@ -198,6 +203,9 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
         ubicacion_actual: data.ubicacionActual,
         estado: 'activo',
         public_view_enabled: data.publicViewEnabled ?? true,
+        // Proyecto y tipo flota
+        proyecto_id: data.proyectoId ?? null,
+        tipo_flota: data.tipoFlota ?? null,
         // Contrato
         contrato_cliente_nombre: data.vinculoContrato?.clienteNombre ?? null,
         contrato_proyecto_nombre: data.vinculoContrato?.proyectoNombre ?? null,
@@ -211,6 +219,8 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
         plan_preventivo_total_contratados: data.planPreventivoContratado?.totalPreventivosContratados ?? 0,
         plan_preventivo_intervalo_km: data.planPreventivoContratado?.intervaloKm ?? null,
         plan_preventivo_intervalo_meses: data.planPreventivoContratado?.intervaloMeses ?? null,
+        plan_preventivo_costo_total: data.planPreventivoContratado?.costoTotal ?? 0,
+        plan_preventivo_costo_por_servicio: data.planPreventivoContratado?.costoPorServicio ?? 0,
         creado_por: user.id,
       })
       .select('*, docs:vehiculo_documentos(*)')
@@ -260,6 +270,8 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
         kilometraje: data.kilometraje,
         ubicacion_actual: data.ubicacionActual,
         public_view_enabled: data.publicViewEnabled,
+        proyecto_id: data.proyectoId !== undefined ? (data.proyectoId ?? null) : undefined,
+        tipo_flota: data.tipoFlota !== undefined ? (data.tipoFlota ?? null) : undefined,
         contrato_cliente_nombre: data.vinculoContrato?.clienteNombre ?? null,
         contrato_proyecto_nombre: data.vinculoContrato?.proyectoNombre ?? null,
         contrato_nombre: data.vinculoContrato?.contratoNombre ?? null,
@@ -271,6 +283,8 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
         plan_preventivo_total_contratados: data.planPreventivoContratado?.totalPreventivosContratados ?? 0,
         plan_preventivo_intervalo_km: data.planPreventivoContratado?.intervaloKm ?? null,
         plan_preventivo_intervalo_meses: data.planPreventivoContratado?.intervaloMeses ?? null,
+        plan_preventivo_costo_total: data.planPreventivoContratado?.costoTotal ?? 0,
+        plan_preventivo_costo_por_servicio: data.planPreventivoContratado?.costoPorServicio ?? 0,
         modificado_por: user.id,
         modificado_en: new Date().toISOString(),
       })
@@ -364,6 +378,8 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
 
   const obtenerVehiculosPorTipo = (tipo: TipoVehiculo) => vehiculos.filter(v => v.tipo === tipo);
 
+  const obtenerVehiculosPorProyecto = (proyectoId: string) => vehiculos.filter(v => v.proyectoId === proyectoId);
+
   const buscarVehiculos = (query: string) => {
     if (!query.trim()) return vehiculos;
     const q = query.toLowerCase().trim();
@@ -432,6 +448,8 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
         plan_preventivo_total_contratados: plan.totalPreventivosContratados,
         plan_preventivo_intervalo_km: plan.intervaloKm ?? null,
         plan_preventivo_intervalo_meses: plan.intervaloMeses ?? null,
+        plan_preventivo_costo_total: plan.costoTotal ?? 0,
+        plan_preventivo_costo_por_servicio: plan.costoPorServicio ?? 0,
         modificado_por: user.id,
         modificado_en: new Date().toISOString(),
       })
@@ -590,6 +608,7 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
     obtenerVehiculoPorToken,
     obtenerVehiculosPorEstado,
     obtenerVehiculosPorTipo,
+    obtenerVehiculosPorProyecto,
     buscarVehiculos,
     ensurePublicToken,
     actualizarVinculoContrato,

@@ -14,6 +14,8 @@ import {
 import { Alert, AlertDescription } from '../../ui/alert';
 import { useVehiculos } from '../../../lib/flota/vehiculos-store';
 import { Vehiculo, TipoVehiculo } from '../../../lib/flota/vehiculos-config';
+import { useCatalogos } from '../../../lib/shared/catalogos-store';
+import { ProyectoSelector } from '../../shared/ProyectoSelector';
 import { toast } from 'sonner';
 
 interface VehiculoFormProps {
@@ -25,6 +27,7 @@ interface VehiculoFormProps {
 
 export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: VehiculoFormProps) {
   const { obtenerVehiculo, crearVehiculo, actualizarVehiculo } = useVehiculos();
+  const { getByTipo } = useCatalogos();
 
   const [placa, setPlaca] = useState('');
   const [vin, setVin] = useState('');
@@ -40,6 +43,12 @@ export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: Vehiculo
   const [ubicacionActual, setUbicacionActual] = useState('');
   const [ultimoMantenimiento, setUltimoMantenimiento] = useState('');
   const [proximoMantenimiento, setProximoMantenimiento] = useState('');
+  const [proyectoId, setProyectoId] = useState<string | null>(null);
+  const [tipoFlota, setTipoFlota] = useState<string>('');
+
+  // Catálogos dinámicos
+  const tiposVehiculo = getByTipo('tipo_vehiculo');
+  const tiposFlota = getByTipo('tipo_flota');
 
   const [errores, setErrores] = useState<string[]>([]);
   const [guardando, setGuardando] = useState(false);
@@ -70,6 +79,8 @@ export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: Vehiculo
       setUbicacionActual(vehiculo.ubicacionActual);
       setUltimoMantenimiento(vehiculo.ultimoMantenimiento || '');
       setProximoMantenimiento(vehiculo.proximoMantenimiento || '');
+      setProyectoId(vehiculo.proyectoId ?? null);
+      setTipoFlota(vehiculo.tipoFlota || '');
     }
   }, [modo, vehiculoId, obtenerVehiculo, onCancel]);
 
@@ -93,7 +104,9 @@ export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: Vehiculo
       kilometraje: parseInt(kilometraje),
       ubicacionActual,
       ultimoMantenimiento: ultimoMantenimiento || undefined,
-      proximoMantenimiento: proximoMantenimiento || undefined
+      proximoMantenimiento: proximoMantenimiento || undefined,
+      proyectoId: proyectoId || null,
+      tipoFlota: tipoFlota || null,
     };
 
     if (modo === 'crear') {
@@ -234,11 +247,18 @@ export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: Vehiculo
                     <SelectValue placeholder="Seleccionar tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ambulancia">Ambulancia</SelectItem>
-                    <SelectItem value="camioneta">Camioneta</SelectItem>
-                    <SelectItem value="van">Van</SelectItem>
-                    <SelectItem value="auto">Auto</SelectItem>
-                    <SelectItem value="otro">Otro</SelectItem>
+                    {tiposVehiculo.length > 0
+                      ? tiposVehiculo.map(item => (
+                          <SelectItem key={item.key} value={item.key}>{item.label}</SelectItem>
+                        ))
+                      : <>
+                          <SelectItem value="ambulancia">Ambulancia</SelectItem>
+                          <SelectItem value="camioneta">Camioneta</SelectItem>
+                          <SelectItem value="van">Van</SelectItem>
+                          <SelectItem value="auto">Auto</SelectItem>
+                          <SelectItem value="otro">Otro</SelectItem>
+                        </>
+                    }
                   </SelectContent>
                 </Select>
               </div>
@@ -337,6 +357,46 @@ export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: Vehiculo
                 value={capacidad}
                 onChange={(e) => setCapacidad(e.target.value)}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Asignación a Proyecto */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Asignación a Proyecto</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Proyecto</Label>
+                <ProyectoSelector
+                  value={proyectoId}
+                  onChange={setProyectoId}
+                  nullable
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Proyecto al que pertenece este vehículo
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="tipoFlota">Tipo de Flota</Label>
+                <Select value={tipoFlota || '__none__'} onValueChange={(v) => setTipoFlota(v === '__none__' ? '' : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar tipo de flota" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sin tipo de flota</SelectItem>
+                    {tiposFlota.map(item => (
+                      <SelectItem key={item.key} value={item.key}>{item.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Categoría de uso dentro del proyecto (ej: patrulleros, ambulancias)
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
