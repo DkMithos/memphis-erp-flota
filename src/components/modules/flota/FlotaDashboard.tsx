@@ -18,6 +18,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { AlertasPreventivo } from './AlertasPreventivo';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Progress } from '../../ui/progress';
@@ -534,6 +535,9 @@ export function FlotaDashboard({ onNavigate }: FlotaDashboardProps) {
         </Alert>
       )}
       
+      {/* Alertas de mantenimiento preventivo */}
+      <AlertasPreventivo onNavigate={onNavigate} limit={8} />
+
       {/* Tabla de vehículos críticos */}
       {vehiculosCriticos.length > 0 && (
         <Card>

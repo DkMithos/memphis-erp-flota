@@ -119,9 +119,14 @@ function mapFromDB(v: VehiculoDB, docs: VehiculoDocumentoDB[]): Vehiculo {
       totalPreventivosContratados: v.plan_preventivo_total_contratados ?? 0,
       intervaloKm: v.plan_preventivo_intervalo_km ?? undefined,
       intervaloMeses: v.plan_preventivo_intervalo_meses ?? undefined,
-      costoTotal: (v as any).plan_preventivo_costo_total ?? 0,
-      costoPorServicio: (v as any).plan_preventivo_costo_por_servicio ?? 0,
+      costoTotal: v.plan_preventivo_costo_total ?? 0,
+      costoPorServicio: v.plan_preventivo_costo_por_servicio ?? 0,
     } : undefined,
+    // Adquisición y depreciación
+    precioAdquisicion: v.precio_adquisicion ?? 0,
+    fechaAdquisicion: v.fecha_adquisicion ?? null,
+    valorResidual: v.valor_residual ?? 0,
+    monedaAdquisicion: v.moneda_adquisicion ?? 'PEN',
     documentosVehiculo: docs.map(mapDocFromDB),
     documentos: [],  // legacy — vacío, se usa documentosVehiculo
     creadoPor: v.creado_por ?? 'sistema',
@@ -206,6 +211,11 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
         // Proyecto y tipo flota
         proyecto_id: data.proyectoId ?? null,
         tipo_flota: data.tipoFlota ?? null,
+        // Adquisición
+        precio_adquisicion: data.precioAdquisicion ?? 0,
+        fecha_adquisicion: data.fechaAdquisicion ?? null,
+        valor_residual: data.valorResidual ?? 0,
+        moneda_adquisicion: data.monedaAdquisicion ?? 'PEN',
         // Contrato
         contrato_cliente_nombre: data.vinculoContrato?.clienteNombre ?? null,
         contrato_proyecto_nombre: data.vinculoContrato?.proyectoNombre ?? null,
@@ -272,6 +282,11 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
         public_view_enabled: data.publicViewEnabled,
         proyecto_id: data.proyectoId !== undefined ? (data.proyectoId ?? null) : undefined,
         tipo_flota: data.tipoFlota !== undefined ? (data.tipoFlota ?? null) : undefined,
+        // Adquisición
+        precio_adquisicion: data.precioAdquisicion !== undefined ? data.precioAdquisicion : undefined,
+        fecha_adquisicion: data.fechaAdquisicion !== undefined ? (data.fechaAdquisicion ?? null) : undefined,
+        valor_residual: data.valorResidual !== undefined ? data.valorResidual : undefined,
+        moneda_adquisicion: data.monedaAdquisicion !== undefined ? data.monedaAdquisicion : undefined,
         contrato_cliente_nombre: data.vinculoContrato?.clienteNombre ?? null,
         contrato_proyecto_nombre: data.vinculoContrato?.proyectoNombre ?? null,
         contrato_nombre: data.vinculoContrato?.contratoNombre ?? null,

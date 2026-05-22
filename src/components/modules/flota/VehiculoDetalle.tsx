@@ -17,7 +17,7 @@ import {
 import { Alert, AlertDescription } from '../../ui/alert';
 import { useVehiculos } from '../../../lib/flota/vehiculos-store';
 import { useOTStore } from '../../../lib/flota/ot-store';
-import { getEstadoBadge, getTipoBadge, formatearFecha, validarMotivoInactivacion, calcSaldoPreventivo } from '../../../lib/flota/vehiculos-config';
+import { getEstadoBadge, getTipoBadge, formatearFecha, validarMotivoInactivacion, calcSaldoPreventivo, calcDepreciacion } from '../../../lib/flota/vehiculos-config';
 import { VehicleQRSection } from './VehicleQRSection';
 import { ContratoTab } from './vehiculo/ContratoTab';
 import { PlanPreventivoTab } from './vehiculo/PlanPreventivoTab';
@@ -381,6 +381,44 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
             kilometrajeActual={vehiculo.kilometraje}
             intervaloKm={vehiculo.planPreventivoContratado?.intervaloKm}
           />
+        );
+      })()}
+
+      {/* Depreciación */}
+      {(() => {
+        const dep = calcDepreciacion(vehiculo);
+        if (!dep) return null;
+        const fmtMoney = (n: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: dep.moneda, minimumFractionDigits: 2 }).format(n);
+        return (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Calendar className="size-4 text-purple-600" />
+                Depreciación SUNAT (20% anual)
+                {dep.totalmenteDepreciado && <Badge variant="destructive" className="text-xs">Totalmente depreciado</Badge>}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground text-xs">Precio Adquisición</p>
+                  <p className="font-semibold">{fmtMoney(dep.precioAdquisicion)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Dep. Acumulada</p>
+                  <p className="font-semibold text-amber-600">{fmtMoney(dep.depreciacionAcumulada)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Valor en Libros</p>
+                  <p className="font-semibold text-green-600">{fmtMoney(dep.valorEnLibros)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Años transcurridos</p>
+                  <p className="font-semibold">{dep.añosTranscurridos} de {dep.vidaUtilAnios}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         );
       })()}
 

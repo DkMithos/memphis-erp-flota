@@ -249,6 +249,11 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
           label: t('nav.sub.reporte_documentos'),
           href: '/flota/reportes/documentos',
           id: 'flota-reportes-documentos',
+        },
+        {
+          label: 'Costos por Vehículo',
+          href: '/flota/reportes/costos',
+          id: 'flota-reportes-costos',
         }
       ]
     },

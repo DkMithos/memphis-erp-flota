@@ -447,6 +447,11 @@ export interface VehiculoDB {
   plan_preventivo_intervalo_meses: number | null;
   plan_preventivo_costo_total: number;
   plan_preventivo_costo_por_servicio: number;
+  // Adquisición y depreciación
+  precio_adquisicion: number;
+  fecha_adquisicion: string | null;
+  valor_residual: number;
+  moneda_adquisicion: string;
   // Inactivación
   motivo_inactivacion: string | null;
   inactivado_por: string | null;

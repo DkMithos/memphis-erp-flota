@@ -45,6 +45,10 @@ export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: Vehiculo
   const [proximoMantenimiento, setProximoMantenimiento] = useState('');
   const [proyectoId, setProyectoId] = useState<string | null>(null);
   const [tipoFlota, setTipoFlota] = useState<string>('');
+  const [precioAdquisicion, setPrecioAdquisicion] = useState('');
+  const [fechaAdquisicion, setFechaAdquisicion] = useState('');
+  const [valorResidual, setValorResidual] = useState('');
+  const [monedaAdquisicion, setMonedaAdquisicion] = useState('PEN');
 
   // Catálogos dinámicos
   const tiposVehiculo = getByTipo('tipo_vehiculo');
@@ -81,6 +85,10 @@ export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: Vehiculo
       setProximoMantenimiento(vehiculo.proximoMantenimiento || '');
       setProyectoId(vehiculo.proyectoId ?? null);
       setTipoFlota(vehiculo.tipoFlota || '');
+      setPrecioAdquisicion(vehiculo.precioAdquisicion ? vehiculo.precioAdquisicion.toString() : '');
+      setFechaAdquisicion(vehiculo.fechaAdquisicion || '');
+      setValorResidual(vehiculo.valorResidual ? vehiculo.valorResidual.toString() : '');
+      setMonedaAdquisicion(vehiculo.monedaAdquisicion || 'PEN');
     }
   }, [modo, vehiculoId, obtenerVehiculo, onCancel]);
 
@@ -107,6 +115,10 @@ export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: Vehiculo
       proximoMantenimiento: proximoMantenimiento || undefined,
       proyectoId: proyectoId || null,
       tipoFlota: tipoFlota || null,
+      precioAdquisicion: precioAdquisicion ? parseFloat(precioAdquisicion) : 0,
+      fechaAdquisicion: fechaAdquisicion || null,
+      valorResidual: valorResidual ? parseFloat(valorResidual) : 0,
+      monedaAdquisicion,
     };
 
     if (modo === 'crear') {
@@ -434,6 +446,69 @@ export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: Vehiculo
                   onChange={(e) => setUbicacionActual(e.target.value)}
                   required
                 />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Adquisición y Depreciación */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Adquisición y Depreciación</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label htmlFor="precioAdquisicion">Precio de Adquisición</Label>
+                <Input
+                  id="precioAdquisicion"
+                  type="number"
+                  placeholder="150000.00"
+                  value={precioAdquisicion}
+                  onChange={(e) => setPrecioAdquisicion(e.target.value)}
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="monedaAdquisicion">Moneda</Label>
+                <Select value={monedaAdquisicion} onValueChange={setMonedaAdquisicion}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Moneda" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PEN">PEN (Soles)</SelectItem>
+                    <SelectItem value="USD">USD (Dólares)</SelectItem>
+                    <SelectItem value="EUR">EUR (Euros)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="fechaAdquisicion">Fecha de Adquisición</Label>
+                <Input
+                  id="fechaAdquisicion"
+                  type="date"
+                  value={fechaAdquisicion}
+                  onChange={(e) => setFechaAdquisicion(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="valorResidual">Valor Residual</Label>
+                <Input
+                  id="valorResidual"
+                  type="number"
+                  placeholder="0.00"
+                  value={valorResidual}
+                  onChange={(e) => setValorResidual(e.target.value)}
+                  min="0"
+                  step="0.01"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Depreciación SUNAT: 20% anual (5 años)
+                </p>
               </div>
             </div>
           </CardContent>

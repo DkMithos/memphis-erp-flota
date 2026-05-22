@@ -175,6 +175,12 @@ export interface Vehiculo {
   proyectoId?: string | null; // FK a proyectos (UUID)
   tipoFlota?: string | null; // Configurable desde catálogos admin (patrulleros, ambulancias, etc.)
 
+  // Adquisición y depreciación
+  precioAdquisicion?: number; // Precio de compra del vehículo
+  fechaAdquisicion?: string | null; // Fecha de adquisición (ISO date)
+  valorResidual?: number; // Valor residual estimado al final de vida útil
+  monedaAdquisicion?: string; // PEN, USD, EUR
+
   // NUEVOS: Contrato, Plan Preventivo y Documentos
   vinculoContrato?: VehiculoVinculoContrato;
   planPreventivoContratado?: PlanPreventivoContratado;
@@ -770,6 +776,171 @@ export function calcSaldoPreventivo(
     costoConsumido,
     costoRestante,
     porcentajeCosto,
+  };
+}
+
+// ============================================================================
+// HELPERS - DEPRECIACIÓN
+// ============================================================================
+
+/**
+ * Resultado del cálculo de depreciación SUNAT
+ * Tasa: 20% anual para vehículos de transporte (Art. 22 RLIR)
+ */
+export interface DepreciacionResult {
+  precioAdquisicion: number;
+  valorResidual: number;
+  moneda: string;
+  fechaAdquisicion: string;
+  añosTranscurridos: number;
+  tasaAnual: number; // 0.20
+  vidaUtilAnios: number; // 5
+  depreciacionAcumulada: number;
+  valorEnLibros: number;
+  depreciacionAnual: number;
+  totalmenteDepreciado: boolean;
+}
+
+/**
+ * Calcula depreciación lineal SUNAT para vehículos
+ * Tasa: 20% anual → vida útil 5 años
+ */
+export function calcDepreciacion(vehiculo: Vehiculo): DepreciacionResult | null {
+  if (!vehiculo.precioAdquisicion || vehiculo.precioAdquisicion <= 0 || !vehiculo.fechaAdquisicion) {
+    return null;
+  }
+
+  const TASA_ANUAL = 0.20;
+  const VIDA_UTIL = 5;
+
+  const fechaAdq = new Date(vehiculo.fechaAdquisicion);
+  const hoy = new Date();
+  const diffMs = hoy.getTime() - fechaAdq.getTime();
+  const añosTranscurridos = Math.max(0, diffMs / (365.25 * 24 * 60 * 60 * 1000));
+
+  const baseDepreciable = vehiculo.precioAdquisicion - (vehiculo.valorResidual || 0);
+  const depreciacionAnual = baseDepreciable * TASA_ANUAL;
+  const depreciacionAcumulada = Math.min(baseDepreciable, depreciacionAnual * Math.floor(añosTranscurridos));
+  const valorEnLibros = vehiculo.precioAdquisicion - depreciacionAcumulada;
+  const totalmenteDepreciado = añosTranscurridos >= VIDA_UTIL;
+
+  return {
+    precioAdquisicion: vehiculo.precioAdquisicion,
+    valorResidual: vehiculo.valorResidual || 0,
+    moneda: vehiculo.monedaAdquisicion || 'PEN',
+    fechaAdquisicion: vehiculo.fechaAdquisicion,
+    añosTranscurridos: Math.round(añosTranscurridos * 10) / 10,
+    tasaAnual: TASA_ANUAL,
+    vidaUtilAnios: VIDA_UTIL,
+    depreciacionAcumulada,
+    valorEnLibros,
+    depreciacionAnual,
+    totalmenteDepreciado,
+  };
+}
+
+// ============================================================================
+// HELPERS - ALERTAS DE MANTENIMIENTO PREVENTIVO
+// ============================================================================
+
+/**
+ * Alerta de mantenimiento preventivo próximo
+ */
+export interface AlertaPreventivo {
+  vehiculoId: string;
+  placa: string;
+  marca: string;
+  modelo: string;
+  tipo: 'km' | 'meses' | 'ambos';
+  // Por km
+  kmActual?: number;
+  kmProximoPreventivo?: number;
+  kmFaltantes?: number;
+  // Por meses
+  fechaProximoPreventivo?: string;
+  diasFaltantes?: number;
+  // Severidad
+  severidad: 'urgente' | 'proximo' | 'ok';
+}
+
+/**
+ * Configuración de umbrales de alerta
+ */
+export const ALERTA_PREVENTIVO_CONFIG = {
+  kmUrgente: 500, // Faltan menos de 500km → urgente
+  kmProximo: 2000, // Faltan menos de 2000km → próximo
+  diasUrgente: 7, // Faltan menos de 7 días → urgente
+  diasProximo: 30, // Faltan menos de 30 días → próximo
+};
+
+/**
+ * Calcula alertas de mantenimiento preventivo para un vehículo
+ */
+export function calcAlertaPreventivo(
+  vehiculo: Vehiculo,
+  preventivosRealizados: number
+): AlertaPreventivo | null {
+  const plan = vehiculo.planPreventivoContratado;
+  if (!plan || !plan.habilitado || preventivosRealizados >= plan.totalPreventivosContratados) {
+    return null; // Sin plan o ya completó todos los preventivos
+  }
+
+  const cfg = ALERTA_PREVENTIVO_CONFIG;
+  let alertaKm: 'urgente' | 'proximo' | 'ok' = 'ok';
+  let alertaMeses: 'urgente' | 'proximo' | 'ok' = 'ok';
+  let kmProximoPreventivo: number | undefined;
+  let kmFaltantes: number | undefined;
+  let fechaProximoPreventivo: string | undefined;
+  let diasFaltantes: number | undefined;
+  let tipoAlerta: 'km' | 'meses' | 'ambos' = 'km';
+
+  // Cálculo por km
+  if (plan.intervaloKm && (plan.tipoPlan === 'por_km' || plan.tipoPlan === 'mixto')) {
+    kmProximoPreventivo = (preventivosRealizados + 1) * plan.intervaloKm;
+    kmFaltantes = Math.max(0, kmProximoPreventivo - vehiculo.kilometraje);
+
+    if (kmFaltantes <= cfg.kmUrgente) alertaKm = 'urgente';
+    else if (kmFaltantes <= cfg.kmProximo) alertaKm = 'proximo';
+  }
+
+  // Cálculo por meses
+  if (plan.intervaloMeses && (plan.tipoPlan === 'por_meses' || plan.tipoPlan === 'mixto')) {
+    // Estimar fecha del próximo preventivo basado en último mantenimiento
+    if (vehiculo.ultimoMantenimiento) {
+      const ultimoMant = new Date(vehiculo.ultimoMantenimiento);
+      const proximoMant = new Date(ultimoMant);
+      proximoMant.setMonth(proximoMant.getMonth() + plan.intervaloMeses);
+      fechaProximoPreventivo = proximoMant.toISOString().split('T')[0];
+
+      const hoy = new Date();
+      diasFaltantes = Math.ceil((proximoMant.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diasFaltantes <= cfg.diasUrgente) alertaMeses = 'urgente';
+      else if (diasFaltantes <= cfg.diasProximo) alertaMeses = 'proximo';
+    }
+    tipoAlerta = plan.tipoPlan === 'mixto' ? 'ambos' : 'meses';
+  }
+
+  // Determinar severidad más alta
+  const severidades = { urgente: 2, proximo: 1, ok: 0 };
+  const maxSev = Math.max(severidades[alertaKm], severidades[alertaMeses]);
+  const severidad = maxSev === 2 ? 'urgente' : maxSev === 1 ? 'proximo' : 'ok';
+
+  // Solo retornar alerta si no es "ok"
+  if (severidad === 'ok') return null;
+
+  return {
+    vehiculoId: vehiculo.id,
+    placa: vehiculo.placa,
+    marca: vehiculo.marca,
+    modelo: vehiculo.modelo,
+    tipo: tipoAlerta,
+    kmActual: vehiculo.kilometraje,
+    kmProximoPreventivo,
+    kmFaltantes,
+    fechaProximoPreventivo,
+    diasFaltantes,
+    severidad,
   };
 }
 

@@ -37,6 +37,7 @@ import { FlotaPorProyecto } from './components/modules/flota/FlotaPorProyecto';
 import { FlotaReporteVehiculos } from './components/modules/flota/reportes/FlotaReporteVehiculos';
 import { FlotaReporteMantenimientos } from './components/modules/flota/reportes/FlotaReporteMantenimientos';
 import { FlotaReporteDocumentos } from './components/modules/flota/reportes/FlotaReporteDocumentos';
+import { FlotaReporteCostos } from './components/modules/flota/reportes/FlotaReporteCostos';
 
 // Flota - Hojas de Vida QR
 import { VehiclePublicView } from './components/modules/flota/VehiclePublicView';
@@ -791,6 +792,7 @@ export default function App() {
       if (submodulo === 'reportes' && param === 'vehiculos') return <FlotaReporteVehiculos onNavigate={navigateTo} />;
       if (submodulo === 'reportes' && param === 'mantenimientos') return <FlotaReporteMantenimientos onNavigate={navigateTo} />;
       if (submodulo === 'reportes' && param === 'documentos') return <FlotaReporteDocumentos onNavigate={navigateTo} />;
+      if (submodulo === 'reportes' && param === 'costos') return <FlotaReporteCostos onNavigate={navigateTo} />;
 
       if (submodulo === 'por-proyecto') return <FlotaPorProyecto onNavigate={navigateTo} />;
       if (submodulo === 'analisis-preventivo') return <FlotaPreventiveAnalytics onNavigate={navigateTo} />;
