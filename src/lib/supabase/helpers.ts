@@ -5,7 +5,7 @@
  */
 
 import { supabase } from "./client";
-import type { EvaluacionProveedor, ContratoProveedor, TallerDB, RolDB, UsuarioTenantDB, ArticuloDB, AlmacenDB, CategoriaInventarioDB, MovimientoInventarioDB, ClienteDB, OportunidadDB, ActividadCRMDB, TransaccionDB, PresupuestoDB, CajaChicaDB, GastoCajaChicaDB, ProyectoDB, FaseProyectoDB, TareaProyectoDB, MiembroProyectoDB, CentroCostoDB, ClienteBioInsert, ClienteBioUpdate, SedeInsert, SedeUpdate, AreaClinicaInsert, AreaClinicaUpdate } from "./types";
+import type { EvaluacionProveedor, ContratoProveedor, TallerDB, RolDB, UsuarioTenantDB, ArticuloDB, AlmacenDB, CategoriaInventarioDB, MovimientoInventarioDB, ClienteDB, OportunidadDB, ActividadCRMDB, TransaccionDB, PresupuestoDB, CajaChicaDB, GastoCajaChicaDB, ProyectoDB, FaseProyectoDB, TareaProyectoDB, MiembroProyectoDB, CentroCostoDB, ValorizacionDB, ClienteBioInsert, ClienteBioUpdate, SedeInsert, SedeUpdate, AreaClinicaInsert, AreaClinicaUpdate } from "./types";
 
 // =============================================================================
 // HELPER BASE — obtiene tenant_id del usuario autenticado
@@ -828,5 +828,24 @@ export const dbCentrosCosto = {
   /** Actualiza un centro de costo */
   update: (id: string, data: Partial<Omit<CentroCostoDB, 'id' | 'tenant_id' | 'creado_en'>>) =>
     supabase.from('centros_costo').update(data).eq('id', id).select().single(),
+};
+
+// =============================================================================
+// VALORIZACIONES (hitos de facturación por proyecto)
+// =============================================================================
+
+export const dbValorizaciones = {
+  /** Lista valorizaciones de un proyecto */
+  listByProyecto: (proyectoId: string) =>
+    supabase.from('valorizaciones').select('*').eq('proyecto_id', proyectoId).order('numero'),
+  /** Crea una valorización */
+  insert: (data: Omit<ValorizacionDB, 'id' | 'creado_en'>) =>
+    supabase.from('valorizaciones').insert(data).select().single(),
+  /** Actualiza una valorización */
+  update: (id: string, data: Partial<Omit<ValorizacionDB, 'id' | 'tenant_id' | 'creado_en'>>) =>
+    supabase.from('valorizaciones').update(data).eq('id', id).select().single(),
+  /** Elimina una valorización */
+  delete: (id: string) =>
+    supabase.from('valorizaciones').delete().eq('id', id),
 };
 

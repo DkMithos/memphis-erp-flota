@@ -150,22 +150,30 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
 
   // Carga inicial desde Supabase
   const fetchVehiculos = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from('vehiculos')
-      .select('*, docs:vehiculo_documentos(*)')
-      .order('creado_en', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('vehiculos')
+        .select('*, docs:vehiculo_documentos(*)')
+        .order('creado_en', { ascending: false });
 
-    if (error) {
-      console.error('[VEHICULOS] Error al cargar:', error.message);
-    } else if (data) {
-      const mapped = data.map((v: any) => mapFromDB(v, v.docs ?? []));
-      setVehiculos(mapped);
-      logDebug('Vehículos cargados desde Supabase:', mapped.length);
+      if (error) {
+        console.error('[VEHICULOS] Error al cargar:', error.message, error);
+      } else if (data) {
+        const mapped = data.map((v: any) => mapFromDB(v, v.docs ?? []));
+        setVehiculos(mapped);
+        logDebug('Vehículos cargados desde Supabase:', mapped.length);
+      }
+    } catch (err) {
+      console.error('[VEHICULOS] Error inesperado:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [tenantId]);
 
   useEffect(() => {

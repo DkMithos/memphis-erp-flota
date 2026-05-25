@@ -26,6 +26,7 @@ import {
 } from '../../../lib/compras/requerimientos-config';
 import { toast } from 'sonner';
 import { ProyectoSelector } from '../../shared/ProyectoSelector';
+import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
 
 interface RequerimientoFormProps {
   requerimientoId?: string; // Si existe, es edición
@@ -305,22 +306,14 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
                 {/* Centro de Costo */}
                 <div className="space-y-2">
                   <Label htmlFor="centroCosto">Centro de Costo *</Label>
-                  <Select 
-                    value={formData.centroCosto} 
-                    onValueChange={(v) => {
-                      setFormData({ ...formData, centroCosto: v as CentroCosto });
+                  <CentroCostoSelector
+                    value={(formData as any).centroCostoId ?? null}
+                    onChange={(v) => {
+                      setFormData({ ...formData, centroCosto: (v ?? 'general') as CentroCosto, centroCostoId: v } as any);
                       if (errors.centroCosto) setErrors({ ...errors, centroCosto: '' });
                     }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione centro" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(CENTRO_COSTO_LABELS).map(([key, label]) => (
-                        <SelectItem key={key} value={key}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    nullable={false}
+                  />
                   {errors.centroCosto && (
                     <p className="text-sm text-red-600 flex items-center gap-1">
                       <AlertCircle className="size-3" />

@@ -27,7 +27,8 @@ export type TipoCatalogo =
   | 'tipo_contrato_flota'
   | 'tipo_doc_vehiculo'
   | 'categoria_proveedor'
-  | 'categoria_equipo_bio';
+  | 'categoria_equipo_bio'
+  | 'modalidad_proyecto';
 
 export interface ItemCatalogo {
   id: string;
@@ -54,6 +55,7 @@ export const TIPO_CATALOGO_LABELS: Record<TipoCatalogo, string> = {
   tipo_doc_vehiculo:   'Tipos de Doc. Vehículo',
   categoria_proveedor: 'Categorías de Proveedor',
   categoria_equipo_bio:'Categorías Equipo Biomédico',
+  modalidad_proyecto:  'Modalidades de Proyecto',
 };
 
 // ============================================================================
@@ -164,6 +166,12 @@ const CATALOGOS_DEFAULT: ItemCatalogo[] = [
   { id: 'ceb5', tipo: 'categoria_equipo_bio', key: 'rehabilitacion', label: 'Rehabilitación', activo: true, orden: 5, esSistema: true },
   { id: 'ceb6', tipo: 'categoria_equipo_bio', key: 'imagenologia', label: 'Imagenología', activo: true, orden: 6, esSistema: false },
   { id: 'ceb7', tipo: 'categoria_equipo_bio', key: 'odontologia', label: 'Odontología', activo: true, orden: 7, esSistema: false },
+  // Modalidades de Proyecto
+  { id: 'mp1', tipo: 'modalidad_proyecto', key: 'oxi', label: 'OXI (Obras por Impuestos)', descripcion: 'Ley 29230', activo: true, orden: 1, esSistema: true },
+  { id: 'mp2', tipo: 'modalidad_proyecto', key: 'ioarr', label: 'IOARR', descripcion: 'Inversiones de Optimización, Ampliación, Reposición y Rehabilitación', activo: true, orden: 2, esSistema: true },
+  { id: 'mp3', tipo: 'modalidad_proyecto', key: 'licitacion', label: 'Licitación Pública', activo: true, orden: 3, esSistema: true },
+  { id: 'mp4', tipo: 'modalidad_proyecto', key: 'adjudicacion', label: 'Adjudicación Directa', activo: true, orden: 4, esSistema: false },
+  { id: 'mp5', tipo: 'modalidad_proyecto', key: 'otro', label: 'Otro', activo: true, orden: 5, esSistema: true },
 ];
 
 // ============================================================================

@@ -21,6 +21,7 @@ import { Textarea } from '../../ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../../ui/select';
+import { ValorizacionesTab } from './ValorizacionesTab';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '../../ui/dropdown-menu';
@@ -207,6 +208,7 @@ function FaseDialog({ open, fase, proyectoDbId, tenantId, ordenSiguiente, onClos
   const [estadoFase, setEstadoFase] = useState<Fase['estado']>(fase?.estado ?? 'pendiente');
   const [fechaInicio, setFechaInicio] = useState(fase?.fechaInicio ?? '');
   const [fechaFin, setFechaFin] = useState(fase?.fechaFin ?? '');
+  const [presupuesto, setPresupuesto] = useState(fase?.presupuesto?.toString() ?? '');
   const [saving, setSaving] = useState(false);
   const [nombreError, setNombreError] = useState('');
 
@@ -214,7 +216,7 @@ function FaseDialog({ open, fase, proyectoDbId, tenantId, ordenSiguiente, onClos
     if (!nombre.trim()) { setNombreError('El nombre es requerido'); toast.error('El nombre es requerido'); return; }
     setSaving(true);
     try {
-      const data = {
+      const data: Record<string, unknown> = {
         tenant_id: tenantId,
         proyecto_id: proyectoDbId,
         nombre: nombre.trim(),
@@ -224,6 +226,7 @@ function FaseDialog({ open, fase, proyectoDbId, tenantId, ordenSiguiente, onClos
         fecha_inicio: fechaInicio || null,
         fecha_fin: fechaFin || null,
         porcentaje_avance: fase?.porcentajeAvance ?? 0,
+        presupuesto: presupuesto ? parseFloat(presupuesto) : null,
       };
       if (fase) {
         await actualizarFase(fase._dbId, data);
@@ -277,6 +280,10 @@ function FaseDialog({ open, fase, proyectoDbId, tenantId, ordenSiguiente, onClos
               <Label>Fecha Fin</Label>
               <Input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)} className="mt-1" />
             </div>
+          </div>
+          <div>
+            <Label>Presupuesto (S/)</Label>
+            <Input type="number" min={0} step={0.01} value={presupuesto} onChange={e => setPresupuesto(e.target.value)} placeholder="0.00" className="mt-1" />
           </div>
         </div>
         <DialogFooter>
@@ -620,6 +627,7 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
             )}
           </TabsTrigger>
           <TabsTrigger value="fases">Fases</TabsTrigger>
+          <TabsTrigger value="valorizaciones">Valorizaciones</TabsTrigger>
           <TabsTrigger value="equipo">Equipo</TabsTrigger>
           <TabsTrigger value="resumen">Resumen</TabsTrigger>
         </TabsList>
@@ -779,6 +787,18 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
                 </Card>
               ))}
             </div>
+          )}
+        </TabsContent>
+
+        {/* ── TAB VALORIZACIONES ── */}
+        <TabsContent value="valorizaciones" className="mt-4">
+          {tenantId && (
+            <ValorizacionesTab
+              proyectoDbId={proyecto._dbId}
+              tenantId={tenantId}
+              fases={proyecto.fases}
+              monedaProyecto={proyecto.moneda}
+            />
           )}
         </TabsContent>
 

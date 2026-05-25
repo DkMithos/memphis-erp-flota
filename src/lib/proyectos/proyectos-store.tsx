@@ -23,6 +23,8 @@ export interface Fase {
   fechaInicio?: string;
   fechaFin?: string;
   porcentajeAvance: number;
+  presupuesto?: number;
+  costoReal?: number;
 }
 
 export interface Tarea {
@@ -71,6 +73,12 @@ export interface Proyecto {
   fases: Fase[];
   tareas: Tarea[];
   miembros: MiembroProyecto[];
+  // Fase 2: Proyecto-céntrico
+  modalidad?: string;
+  entidadCliente?: string;
+  region?: string;
+  montoContrato?: number;
+  montoAdenda?: number;
   // computed
   tareasTotal: number;
   tareasCompletadas: number;
@@ -93,6 +101,8 @@ function mapFase(row: FaseProyectoDB): Fase {
     fechaInicio: row.fecha_inicio ?? undefined,
     fechaFin: row.fecha_fin ?? undefined,
     porcentajeAvance: row.porcentaje_avance,
+    presupuesto: row.presupuesto ?? undefined,
+    costoReal: row.costo_real ?? undefined,
   };
 }
 
@@ -159,6 +169,11 @@ function mapProyecto(row: ProyectoDB): Proyecto {
     moneda: row.moneda,
     gerenteProyecto: row.gerente_proyecto ?? undefined,
     porcentajeAvance: row.porcentaje_avance,
+    modalidad: (row as any).modalidad ?? undefined,
+    entidadCliente: (row as any).entidad_cliente ?? undefined,
+    region: (row as any).region ?? undefined,
+    montoContrato: (row as any).monto_contrato ?? undefined,
+    montoAdenda: (row as any).monto_adenda ?? undefined,
     creadoEn: row.creado_en,
     fases,
     tareas,

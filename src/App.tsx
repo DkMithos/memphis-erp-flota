@@ -85,6 +85,7 @@ import { GestionCategorias } from './components/modules/proveedores/GestionCateg
 import { ProyectosDashboard } from './components/modules/proyectos/ProyectosDashboard';
 import { ProyectosLista } from './components/modules/proyectos/ProyectosLista';
 import { ProyectoDetalle } from './components/modules/proyectos/ProyectoDetalle';
+import { Proyecto360 } from './components/modules/proyectos/Proyecto360';
 import { ProyectosTareasGlobal } from './components/modules/proyectos/ProyectosTareasGlobal';
 import { TareaDetalle } from './components/modules/proyectos/TareaDetalle';
 import { ProyectosProvider } from './lib/proyectos/proyectos-store';
@@ -479,6 +480,15 @@ export default function App() {
 
     // Proyectos
     if (currentRoute.startsWith('/proyectos')) {
+      // Vista 360° del proyecto: /proyectos/360/:dbId
+      if (currentRoute.startsWith('/proyectos/360/')) {
+        const segments = currentRoute.split('/');
+        const dbId = segments[3];
+        if (dbId) {
+          return <Proyecto360 proyectoDbId={dbId} onNavigate={navigateTo} />;
+        }
+      }
+
       // Detalle de proyecto por dbId: /proyectos/detalle/:dbId
       if (currentRoute.startsWith('/proyectos/detalle/')) {
         const segments = currentRoute.split('/');
@@ -885,7 +895,7 @@ export default function App() {
 
                         {/* Topbar */}
                         {!isSpecialRoute() && user && (
-                          <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 lg:px-6 fixed top-0 right-0 left-0 lg:left-64 z-10 print:hidden">
+                          <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 lg:px-6 fixed top-0 right-0 left-0 lg:left-64 z-30 print:hidden">
                             <Button
                               variant="ghost"
                               size="icon"

@@ -47,6 +47,10 @@ export interface Recepcion {
   conforme: boolean;
   observaciones: string | null;
 
+  // Imputación
+  proyectoId?: string | null;
+  centroCostoId?: string | null;
+
   // Fechas
   fechaRecepcion: string;
 
@@ -71,6 +75,8 @@ export interface NuevaRecepcionInput {
   itemsRecibidos: ItemRecepcionInput[];
   estado: EstadoRecepcion;
   observaciones?: string;
+  proyectoId?: string | null;
+  centroCostoId?: string | null;
   // DB FK: proveedor UUID and orden UUID must be provided from calling context
   ordenDbId?: string;
   proveedorDbId?: string;
@@ -147,6 +153,8 @@ function mapFromDB(row: RecepcionWithRelations): Recepcion {
     itemsRecibidos: items,
     conforme,
     observaciones: row.observaciones,
+    proyectoId: (row as any).proyecto_id ?? null,
+    centroCostoId: (row as any).centro_costo_id ?? null,
     fechaRecepcion: row.fecha_recepcion,
     auditoria: {
       creadoPor: row.creado_por ?? '',
@@ -267,10 +275,12 @@ export function RecepcionStoreProvider({ children }: { children: React.ReactNode
         numero_guia: null,
         numero_factura: null,
         observaciones: input.observaciones?.trim() ?? null,
+        proyecto_id: input.proyectoId ?? null,
+        centro_costo_id: input.centroCostoId ?? null,
         creado_por: user.id,
         modificado_por: null,
         modificado_en: null,
-      });
+      } as any);
 
       if (errRec || !inserted) {
         console.error('[RECEPCIONES] Error al crear:', errRec?.message);

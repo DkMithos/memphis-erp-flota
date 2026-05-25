@@ -5,7 +5,7 @@
 import { useState, useMemo } from 'react';
 import {
   Plus, Search, LayoutGrid, List, FolderKanban, Calendar,
-  DollarSign, Users, AlertTriangle, ChevronRight, Pencil,
+  DollarSign, Users, AlertTriangle, ChevronRight, Pencil, Eye,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../../ui/card';
 import { Badge } from '../../ui/badge';
@@ -65,7 +65,22 @@ interface FormData {
   presupuesto: string;
   gerenteProyecto: string;
   moneda: string;
+  // Fase 2: Proyecto-céntrico
+  modalidad: string;
+  entidadCliente: string;
+  region: string;
+  montoContrato: string;
+  montoAdenda: string;
 }
+
+const MODALIDAD_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: '— Sin modalidad —' },
+  { value: 'oxi', label: 'OXI' },
+  { value: 'ioarr', label: 'IOARR' },
+  { value: 'licitacion', label: 'Licitación Pública' },
+  { value: 'adjudicacion', label: 'Adjudicación Directa' },
+  { value: 'otro', label: 'Otro' },
+];
 
 const DEFAULT_FORM: FormData = {
   nombre: '',
@@ -78,6 +93,11 @@ const DEFAULT_FORM: FormData = {
   presupuesto: '',
   gerenteProyecto: '',
   moneda: 'PEN',
+  modalidad: '',
+  entidadCliente: '',
+  region: '',
+  montoContrato: '',
+  montoAdenda: '',
 };
 
 interface ProyectoDialogProps {
@@ -88,7 +108,7 @@ interface ProyectoDialogProps {
 
 function ProyectoDialog({ open, proyecto, onClose }: ProyectoDialogProps) {
   const { tenantId, user } = useAuth();
-  const { crearProyecto, actualizarProyecto } = useProyectos();
+  const { crearProyecto, actualizarProyecto, crearFase } = useProyectos();
   const [form, setForm] = useState<FormData>(() =>
     proyecto
       ? {
@@ -102,6 +122,11 @@ function ProyectoDialog({ open, proyecto, onClose }: ProyectoDialogProps) {
           presupuesto: proyecto.presupuesto?.toString() ?? '',
           gerenteProyecto: proyecto.gerenteProyecto ?? '',
           moneda: proyecto.moneda,
+          modalidad: proyecto.modalidad ?? '',
+          entidadCliente: proyecto.entidadCliente ?? '',
+          region: proyecto.region ?? '',
+          montoContrato: proyecto.montoContrato?.toString() ?? '',
+          montoAdenda: proyecto.montoAdenda?.toString() ?? '',
         }
       : DEFAULT_FORM
   );
@@ -139,14 +164,43 @@ function ProyectoDialog({ open, proyecto, onClose }: ProyectoDialogProps) {
         creado_por: user?.email ?? null,
         modificado_por: null,
         modificado_en: null,
+        // Fase 2: Proyecto-céntrico
+        modalidad: form.modalidad || null,
+        entidad_cliente: form.entidadCliente.trim() || null,
+        region: form.region.trim() || null,
+        monto_contrato: form.montoContrato ? parseFloat(form.montoContrato) : null,
+        monto_adenda: form.montoAdenda ? parseFloat(form.montoAdenda) : null,
       };
 
       if (proyecto) {
         await actualizarProyecto(proyecto._dbId, data);
         toast.success('Proyecto actualizado');
       } else {
-        await crearProyecto(data);
-        toast.success('Proyecto creado');
+        const nuevo = await crearProyecto(data);
+        // Auto-crear fases OXI/IOARR si aplica
+        const mod = form.modalidad;
+        if (mod === 'oxi' || mod === 'ioarr') {
+          const plantilla = [
+            { nombre: 'Priorización', descripcion: 'Evaluación y priorización del proyecto', orden: 1 },
+            { nombre: 'Actos Previos', descripcion: 'Estudios previos, expediente técnico, permisos', orden: 2 },
+            { nombre: 'Selección', descripcion: 'Proceso de selección y adjudicación', orden: 3 },
+            { nombre: 'Ejecución', descripcion: 'Ejecución contractual y supervisión', orden: 4 },
+          ];
+          for (const f of plantilla) {
+            await crearFase({
+              tenant_id: tenantId,
+              proyecto_id: nuevo._dbId,
+              nombre: f.nombre,
+              descripcion: f.descripcion,
+              orden: f.orden,
+              estado: 'pendiente',
+              porcentaje_avance: 0,
+            });
+          }
+          toast.success(`Proyecto creado con ${plantilla.length} fases ${mod.toUpperCase()}`);
+        } else {
+          toast.success('Proyecto creado');
+        }
       }
       onClose();
     } catch (e: unknown) {
@@ -288,6 +342,75 @@ function ProyectoDialog({ open, proyecto, onClose }: ProyectoDialogProps) {
                 <SelectItem value="EUR">EUR — Euros</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* ── Sección Contrato / OXI-IOARR ── */}
+          <div className="md:col-span-2 border-t pt-3 mt-1">
+            <p className="text-sm font-medium text-muted-foreground mb-3">Datos del Contrato (opcional)</p>
+          </div>
+
+          <div>
+            <Label>Modalidad</Label>
+            <Select value={form.modalidad || '_none'} onValueChange={v => setForm(f => ({ ...f, modalidad: v === '_none' ? '' : v }))}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="— Sin modalidad —" />
+              </SelectTrigger>
+              <SelectContent>
+                {MODALIDAD_OPTIONS.map(o => (
+                  <SelectItem key={o.value || '_none'} value={o.value || '_none'}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="entidad">Entidad / Cliente</Label>
+            <Input
+              id="entidad"
+              value={form.entidadCliente}
+              onChange={e => setForm(f => ({ ...f, entidadCliente: e.target.value }))}
+              placeholder="Ej: Gobierno Regional de Cajamarca"
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="region">Región</Label>
+            <Input
+              id="region"
+              value={form.region}
+              onChange={e => setForm(f => ({ ...f, region: e.target.value }))}
+              placeholder="Ej: Cajamarca"
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="montoContrato">Monto Contrato</Label>
+            <Input
+              id="montoContrato"
+              type="number"
+              min={0}
+              step={0.01}
+              value={form.montoContrato}
+              onChange={e => setForm(f => ({ ...f, montoContrato: e.target.value }))}
+              placeholder="0.00"
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="montoAdenda">Monto Adendas</Label>
+            <Input
+              id="montoAdenda"
+              type="number"
+              min={0}
+              step={0.01}
+              value={form.montoAdenda}
+              onChange={e => setForm(f => ({ ...f, montoAdenda: e.target.value }))}
+              placeholder="0.00"
+              className="mt-1"
+            />
           </div>
         </div>
 
@@ -521,6 +644,15 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
                     <Button
                       size="sm"
                       variant="ghost"
+                      className="h-7 px-2 text-blue-600"
+                      title="Vista 360°"
+                      onClick={e => { e.stopPropagation(); onNavigate?.(`/proyectos/360/${p._dbId}`); }}
+                    >
+                      <Eye className="size-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       className="h-7 px-2"
                       onClick={e => { e.stopPropagation(); abrirEditar(p); }}
                     >
@@ -594,6 +726,9 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
                         <div className="flex gap-1">
                           <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => onVerDetalle?.(p._dbId)}>
                             <ChevronRight className="size-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-blue-600" title="Vista 360°" onClick={() => onNavigate?.(`/proyectos/360/${p._dbId}`)}>
+                            <Eye className="size-4" />
                           </Button>
                           <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => abrirEditar(p)}>
                             <Pencil className="size-4" />

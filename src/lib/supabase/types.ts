@@ -286,6 +286,11 @@ export interface Database {
         Insert: Omit<CentroCostoDB, 'id' | 'creado_en'>;
         Update: Partial<Omit<CentroCostoDB, 'id' | 'tenant_id' | 'creado_en'>>;
       };
+      valorizaciones: {
+        Row: ValorizacionDB;
+        Insert: Omit<ValorizacionDB, 'id' | 'creado_en'>;
+        Update: Partial<Omit<ValorizacionDB, 'id' | 'tenant_id' | 'creado_en'>>;
+      };
     };
     Functions: {
       auth_tenant_id: {
@@ -964,6 +969,8 @@ export interface Recepcion {
   numero_guia: string | null;
   numero_factura: string | null;
   observaciones: string | null;
+  proyecto_id?: string | null;
+  centro_costo_id?: string | null;
   creado_por: string | null;
   creado_en: string;
   modificado_por: string | null;
@@ -1347,6 +1354,12 @@ export interface ProyectoDB {
   presupuesto?: number | null; costo_real?: number | null; moneda: string;
   gerente_proyecto?: string | null; cliente_id?: string | null;
   porcentaje_avance: number;
+  // Fase 2: Proyecto-céntrico
+  modalidad?: string | null; // oxi, ioarr, licitacion, adjudicacion, otro
+  entidad_cliente?: string | null; // Municipalidad, GORE, etc.
+  region?: string | null; // Región/departamento
+  monto_contrato?: number | null; // Monto base del contrato
+  monto_adenda?: number | null; // Monto adicional por adendas
   creado_por?: string | null; creado_en: string;
   modificado_por?: string | null; modificado_en?: string | null;
   fases?: FaseProyectoDB[] | null;
@@ -1358,6 +1371,7 @@ export interface FaseProyectoDB {
   descripcion?: string | null; orden: number;
   estado: 'pendiente' | 'en_progreso' | 'completada' | 'cancelada';
   fecha_inicio?: string | null; fecha_fin?: string | null; porcentaje_avance: number;
+  presupuesto?: number | null; costo_real?: number | null;
 }
 export interface TareaProyectoDB {
   id: string; tenant_id: string; proyecto_id: string; fase_id?: string | null;
@@ -1372,6 +1386,22 @@ export interface TareaProyectoDB {
 export interface MiembroProyectoDB {
   id: string; tenant_id: string; proyecto_id: string; user_id?: string | null;
   nombre: string; rol: string; horas_asignadas?: number | null;
+}
+
+// ── Valorizaciones (hitos de facturación por proyecto) ───
+export interface ValorizacionDB {
+  id: string; tenant_id: string; proyecto_id: string; fase_id?: string | null;
+  numero: number; // Valorización N°
+  descripcion: string;
+  monto: number; moneda: string;
+  estado: 'pendiente' | 'presentada' | 'aprobada' | 'rechazada' | 'facturada' | 'pagada';
+  fecha_presentacion?: string | null;
+  fecha_aprobacion?: string | null;
+  fecha_pago?: string | null;
+  observaciones?: string | null;
+  conformidad_parcial?: boolean; // true = conformidad parcial, false = total
+  porcentaje_conformidad?: number | null; // 0-100 si parcial
+  creado_por?: string | null; creado_en: string;
 }
 
 // ── Centros de Costo ─────────────────────────────────────

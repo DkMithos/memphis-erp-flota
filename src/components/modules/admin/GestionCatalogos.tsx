@@ -28,6 +28,7 @@ const TIPOS: TipoCatalogo[] = [
   'tipo_comprobante', 'zona_igv', 'banco', 'moneda',
   'tipo_vehiculo', 'tipo_flota', 'tipo_contrato_flota',
   'tipo_doc_vehiculo', 'categoria_proveedor', 'categoria_equipo_bio',
+  'modalidad_proyecto',
 ];
 
 interface ItemRowProps {

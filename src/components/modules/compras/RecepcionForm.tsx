@@ -12,6 +12,8 @@ import { useRecepcionesStore, type NuevaRecepcionInput } from '../../../lib/comp
 import { useOrdenesStore } from '../../../lib/compras/ordenes-store';
 import { validarCantidadRecibida, validarObservaciones, type EstadoRecepcion } from '../../../lib/compras/recepciones-config';
 import { formatearMonto } from '../../../lib/compras/ordenes-config';
+import { ProyectoSelector } from '../../shared/ProyectoSelector';
+import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
 
 interface RecepcionFormProps {
   ordenIdParam?: string;
@@ -37,6 +39,8 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
   const [observaciones, setObservaciones] = useState('');
   const [itemsRecibidos, setItemsRecibidos] = useState<ItemRecibidoForm[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [proyectoId, setProyectoId] = useState<string | null>(null);
+  const [centroCostoId, setCentroCostoId] = useState<string | null>(null);
 
   // Cargar items de la orden
   useEffect(() => {
@@ -126,7 +130,9 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
           observacionItem: item.observacionItem.trim() || null
         })),
         estado,
-        observaciones: observaciones.trim() || undefined
+        observaciones: observaciones.trim() || undefined,
+        proyectoId: proyectoId ?? undefined,
+        centroCostoId: centroCostoId ?? undefined,
       };
 
       // Callback para actualizar el estado de la orden
@@ -276,6 +282,25 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
           {errors.observaciones && (
             <p className="text-sm text-red-600 mt-1">{errors.observaciones}</p>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Imputación: Proyecto y Centro de Costo */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Imputación (opcional)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Proyecto</Label>
+              <ProyectoSelector value={proyectoId} onChange={setProyectoId} nullable className="mt-1" />
+            </div>
+            <div>
+              <Label>Centro de Costo</Label>
+              <CentroCostoSelector value={centroCostoId} onChange={setCentroCostoId} nullable className="mt-1" />
+            </div>
+          </div>
         </CardContent>
       </Card>
 

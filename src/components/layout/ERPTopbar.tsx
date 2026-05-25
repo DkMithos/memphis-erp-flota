@@ -86,14 +86,14 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
         const [ots, vehiculos, proyectos, clientes, articulos] = await Promise.all([
           supabase.from('ordenes_trabajo').select('numero_ot,titulo').ilike('titulo', term).limit(3),
           supabase.from('vehiculos').select('codigo,placa,marca,modelo').or(`placa.ilike.${term},codigo.ilike.${term}`).limit(3),
-          supabase.from('proyectos_proyecto').select('id,nombre').ilike('nombre', term).limit(3),
+          supabase.from('proyectos').select('id,codigo,nombre').ilike('nombre', term).limit(3),
           supabase.from('clientes').select('codigo,razon_social').ilike('razon_social', term).limit(3),
           supabase.from('articulos').select('codigo,nombre').ilike('nombre', term).limit(3),
         ]);
         const res: SearchResult[] = [
           ...(ots.data ?? []).map((r: Record<string, string>) => ({ tipo: 'OT', label: `${r.numero_ot} — ${r.titulo}`, route: `/flota/mantenimientos/${r.numero_ot}` })),
           ...(vehiculos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Vehículo', label: `${r.placa} — ${r.marca} ${r.modelo}`, route: `/flota/vehiculos/${r.codigo}` })),
-          ...(proyectos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Proyecto', label: r.nombre, route: `/proyectos/detalle/${r.id}` })),
+          ...(proyectos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Proyecto', label: `${r.codigo} — ${r.nombre}`, route: `/proyectos/detalle/${r.id}` })),
           ...(clientes.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Cliente', label: `${r.codigo} — ${r.razon_social}`, route: `/crm/clientes/${r.codigo}` })),
           ...(articulos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Artículo', label: `${r.codigo} — ${r.nombre}`, route: `/inventario/articulos/${r.codigo}` })),
         ];

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase/client";
 import type { Profile } from "../lib/supabase/types";
@@ -26,6 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [tenantLogoUrl, setTenantLogoUrl] = useState<string | null>(null);
   const [tenantColor, setTenantColor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const profileLoadedRef = useRef(false);
 
   async function loadProfile(userId: string) {
     try {
@@ -45,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setProfile(data);
+      profileLoadedRef.current = true;
       // Cargar nombre del tenant
       if (data?.tenant_id) {
         const { data: tenantData } = await supabase
@@ -58,40 +60,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       console.error('[auth.loadProfile] Unexpected error:', err);
-      setProfile(null);
-      setTenantName(null);
-      setTenantLogoUrl(null);
-      setTenantColor(null);
+      // No limpiar profile si ya se cargó exitosamente (lock error en otro tab)
+      if (!profileLoadedRef.current) {
+        setProfile(null);
+        setTenantName(null);
+        setTenantLogoUrl(null);
+        setTenantColor(null);
+      }
     }
   }
 
   useEffect(() => {
     let mounted = true;
 
-    // Timeout de seguridad: si Supabase tarda >3s, desbloquear la app
+    // Timeout de seguridad: si Supabase tarda >5s, desbloquear la app
     const safetyTimer = setTimeout(() => {
-      if (mounted) {
+      if (mounted && loading) {
         console.warn('[auth] getSession timeout — unblocking app');
         setLoading(false);
       }
-    }, 3000);
+    }, 5000);
 
-    (async () => {
+    async function initAuth() {
       try {
         const { data, error } = await supabase.auth.getSession();
         if (!mounted) return;
-        if (error) console.error("[auth.getSession]", error);
 
-        const s = data.session ?? null;
-        setSession(s);
-        if (s?.user) await loadProfile(s.user.id);
-      } catch (err) {
-        console.error('[auth] Unexpected error in getSession:', err);
+        if (error) {
+          // Si es un error de lock, reintentar una vez después de un breve delay
+          if (error.message?.includes('Lock') || error.message?.includes('AbortError')) {
+            console.warn('[auth] Lock error en getSession, reintentando...');
+            await new Promise(r => setTimeout(r, 500));
+            const retry = await supabase.auth.getSession();
+            if (!mounted) return;
+            const s2 = retry.data.session ?? null;
+            setSession(s2);
+            if (s2?.user) await loadProfile(s2.user.id);
+          } else {
+            console.error("[auth.getSession]", error);
+          }
+        } else {
+          const s = data.session ?? null;
+          setSession(s);
+          if (s?.user) await loadProfile(s.user.id);
+        }
+      } catch (err: any) {
+        // Manejar AbortError de navigator.locks (múltiples tabs)
+        if (err?.name === 'AbortError' || err?.message?.includes('Lock')) {
+          console.warn('[auth] Lock contention, reintentando getSession...');
+          if (!mounted) return;
+          await new Promise(r => setTimeout(r, 800));
+          try {
+            const retry = await supabase.auth.getSession();
+            if (!mounted) return;
+            const s = retry.data.session ?? null;
+            setSession(s);
+            if (s?.user) await loadProfile(s.user.id);
+          } catch (retryErr) {
+            console.error('[auth] Retry also failed:', retryErr);
+          }
+        } else {
+          console.error('[auth] Unexpected error in getSession:', err);
+        }
       } finally {
         clearTimeout(safetyTimer);
         if (mounted) setLoading(false);
       }
-    })();
+    }
+
+    initAuth();
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       if (!mounted) return;
@@ -102,11 +139,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setProfile(null);
           setTenantName(null);
+          profileLoadedRef.current = false;
         }
-      } catch (err) {
-        console.error('[auth] Error en onAuthStateChange:', err);
-        setProfile(null);
-        setTenantName(null);
+      } catch (err: any) {
+        // Ignorar errores de Lock en onAuthStateChange si el profile ya se cargó
+        if (err?.name === 'AbortError' || err?.message?.includes('Lock')) {
+          console.warn('[auth] Lock error en onAuthStateChange (ignorando, profile ya cargado)');
+        } else {
+          console.error('[auth] Error en onAuthStateChange:', err);
+          if (!profileLoadedRef.current) {
+            setProfile(null);
+            setTenantName(null);
+          }
+        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -140,6 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.warn('[auth] signOut API error (ignorando):', err);
       } finally {
+        profileLoadedRef.current = false;
         setSession(null);
         setProfile(null);
         setTenantName(null);

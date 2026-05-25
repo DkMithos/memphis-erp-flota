@@ -407,7 +407,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
   };
 
   return (
-    <aside className="w-64 bg-card border-r border-border h-screen flex flex-col lg:fixed lg:left-0 lg:top-0">
+    <aside className="w-64 bg-card border-r border-border h-screen flex flex-col lg:fixed lg:left-0 lg:top-0 z-40">
       {/* Logo — branding por TENANT (nombre e imagen del cliente) */}
       <div className="h-16 flex items-center px-4 border-b border-border shrink-0">
         <div className="flex items-center gap-3 min-w-0">
