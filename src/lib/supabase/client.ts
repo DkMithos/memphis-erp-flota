@@ -9,8 +9,6 @@ export const supabase = createClient<Database>(url, anon, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    // Key única para evitar conflictos entre tabs
-    storageKey: 'memphis-erp-auth',
     flowType: 'implicit',
   }
 });
