@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const profileLoadedRef = useRef(false);
 
+  // Carga de perfil usando el cliente Supabase (funciona cuando auth está sano)
   async function loadProfile(userId: string) {
     try {
       const { data, error } = await supabase
@@ -70,6 +71,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Carga de perfil usando fetch() directo — bypasea navigator.locks del Supabase client
+  // Se usa SOLO cuando el Supabase client está colgado y recuperamos sesión de localStorage
+  async function loadProfileDirect(userId: string, accessToken: string) {
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const headers = {
+      'apikey': anonKey,
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+
+    try {
+      // Cargar perfil
+      const profileRes = await fetch(
+        `${url}/rest/v1/profiles?id=eq.${userId}&select=*`,
+        { headers, method: 'GET' }
+      );
+      if (!profileRes.ok) {
+        console.error('[auth.loadProfileDirect] Profile fetch failed:', profileRes.status);
+        setProfile(null);
+        return;
+      }
+      const profiles = await profileRes.json();
+      if (!profiles || profiles.length === 0) {
+        console.error('[auth.loadProfileDirect] No profile found for', userId);
+        setProfile(null);
+        return;
+      }
+      const profileData = profiles[0];
+      setProfile(profileData);
+      profileLoadedRef.current = true;
+      console.log('[auth] Profile cargado via fetch directo:', profileData.full_name || userId);
+
+      // Cargar tenant
+      if (profileData?.tenant_id) {
+        const tenantRes = await fetch(
+          `${url}/rest/v1/tenants?id=eq.${profileData.tenant_id}&select=nombre,logo_url,primary_color`,
+          { headers, method: 'GET' }
+        );
+        if (tenantRes.ok) {
+          const tenants = await tenantRes.json();
+          if (tenants && tenants.length > 0) {
+            setTenantName(tenants[0]?.nombre ?? null);
+            setTenantLogoUrl(tenants[0]?.logo_url ?? null);
+            setTenantColor(tenants[0]?.primary_color ?? null);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[auth.loadProfileDirect] Error:', err);
+      if (!profileLoadedRef.current) {
+        setProfile(null);
+        setTenantName(null);
+        setTenantLogoUrl(null);
+        setTenantColor(null);
+      }
+    }
+  }
+
   useEffect(() => {
     let mounted = true;
 
@@ -101,7 +162,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (recovered?.user) {
           console.log('[auth] Sesión recuperada de localStorage para', recovered.user.email);
           setSession(recovered as any);
-          await loadProfile(recovered.user.id);
+          // Usar fetch directo porque supabase client también cuelga (navigator.locks)
+          await loadProfileDirect(recovered.user.id, recovered.access_token);
         }
         if (mounted) setLoading(false);
       }

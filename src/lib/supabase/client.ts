@@ -10,5 +10,10 @@ export const supabase = createClient<Database>(url, anon, {
     autoRefreshToken: true,
     detectSessionInUrl: true,
     flowType: 'implicit',
+    // Deshabilitar navigator.locks — causa deadlock en ciertos navegadores/tabs
+    // El no-op lock es seguro: solo pierde coordinación cross-tab (aceptable)
+    lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => {
+      return fn();
+    },
   }
 });
