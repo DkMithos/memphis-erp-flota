@@ -227,7 +227,7 @@ export function MantenimientosStoreProvider({ children }: { children: React.Reac
 
   // Carga inicial desde Supabase
   const fetchMantenimientos = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
 
     const { data, error } = await dbMantenimientosBiomedicos.list();

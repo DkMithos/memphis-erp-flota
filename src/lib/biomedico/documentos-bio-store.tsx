@@ -92,7 +92,7 @@ export function DocumentosBioProvider({ children }: { children: React.ReactNode 
   const [loading, setLoading] = useState(true);
 
   const fetchDocumentos = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
     const { data, error } = await dbDocumentosBiomedicos.list(tenantId);
     if (error) {

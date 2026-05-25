@@ -101,7 +101,7 @@ export function CalibracionesProvider({ children }: { children: React.ReactNode 
   const [loading, setLoading] = useState(true);
 
   const fetchCalibraciones = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
     const { data, error } = await dbCalibraciones.list(tenantId);
     if (error) {

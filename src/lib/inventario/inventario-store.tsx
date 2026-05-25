@@ -218,7 +218,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
     const [artRes, almRes, catRes, movRes] = await Promise.all([
       dbArticulos.list(tenantId),

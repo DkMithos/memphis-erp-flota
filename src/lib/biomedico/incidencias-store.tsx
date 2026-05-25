@@ -99,7 +99,7 @@ export function IncidenciasProvider({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true);
 
   const fetchIncidencias = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
     const { data, error } = await dbIncidencias.list(tenantId);
     if (error) {

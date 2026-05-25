@@ -73,13 +73,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Timeout de seguridad: si Supabase tarda >5s, desbloquear la app
+    // Timeout de seguridad: si Supabase tarda >10s, desbloquear la app
     const safetyTimer = setTimeout(() => {
       if (mounted && loading) {
         console.warn('[auth] getSession timeout — unblocking app');
         setLoading(false);
       }
-    }, 5000);
+    }, 10000);
 
     async function initAuth() {
       try {

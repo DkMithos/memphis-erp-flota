@@ -235,7 +235,11 @@ export function ProyectosProvider({ children }: { children: React.ReactNode }) {
   }, [tenantId]);
 
   useEffect(() => {
-    if (tenantId) refresh();
+    if (tenantId) {
+      refresh();
+    } else {
+      setLoading(false);
+    }
   }, [tenantId, refresh]);
 
   const crearProyecto = useCallback(async (data: Omit<ProyectoDB, 'id' | 'creado_en' | 'fases' | 'tareas' | 'miembros'>): Promise<Proyecto> => {

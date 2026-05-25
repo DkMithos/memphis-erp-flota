@@ -252,7 +252,7 @@ export function OTStoreProvider({ children }: { children: React.ReactNode }) {
   // --------------------------------------------------------------------------
 
   const fetchOrdenes = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
     try {
       const { data, error } = await supabase

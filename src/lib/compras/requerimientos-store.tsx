@@ -202,7 +202,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
 
   // Carga inicial desde Supabase
   const fetchRequerimientos = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
 
     const { data, error } = await dbRequerimientos.list();

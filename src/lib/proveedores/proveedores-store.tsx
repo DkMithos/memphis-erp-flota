@@ -216,7 +216,7 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
 
   // Carga inicial desde Supabase
   const fetchProveedores = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
 
     const { data, error } = await dbProveedores.list();

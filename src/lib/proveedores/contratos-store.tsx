@@ -127,7 +127,7 @@ export function ContratosProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchContratos = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
     const { data, error } = await dbContratos.list(tenantId);
     if (error) {

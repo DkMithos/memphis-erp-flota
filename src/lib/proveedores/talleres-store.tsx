@@ -124,7 +124,7 @@ export function TalleresProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchTalleres = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
     const { data, error } = await dbTalleres.list(tenantId);
     if (error) {

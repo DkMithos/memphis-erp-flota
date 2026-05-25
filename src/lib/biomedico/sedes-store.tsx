@@ -86,7 +86,7 @@ export function SedesStoreProvider({ children }: { children: React.ReactNode }) 
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
     try {
       const [rC, rS, rA] = await Promise.all([

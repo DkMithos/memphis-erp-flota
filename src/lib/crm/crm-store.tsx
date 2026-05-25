@@ -207,7 +207,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
     const [resClientes, resOpo, resAct] = await Promise.all([
       dbClientes.list(tenantId),

@@ -220,7 +220,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
   };
 
   const fetchCotizaciones = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
 
     const { data, error } = await dbCotizaciones.list();

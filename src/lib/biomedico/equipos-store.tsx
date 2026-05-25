@@ -246,7 +246,7 @@ export function EquiposStoreProvider({ children }: { children: React.ReactNode }
 
   // Carga inicial desde Supabase
   const fetchEquipos = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
 
     const { data, error } = await dbEquiposBiomedicos.list();

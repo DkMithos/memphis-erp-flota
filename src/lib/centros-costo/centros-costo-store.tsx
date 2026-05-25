@@ -73,7 +73,7 @@ export function CentrosCostoProvider({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(true);
 
   const fetchCentrosCosto = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
 
     const { data, error } = await dbCentrosCosto.listAll();
