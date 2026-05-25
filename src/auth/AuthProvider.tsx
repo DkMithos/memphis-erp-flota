@@ -73,13 +73,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Timeout de seguridad: si Supabase tarda >10s, desbloquear la app
-    const safetyTimer = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn('[auth] getSession timeout — unblocking app');
-        setLoading(false);
+    // Fallback: leer sesión directamente de localStorage cuando getSession() cuelga
+    function recoverSessionFromStorage() {
+      try {
+        // Buscar la key de Supabase en localStorage
+        const keys = Object.keys(localStorage);
+        const sbKey = keys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+        if (!sbKey) return null;
+        const raw = localStorage.getItem(sbKey);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.access_token || !parsed?.user) return null;
+        // Verificar que no esté expirado
+        const exp = parsed.expires_at;
+        if (exp && exp * 1000 < Date.now()) return null;
+        return parsed as Session;
+      } catch {
+        return null;
       }
-    }, 10000);
+    }
+
+    // Timeout de seguridad: si Supabase tarda >5s, intentar recuperar de localStorage
+    const safetyTimer = setTimeout(async () => {
+      if (mounted && loading) {
+        console.warn('[auth] getSession timeout — recuperando sesión de localStorage');
+        const recovered = recoverSessionFromStorage();
+        if (recovered?.user) {
+          console.log('[auth] Sesión recuperada de localStorage para', recovered.user.email);
+          setSession(recovered as any);
+          await loadProfile(recovered.user.id);
+        }
+        if (mounted) setLoading(false);
+      }
+    }, 5000);
 
     async function initAuth() {
       try {
