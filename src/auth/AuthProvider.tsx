@@ -48,16 +48,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setProfile(data);
       profileLoadedRef.current = true;
-      // Cargar nombre del tenant
+      // Cargar nombre del tenant (query resiliente — no bloquea auth si falla)
       if (data?.tenant_id) {
-        const { data: tenantData } = await supabase
-          .from("tenants")
-          .select("nombre, logo_url, primary_color")
-          .eq("id", data.tenant_id)
-          .single();
-        setTenantName(tenantData?.nombre ?? null);
-        setTenantLogoUrl((tenantData as any)?.logo_url ?? null);
-        setTenantColor((tenantData as any)?.primary_color ?? null);
+        try {
+          // Intentar con logo_url primero
+          let tenantResult = await supabase
+            .from("tenants")
+            .select("nombre, logo_url")
+            .eq("id", data.tenant_id)
+            .single();
+          // Si falla (columna no existe), reintentar solo con nombre
+          if (tenantResult.error) {
+            console.warn('[auth] Tenant query con logo_url falló, reintentando sin logo_url:', tenantResult.error.message);
+            tenantResult = await supabase
+              .from("tenants")
+              .select("nombre")
+              .eq("id", data.tenant_id)
+              .single();
+          }
+          if (tenantResult.data) {
+            setTenantName(tenantResult.data.nombre ?? null);
+            setTenantLogoUrl((tenantResult.data as any)?.logo_url ?? null);
+          }
+          setTenantColor(null);
+        } catch (tenantErr) {
+          console.warn('[auth] Error cargando tenant (no bloquea auth):', tenantErr);
+          setTenantColor(null);
+        }
       }
     } catch (err) {
       console.error('[auth.loadProfile] Unexpected error:', err);
@@ -105,19 +122,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profileLoadedRef.current = true;
       console.log('[auth] Profile cargado via fetch directo:', profileData.full_name || userId);
 
-      // Cargar tenant
+      // Cargar tenant (resiliente — no bloquea auth si falla)
       if (profileData?.tenant_id) {
-        const tenantRes = await fetch(
-          `${url}/rest/v1/tenants?id=eq.${profileData.tenant_id}&select=nombre,logo_url,primary_color`,
-          { headers, method: 'GET' }
-        );
-        if (tenantRes.ok) {
-          const tenants = await tenantRes.json();
-          if (tenants && tenants.length > 0) {
-            setTenantName(tenants[0]?.nombre ?? null);
-            setTenantLogoUrl(tenants[0]?.logo_url ?? null);
-            setTenantColor(tenants[0]?.primary_color ?? null);
+        try {
+          let tenantRes = await fetch(
+            `${url}/rest/v1/tenants?id=eq.${profileData.tenant_id}&select=nombre,logo_url`,
+            { headers, method: 'GET' }
+          );
+          // Si falla (columna logo_url no existe o RLS), reintentar solo con nombre
+          if (!tenantRes.ok) {
+            console.warn('[auth] Tenant fetch con logo_url falló (status', tenantRes.status, '), reintentando sin logo_url');
+            tenantRes = await fetch(
+              `${url}/rest/v1/tenants?id=eq.${profileData.tenant_id}&select=nombre`,
+              { headers, method: 'GET' }
+            );
           }
+          if (tenantRes.ok) {
+            const tenants = await tenantRes.json();
+            if (tenants && tenants.length > 0) {
+              setTenantName(tenants[0]?.nombre ?? null);
+              setTenantLogoUrl(tenants[0]?.logo_url ?? null);
+              setTenantColor(null);
+            }
+          } else {
+            console.warn('[auth] Tenant fetch falló completamente (no bloquea auth)');
+          }
+        } catch (tenantErr) {
+          console.warn('[auth] Error cargando tenant via fetch (no bloquea auth):', tenantErr);
         }
       }
     } catch (err) {
@@ -159,11 +190,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (mounted && loading) {
         console.warn('[auth] getSession timeout — recuperando sesión de localStorage');
         const recovered = recoverSessionFromStorage();
-        if (recovered?.user) {
+        if (recovered?.user && recovered.access_token && recovered.refresh_token) {
           console.log('[auth] Sesión recuperada de localStorage para', recovered.user.email);
-          setSession(recovered as any);
-          // Usar fetch directo porque supabase client también cuelga (navigator.locks)
-          await loadProfileDirect(recovered.user.id, recovered.access_token);
+
+          // CRÍTICO: setear la sesión en el Supabase client para que los queries posteriores
+          // tengan el token de auth (RLS). Sin esto, supabase.from() no tiene autenticación.
+          try {
+            const { error: setErr } = await supabase.auth.setSession({
+              access_token: recovered.access_token,
+              refresh_token: recovered.refresh_token,
+            });
+            if (setErr) {
+              console.warn('[auth] setSession falló, usando fetch directo:', setErr.message);
+              // Si setSession falla (navigator.locks), usar fetch directo como fallback
+              setSession(recovered as any);
+              await loadProfileDirect(recovered.user.id, recovered.access_token);
+            } else {
+              console.log('[auth] Sesión restaurada en Supabase client exitosamente');
+              // setSession + loadProfile se manejarán via onAuthStateChange callback
+              // pero seteamos manualmente por si el callback no dispara
+              setSession(recovered as any);
+              await loadProfile(recovered.user.id);
+            }
+          } catch (setSessionErr) {
+            console.warn('[auth] setSession excepción, usando fetch directo:', setSessionErr);
+            setSession(recovered as any);
+            await loadProfileDirect(recovered.user.id, recovered.access_token);
+          }
         }
         if (mounted) setLoading(false);
       }
