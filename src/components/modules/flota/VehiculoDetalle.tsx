@@ -37,6 +37,7 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
   const { ordenes } = useOTStore();
   const vehiculo = obtenerVehiculo(vehiculoId);
 
+  const [activeTab, setActiveTab] = useState(initialTab ?? 'documentos');
   const [dialogInactivarOpen, setDialogInactivarOpen] = useState(false);
   const [dialogActivarOpen, setDialogActivarOpen] = useState(false);
   const [motivoInactivacion, setMotivoInactivacion] = useState('');
@@ -181,7 +182,10 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => {
+            setActiveTab('documentos');
+            document.getElementById('vehiculo-tabs')?.scrollIntoView({ behavior: 'smooth' });
+          }}>
             <FileText className="size-4" />
             Documentos
           </Button>
@@ -423,7 +427,7 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
       })()}
 
       {/* Tabs */}
-      <Tabs defaultValue={initialTab ?? "documentos"} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4" id="vehiculo-tabs">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
           <TabsTrigger value="contrato">Contrato</TabsTrigger>
