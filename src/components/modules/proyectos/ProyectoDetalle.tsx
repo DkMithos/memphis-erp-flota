@@ -375,70 +375,84 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
 
   const [proyecto, setProyecto] = useState<Proyecto | null>(null);
   const [loadingDetalle, setLoadingDetalle] = useState(true);
+  const [errorDetalle, setErrorDetalle] = useState<string | null>(null);
 
   // Load full project details from DB (with fases, tareas, miembros)
   useEffect(() => {
     let mounted = true;
+
+    // Helper: build a Proyecto from raw DB row
+    function mapRawToProyecto(data: any): Proyecto {
+      const fases = ((data as any).fases ?? []).sort((a: any, b: any) => (a.orden ?? 0) - (b.orden ?? 0));
+      const tareas = (data as any).tareas ?? [];
+      const miembros = (data as any).miembros ?? [];
+
+      const hoy = new Date();
+      let diasRestantes: number | undefined;
+      let estaRetrasado = false;
+      if (data.fecha_fin_estimada) {
+        const fin = new Date(data.fecha_fin_estimada);
+        const diff = Math.ceil((fin.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+        diasRestantes = diff;
+        estaRetrasado = diff < 0 && data.estado !== 'completado' && data.estado !== 'cancelado';
+      }
+
+      const mappedFases: Fase[] = fases.map((f: any) => ({
+        _dbId: f.id, proyectoDbId: f.proyecto_id,
+        nombre: f.nombre, descripcion: f.descripcion ?? undefined, orden: f.orden,
+        estado: f.estado, fechaInicio: f.fecha_inicio ?? undefined, fechaFin: f.fecha_fin ?? undefined,
+        porcentajeAvance: f.porcentaje_avance,
+      }));
+      const mappedTareas: Tarea[] = tareas.map((t: any) => ({
+        _dbId: t.id, proyectoDbId: t.proyecto_id, faseDbId: t.fase_id ?? undefined,
+        titulo: t.titulo, descripcion: t.descripcion ?? undefined,
+        estado: t.estado, prioridad: t.prioridad, asignadoA: t.asignado_a ?? undefined,
+        fechaInicio: t.fecha_inicio ?? undefined, fechaVencimiento: t.fecha_vencimiento ?? undefined,
+        fechaCompletada: t.fecha_completada ?? undefined, estimacionHoras: t.estimacion_horas ?? undefined,
+        horasReales: t.horas_reales ?? undefined, orden: t.orden,
+      }));
+      const mappedMiembros: MiembroProyecto[] = miembros.map((m: any) => ({
+        _dbId: m.id, proyectoDbId: m.proyecto_id, userId: m.user_id ?? undefined,
+        nombre: m.nombre, rol: m.rol, horasAsignadas: m.horas_asignadas ?? undefined,
+      }));
+
+      return {
+        _dbId: data.id, id: data.codigo, nombre: data.nombre,
+        descripcion: data.descripcion ?? undefined, tipo: data.tipo, estado: data.estado,
+        prioridad: data.prioridad, fechaInicio: data.fecha_inicio ?? undefined,
+        fechaFinEstimada: data.fecha_fin_estimada ?? undefined, fechaFinReal: data.fecha_fin_real ?? undefined,
+        presupuesto: data.presupuesto ?? undefined, costoReal: data.costo_real ?? undefined,
+        moneda: data.moneda, gerenteProyecto: data.gerente_proyecto ?? undefined,
+        porcentajeAvance: data.porcentaje_avance, creadoEn: data.creado_en,
+        fases: mappedFases, tareas: mappedTareas, miembros: mappedMiembros,
+        tareasTotal: mappedTareas.length,
+        tareasCompletadas: mappedTareas.filter(t => t.estado === 'completada').length,
+        diasRestantes, estaRetrasado,
+      };
+    }
+
     async function loadDetails() {
       setLoadingDetalle(true);
+      setErrorDetalle(null);
       try {
-        const { data, error } = await dbProyectos.getWithDetails(proyectoDbId);
-        if (error || !data) throw error ?? new Error('Not found');
+        // Add timeout to prevent hanging forever
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout cargando proyecto')), 10000)
+        );
+        const queryPromise = dbProyectos.getWithDetails(proyectoDbId);
+        const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+        if (error || !data) throw error ?? new Error('Proyecto no encontrado');
         if (!mounted) return;
-        // map inline to reuse logic from store mappers
-        const fases = ((data as any).fases ?? []).sort((a: any, b: any) => a.orden - b.orden);
-        const tareas = (data as any).tareas ?? [];
-        const miembros = (data as any).miembros ?? [];
-
-        const storeItem = proyectos.find(p => p._dbId === proyectoDbId);
-
-        const hoy = new Date();
-        let diasRestantes: number | undefined;
-        let estaRetrasado = false;
-        if (data.fecha_fin_estimada) {
-          const fin = new Date(data.fecha_fin_estimada);
-          const diff = Math.ceil((fin.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
-          diasRestantes = diff;
-          estaRetrasado = diff < 0 && data.estado !== 'completado' && data.estado !== 'cancelado';
-        }
-
-        const mappedFases: Fase[] = fases.map((f: any) => ({
-          _dbId: f.id, proyectoDbId: f.proyecto_id,
-          nombre: f.nombre, descripcion: f.descripcion ?? undefined, orden: f.orden,
-          estado: f.estado, fechaInicio: f.fecha_inicio ?? undefined, fechaFin: f.fecha_fin ?? undefined,
-          porcentajeAvance: f.porcentaje_avance,
-        }));
-        const mappedTareas: Tarea[] = tareas.map((t: any) => ({
-          _dbId: t.id, proyectoDbId: t.proyecto_id, faseDbId: t.fase_id ?? undefined,
-          titulo: t.titulo, descripcion: t.descripcion ?? undefined,
-          estado: t.estado, prioridad: t.prioridad, asignadoA: t.asignado_a ?? undefined,
-          fechaInicio: t.fecha_inicio ?? undefined, fechaVencimiento: t.fecha_vencimiento ?? undefined,
-          fechaCompletada: t.fecha_completada ?? undefined, estimacionHoras: t.estimacion_horas ?? undefined,
-          horasReales: t.horas_reales ?? undefined, orden: t.orden,
-        }));
-        const mappedMiembros: MiembroProyecto[] = miembros.map((m: any) => ({
-          _dbId: m.id, proyectoDbId: m.proyecto_id, userId: m.user_id ?? undefined,
-          nombre: m.nombre, rol: m.rol, horasAsignadas: m.horas_asignadas ?? undefined,
-        }));
-
-        const full: Proyecto = {
-          _dbId: data.id, id: data.codigo, nombre: data.nombre,
-          descripcion: data.descripcion ?? undefined, tipo: data.tipo, estado: data.estado,
-          prioridad: data.prioridad, fechaInicio: data.fecha_inicio ?? undefined,
-          fechaFinEstimada: data.fecha_fin_estimada ?? undefined, fechaFinReal: data.fecha_fin_real ?? undefined,
-          presupuesto: data.presupuesto ?? undefined, costoReal: data.costo_real ?? undefined,
-          moneda: data.moneda, gerenteProyecto: data.gerente_proyecto ?? undefined,
-          porcentajeAvance: data.porcentaje_avance, creadoEn: data.creado_en,
-          fases: mappedFases, tareas: mappedTareas, miembros: mappedMiembros,
-          tareasTotal: mappedTareas.length,
-          tareasCompletadas: mappedTareas.filter(t => t.estado === 'completada').length,
-          diasRestantes, estaRetrasado,
-        };
-        setProyecto(full);
-      } catch {
+        setProyecto(mapRawToProyecto(data));
+      } catch (e: unknown) {
+        console.warn('[ProyectoDetalle] Error loading details:', e);
         // fallback to store version if DB load fails
         const storeItem = proyectos.find(p => p._dbId === proyectoDbId);
-        if (storeItem) setProyecto(storeItem);
+        if (storeItem) {
+          setProyecto(storeItem);
+        } else {
+          setErrorDetalle(e instanceof Error ? e.message : 'Error cargando proyecto');
+        }
       } finally {
         if (mounted) setLoadingDetalle(false);
       }
@@ -529,7 +543,14 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <FolderKanban className="size-12 mx-auto mb-3 opacity-30" />
-        <p>Proyecto no encontrado</p>
+        {errorDetalle ? (
+          <>
+            <p className="text-red-500 mb-1">Error: {errorDetalle}</p>
+            <p className="text-sm">Intenta recargar la página o vuelve a iniciar sesión.</p>
+          </>
+        ) : (
+          <p>Proyecto no encontrado</p>
+        )}
         <Button className="mt-4" onClick={onBack}>Volver</Button>
       </div>
     );
