@@ -1,337 +1,285 @@
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  ShoppingCart, 
-  Package, 
+/**
+ * Memphis ERP — Dashboard Principal
+ * Resumen ejecutivo con datos reales desde Supabase
+ */
+import { useEffect, useState } from 'react';
+import {
+  Truck,
+  ShoppingCart,
+  Package,
   AlertTriangle,
   FolderKanban,
   DollarSign,
-  Users,
+  Stethoscope,
   ArrowUpRight,
-  Clock
+  Loader2,
+  Activity,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts';
+import { supabase } from '../../lib/supabase/client';
+import { useAuth } from '../../auth/AuthProvider';
 
-const comprasData = [
-  { mes: 'Ene', monto: 45000 },
-  { mes: 'Feb', monto: 52000 },
-  { mes: 'Mar', monto: 48000 },
-  { mes: 'Abr', monto: 61000 },
-  { mes: 'May', monto: 55000 },
-  { mes: 'Jun', monto: 67000 }
-];
+interface DashboardProps {
+  onNavigate?: (route: string) => void;
+}
 
-const presupuestoData = [
-  { name: 'Ejecutado', value: 65, color: '#0A66C2' },
-  { name: 'Disponible', value: 35, color: '#E5E7EB' }
-];
+interface DashboardKPIs {
+  vehiculosActivos: number;
+  vehiculosTotal: number;
+  otsPendientes: number;
+  equiposBio: number;
+  proyectosActivos: number;
+  proveedoresActivos: number;
+  ordenesCompraPendientes: number;
+  requerimientosPendientes: number;
+}
 
-const actividadesRecientes = [
-  {
-    id: 1,
-    tipo: 'OC Aprobada',
-    descripcion: 'Orden de Compra #OC-2024-0156',
-    usuario: 'María García',
-    tiempo: 'Hace 15 min',
-    estado: 'success'
-  },
-  {
-    id: 2,
-    tipo: 'Requerimiento',
-    descripcion: 'Nueva solicitud de materiales médicos',
-    usuario: 'Carlos López',
-    tiempo: 'Hace 1 hora',
-    estado: 'pending'
-  },
-  {
-    id: 3,
-    tipo: 'Stock Crítico',
-    descripcion: 'Alerta: 5 productos bajo stock mínimo',
-    usuario: 'Sistema',
-    tiempo: 'Hace 2 horas',
-    estado: 'warning'
-  },
-  {
-    id: 4,
-    tipo: 'Cotización',
-    descripción: 'Cotización enviada - Proveedor ABC SAC',
-    usuario: 'Ana Martínez',
-    tiempo: 'Hace 3 horas',
-    estado: 'info'
-  },
-  {
-    id: 5,
-    tipo: 'Proyecto',
-    descripcion: 'Actualización: Proyecto Hospital Regional',
-    usuario: 'José Torres',
-    tiempo: 'Hace 4 horas',
-    estado: 'info'
+interface ProyectoResumen {
+  id: string;
+  codigo: string;
+  nombre: string;
+  estado: string;
+  porcentajeAvance: number;
+  presupuesto: number;
+  costoReal: number;
+}
+
+export function Dashboard({ onNavigate }: DashboardProps) {
+  const { tenantId } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [kpis, setKpis] = useState<DashboardKPIs>({
+    vehiculosActivos: 0, vehiculosTotal: 0, otsPendientes: 0,
+    equiposBio: 0, proyectosActivos: 0, proveedoresActivos: 0,
+    ordenesCompraPendientes: 0, requerimientosPendientes: 0,
+  });
+  const [proyectos, setProyectos] = useState<ProyectoResumen[]>([]);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    const cargar = async () => {
+      setLoading(true);
+      try {
+        // Parallel queries for all KPIs
+        const [
+          vehRes, otsRes, eqRes, proyRes, provRes, ocRes, reqRes
+        ] = await Promise.all([
+          supabase.from('vehiculos').select('estado', { count: 'exact', head: false }),
+          supabase.from('ordenes_trabajo').select('id', { count: 'exact', head: true }).in('estado', ['abierta', 'en_progreso', 'pendiente']),
+          supabase.from('equipos_biomedicos').select('id', { count: 'exact', head: true }),
+          supabase.from('proyectos').select('id, codigo, nombre, estado, porcentaje_avance, presupuesto, costo_real').order('creado_en', { ascending: false }).limit(5),
+          supabase.from('proveedores').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
+          supabase.from('ordenes_compra').select('id', { count: 'exact', head: true }).in('estado', ['borrador', 'pendiente', 'aprobada']),
+          supabase.from('requerimientos_compra').select('id', { count: 'exact', head: true }).in('estado', ['borrador', 'pendiente', 'aprobado']),
+        ]);
+
+        const vehiculos = vehRes.data ?? [];
+        const vehiculosActivos = vehiculos.filter((v: any) => v.estado === 'activo').length;
+
+        setKpis({
+          vehiculosActivos,
+          vehiculosTotal: vehiculos.length,
+          otsPendientes: otsRes.count ?? 0,
+          equiposBio: eqRes.count ?? 0,
+          proyectosActivos: (proyRes.data ?? []).filter((p: any) => p.estado === 'en_ejecucion' || p.estado === 'planificacion').length,
+          proveedoresActivos: provRes.count ?? 0,
+          ordenesCompraPendientes: ocRes.count ?? 0,
+          requerimientosPendientes: reqRes.count ?? 0,
+        });
+
+        setProyectos((proyRes.data ?? []).map((p: any) => ({
+          id: p.id,
+          codigo: p.codigo,
+          nombre: p.nombre,
+          estado: p.estado,
+          porcentajeAvance: p.porcentaje_avance ?? 0,
+          presupuesto: p.presupuesto ?? 0,
+          costoReal: p.costo_real ?? 0,
+        })));
+      } catch (e) {
+        console.error('[Dashboard] Error cargando KPIs:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    cargar();
+  }, [tenantId]);
+
+  const estadoBadge = (estado: string) => {
+    const map: Record<string, string> = {
+      en_ejecucion: 'En Ejecución',
+      planificacion: 'Planificación',
+      completado: 'Completado',
+      cancelado: 'Cancelado',
+      suspendido: 'Suspendido',
+    };
+    return map[estado] ?? estado;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
-];
 
-const proyectosActivos = [
-  {
-    id: 1,
-    nombre: 'Implementación Hospital Regional',
-    progreso: 75,
-    presupuesto: 450000,
-    gastado: 337500,
-    estado: 'En Curso'
-  },
-  {
-    id: 2,
-    nombre: 'Modernización Centro Médico',
-    progreso: 45,
-    presupuesto: 280000,
-    gastado: 126000,
-    estado: 'En Curso'
-  },
-  {
-    id: 3,
-    nombre: 'Equipamiento Laboratorio',
-    progreso: 90,
-    presupuesto: 180000,
-    gastado: 162000,
-    estado: 'Cierre'
-  }
-];
-
-export function Dashboard() {
   return (
     <div className="space-y-6">
-      {/* Banner de datos demo */}
-      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3 flex items-center gap-3">
-        <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400 shrink-0" />
-        <p className="text-sm text-amber-700 dark:text-amber-300">
-          <strong>Vista previa:</strong> Este dashboard muestra datos de demostración. Los datos reales se cargarán conforme se registren operaciones en el sistema.
-        </p>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold">Dashboard General</h1>
+        <p className="text-muted-foreground">Resumen ejecutivo del sistema</p>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate?.('/flota')}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Órdenes Pendientes</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">Flota Vehicular</CardTitle>
+            <Truck className="size-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{kpis.vehiculosActivos}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              vehículos activos de {kpis.vehiculosTotal} total
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate?.('/flota/mantenimientos')}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm text-muted-foreground">OTs Pendientes</CardTitle>
+            <Activity className="size-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{kpis.otsPendientes}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              órdenes de trabajo abiertas
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate?.('/proyectos')}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Proyectos Activos</CardTitle>
+            <FolderKanban className="size-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{kpis.proyectosActivos}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              en ejecución o planificación
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate?.('/biomedico')}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Equipos Biomédicos</CardTitle>
+            <Stethoscope className="size-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{kpis.equiposBio}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              equipos registrados
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Second row KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate?.('/compras')}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm text-muted-foreground">OC Pendientes</CardTitle>
             <ShoppingCart className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">24</div>
-            <div className="flex items-center text-xs text-green-600 mt-1">
-              <TrendingDown className="size-3" />
-              <span>12% menos que el mes anterior</span>
-            </div>
+            <div className="text-2xl font-semibold">{kpis.ordenesCompraPendientes}</div>
+            <p className="text-xs text-muted-foreground mt-1">órdenes de compra por procesar</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate?.('/compras/requerimientos')}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Stock Crítico</CardTitle>
-            <AlertTriangle className="size-4 text-yellow-600" />
+            <CardTitle className="text-sm text-muted-foreground">Requerimientos</CardTitle>
+            <Package className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">5</div>
-            <div className="flex items-center text-xs text-yellow-600 mt-1">
-              <TrendingUp className="size-3" />
-              <span>Requiere atención inmediata</span>
-            </div>
+            <div className="text-2xl font-semibold">{kpis.requerimientosPendientes}</div>
+            <p className="text-xs text-muted-foreground mt-1">pendientes de atención</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate?.('/proveedores')}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Proyectos Activos</CardTitle>
-            <FolderKanban className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">12</div>
-            <div className="flex items-center text-xs text-green-600 mt-1">
-              <TrendingUp className="size-3" />
-              <span>3 nuevos este mes</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Presupuesto Mensual</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">Proveedores</CardTitle>
             <DollarSign className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">S/ 67,000</div>
-            <div className="flex items-center text-xs text-muted-foreground mt-1">
-              <span>65% ejecutado del total</span>
-            </div>
+            <div className="text-2xl font-semibold">{kpis.proveedoresActivos}</div>
+            <p className="text-xs text-muted-foreground mt-1">proveedores activos</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Alertas</CardTitle>
+            <AlertTriangle className="size-4 text-amber-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{kpis.otsPendientes > 0 ? kpis.otsPendientes : '—'}</div>
+            <p className="text-xs text-muted-foreground mt-1">requieren atención</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Gráfico de Compras */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Tendencia de Compras</CardTitle>
-            <p className="text-sm text-muted-foreground">Últimos 6 meses</p>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={comprasData}>
-                <defs>
-                  <linearGradient id="colorMonto" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0A66C2" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#0A66C2" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="mes" stroke="#6B7280" />
-                <YAxis stroke="#6B7280" />
-                <Tooltip />
-                <Area 
-                  type="monotone" 
-                  dataKey="monto" 
-                  stroke="#0A66C2" 
-                  fillOpacity={1} 
-                  fill="url(#colorMonto)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Ejecución Presupuestal */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Ejecución Presupuestal</CardTitle>
-            <p className="text-sm text-muted-foreground">Mes actual</p>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center mb-6">
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={presupuestoData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {presupuestoData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Ejecutado</span>
-                <span className="font-semibold">S/ 43,550</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Disponible</span>
-                <span className="font-semibold">S/ 23,450</span>
-              </div>
-              <div className="flex items-center justify-between pt-3 border-t">
-                <span className="text-sm text-muted-foreground">Total</span>
-                <span className="font-semibold">S/ 67,000</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Actividades Recientes */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Actividades Recientes</CardTitle>
-            <Button variant="ghost" size="sm">Ver todas</Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {actividadesRecientes.map((actividad) => (
-                <div key={actividad.id} className="flex items-start gap-3 pb-3 border-b last:border-0 last:pb-0">
-                  <div className="mt-1">
-                    {actividad.estado === 'success' && (
-                      <div className="size-2 rounded-full bg-green-500"></div>
-                    )}
-                    {actividad.estado === 'pending' && (
-                      <div className="size-2 rounded-full bg-blue-500"></div>
-                    )}
-                    {actividad.estado === 'warning' && (
-                      <div className="size-2 rounded-full bg-yellow-500"></div>
-                    )}
-                    {actividad.estado === 'info' && (
-                      <div className="size-2 rounded-full bg-gray-400"></div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{actividad.tipo}</p>
-                    <p className="text-sm text-muted-foreground truncate">{actividad.descripcion}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-muted-foreground">{actividad.usuario}</span>
-                      <span className="text-xs text-muted-foreground">•</span>
-                      <span className="text-xs text-muted-foreground">{actividad.tiempo}</span>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="size-8">
-                    <ArrowUpRight className="size-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Proyectos Activos */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Proyectos Activos</CardTitle>
-            <Button variant="ghost" size="sm">Ver todos</Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {proyectosActivos.map((proyecto) => (
-                <div key={proyecto.id} className="space-y-2">
+      {/* Proyectos recientes */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Proyectos Recientes</CardTitle>
+          <Button variant="ghost" size="sm" onClick={() => onNavigate?.('/proyectos/lista')}>
+            Ver todos
+            <ArrowUpRight className="size-4 ml-1" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {proyectos.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              No hay proyectos registrados aún.
+            </p>
+          ) : (
+            <div className="space-y-5">
+              {proyectos.map((p) => (
+                <div
+                  key={p.id}
+                  className="space-y-2 cursor-pointer hover:bg-muted/30 rounded-lg p-2 -mx-2 transition-colors"
+                  onClick={() => onNavigate?.(`/proyectos/detalle/${p.id}`)}
+                >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h4 className="font-medium text-sm">{proyecto.nombre}</h4>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        S/ {proyecto.gastado.toLocaleString()} de S/ {proyecto.presupuesto.toLocaleString()}
+                      <h4 className="font-medium text-sm">{p.nombre}</h4>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {p.codigo}
+                        {p.presupuesto > 0 && (
+                          <> · S/ {p.costoReal.toLocaleString('es-PE', { minimumFractionDigits: 0 })} de S/ {p.presupuesto.toLocaleString('es-PE', { minimumFractionDigits: 0 })}</>
+                        )}
                       </p>
                     </div>
-                    <Badge variant={proyecto.estado === 'En Curso' ? 'default' : 'secondary'}>
-                      {proyecto.estado}
+                    <Badge variant={p.estado === 'en_ejecucion' ? 'default' : 'secondary'}>
+                      {estadoBadge(p.estado)}
                     </Badge>
                   </div>
-                  <Progress value={proyecto.progreso} className="h-2" />
-                  <p className="text-xs text-muted-foreground">{proyecto.progreso}% completado</p>
+                  <Progress value={p.porcentajeAvance} className="h-2" />
+                  <p className="text-xs text-muted-foreground">{p.porcentajeAvance}% completado</p>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

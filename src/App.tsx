@@ -841,7 +841,7 @@ export default function App() {
       return <GestionUsuarios />;
     }
 
-    return <Dashboard />;
+    return <Dashboard onNavigate={navigateTo} />;
   };
 
   return (
