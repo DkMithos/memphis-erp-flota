@@ -18,6 +18,10 @@ build/
 pr_*.json
 pr_*.md
 
+# Claude Code (contiene tokens y configuración local)
+.claude/settings.local.json
+.claude/worktrees/
+
 # Editor
 .vscode/settings.json
 .vscode/launch.json
