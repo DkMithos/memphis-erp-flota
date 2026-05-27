@@ -16,8 +16,6 @@ import { Badge } from '../../ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Progress } from '../../ui/progress';
 import { Vehiculo } from '../../../lib/flota/vehiculos-config';
-import { useOTStore } from '../../../lib/flota/ot-store';
-import { useVehiculos } from '../../../lib/flota/vehiculos-store';
 import {
   calcMaintenanceStatusByKm,
   calcDocStatusByDate,
@@ -29,16 +27,12 @@ import {
 import { buildPreventivoCounters, getNextPreventivoProjection } from '../../../lib/flota/vehicle-lifecycle';
 
 interface VehiclePublicLifeSheetProps {
-  vehiculo?: Vehiculo; // Objeto vehículo directamente
-  vehiculoId?: string; // O ID para buscarlo
+  vehiculo: Vehiculo;
 }
 
-export function VehiclePublicLifeSheet({ vehiculo: vehiculoProp, vehiculoId }: VehiclePublicLifeSheetProps) {
-  const { ots } = useOTStore();
-  const { obtenerVehiculo } = useVehiculos();
-
-  // Obtener vehículo: usar prop directa o buscar por ID
-  const vehiculo = vehiculoProp || (vehiculoId ? obtenerVehiculo(vehiculoId) : undefined);
+export function VehiclePublicLifeSheet({ vehiculo }: VehiclePublicLifeSheetProps) {
+  // Vista pública: sin providers, sin stores — todo viene del prop
+  const ots: any[] = [];
 
   // Si no hay vehículo, mostrar error
   if (!vehiculo) {
