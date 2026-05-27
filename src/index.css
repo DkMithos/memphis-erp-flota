@@ -5,6 +5,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent scrollbar flicker when dialogs/dropdowns toggle overflow:hidden on body */
+html {
+  scrollbar-gutter: stable;
+}
+
 @layer properties {
   @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
     *, :before, :after, ::backdrop {

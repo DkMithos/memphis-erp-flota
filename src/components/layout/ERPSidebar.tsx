@@ -150,7 +150,6 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         { label: t('nav.sub.productos'), href: '/inventario/productos' },
         { label: t('nav.sub.almacenes'), href: '/inventario/almacenes' },
         { label: t('nav.sub.movimientos'), href: '/inventario/movimientos' },
-        { label: t('nav.sub.ordenes'), href: '/inventario/ordenes' },
         { label: t('nav.sub.stock_critico'), href: '/inventario/stock-critico' }
       ]
     },
@@ -219,11 +218,6 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
           label: t('nav.sub.mantenimientos'),
           href: '/flota/mantenimientos',
           id: 'flota-mantenimientos',
-        },
-        {
-          label: 'Por Proyecto',
-          href: '/flota/por-proyecto',
-          id: 'flota-por-proyecto',
         },
         {
           label: t('nav.sub.analisis_preventivo'),
@@ -403,13 +397,18 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
     if (moduleRoots.includes(subItemHref)) {
       return currentRoute === subItemHref || currentRoute === subItemHref + '/';
     }
+    // Detail routes: /proyectos/detalle/:id → highlight /proyectos/lista
+    if (subItemHref.endsWith('/lista') && currentRoute.includes('/detalle/')) {
+      const base = subItemHref.replace('/lista', '');
+      if (currentRoute.startsWith(base + '/detalle/')) return true;
+    }
     return currentRoute.startsWith(subItemHref + '/') || currentRoute === subItemHref;
   };
 
   return (
     <aside className="w-64 bg-card border-r border-border h-screen flex flex-col lg:fixed lg:left-0 lg:top-0 z-40">
-      {/* Logo — branding por TENANT (nombre e imagen del cliente) */}
-      <div className="h-16 flex items-center px-4 border-b border-border shrink-0">
+      {/* Logo — branding por TENANT (nombre e imagen del cliente) — click = home */}
+      <div className="h-16 flex items-center px-4 border-b border-border shrink-0 cursor-pointer" onClick={() => onNavigate('/home')}>
         <div className="flex items-center gap-3 min-w-0">
           {/* Logo del tenant si existe, sino ícono Memphis como fallback */}
           {tenantLogoUrl ? (
@@ -438,7 +437,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       <nav className="flex-1 overflow-y-auto py-4">
         <div className="px-3 space-y-1">
           {navItems.filter(item => {
-          if (item.id === 'admin') return true; // siempre visible
+          if (item.id === 'admin' || item.id === 'home') return true; // siempre visible
           const cfg = modulesConfig.find(m => m.id === item.id);
           return cfg?.enabled ?? item.id === 'dashboard';
         }).map((item) => (

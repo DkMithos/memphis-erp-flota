@@ -6,6 +6,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { dbProveedores } from '../supabase/helpers';
+import { supabase } from '../supabase/client';
 import { useAuth } from '../../auth/AuthProvider';
 import type { Proveedor as ProveedorDB } from '../supabase/types';
 import {
@@ -123,6 +124,15 @@ export interface NuevoProveedorInput {
 
 export interface ActualizarProveedorInput extends Partial<NuevoProveedorInput> {}
 
+// Categorías de proveedor (CRUD dinámico desde DB)
+export interface CategoriaConfig {
+  key: string;
+  label: string;
+  activo: boolean;
+  orden: number;
+  _dbId?: string;
+}
+
 interface CrudResult {
   exito: boolean;
   errores?: string[];
@@ -139,6 +149,11 @@ interface ProveedorStoreContext {
   activarProveedor: (id: string) => Promise<CrudResult>;
   aprobarProveedor: (id: string) => Promise<CrudResult>;
   rechazarProveedor: (id: string, motivo: string) => Promise<CrudResult>;
+  // Categorías CRUD
+  categorias: CategoriaConfig[];
+  crearCategoria: (input: Omit<CategoriaConfig, '_dbId'>) => Promise<void>;
+  actualizarCategoria: (key: string, input: Partial<CategoriaConfig>) => Promise<void>;
+  eliminarCategoria: (key: string) => Promise<void>;
 }
 
 // ============================================================================
@@ -213,6 +228,22 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
   const proveedoresRef = useRef(proveedores);
   useEffect(() => { proveedoresRef.current = proveedores; }, [proveedores]);
   const [loading, setLoading] = useState(true);
+  const [categorias, setCategorias] = useState<CategoriaConfig[]>([]);
+
+  // Carga categorías desde Supabase
+  const fetchCategorias = useCallback(async () => {
+    if (!tenantId) return;
+    const { data, error } = await supabase
+      .from('categorias_proveedor')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('orden', { ascending: true });
+    if (error) {
+      console.error('[PROVEEDORES] Error al cargar categorías:', error.message);
+    } else if (data) {
+      setCategorias(data.map((r: any) => ({ key: r.key, label: r.label, activo: r.activo, orden: r.orden, _dbId: r.id })));
+    }
+  }, [tenantId]);
 
   // Carga inicial desde Supabase
   const fetchProveedores = useCallback(async () => {
@@ -235,7 +266,8 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetchProveedores();
-  }, [fetchProveedores]);
+    fetchCategorias();
+  }, [fetchProveedores, fetchCategorias]);
 
   // ============================================================================
   // QUERIES (síncronas — operan sobre estado local ya cargado)
@@ -521,6 +553,45 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
   };
 
   // ============================================================================
+  // CATEGORÍAS CRUD
+  // ============================================================================
+
+  const crearCategoriaFn = async (input: Omit<CategoriaConfig, '_dbId'>) => {
+    if (!tenantId) throw new Error('Sin tenant');
+    const { error } = await supabase.from('categorias_proveedor').insert({
+      tenant_id: tenantId,
+      key: input.key,
+      label: input.label,
+      activo: input.activo,
+      orden: input.orden,
+    });
+    if (error) throw error;
+    await fetchCategorias();
+  };
+
+  const actualizarCategoriaFn = async (key: string, input: Partial<CategoriaConfig>) => {
+    if (!tenantId) throw new Error('Sin tenant');
+    const cat = categorias.find(c => c.key === key);
+    if (!cat?._dbId) throw new Error('Categoría no encontrada');
+    const payload: Record<string, any> = {};
+    if (input.label !== undefined) payload.label = input.label;
+    if (input.activo !== undefined) payload.activo = input.activo;
+    if (input.orden !== undefined) payload.orden = input.orden;
+    const { error } = await supabase.from('categorias_proveedor').update(payload).eq('id', cat._dbId);
+    if (error) throw error;
+    await fetchCategorias();
+  };
+
+  const eliminarCategoriaFn = async (key: string) => {
+    if (!tenantId) throw new Error('Sin tenant');
+    const cat = categorias.find(c => c.key === key);
+    if (!cat?._dbId) throw new Error('Categoría no encontrada');
+    const { error } = await supabase.from('categorias_proveedor').delete().eq('id', cat._dbId);
+    if (error) throw error;
+    await fetchCategorias();
+  };
+
+  // ============================================================================
   // CONTEXT VALUE
   // ============================================================================
 
@@ -535,6 +606,10 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
     activarProveedor,
     aprobarProveedor,
     rechazarProveedor,
+    categorias,
+    crearCategoria: crearCategoriaFn,
+    actualizarCategoria: actualizarCategoriaFn,
+    eliminarCategoria: eliminarCategoriaFn,
   };
 
   return <ProveedorContext.Provider value={value}>{children}</ProveedorContext.Provider>;

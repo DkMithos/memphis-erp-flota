@@ -162,7 +162,7 @@ export function ProyectosDashboard({ onNavigate }: Props) {
                       size="sm"
                       variant="ghost"
                       className="h-6 text-xs"
-                      onClick={() => onNavigate?.(`/proyectos/lista`)}
+                      onClick={() => onNavigate?.(`/proyectos/detalle/${p._dbId}`)}
                     >
                       Ver
                     </Button>
@@ -256,7 +256,7 @@ export function ProyectosDashboard({ onNavigate }: Props) {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => onNavigate?.('/proyectos/lista')}
+                          onClick={() => onNavigate?.(`/proyectos/detalle/${p._dbId}`)}
                         >
                           Ver
                         </Button>

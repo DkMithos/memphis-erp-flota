@@ -229,7 +229,7 @@ export function CRMActividades({ onNavigate: _onNavigate }: Props) {
       {/* Filtros */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input placeholder="Buscar..." className="pl-8" value={busqueda} onChange={e => setBusqueda(e.target.value)} />
         </div>
         <Select value={filtroTipo} onValueChange={setFiltroTipo}>

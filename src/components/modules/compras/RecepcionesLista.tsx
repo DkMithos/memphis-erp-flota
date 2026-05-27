@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { usePagination } from '../../../lib/shared/usePagination';
-import { Package, Search, Filter, Download, Eye } from 'lucide-react';
+import { Package, Search, Filter, Download, Eye, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -70,10 +70,16 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
           </div>
         </div>
 
-        <Button variant="outline">
-          <Download className="size-4" />
-          Exportar
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => onNavigate?.('/compras/recepciones/nuevo')}>
+            <Plus className="size-4" />
+            Nueva Recepción
+          </Button>
+          <Button variant="outline">
+            <Download className="size-4" />
+            Exportar
+          </Button>
+        </div>
       </div>
 
       {/* Stats KPI */}

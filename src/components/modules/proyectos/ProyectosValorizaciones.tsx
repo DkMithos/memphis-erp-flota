@@ -43,17 +43,17 @@ export function ProyectosValorizaciones({ onNavigate }: ValorizacionesProps) {
       try {
         const { data, error } = await supabase
           .from('proyectos')
-          .select('id, nombre, codigo, presupuesto, costo_real, avance_pct, estado, fecha_inicio, fecha_fin')
+          .select('id, nombre, codigo, presupuesto, costo_real, porcentaje_avance, estado, fecha_inicio, fecha_fin_estimada')
           .order('nombre');
         if (error) throw error;
         setProyectos((data ?? []).map((p: any) => ({
           id: p.id, nombre: p.nombre, codigo: p.codigo,
           presupuesto: p.presupuesto ?? 0,
           costoReal: p.costo_real ?? 0,
-          avancePct: p.avance_pct ?? 0,
+          avancePct: p.porcentaje_avance ?? 0,
           estado: p.estado,
           fechaInicio: p.fecha_inicio,
-          fechaFin: p.fecha_fin,
+          fechaFin: p.fecha_fin_estimada,
         })));
       } catch (e: any) {
         toast.error('Error al cargar valorizaciones');
