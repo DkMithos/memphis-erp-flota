@@ -2,7 +2,8 @@
  * Memphis ERP - Flota → Reportes → Mantenimientos
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { usePagination } from '../../../../lib/shared/usePagination';
 import {
   Wrench,
   Download,
@@ -70,6 +71,9 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
   const kpis = useMemo(() => {
     return calcOTsReportKPIs(rows);
   }, [rows]);
+
+  const { paged: rowsPaged, page, totalPages, setPage, reset: resetPage } = usePagination(rows, 20);
+  useEffect(() => { resetPage(); }, [rows]);
 
   // Handlers
   const handleFilterChange = (key: keyof OTsReportFilters, value: any) => {
@@ -432,7 +436,7 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((row, idx) => (
+                  {rowsPaged.map((row, idx) => (
                     <TableRow key={idx}>
                       <TableCell className="font-medium">{row.numeroOT}</TableCell>
                       <TableCell>{row.placa}</TableCell>
@@ -478,6 +482,17 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
                   ))}
                 </TableBody>
               </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-2 py-3 border-t">
+                  <span className="text-sm text-muted-foreground">
+                    Mostrando {((page - 1) * 20) + 1}-{Math.min(page * 20, rows.length)} de {rows.length} registros
+                  </span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</Button>
+                    <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>Siguiente</Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

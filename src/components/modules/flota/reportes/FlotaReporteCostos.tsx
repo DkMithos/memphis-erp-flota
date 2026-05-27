@@ -3,7 +3,8 @@
  * Muestra costo acumulado de mantenimiento, depreciación y saldo por cada vehículo
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { usePagination } from '../../../../lib/shared/usePagination';
 import {
   DollarSign, Download, ArrowLeft, Filter, TrendingDown, Car,
 } from 'lucide-react';
@@ -116,6 +117,9 @@ export function FlotaReporteCostos({ onNavigate }: FlotaReporteCostosProps) {
 
   const pctTotal = totales.costoContratado > 0
     ? Math.round((totales.costoConsumido / totales.costoContratado) * 100) : 0;
+
+  const { paged: filasPaged, page, totalPages, setPage, reset: resetPage } = usePagination(filas, 20);
+  useEffect(() => { resetPage(); }, [filas]);
 
   // Export CSV
   const handleExportCSV = () => {
@@ -279,7 +283,7 @@ export function FlotaReporteCostos({ onNavigate }: FlotaReporteCostosProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filas.map(f => (
+                {filasPaged.map(f => (
                   <TableRow
                     key={f.vehiculoId}
                     className="cursor-pointer hover:bg-muted/30"
@@ -349,6 +353,17 @@ export function FlotaReporteCostos({ onNavigate }: FlotaReporteCostosProps) {
                 </TableRow>
               </TableBody>
             </Table>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-2 py-3 border-t">
+                <span className="text-sm text-muted-foreground">
+                  Mostrando {((page - 1) * 20) + 1}-{Math.min(page * 20, filas.length)} de {filas.length} vehículos
+                </span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</Button>
+                  <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>Siguiente</Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

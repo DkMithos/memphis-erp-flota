@@ -2,7 +2,8 @@
  * KESA ERP - Flota → Reportes → Documentos
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { usePagination } from '../../../../lib/shared/usePagination';
 import {
   FileText,
   Download,
@@ -61,6 +62,9 @@ export function FlotaReporteDocumentos({ onNavigate }: FlotaReporteDocumentosPro
   const kpis = useMemo(() => {
     return calcDocumentosReportKPIs(rows);
   }, [rows]);
+
+  const { paged: rowsPaged, page, totalPages, setPage, reset: resetPage } = usePagination(rows, 20);
+  useEffect(() => { resetPage(); }, [rows]);
 
   // Handlers
   const handleFilterChange = (key: keyof DocumentosReportFilters, value: any) => {
@@ -322,7 +326,7 @@ export function FlotaReporteDocumentos({ onNavigate }: FlotaReporteDocumentosPro
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((row, idx) => {
+                  {rowsPaged.map((row, idx) => {
                     const badgeConfig = getEstadoDocumentoBadge(row.estado as 'vigente' | 'proximo' | 'vencido');
                     
                     return (
@@ -364,6 +368,17 @@ export function FlotaReporteDocumentos({ onNavigate }: FlotaReporteDocumentosPro
                   })}
                 </TableBody>
               </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-2 py-3 border-t">
+                  <span className="text-sm text-muted-foreground">
+                    Mostrando {((page - 1) * 20) + 1}-{Math.min(page * 20, rows.length)} de {rows.length} registros
+                  </span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</Button>
+                    <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>Siguiente</Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
