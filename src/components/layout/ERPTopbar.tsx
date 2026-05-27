@@ -295,7 +295,10 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive cursor-pointer"
-              onClick={() => signOut()}
+              onSelect={(e) => {
+                e.preventDefault();
+                signOut();
+              }}
             >
               <LogOut className="size-4" />
               {t('topbar.logout')}

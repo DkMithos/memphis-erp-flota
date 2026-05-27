@@ -300,21 +300,8 @@ export default function App() {
     return false;
   };
 
-  // 1) Mientras carga la sesión
-  if (loading) {
-    return <LoadingScreen message="Iniciando sesión..." />;
-  }
-
-  // 2) Si NO hay user y la ruta NO es pública: Login
-  if (!user && !isPublicAllowedWithoutAuth()) {
-    return <Login />;
-  }
-
-  const renderModule = () => {
-    // =========================
-    // RUTAS PÚBLICAS (SIN AUTH)
-    // =========================
-
+  // ─── Renderizar componentes de rutas públicas (sin auth, sin providers) ───
+  const renderPublicRoute = (): React.ReactNode | null => {
     // /v/:token
     if (currentRoute.startsWith('/v/')) {
       const cleanPath = currentRoute.split('?')[0];
@@ -351,6 +338,28 @@ export default function App() {
       return <div className="p-6 text-sm text-muted-foreground">Vehículo inválido.</div>;
     }
 
+    return null;
+  };
+
+  // 1) Rutas públicas: renderizar inmediatamente SIN esperar auth ni providers
+  if (isPublicAllowedWithoutAuth()) {
+    const publicContent = renderPublicRoute();
+    if (publicContent) {
+      return <div className="min-h-screen bg-background">{publicContent}</div>;
+    }
+  }
+
+  // 2) Mientras carga la sesión
+  if (loading) {
+    return <LoadingScreen message="Iniciando sesión..." />;
+  }
+
+  // 3) Si NO hay user: Login
+  if (!user) {
+    return <Login />;
+  }
+
+  const renderModule = () => {
     // =========================
     // RUTAS INTERNAS (CON AUTH)
     // =========================
