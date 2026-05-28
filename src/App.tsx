@@ -82,7 +82,6 @@ import { ProveedoresTalleres } from './components/modules/proveedores/Proveedore
 import { GestionCategorias } from './components/modules/proveedores/GestionCategorias';
 
 // Proyectos
-import { ProyectosDashboard } from './components/modules/proyectos/ProyectosDashboard';
 import { ProyectosLista } from './components/modules/proyectos/ProyectosLista';
 import { ProyectoDetalle } from './components/modules/proyectos/ProyectoDetalle';
 import { Proyecto360 } from './components/modules/proyectos/Proyecto360';
@@ -490,10 +489,6 @@ export default function App() {
 
     // Proyectos
     if (currentRoute.startsWith('/proyectos')) {
-      // Panorama General (vista ejecutiva de todos los proyectos)
-      if (currentRoute === '/proyectos/panorama') {
-        return <ProyectosPanorama onNavigate={navigateTo} />;
-      }
       // Vista 360° del proyecto: /proyectos/360/:dbId
       if (currentRoute.startsWith('/proyectos/360/')) {
         const segments = currentRoute.split('/');
@@ -533,7 +528,8 @@ export default function App() {
       if (currentRoute === '/proyectos/valorizaciones') return <ProyectosValorizaciones onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/riesgos') return <ProyectosRiesgos onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/documentos') return <ProyectosDocumentos onNavigate={navigateTo} />;
-      return <ProyectosDashboard onNavigate={navigateTo} />;
+      // Default: Panorama General como dashboard de proyectos
+      return <ProyectosPanorama onNavigate={navigateTo} />;
     }
 
     // Contabilidad

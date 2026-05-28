@@ -5,21 +5,23 @@
  * - Monto contratado, adendas individuales, total contrato
  * - Presupuesto (techo), gasto real (OCs + CC), saldo disponible
  * - Utilidad, margen de ganancia con semáforos
- * - Flota: vehículos, tipos, mantenimientos, saldo preventivo
+ * - Flota: vehículos agrupados por tipo, mantenimientos, saldo preventivo
  * - Equipos biomédicos del proyecto
  * - Compras: requerimientos, cotizaciones, OCs
  * - Fases, avance, días restantes, riesgos
  * - Equipo responsable
  *
  * Gasto Real = OCs + Caja Chica. NUNCA OTs (evitar duplicar).
+ *
+ * v2.0.0 — Con paginación, agrupación por tipo de flota, contadores OT reales
  */
 
 import { useState, useEffect, useMemo } from 'react';
 import {
   ArrowLeft, Car, Wrench, ShoppingCart, DollarSign,
-  Users, Calendar, MapPin, TrendingUp, TrendingDown, FileText,
-  ChevronRight, AlertTriangle, Activity, Wallet, BarChart3,
-  RefreshCw, Percent, Heart, Receipt,
+  Users, Calendar, MapPin, FileText,
+  ChevronRight, ChevronLeft, AlertTriangle, Activity, Wallet,
+  RefreshCw, Heart, Receipt, CheckCircle, Clock, XCircle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
@@ -30,7 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../../ui/table';
-import { useProyectos, type Proyecto } from '../../../lib/proyectos/proyectos-store';
+import { useProyectos } from '../../../lib/proyectos/proyectos-store';
 import { useVehiculos } from '../../../lib/flota/vehiculos-store';
 import { useOTStore } from '../../../lib/flota/ot-store';
 import { useRequerimientosStore } from '../../../lib/compras/requerimientos-store';
@@ -40,11 +42,15 @@ import { useEquiposStore } from '../../../lib/biomedico/equipos-store';
 import { calcSaldoPreventivo } from '../../../lib/flota/vehiculos-config';
 import {
   calcularFinancieroProyecto,
-  formatMonto,
   colorEjecucion,
   colorMargen,
   type ProyectoFinanciero,
 } from '../../../lib/proyectos/proyecto-financiero';
+
+// ─── Constants ─────────────────────────────────────────────────────────────
+const PAGE_SIZE_VEHICLES = 20;
+const PAGE_SIZE_OCS = 15;
+const PAGE_SIZE_CC = 15;
 
 interface Proyecto360Props {
   proyectoDbId: string;
@@ -85,6 +91,37 @@ const MODALIDAD_LABELS: Record<string, string> = {
   otro: 'Otro',
 };
 
+// ─── Pagination component ──────────────────────────────────────────────────
+function Pagination({ page, totalPages, onPageChange }: {
+  page: number;
+  totalPages: number;
+  onPageChange: (p: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-t">
+      <p className="text-xs text-muted-foreground">
+        Pagina {page} de {totalPages}
+      </p>
+      <div className="flex gap-1">
+        <Button
+          variant="outline" size="sm" disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+        >
+          <ChevronLeft className="size-4" />
+        </Button>
+        <Button
+          variant="outline" size="sm" disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+        >
+          <ChevronRight className="size-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
   const { proyectos } = useProyectos();
   const { vehiculos } = useVehiculos();
@@ -95,6 +132,12 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
   const { equipos } = useEquiposStore();
 
   const proyecto = proyectos.find(p => p._dbId === proyectoDbId);
+
+  // ── Pagination state ──
+  const [flotaPage, setFlotaPage] = useState(1);
+  const [ocsPage, setOcsPage] = useState(1);
+  const [ccPage, setCcPage] = useState(1);
+  const [flotaTipoFilter, setFlotaTipoFilter] = useState<string | null>(null);
 
   // ── Financiero real (OCs + Caja Chica desde Supabase) ──
   const [financiero, setFinanciero] = useState<ProyectoFinanciero | null>(null);
@@ -134,10 +177,19 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
     [equipos, proyectoDbId]
   );
 
-  // ── OTs del proyecto ──
+  // ── OTs del proyecto: match por vehiculoId de los vehículos del proyecto ──
+  // IMPORTANTE: Las OTs no siempre tienen proyecto_id seteado, así que
+  // buscamos por vehículos que pertenecen al proyecto
+  const vehiculoIdsProyecto = useMemo(() =>
+    new Set(vehiculosProyecto.map(v => v.id)),
+    [vehiculosProyecto]
+  );
+
   const otsProyecto = useMemo(() =>
-    ordenes.filter(ot => ot.proyectoId === proyectoDbId),
-    [ordenes, proyectoDbId]
+    ordenes.filter(ot =>
+      vehiculoIdsProyecto.has(ot.vehiculoId) || ot.proyectoId === proyectoDbId
+    ),
+    [ordenes, vehiculoIdsProyecto, proyectoDbId]
   );
 
   // ── Compras del proyecto (local stores) ──
@@ -154,7 +206,7 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
     [ordenesCompra, proyectoDbId]
   );
 
-  // OTs for preventive calc
+  // OTs for preventive calc — ALL OTs (not filtered by project)
   const otsCalc = useMemo(() =>
     ordenes.map(ot => ({
       vehiculoId: ot.vehiculoId,
@@ -165,7 +217,39 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
     [ordenes]
   );
 
-  // ── KPIs de flota ──
+  // ── Agrupar vehiculos por tipo de flota ──
+  const vehiculosPorTipo = useMemo(() => {
+    const grupos: Record<string, typeof vehiculosProyecto> = {};
+    vehiculosProyecto.forEach(v => {
+      const tipo = v.tipoFlota || v.tipo || 'Sin tipo';
+      if (!grupos[tipo]) grupos[tipo] = [];
+      grupos[tipo].push(v);
+    });
+    // Sort by count descending
+    return Object.entries(grupos).sort((a, b) => b[1].length - a[1].length);
+  }, [vehiculosProyecto]);
+
+  // ── Vehículos filtrados por tipo (con paginación) ──
+  const vehiculosFiltrados = useMemo(() => {
+    if (flotaTipoFilter) {
+      return vehiculosProyecto.filter(v => {
+        const tipo = v.tipoFlota || v.tipo || 'Sin tipo';
+        return tipo === flotaTipoFilter;
+      });
+    }
+    return vehiculosProyecto;
+  }, [vehiculosProyecto, flotaTipoFilter]);
+
+  const flotaTotalPages = Math.max(1, Math.ceil(vehiculosFiltrados.length / PAGE_SIZE_VEHICLES));
+  const vehiculosPagina = vehiculosFiltrados.slice(
+    (flotaPage - 1) * PAGE_SIZE_VEHICLES,
+    flotaPage * PAGE_SIZE_VEHICLES
+  );
+
+  // Reset page when filter changes
+  useEffect(() => { setFlotaPage(1); }, [flotaTipoFilter]);
+
+  // ── KPIs de flota + mantenimiento ──
   const flotaKpis = useMemo(() => {
     let costoContratado = 0;
     let costoConsumido = 0;
@@ -179,6 +263,15 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
       preventivosRealizados += saldo.preventivosRealizados;
       preventivosTotal += saldo.preventivosTotal;
     });
+
+    // OT counters
+    const otsCerradas = otsProyecto.filter(ot => ot.estado === 'cerrada').length;
+    const otsAbiertas = otsProyecto.filter(ot =>
+      ot.estado !== 'cerrada' && ot.estado !== 'anulada'
+    ).length;
+    const otsAnuladas = otsProyecto.filter(ot => ot.estado === 'anulada').length;
+    const otsCorrectivas = otsProyecto.filter(ot => ot.tipo === 'correctivo').length;
+    const otsPreventivas = otsProyecto.filter(ot => ot.tipo === 'preventivo').length;
 
     // Agrupar por tipo de flota
     const porTipo: Record<string, number> = {};
@@ -197,8 +290,13 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
       pctConsumo: costoContratado > 0 ? Math.round((costoConsumido / costoContratado) * 100) : 0,
       preventivosRealizados,
       preventivosTotal,
-      otsAbiertas: otsProyecto.filter(ot => ot.estado !== 'cerrada' && ot.estado !== 'anulada').length,
-      otsCerradas: otsProyecto.filter(ot => ot.estado === 'cerrada').length,
+      preventivosRestantes: Math.max(0, preventivosTotal - preventivosRealizados),
+      otsTotal: otsProyecto.length,
+      otsAbiertas,
+      otsCerradas,
+      otsAnuladas,
+      otsCorrectivas,
+      otsPreventivas,
       porTipo,
     };
   }, [vehiculosProyecto, otsProyecto, otsCalc]);
@@ -217,7 +315,7 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
   if (!proyecto) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" onClick={() => onNavigate('/proyectos/panorama')}>
+        <Button variant="ghost" onClick={() => onNavigate('/proyectos')}>
           <ArrowLeft className="size-4 mr-1" /> Volver
         </Button>
         <Card><CardContent className="py-12 text-center text-muted-foreground">Proyecto no encontrado</CardContent></Card>
@@ -237,11 +335,27 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
   const utilidad = fin?.utilidad ?? (montoContratoTotal - gastoTotal);
   const margen = fin?.margenGanancia ?? 0;
 
+  // ── OCs paginadas ──
+  const ocsFinList = fin?.ocs ?? [];
+  const ocsTotalPages = Math.max(1, Math.ceil(ocsFinList.length / PAGE_SIZE_OCS));
+  const ocsPagina = ocsFinList.slice(
+    (ocsPage - 1) * PAGE_SIZE_OCS,
+    ocsPage * PAGE_SIZE_OCS
+  );
+
+  // ── CC paginados ──
+  const ccFinList = fin?.gastosCajaChica ?? [];
+  const ccTotalPages = Math.max(1, Math.ceil(ccFinList.length / PAGE_SIZE_CC));
+  const ccPagina = ccFinList.slice(
+    (ccPage - 1) * PAGE_SIZE_CC,
+    ccPage * PAGE_SIZE_CC
+  );
+
   return (
     <div className="space-y-6">
       {/* ═══ Header ═══ */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => onNavigate('/proyectos/panorama')}>
+        <Button variant="ghost" size="sm" onClick={() => onNavigate('/proyectos')}>
           <ArrowLeft className="size-4" />
         </Button>
         <div className="flex-1">
@@ -502,11 +616,14 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
             </Card>
           </div>
 
-          {/* Tabla de OCs reales */}
-          {fin && fin.ocs.length > 0 && (
+          {/* Tabla de OCs reales — con paginación */}
+          {ocsFinList.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Ordenes de Compra del Proyecto</CardTitle>
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <span>Ordenes de Compra del Proyecto</span>
+                  <Badge variant="secondary">{ocsFinList.length} total</Badge>
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
@@ -520,7 +637,7 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {fin.ocs.map(oc => (
+                    {ocsPagina.map(oc => (
                       <TableRow key={oc.id} className="cursor-pointer hover:bg-muted/50">
                         <TableCell className="font-mono font-semibold text-sm">{oc.numero}</TableCell>
                         <TableCell className="text-sm">{oc.proveedorNombre}</TableCell>
@@ -537,15 +654,19 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
                     ))}
                   </TableBody>
                 </Table>
+                <Pagination page={ocsPage} totalPages={ocsTotalPages} onPageChange={setOcsPage} />
               </CardContent>
             </Card>
           )}
 
-          {/* Tabla de Gastos Caja Chica */}
-          {fin && fin.gastosCajaChica.length > 0 && (
+          {/* Tabla de Gastos Caja Chica — con paginación */}
+          {ccFinList.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Gastos de Caja Chica del Proyecto</CardTitle>
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <span>Gastos de Caja Chica del Proyecto</span>
+                  <Badge variant="secondary">{ccFinList.length} total</Badge>
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
@@ -559,7 +680,7 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {fin.gastosCajaChica.map(g => (
+                    {ccPagina.map(g => (
                       <TableRow key={g.id}>
                         <TableCell className="font-mono font-semibold text-sm">{g.numero}</TableCell>
                         <TableCell className="text-sm">{g.descripcion}</TableCell>
@@ -576,6 +697,7 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
                     ))}
                   </TableBody>
                 </Table>
+                <Pagination page={ccPage} totalPages={ccTotalPages} onPageChange={setCcPage} />
               </CardContent>
             </Card>
           )}
@@ -588,6 +710,7 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
 
         {/* ══════ Tab: Flota ══════ */}
         <TabsContent value="flota" className="space-y-4">
+          {/* KPIs principales de flota */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card>
               <CardContent className="p-3 text-center">
@@ -614,26 +737,83 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
               <CardContent className="p-3 text-center">
                 <Wrench className="size-5 mx-auto text-green-600 mb-1" />
                 <p className="text-lg font-bold">{flotaKpis.preventivosRealizados}/{flotaKpis.preventivosTotal}</p>
-                <p className="text-xs text-muted-foreground">Preventivos · {flotaKpis.otsAbiertas} OTs abiertas</p>
+                <p className="text-xs text-muted-foreground">Preventivos realizados</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Tipos de flota */}
-          {Object.keys(flotaKpis.porTipo).length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(flotaKpis.porTipo).map(([tipo, cant]) => (
-                <Badge key={tipo} variant="outline" className="text-xs">
-                  {tipo}: {cant}
-                </Badge>
-              ))}
-            </div>
+          {/* Contadores de mantenimiento detallados */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <Card>
+              <CardContent className="p-3 text-center">
+                <div className="flex items-center justify-center gap-1.5 mb-1">
+                  <Wrench className="size-4 text-blue-600" />
+                  <p className="text-xs font-medium text-muted-foreground">Total OTs</p>
+                </div>
+                <p className="text-2xl font-bold">{flotaKpis.otsTotal}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3 text-center">
+                <div className="flex items-center justify-center gap-1.5 mb-1">
+                  <CheckCircle className="size-4 text-green-600" />
+                  <p className="text-xs font-medium text-muted-foreground">Cerradas</p>
+                </div>
+                <p className="text-2xl font-bold text-green-600">{flotaKpis.otsCerradas}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3 text-center">
+                <div className="flex items-center justify-center gap-1.5 mb-1">
+                  <Clock className="size-4 text-amber-600" />
+                  <p className="text-xs font-medium text-muted-foreground">Abiertas</p>
+                </div>
+                <p className="text-2xl font-bold text-amber-600">{flotaKpis.otsAbiertas}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3 text-center">
+                <div className="flex items-center justify-center gap-1.5 mb-1">
+                  <Wrench className="size-4 text-purple-600" />
+                  <p className="text-xs font-medium text-muted-foreground">Preventivas</p>
+                </div>
+                <p className="text-2xl font-bold text-purple-600">{flotaKpis.otsPreventivas}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3 text-center">
+                <div className="flex items-center justify-center gap-1.5 mb-1">
+                  <AlertTriangle className="size-4 text-red-600" />
+                  <p className="text-xs font-medium text-muted-foreground">Correctivas</p>
+                </div>
+                <p className="text-2xl font-bold text-red-600">{flotaKpis.otsCorrectivas}</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Resumen preventivos */}
+          {flotaKpis.preventivosTotal > 0 && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium">Preventivos contratados</p>
+                  <p className="text-sm font-bold">
+                    {flotaKpis.preventivosRealizados} realizados / {flotaKpis.preventivosTotal} contratados
+                    {' '}({flotaKpis.preventivosRestantes} pendientes)
+                  </p>
+                </div>
+                <Progress
+                  value={flotaKpis.preventivosTotal > 0 ? (flotaKpis.preventivosRealizados / flotaKpis.preventivosTotal) * 100 : 0}
+                  className={`h-2.5 ${pctColor(flotaKpis.preventivosTotal > 0 ? (flotaKpis.preventivosRealizados / flotaKpis.preventivosTotal) * 100 : 0)}`}
+                />
+              </CardContent>
+            </Card>
           )}
 
           {flotaKpis.costoContratado > 0 && (
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Consumo mantenimiento preventivo</span>
+                <span className="text-muted-foreground">Consumo costo mantenimiento</span>
                 <span className="font-medium">{flotaKpis.pctConsumo}%</span>
               </div>
               <Progress value={flotaKpis.pctConsumo} className={`h-2 ${pctColor(flotaKpis.pctConsumo)}`} />
@@ -644,48 +824,78 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
             </div>
           )}
 
+          {/* Filtros por tipo de flota */}
+          {vehiculosPorTipo.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={flotaTipoFilter === null ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFlotaTipoFilter(null)}
+              >
+                Todos ({vehiculosProyecto.length})
+              </Button>
+              {vehiculosPorTipo.map(([tipo, vehs]) => (
+                <Button
+                  key={tipo}
+                  variant={flotaTipoFilter === tipo ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setFlotaTipoFilter(tipo === flotaTipoFilter ? null : tipo)}
+                >
+                  {tipo} ({vehs.length})
+                </Button>
+              ))}
+            </div>
+          )}
+
           {vehiculosProyecto.length === 0 ? (
             <Card><CardContent className="py-8 text-center text-muted-foreground">No hay vehiculos asignados a este proyecto</CardContent></Card>
-          ) : (
+          ) : flotaTipoFilter ? (
+            /* Vista filtrada por tipo — lista plana con paginación */
             <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <span>{flotaTipoFilter}</span>
+                  <Badge variant="secondary">{vehiculosFiltrados.length} vehiculos</Badge>
+                </CardTitle>
+              </CardHeader>
               <CardContent className="p-0">
-                {vehiculosProyecto.map(v => {
-                  const saldo = calcSaldoPreventivo(v.id, otsCalc, v.planPreventivoContratado);
-                  return (
-                    <div
-                      key={v.id}
-                      className="flex items-center gap-3 px-4 py-3 border-b last:border-0 hover:bg-muted/30 cursor-pointer group"
-                      onClick={() => onNavigate(`/flota/vehiculos/${v.id}`)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm">{v.placa}</span>
-                          <Badge variant="outline" className="text-xs">{v.tipo}</Badge>
-                          {v.tipoFlota && <Badge variant="secondary" className="text-xs">{v.tipoFlota}</Badge>}
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate">{v.marca} {v.modelo} · {v.kilometraje.toLocaleString()} km</p>
-                      </div>
-                      <div className="hidden sm:block text-sm text-center min-w-[60px]">
-                        <p className="text-xs text-muted-foreground">Prev.</p>
-                        <p className="font-medium">{saldo.preventivosRealizados}/{saldo.preventivosTotal}</p>
-                      </div>
-                      <div className="hidden md:block min-w-[120px]">
-                        {saldo.costoTotalContratado > 0 && (
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">{fmt(saldo.costoConsumido)}</span>
-                              <span>{saldo.porcentajeCosto}%</span>
-                            </div>
-                            <Progress value={saldo.porcentajeCosto} className={`h-1.5 ${pctColor(saldo.porcentajeCosto)}`} />
-                          </div>
-                        )}
-                      </div>
-                      <ChevronRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100" />
-                    </div>
-                  );
-                })}
+                {vehiculosPagina.map(v => renderVehicleRow(v))}
+                <Pagination page={flotaPage} totalPages={flotaTotalPages} onPageChange={setFlotaPage} />
               </CardContent>
             </Card>
+          ) : (
+            /* Vista agrupada por tipo con paginación global */
+            <>
+              {vehiculosPorTipo.map(([tipo, vehs]) => (
+                <Card key={tipo}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Car className="size-4" />
+                        <span>{tipo}</span>
+                      </div>
+                      <Badge variant="secondary">{vehs.length} vehiculos</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {vehs.slice(0, PAGE_SIZE_VEHICLES).map(v => renderVehicleRow(v))}
+                    {vehs.length > PAGE_SIZE_VEHICLES && (
+                      <div className="px-4 py-2 border-t">
+                        <Button
+                          variant="link" size="sm" className="text-xs"
+                          onClick={() => {
+                            setFlotaTipoFilter(tipo);
+                            setFlotaPage(1);
+                          }}
+                        >
+                          Ver todos los {vehs.length} vehiculos de {tipo} →
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </>
           )}
         </TabsContent>
 
@@ -923,4 +1133,53 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
       </Tabs>
     </div>
   );
+
+  // ── Helper: render a single vehicle row ──
+  function renderVehicleRow(v: typeof vehiculosProyecto[number]) {
+    const saldo = calcSaldoPreventivo(v.id, otsCalc, v.planPreventivoContratado);
+    // OTs de este vehículo específico
+    const otsVehiculo = otsProyecto.filter(ot => ot.vehiculoId === v.id);
+    const otsCerradasVeh = otsVehiculo.filter(ot => ot.estado === 'cerrada').length;
+    const otsAbiertasVeh = otsVehiculo.filter(ot => ot.estado !== 'cerrada' && ot.estado !== 'anulada').length;
+
+    return (
+      <div
+        key={v.id}
+        className="flex items-center gap-3 px-4 py-3 border-b last:border-0 hover:bg-muted/30 cursor-pointer group"
+        onClick={() => onNavigate(`/flota/vehiculos/${v.id}`)}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm">{v.placa}</span>
+            <Badge variant="outline" className="text-xs">{v.tipo}</Badge>
+            {v.tipoFlota && <Badge variant="secondary" className="text-xs">{v.tipoFlota}</Badge>}
+          </div>
+          <p className="text-xs text-muted-foreground truncate">{v.marca} {v.modelo} · {v.kilometraje.toLocaleString()} km</p>
+        </div>
+        {/* OT counters per vehicle */}
+        <div className="hidden sm:flex items-center gap-3 text-xs">
+          <div className="text-center min-w-[50px]">
+            <p className="text-muted-foreground">OTs</p>
+            <p className="font-semibold">{otsCerradasVeh}<span className="text-muted-foreground">/{otsVehiculo.length}</span></p>
+          </div>
+          <div className="text-center min-w-[50px]">
+            <p className="text-muted-foreground">Prev.</p>
+            <p className="font-medium">{saldo.preventivosRealizados}/{saldo.preventivosTotal}</p>
+          </div>
+        </div>
+        <div className="hidden md:block min-w-[120px]">
+          {saldo.costoTotalContratado > 0 && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">{fmt(saldo.costoConsumido)}</span>
+                <span>{saldo.porcentajeCosto}%</span>
+              </div>
+              <Progress value={saldo.porcentajeCosto} className={`h-1.5 ${pctColor(saldo.porcentajeCosto)}`} />
+            </div>
+          )}
+        </div>
+        <ChevronRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100" />
+      </div>
+    );
+  }
 }

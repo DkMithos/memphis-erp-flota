@@ -190,7 +190,6 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       href: '/proyectos',
       subItems: [
         { label: t('nav.sub.dashboard'), href: '/proyectos' },
-        { label: 'Panorama General', href: '/proyectos/panorama' },
         { label: t('nav.sub.lista_proyectos'), href: '/proyectos/lista' },
         { label: t('nav.sub.tareas'), href: '/proyectos/tareas' },
         { label: t('nav.sub.cronograma'), href: '/proyectos/cronograma' },
