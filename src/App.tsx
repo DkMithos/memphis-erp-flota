@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 // Auth
 import { useAuth } from './auth/AuthProvider';
 import { Login } from './components/auth/Login';
+import { PendingAccess } from './components/auth/PendingAccess';
+import { usePermissions } from './lib/rbac/usePermissions';
 
 // Layout
 import { ERPSidebar } from './components/layout/ERPSidebar';
@@ -207,7 +209,8 @@ function applyTheme(mode: 'light' | 'dark' | 'system'): boolean {
 // ────────────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const { user, profile, tenantName, loading } = useAuth();
+  const { user, profile, tenantName, loading, signOut } = useAuth();
+  const { hasRole, isAdmin, loading: permsLoading } = usePermissions();
 
   const [currentModule, setCurrentModule] = useState(() => {
     const path = window.location.pathname || '/home';
@@ -357,6 +360,18 @@ export default function App() {
   // 3) Si NO hay user: Login
   if (!user) {
     return <Login />;
+  }
+
+  // 4) Gate de acceso: usuario autenticado pero SIN rol RBAC asignado.
+  //    Espera a que terminen de cargar los permisos para evitar parpadeo.
+  if (!permsLoading && !isAdmin && !hasRole) {
+    return (
+      <PendingAccess
+        email={user.email}
+        nombre={profile?.nombre ?? null}
+        onSignOut={signOut}
+      />
+    );
   }
 
   const renderModule = () => {

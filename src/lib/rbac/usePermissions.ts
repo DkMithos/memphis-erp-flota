@@ -33,11 +33,15 @@ export function usePermissions() {
   const [permisos, setPermisos] = useState<PermisoEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  // hasRole = el usuario tiene al menos un rol RBAC asignado (o es admin).
+  // Se usa para el gate de acceso: sin rol → pantalla "cuenta pendiente".
+  const [hasRole, setHasRole] = useState(false);
 
   useEffect(() => {
     if (!user) {
       setPermisos([]);
       setIsAdmin(false);
+      setHasRole(false);
       setLoading(false);
       return;
     }
@@ -52,6 +56,7 @@ export function usePermissions() {
         if (jwtRole === 'admin') {
           if (mounted) {
             setIsAdmin(true);
+            setHasRole(true);
             setPermisos([]);
           }
           return;
@@ -62,6 +67,7 @@ export function usePermissions() {
         if (profileRol === 'superadmin' || profileRol === 'admin_empresa') {
           if (mounted) {
             setIsAdmin(true);
+            setHasRole(true);
             setPermisos([]);
           }
           return;
@@ -69,7 +75,7 @@ export function usePermissions() {
 
         // Non-admin users need tenantId to query roles
         if (!tenantId) {
-          if (mounted) setPermisos([]);
+          if (mounted) { setPermisos([]); setHasRole(false); }
           return;
         }
 
@@ -86,14 +92,19 @@ export function usePermissions() {
           console.error('[usePermissions] Error loading roles:', error.message);
           // Fallback: si hay error en la consulta, verificar si el email es admin conocido
           setPermisos([]);
+          setHasRole(false);
           return;
         }
 
         if (!userRoles || userRoles.length === 0) {
-          // No roles assigned — could be first user / admin without DB roles
+          // Sin roles asignados → el gate mostrará "cuenta pendiente"
           setPermisos([]);
+          setHasRole(false);
           return;
         }
+
+        // Tiene al menos un rol RBAC asignado
+        setHasRole(true);
 
         // Flatten permisos
         const allPermisos: PermisoEntry[] = [];
@@ -158,5 +169,5 @@ export function usePermissions() {
     [can, isAdmin],
   );
 
-  return { can, canAny, loading, isAdmin, permisos };
+  return { can, canAny, loading, isAdmin, hasRole, permisos };
 }
