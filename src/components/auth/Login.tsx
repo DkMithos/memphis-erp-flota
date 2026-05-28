@@ -18,12 +18,13 @@ interface LoginProps {
 }
 
 export function Login({ onLogin }: LoginProps) {
-  const { signInWithPassword } = useAuth();
+  const { signInWithPassword, signInWithAzure } = useAuth();
 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [azureSubmitting, setAzureSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,6 +38,18 @@ export function Login({ onLogin }: LoginProps) {
       setErrorMsg(err?.message ?? 'No se pudo iniciar sesión.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleAzureLogin = async () => {
+    setErrorMsg(null);
+    setAzureSubmitting(true);
+    try {
+      // Redirige a Microsoft; al volver, onAuthStateChange en AuthProvider toma la sesión.
+      await signInWithAzure();
+    } catch (err: any) {
+      setErrorMsg(err?.message ?? 'No se pudo iniciar sesión con Microsoft.');
+      setAzureSubmitting(false);
     }
   };
 
@@ -149,9 +162,16 @@ export function Login({ onLogin }: LoginProps) {
               </div>
             </div>
 
-            {/* SSO (próximamente) */}
+            {/* SSO */}
             <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" type="button" disabled>Microsoft</Button>
+              <Button
+                variant="outline"
+                type="button"
+                onClick={handleAzureLogin}
+                disabled={azureSubmitting || submitting}
+              >
+                {azureSubmitting ? 'Redirigiendo...' : 'Microsoft'}
+              </Button>
               <Button variant="outline" type="button" disabled>Google</Button>
             </div>
           </form>

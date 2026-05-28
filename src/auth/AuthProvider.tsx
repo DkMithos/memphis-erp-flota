@@ -14,6 +14,7 @@ type AuthContextValue = {
   loading: boolean;
 
   signInWithPassword: (email: string, password: string) => Promise<void>;
+  signInWithAzure: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -162,6 +163,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Sincroniza grupos de Entra ID → roles ERP vía Edge Function ms-user-sync.
+  // Resiliente: nunca bloquea el login si falla (el usuario entra con sus roles actuales).
+  async function syncMicrosoftRoles(accessToken: string, providerToken: string) {
+    try {
+      const { error } = await supabase.functions.invoke('ms-user-sync', {
+        body: { providerToken },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (error) {
+        console.warn('[auth] ms-user-sync error (no bloquea login):', error.message);
+      } else {
+        console.log('[auth] Roles Microsoft sincronizados');
+        // Recargar perfil para reflejar roles recién asignados
+        const { data } = await supabase.auth.getUser();
+        if (data?.user) await loadProfile(data.user.id);
+      }
+    } catch (err) {
+      console.warn('[auth] ms-user-sync excepción (no bloquea login):', err);
+    }
+  }
+
   useEffect(() => {
     let mounted = true;
 
@@ -277,6 +299,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         if (newSession?.user) {
           await loadProfile(newSession.user.id);
+          // Tras login con Microsoft, sincronizar grupos Entra ID → roles ERP.
+          // provider_token solo está presente justo después del OAuth de Azure.
+          if (newSession.provider_token) {
+            void syncMicrosoftRoles(newSession.access_token, newSession.provider_token);
+          }
         } else {
           setProfile(null);
           setTenantName(null);
@@ -317,6 +344,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     signInWithPassword: async (email, password) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    },
+
+    // SSO con Microsoft Entra ID (Azure AD).
+    // Requiere el provider "azure" habilitado en Supabase Dashboard → Authentication → Providers.
+    // Los scopes solicitan el perfil básico + lectura de grupos (para el mapeo grupo→rol en ms-user-sync).
+    signInWithAzure: async () => {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'azure',
+        options: {
+          scopes: 'email openid profile User.Read GroupMember.Read.All',
+          redirectTo: window.location.origin,
+        },
+      });
       if (error) throw error;
     },
 
