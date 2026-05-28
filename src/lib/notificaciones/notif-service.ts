@@ -5,14 +5,20 @@
  * a Teams cuando ocurren eventos del ERP. La función custodia las credenciales
  * de Microsoft Graph; este helper solo arma el payload y lo envía.
  *
+ * El canal destino se configura en el flujo de Power Automate (server-side),
+ * por lo que el frontend NO especifica destino — solo el contenido.
+ *
  * Uso:
  *   import { enviarNotificacionTeams } from '@/lib/notificaciones/notif-service';
  *   await enviarNotificacionTeams({
  *     tipo: 'OC_POR_APROBAR',
  *     titulo: 'OC-0042 pendiente de aprobación',
- *     cuerpo: 'Proveedor X · S/ 12,500',
+ *     cuerpo: 'Requiere tu aprobación',
  *     accionUrl: 'https://erp.memphismaquinarias.com/compras/ordenes/OC-0042',
- *     destino: { teamId: '...', channelId: '...' },
+ *     hechos: [
+ *       { label: 'Proveedor', value: 'INNOVANTEK SAC' },
+ *       { label: 'Monto', value: 'S/ 12,500.00' },
+ *     ],
  *   });
  */
 
@@ -28,12 +34,10 @@ export type TipoNotificacion =
   | 'DOCUMENTO_POR_VENCER'
   | 'CALIBRACION_VENCIDA';
 
-export interface DestinoTeams {
-  /** Mensaje a canal: requiere teamId + channelId */
-  teamId?: string;
-  channelId?: string;
-  /** Mensaje a chat directo/grupal: requiere chatId */
-  chatId?: string;
+/** Par clave/valor que se muestra como FactSet en la tarjeta de Teams */
+export interface HechoNotificacion {
+  label: string;
+  value: string;
 }
 
 export interface NotificacionInput {
@@ -41,7 +45,7 @@ export interface NotificacionInput {
   titulo: string;
   cuerpo?: string;
   accionUrl?: string;
-  destino: DestinoTeams;
+  hechos?: HechoNotificacion[];
   datos?: Record<string, unknown>;
 }
 

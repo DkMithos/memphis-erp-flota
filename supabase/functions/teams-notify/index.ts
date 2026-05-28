@@ -1,10 +1,12 @@
 /**
  * Memphis ERP — Supabase Edge Function: teams-notify
  *
- * FASE 1 (Notificaciones Teams vía Microsoft Graph — app-only).
+ * FASE 1 (Notificaciones Teams vía Power Automate Workflow webhook).
  *
- * Envía una Adaptive Card a un canal o chat de Teams cuando ocurre un evento
- * del ERP (OT vencida, OC por aprobar, mantenimiento próximo, presupuesto en riesgo).
+ * Envía una Adaptive Card a Teams posteando a la URL de un flujo de Power
+ * Automate ("Publicar en un canal cuando se recibe una solicitud de webhook").
+ * Este camino NO requiere permisos de Microsoft Graph ni client secret —
+ * evita la restricción de app-only de la API de mensajes de Teams.
  *
  * Request (POST):
  *   Authorization: Bearer <supabase_jwt>
@@ -13,20 +15,13 @@
  *     titulo: string,
  *     cuerpo?: string,
  *     accionUrl?: string,      // deep link al ERP
- *     destino: {               // canal o chat destino
- *       teamId?: string, channelId?: string,   // → mensaje a canal
- *       chatId?: string                          // → mensaje a chat
- *     },
+ *     hechos?: { label: string; value: string }[],  // pares clave/valor opcionales
  *     datos?: Record<string, unknown>
  *   }
  *
  * Secretos requeridos:
- *   - MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET   (app registration de Azure)
- *   - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY         (para log + tenant)
- *
- * NOTA: enviar mensajes a canales con permisos de aplicación (ChannelMessage.Send)
- * puede requerir Resource-Specific Consent (RSC) en el equipo destino. Si Graph
- * devuelve 403, registrar el evento y evaluar el fallback de Power Automate.
+ *   - TEAMS_WEBHOOK_URL            (URL del flujo de Power Automate)
+ *   - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  (para auditoría + tenant)
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -43,52 +38,53 @@ const json = (body: unknown, status = 200) =>
     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
   })
 
-// Token app-only (client credentials) para Microsoft Graph
-async function getAppToken(): Promise<string> {
-  const tenantId = Deno.env.get('MS_TENANT_ID') ?? ''
-  const clientId = Deno.env.get('MS_CLIENT_ID') ?? ''
-  const clientSecret = Deno.env.get('MS_CLIENT_SECRET') ?? ''
-  if (!tenantId || !clientId || !clientSecret) {
-    throw new Error('Missing MS_TENANT_ID / MS_CLIENT_ID / MS_CLIENT_SECRET')
+// Construye el envelope de Adaptive Card que espera el webhook de Power Automate
+function buildAdaptiveCard(
+  titulo: string,
+  cuerpo?: string,
+  accionUrl?: string,
+  hechos?: { label: string; value: string }[],
+) {
+  const body: unknown[] = [
+    { type: 'TextBlock', text: titulo, weight: 'Bolder', size: 'Medium', wrap: true },
+  ]
+  if (cuerpo) {
+    body.push({ type: 'TextBlock', text: cuerpo, wrap: true, isSubtle: true })
+  }
+  if (hechos && hechos.length > 0) {
+    body.push({
+      type: 'FactSet',
+      facts: hechos.map((h) => ({ title: h.label, value: h.value })),
+    })
   }
 
-  const params = new URLSearchParams({
-    grant_type: 'client_credentials',
-    client_id: clientId,
-    client_secret: clientSecret,
-    scope: 'https://graph.microsoft.com/.default',
-  })
+  const actions = accionUrl
+    ? [{ type: 'Action.OpenUrl', title: 'Ver en Memphis ERP', url: accionUrl }]
+    : []
 
-  const res = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString(),
-    signal: AbortSignal.timeout(10000),
-  })
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '')
-    throw new Error(`Token error ${res.status}: ${detail}`)
-  }
-  const data = await res.json()
-  return data.access_token as string
-}
-
-// Construye el payload del mensaje de Teams (HTML con enlace de acción)
-function buildMessage(titulo: string, cuerpo?: string, accionUrl?: string) {
-  const accion = accionUrl
-    ? `<br/><a href="${accionUrl}">Ver en Memphis ERP →</a>`
-    : ''
   return {
-    body: {
-      contentType: 'html',
-      content: `<strong>${titulo}</strong><br/>${cuerpo ?? ''}${accion}`,
-    },
+    type: 'message',
+    attachments: [
+      {
+        contentType: 'application/vnd.microsoft.card.adaptive',
+        content: {
+          $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+          type: 'AdaptiveCard',
+          version: '1.4',
+          body,
+          actions,
+        },
+      },
+    ],
   }
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
+
+  const webhookUrl = Deno.env.get('TEAMS_WEBHOOK_URL') ?? ''
+  if (!webhookUrl) return json({ error: 'TEAMS_WEBHOOK_URL not configured' }, 500)
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -104,9 +100,9 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Invalid JSON body' }, 400)
   }
 
-  const { tipo, titulo, cuerpo, accionUrl, destino, datos } = payload ?? {}
-  if (!tipo || !titulo || !destino) {
-    return json({ error: 'Missing required fields: tipo, titulo, destino' }, 400)
+  const { tipo, titulo, cuerpo, accionUrl, hechos, datos } = payload ?? {}
+  if (!tipo || !titulo) {
+    return json({ error: 'Missing required fields: tipo, titulo' }, 400)
   }
 
   const admin = createClient(supabaseUrl, serviceKey)
@@ -121,53 +117,36 @@ Deno.serve(async (req: Request) => {
     tenantId = profile?.tenant_id ?? null
   }
 
-  // Helper de auditoría
-  const logNotif = async (estado: string, errorDetalle?: string, destinatario?: string) => {
+  const logNotif = async (estado: string, errorDetalle?: string) => {
     if (!tenantId) return
     await admin.from('notificaciones_log').insert({
       tenant_id: tenantId,
       canal: 'teams',
       tipo, titulo, cuerpo: cuerpo ?? null,
       accion_url: accionUrl ?? null,
-      destinatario: destinatario ?? null,
+      destinatario: 'power-automate-webhook',
       estado, error_detalle: errorDetalle ?? null,
       datos: datos ?? null,
     })
   }
 
   try {
-    const token = await getAppToken()
-    const message = buildMessage(titulo, cuerpo, accionUrl)
-
-    // Determinar endpoint: canal vs chat
-    let endpoint = ''
-    let destinatario = ''
-    if (destino.teamId && destino.channelId) {
-      endpoint = `https://graph.microsoft.com/v1.0/teams/${destino.teamId}/channels/${destino.channelId}/messages`
-      destinatario = `team:${destino.teamId}/channel:${destino.channelId}`
-    } else if (destino.chatId) {
-      endpoint = `https://graph.microsoft.com/v1.0/chats/${destino.chatId}/messages`
-      destinatario = `chat:${destino.chatId}`
-    } else {
-      return json({ error: 'destino must include teamId+channelId or chatId' }, 400)
-    }
-
-    const res = await fetch(endpoint, {
+    const card = buildAdaptiveCard(titulo, cuerpo, accionUrl, hechos)
+    const res = await fetch(webhookUrl, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(message),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(card),
       signal: AbortSignal.timeout(10000),
     })
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '')
-      await logNotif('error', `Graph ${res.status}: ${detail}`, destinatario)
-      return json({ error: `Graph send failed: ${res.status}`, detail }, 502)
+      await logNotif('error', `Webhook ${res.status}: ${detail}`)
+      return json({ error: `Webhook failed: ${res.status}`, detail }, 502)
     }
 
-    const sent = await res.json()
-    await logNotif('enviado', undefined, destinatario)
-    return json({ ok: true, messageId: sent.id ?? null })
+    await logNotif('enviado')
+    return json({ ok: true })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     await logNotif('error', msg)
