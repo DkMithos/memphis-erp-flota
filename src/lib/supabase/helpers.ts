@@ -5,7 +5,7 @@
  */
 
 import { supabase } from "./client";
-import type { EvaluacionProveedor, ContratoProveedor, TallerDB, RolDB, UsuarioTenantDB, ArticuloDB, AlmacenDB, CategoriaInventarioDB, MovimientoInventarioDB, ClienteDB, OportunidadDB, ActividadCRMDB, TransaccionDB, PresupuestoDB, CajaChicaDB, GastoCajaChicaDB, ProyectoDB, FaseProyectoDB, TareaProyectoDB, MiembroProyectoDB, CentroCostoDB, ValorizacionDB, ClienteBioInsert, ClienteBioUpdate, SedeInsert, SedeUpdate, AreaClinicaInsert, AreaClinicaUpdate } from "./types";
+import type { EvaluacionProveedor, ContratoProveedor, TallerDB, RolDB, UsuarioTenantDB, ArticuloDB, AlmacenDB, CategoriaInventarioDB, MovimientoInventarioDB, ClienteDB, OportunidadDB, ActividadCRMDB, TransaccionDB, PresupuestoDB, CajaChicaDB, GastoCajaChicaDB, ProyectoDB, FaseProyectoDB, TareaProyectoDB, MiembroProyectoDB, CentroCostoDB, ValorizacionDB, AdendaProyectoDB, ClienteBioInsert, ClienteBioUpdate, SedeInsert, SedeUpdate, AreaClinicaInsert, AreaClinicaUpdate } from "./types";
 
 // =============================================================================
 // HELPER BASE — obtiene tenant_id del usuario autenticado
@@ -809,6 +809,25 @@ export const dbMiembrosProyecto = {
   update: (id: string, data: Partial<MiembroProyectoDB>) =>
     supabase.from('miembros_proyecto').update(data).eq('id', id).select().single(),
   delete: (id: string) => supabase.from('miembros_proyecto').delete().eq('id', id),
+};
+
+// =============================================================================
+// ADENDAS DE PROYECTO
+// =============================================================================
+
+export const dbAdendasProyecto = {
+  /** Lista adendas de un proyecto ordenadas por número */
+  listByProyecto: (proyectoId: string) =>
+    supabase.from('adendas_proyecto').select('*').eq('proyecto_id', proyectoId).order('numero'),
+  /** Crea una adenda */
+  insert: (data: Omit<AdendaProyectoDB, 'id' | 'creado_en'>) =>
+    supabase.from('adendas_proyecto').insert(data).select().single(),
+  /** Actualiza una adenda */
+  update: (id: string, data: Partial<Omit<AdendaProyectoDB, 'id' | 'tenant_id' | 'creado_en'>>) =>
+    supabase.from('adendas_proyecto').update(data).eq('id', id).select().single(),
+  /** Elimina una adenda */
+  delete: (id: string) =>
+    supabase.from('adendas_proyecto').delete().eq('id', id),
 };
 
 // =============================================================================

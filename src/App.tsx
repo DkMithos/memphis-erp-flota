@@ -86,6 +86,7 @@ import { ProyectosDashboard } from './components/modules/proyectos/ProyectosDash
 import { ProyectosLista } from './components/modules/proyectos/ProyectosLista';
 import { ProyectoDetalle } from './components/modules/proyectos/ProyectoDetalle';
 import { Proyecto360 } from './components/modules/proyectos/Proyecto360';
+import { ProyectosPanorama } from './components/modules/proyectos/ProyectosPanorama';
 import { ProyectosTareasGlobal } from './components/modules/proyectos/ProyectosTareasGlobal';
 import { TareaDetalle } from './components/modules/proyectos/TareaDetalle';
 import { ProyectosProvider } from './lib/proyectos/proyectos-store';
@@ -489,6 +490,10 @@ export default function App() {
 
     // Proyectos
     if (currentRoute.startsWith('/proyectos')) {
+      // Panorama General (vista ejecutiva de todos los proyectos)
+      if (currentRoute === '/proyectos/panorama') {
+        return <ProyectosPanorama onNavigate={navigateTo} />;
+      }
       // Vista 360° del proyecto: /proyectos/360/:dbId
       if (currentRoute.startsWith('/proyectos/360/')) {
         const segments = currentRoute.split('/');
