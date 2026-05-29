@@ -9,6 +9,7 @@ import { supabase } from '../supabase/client';
 import { dbRequerimientos } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { validateTransition, REQUERIMIENTO_TRANSITIONS } from '../shared/state-machine';
+import { solicitarAprobacionTeams } from './solicitar-aprobacion';
 import type {
   RequerimientoCompra,
   RequerimientoItem as RequerimientoItemDB,
@@ -462,9 +463,21 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
         console.log('[REQ_ESTADO_CHANGED]', { id, estadoNuevo: nuevoEstado });
       }
 
+      // Al enviar a aprobación → solicitar aprobación vía Teams (no bloquea)
+      if (nuevoEstado === 'enviado' && reqActual) {
+        void solicitarAprobacionTeams({
+          modulo: 'requerimiento',
+          entidadId: dbId,
+          numero: reqActual.id,
+          titulo: reqActual.titulo,
+          monto: reqActual.totalEstimado ?? 0,
+          moneda: 'PEN',
+        });
+      }
+
       return { exito: true };
     },
-    [user]
+    [user, requerimientos]
   );
 
   const aprobarRequerimiento = useCallback(
