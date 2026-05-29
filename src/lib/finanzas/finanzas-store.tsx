@@ -7,6 +7,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { dbTransacciones, dbPresupuestos, dbCajasChicas, dbGastosCajaChica } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { logAudit } from '../shared/audit';
+import { solicitarAprobacionTeams } from '../compras/solicitar-aprobacion';
 import type { TransaccionDB, PresupuestoDB, PresupuestoLineaDB, CajaChicaDB, GastoCajaChicaDB } from '../supabase/types';
 
 // ============================================================================
@@ -416,7 +417,21 @@ export function FinanzasProvider({ children }: { children: React.ReactNode }) {
     if (error || !row) throw new Error(error?.message ?? 'Error al registrar gasto');
     // Reload all data to get joined caja data; return the inserted row mapped
     await load();
-    return mapGasto(row as GastoCajaChicaDB);
+    const g = mapGasto(row as GastoCajaChicaDB);
+
+    // Gasto pendiente → solicitar aprobación vía Teams (no bloquea)
+    if (g.estado === 'pendiente') {
+      void solicitarAprobacionTeams({
+        modulo: 'caja_chica',
+        entidadId: g._dbId,
+        numero: g.id,
+        titulo: g.descripcion,
+        monto: g.monto,
+        moneda: g.moneda === 'USD' ? 'USD' : 'PEN',
+      });
+    }
+
+    return g;
   }, [load, cajasChicas]);
 
   const updateGasto = useCallback(async (dbId: string, data: Partial<GastoCajaChicaDB>) => {

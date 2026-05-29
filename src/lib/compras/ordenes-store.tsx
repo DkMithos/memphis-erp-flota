@@ -9,6 +9,7 @@ import { supabase } from '../supabase/client';
 import { dbOrdenesCompra } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { validateTransition, ORDEN_TRANSITIONS } from '../shared/state-machine';
+import { solicitarAprobacionTeams } from './solicitar-aprobacion';
 import type {
   OrdenCompra as OrdenCompraDB,
   OrdenItem as OrdenItemDB,
@@ -524,9 +525,21 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         )
       );
 
+      // Al enviar a aprobación → solicitar aprobación vía Teams (no bloquea)
+      if (nuevoEstado === 'pendiente_aprobacion' && ordActual) {
+        void solicitarAprobacionTeams({
+          modulo: 'orden_compra',
+          entidadId: dbId,
+          numero: ordActual.id,
+          titulo: ordActual.proveedorNombre,
+          monto: ordActual.total,
+          moneda: ordActual.moneda as 'PEN' | 'USD',
+        });
+      }
+
       return { exito: true };
     },
-    [user]
+    [user, ordenes]
   );
 
   const aprobarOrden = useCallback(
