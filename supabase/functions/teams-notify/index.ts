@@ -131,6 +131,18 @@ Deno.serve(async (req: Request) => {
     })
   }
 
+  // Notificación in-app (campanita del ERP)
+  if (tenantId) {
+    await admin.from('notificaciones').insert({
+      tenant_id: tenantId,
+      tipo: 'info',
+      titulo,
+      mensaje: cuerpo ?? null,
+      entidad_tipo: tipo,
+      entidad_id: null,
+    })
+  }
+
   try {
     const card = buildAdaptiveCard(titulo, cuerpo, accionUrl, hechos)
     const res = await fetch(webhookUrl, {

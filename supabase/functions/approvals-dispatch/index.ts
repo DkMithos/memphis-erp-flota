@@ -100,6 +100,16 @@ Deno.serve(async (req: Request) => {
     aprobadores, solicitante, estado: 'pendiente',
   }).select('id').single()
 
+  // Notificación in-app (campanita del ERP)
+  await admin.from('notificaciones').insert({
+    tenant_id: tenantId,
+    tipo: 'warning',
+    titulo: `Aprobación requerida: ${numero ?? ''}`,
+    mensaje: `${MODULO_LABEL[modulo] ?? modulo} · ${new Intl.NumberFormat('es-PE', { style: 'currency', currency: moneda }).format(Number(monto) || 0)}`,
+    entidad_tipo: modulo,
+    entidad_id: numero ?? entidadId,
+  })
+
   // Tarjeta Teams
   const fmt = new Intl.NumberFormat('es-PE', { style: 'currency', currency: moneda }).format(Number(monto) || 0)
   const ruta = (RUTA[modulo] ?? (() => '/'))(numero ?? '')

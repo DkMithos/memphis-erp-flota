@@ -169,6 +169,16 @@ Deno.serve(async (req: Request) => {
     ],
   }
 
+  // Notificación in-app (campanita del ERP)
+  await admin.from('notificaciones').insert({
+    tenant_id: tenantId,
+    tipo: 'warning',
+    titulo: 'Resumen de vencimientos',
+    mensaje: `Docs:${nDocs} OTs:${nOts} Calibs:${nCalibs} Garantias:${nGar}`,
+    entidad_tipo: 'vencimientos',
+    entidad_id: null,
+  })
+
   try {
     const res = await fetch(webhookUrl, {
       method: 'POST',
