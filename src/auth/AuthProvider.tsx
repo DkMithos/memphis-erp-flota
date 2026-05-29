@@ -363,10 +363,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     signOut: async () => {
       try {
-        await supabase.auth.signOut();
+        // scope 'local': borra la sesión local sin depender de la llamada de red
+        // de revocación (que puede colgarse y dejar el token en localStorage).
+        // Race con timeout para no quedar bloqueados si signOut nunca resuelve.
+        await Promise.race([
+          supabase.auth.signOut({ scope: 'local' }),
+          new Promise((resolve) => setTimeout(resolve, 1500)),
+        ]);
       } catch (err) {
         console.warn('[auth] signOut API error (ignorando):', err);
       } finally {
+        // Garantizar limpieza del token aunque signOut falle/cuelgue.
+        // Sin esto, getSession() restauraría la sesión al recargar (el bug de
+        // "limpiar caché varias veces para cerrar sesión").
+        try {
+          Object.keys(localStorage)
+            .filter((k) => k.startsWith('sb-') && k.endsWith('-auth-token'))
+            .forEach((k) => localStorage.removeItem(k));
+        } catch { /* modo privado / storage bloqueado */ }
+
         profileLoadedRef.current = false;
         setSession(null);
         setProfile(null);
