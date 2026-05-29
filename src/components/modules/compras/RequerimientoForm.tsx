@@ -74,9 +74,15 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
 
   // Calcular total estimado
   const totalEstimado = (formData.items || []).reduce(
-    (sum, item) => sum + (item.cantidad || 0) * (item.precioEstimado || 0), 
+    (sum, item) => sum + (item.cantidad || 0) * (item.precioEstimado || 0),
     0
   );
+
+  // Moneda seleccionada → símbolo y formateador (refleja PEN/USD en la UI)
+  const monedaActual = (formData.moneda ?? 'PEN') as 'PEN' | 'USD';
+  const simboloMoneda = monedaActual === 'USD' ? 'US$' : 'S/';
+  const fmtMontoForm = (n: number) =>
+    new Intl.NumberFormat('es-PE', { style: 'currency', currency: monedaActual, minimumFractionDigits: 2 }).format(n || 0);
 
   // Validar formulario
   const validateForm = (): boolean => {
@@ -525,7 +531,7 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
                         </div>
 
                         <div className="space-y-2">
-                          <Label>Precio Estimado (S/) *</Label>
+                          <Label>Precio Estimado ({simboloMoneda}) *</Label>
                           <Input
                             type="number"
                             min="0"
@@ -541,7 +547,7 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
                         <div className="space-y-2">
                           <Label>Subtotal</Label>
                           <Input
-                            value={formatearMonto(item.cantidad * item.precioEstimado)}
+                            value={fmtMontoForm(item.cantidad * item.precioEstimado)}
                             disabled
                             className="bg-muted"
                           />
@@ -567,7 +573,7 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
                 <div className="border-t pt-4">
                   <div className="flex items-center justify-between text-lg font-semibold">
                     <span>Total Estimado:</span>
-                    <span className="text-primary">{formatearMonto(totalEstimado)}</span>
+                    <span className="text-primary">{fmtMontoForm(totalEstimado)}</span>
                   </div>
                 </div>
               )}

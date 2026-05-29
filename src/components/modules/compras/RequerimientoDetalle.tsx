@@ -27,6 +27,7 @@ import {
 } from '../../ui/table';
 import { useRequerimientosStore } from '../../../lib/compras/requerimientos-store';
 import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
+import { useCentrosCosto } from '../../../lib/centros-costo/centros-costo-store';
 import { COTIZACION_ESTADO_CONFIG, formatearMonto as formatearMontoCotizacion } from '../../../lib/compras/cotizaciones-config';
 import {
   REQUERIMIENTO_ESTADO_CONFIG,
@@ -57,8 +58,28 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
   } = useRequerimientosStore();
   
   const { obtenerCotizacionesPorRequerimiento } = useCotizacionesStore();
+  const { centrosCosto } = useCentrosCosto();
   const requerimiento = obtenerRequerimientoPorId(requerimientoId);
   const cotizacionesAsociadas = obtenerCotizacionesPorRequerimiento(requerimientoId);
+
+  // Centro de costo: el selector nuevo guarda el UUID del CC (en centroCostoId
+  // o, por compatibilidad, en el campo legacy centroCosto). Resolver contra el store.
+  const centroCostoDisplay = (() => {
+    if (!requerimiento) return '—';
+    const cc = centrosCosto.find(
+      c => c._dbId === requerimiento.centroCostoId || c._dbId === requerimiento.centroCosto,
+    );
+    if (cc) return `${cc.codigo} — ${cc.nombre}`;
+    return CENTRO_COSTO_LABELS[requerimiento.centroCosto] ?? '—';
+  })();
+
+  // Formateador de moneda según la moneda del requerimiento
+  const fmtMonto = (n: number) =>
+    new Intl.NumberFormat('es-PE', {
+      style: 'currency',
+      currency: requerimiento?.moneda ?? 'PEN',
+      minimumFractionDigits: 2,
+    }).format(n);
 
   const [showAnularDialog, setShowAnularDialog] = useState(false);
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
@@ -249,7 +270,7 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Centro de Costo</p>
-              <Badge variant="outline">{CENTRO_COSTO_LABELS[requerimiento.centroCosto]}</Badge>
+              <Badge variant="outline">{centroCostoDisplay}</Badge>
             </div>
             <div className="md:col-span-2">
               <p className="text-sm text-muted-foreground mb-2">Descripción</p>
@@ -296,8 +317,8 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
                   <TableCell>{item.descripcion}</TableCell>
                   <TableCell>{item.cantidad}</TableCell>
                   <TableCell className="capitalize">{item.unidad}</TableCell>
-                  <TableCell>{formatearMonto(item.precioEstimado)}</TableCell>
-                  <TableCell className="font-medium">{formatearMonto(item.cantidad * item.precioEstimado)}</TableCell>
+                  <TableCell>{fmtMonto(item.precioEstimado)}</TableCell>
+                  <TableCell className="font-medium">{fmtMonto(item.cantidad * item.precioEstimado)}</TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
                     {item.comentario || '-'}
                   </TableCell>
@@ -305,7 +326,7 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
               ))}
               <TableRow className="bg-muted/50 font-semibold">
                 <TableCell colSpan={5} className="text-right">Total Estimado:</TableCell>
-                <TableCell className="text-lg text-primary">{formatearMonto(requerimiento.totalEstimado)}</TableCell>
+                <TableCell className="text-lg text-primary">{fmtMonto(requerimiento.totalEstimado)}</TableCell>
                 <TableCell></TableCell>
               </TableRow>
             </TableBody>

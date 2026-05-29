@@ -177,7 +177,7 @@ function mapFromDB(row: RequerimientoWithItems): Requerimiento {
     rechazadoEn: null,
     motivoRechazo: row.motivo_rechazo,
     auditoria: {
-      creadoPor: row.creado_por ?? '',
+      creadoPor: row.solicitante_nombre ?? row.solicitante_email ?? row.creado_por ?? '',
       creadoEn: row.creado_en,
       modificadoPor: row.modificado_por,
       modificadoEn: row.modificado_en,
