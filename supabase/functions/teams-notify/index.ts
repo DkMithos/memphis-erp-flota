@@ -38,7 +38,8 @@ const json = (body: unknown, status = 200) =>
     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
   })
 
-// Construye el envelope de Adaptive Card que espera el webhook de Power Automate
+// Construye la Adaptive Card "pelada" (sin envelope) que el flujo de Power
+// Automate inserta directamente en "Tarjeta adaptable" vía triggerBody().
 function buildAdaptiveCard(
   titulo: string,
   cuerpo?: string,
@@ -63,19 +64,11 @@ function buildAdaptiveCard(
     : []
 
   return {
-    type: 'message',
-    attachments: [
-      {
-        contentType: 'application/vnd.microsoft.card.adaptive',
-        content: {
-          $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
-          type: 'AdaptiveCard',
-          version: '1.4',
-          body,
-          actions,
-        },
-      },
-    ],
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+    type: 'AdaptiveCard',
+    version: '1.4',
+    body,
+    actions,
   }
 }
 
