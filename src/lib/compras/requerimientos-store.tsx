@@ -58,6 +58,9 @@ export interface Requerimiento {
   // Temporal
   fechaRequerida: string | null;
 
+  // Moneda
+  moneda: 'PEN' | 'USD';
+
   // Items
   items: ItemRequerimiento[];
   totalEstimado: number;
@@ -93,6 +96,7 @@ export interface NuevoRequerimientoInput {
   solicitanteNombre: string;
   solicitanteEmail: string;
   fechaRequerida?: string;
+  moneda?: 'PEN' | 'USD';
   items: Omit<ItemRequerimiento, 'id' | '_dbId'>[];
   // Imputación dual (opcional — se guardan como FK en DB)
   proyectoId?: string | null;
@@ -159,9 +163,10 @@ function mapFromDB(row: RequerimientoWithItems): Requerimiento {
     centroCosto: row.centro_costo as CentroCosto,
     prioridad: row.prioridad as PrioridadRequerimiento,
     estado: row.estado as EstadoRequerimiento,
-    solicitanteNombre: row.creado_por ?? '',
-    solicitanteEmail: row.creado_por ?? '',
+    solicitanteNombre: row.solicitante_nombre ?? '',
+    solicitanteEmail: row.solicitante_email ?? '',
     fechaRequerida: row.fecha_requerida,
+    moneda: (row.moneda as 'PEN' | 'USD') ?? 'PEN',
     items,
     totalEstimado,
     proyectoId: row.proyecto_id ?? null,
@@ -274,11 +279,14 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
         prioridad: input.prioridad,
         centro_costo: input.centroCosto,
         fecha_requerida: input.fechaRequerida || null,
+        moneda: input.moneda ?? 'PEN',
+        solicitante_email: normalizeEmail(input.solicitanteEmail),
+        solicitante_nombre: input.solicitanteNombre,
         motivo_rechazo: null,
         motivo_anulacion: null,
         aprobado_por: null,
         aprobado_en: null,
-        creado_por: normalizeEmail(input.solicitanteEmail),
+        creado_por: user.id,
         modificado_por: null,
         modificado_en: null,
       });
@@ -471,7 +479,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
           numero: reqActual.id,
           titulo: reqActual.titulo,
           monto: reqActual.totalEstimado ?? 0,
-          moneda: 'PEN',
+          moneda: reqActual.moneda ?? 'PEN',
         });
       }
 

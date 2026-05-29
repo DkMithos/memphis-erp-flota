@@ -45,6 +45,7 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
     descripcion: '',
     centroCosto: undefined,
     prioridad: 'media',
+    moneda: 'PEN',
     solicitanteNombre: usuarioActual.nombre,
     solicitanteEmail: usuarioActual.email,
     fechaRequerida: '',
@@ -62,6 +63,7 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
         descripcion: requerimientoExistente.descripcion,
         centroCosto: requerimientoExistente.centroCosto,
         prioridad: requerimientoExistente.prioridad,
+        moneda: requerimientoExistente.moneda ?? 'PEN',
         solicitanteNombre: requerimientoExistente.solicitanteNombre,
         solicitanteEmail: requerimientoExistente.solicitanteEmail,
         fechaRequerida: requerimientoExistente.fechaRequerida || '',
@@ -336,6 +338,23 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
                       <SelectItem value="alta">Alta (Urgente)</SelectItem>
                       <SelectItem value="media">Media (Normal)</SelectItem>
                       <SelectItem value="baja">Baja (Puede esperar)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Moneda */}
+                <div className="space-y-2">
+                  <Label htmlFor="moneda">Moneda *</Label>
+                  <Select
+                    value={formData.moneda}
+                    onValueChange={(v) => setFormData({ ...formData, moneda: v as 'PEN' | 'USD' })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PEN">Soles (S/)</SelectItem>
+                      <SelectItem value="USD">Dólares (US$)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

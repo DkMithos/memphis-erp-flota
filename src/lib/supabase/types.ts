@@ -841,6 +841,9 @@ export interface RequerimientoCompra {
   modificado_en: string | null;
   proyecto_id?: string | null;
   centro_costo_id?: string | null;
+  moneda?: string;
+  solicitante_email?: string | null;
+  solicitante_nombre?: string | null;
 }
 export type RequerimientoCompraInsert = Omit<RequerimientoCompra, 'id' | 'creado_en'>;
 export type RequerimientoCompraUpdate = Partial<Omit<RequerimientoCompraInsert, 'tenant_id'>>;
