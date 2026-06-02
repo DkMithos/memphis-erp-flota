@@ -88,6 +88,7 @@ import { ProyectosLista } from './components/modules/proyectos/ProyectosLista';
 import { ProyectoDetalle } from './components/modules/proyectos/ProyectoDetalle';
 import { Proyecto360 } from './components/modules/proyectos/Proyecto360';
 import { ProyectosPanorama } from './components/modules/proyectos/ProyectosPanorama';
+import { ProyectosExcelSync } from './components/modules/proyectos/ProyectosExcelSync';
 import { ProyectosTareasGlobal } from './components/modules/proyectos/ProyectosTareasGlobal';
 import { TareaDetalle } from './components/modules/proyectos/TareaDetalle';
 import { ProyectosProvider } from './lib/proyectos/proyectos-store';
@@ -543,6 +544,7 @@ export default function App() {
       if (currentRoute === '/proyectos/valorizaciones') return <ProyectosValorizaciones onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/riesgos') return <ProyectosRiesgos onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/documentos') return <ProyectosDocumentos onNavigate={navigateTo} />;
+      if (currentRoute === '/proyectos/excel-sync') return <ProyectosExcelSync />;
       // Default: Panorama General como dashboard de proyectos
       return <ProyectosPanorama onNavigate={navigateTo} />;
     }
