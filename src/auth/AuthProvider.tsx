@@ -207,40 +207,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Timeout de seguridad: si Supabase tarda >5s, intentar recuperar de localStorage
+    // Timeout de seguridad: si Supabase tarda >5s, recuperar sesión de localStorage.
+    // CRÍTICO: cada await va con Promise.race + timeout, y setLoading(false) en
+    // finally — así la UI nunca queda atrapada en "Iniciando sesión..." aunque
+    // los locks de Supabase/IndexedDB estén colgados.
+    const raceWithTimeout = <T,>(p: Promise<T>, ms: number, fallback: T) =>
+      Promise.race<T>([p, new Promise<T>((r) => setTimeout(() => r(fallback), ms))])
+        .catch(() => fallback);
+
     const safetyTimer = setTimeout(async () => {
-      if (mounted && loading) {
-        console.warn('[auth] getSession timeout — recuperando sesión de localStorage');
+      if (!(mounted && loading)) return;
+      console.warn('[auth] getSession timeout — recuperando sesión de localStorage');
+      try {
         const recovered = recoverSessionFromStorage();
         if (recovered?.user && recovered.access_token && recovered.refresh_token) {
           console.log('[auth] Sesión recuperada de localStorage para', recovered.user.email);
 
-          // CRÍTICO: setear la sesión en el Supabase client para que los queries posteriores
-          // tengan el token de auth (RLS). Sin esto, supabase.from() no tiene autenticación.
-          try {
-            const { error: setErr } = await supabase.auth.setSession({
+          // 1) Desbloquear UI YA con el estado React; el supabase client se sincroniza
+          //    en segundo plano (y si se cuelga, no atrapa la UI).
+          setSession(recovered as any);
+
+          // 2) Intentar setear la sesión en el Supabase client (con timeout corto)
+          const setResult = await raceWithTimeout(
+            supabase.auth.setSession({
               access_token: recovered.access_token,
               refresh_token: recovered.refresh_token,
-            });
-            if (setErr) {
-              console.warn('[auth] setSession falló, usando fetch directo:', setErr.message);
-              // Si setSession falla (navigator.locks), usar fetch directo como fallback
-              setSession(recovered as any);
-              await loadProfileDirect(recovered.user.id, recovered.access_token);
-            } else {
-              console.log('[auth] Sesión restaurada en Supabase client exitosamente');
-              // setSession + loadProfile se manejarán via onAuthStateChange callback
-              // pero seteamos manualmente por si el callback no dispara
-              setSession(recovered as any);
-              await loadProfile(recovered.user.id);
-            }
-          } catch (setSessionErr) {
-            console.warn('[auth] setSession excepción, usando fetch directo:', setSessionErr);
-            setSession(recovered as any);
-            await loadProfileDirect(recovered.user.id, recovered.access_token);
+            }),
+            2000,
+            { data: null, error: { message: 'setSession timeout' } } as any,
+          );
+
+          // 3) Cargar el profile (con timeout). Si setSession falló/timeout, usar fetch directo
+          if (setResult?.error) {
+            console.warn('[auth] setSession falló/timeout, usando fetch directo:', setResult.error.message);
+            await raceWithTimeout(
+              loadProfileDirect(recovered.user.id, recovered.access_token),
+              3000,
+              undefined as any,
+            );
+          } else {
+            await raceWithTimeout(loadProfile(recovered.user.id), 3000, undefined as any);
           }
         }
-        if (mounted) setLoading(false);
+      } catch (err) {
+        console.warn('[auth] safety timer error:', err);
+      } finally {
+        if (mounted) setLoading(false); // SIEMPRE — nunca dejar la UI colgada
       }
     }, 5000);
 
