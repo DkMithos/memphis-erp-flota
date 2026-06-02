@@ -232,7 +232,7 @@ Deno.serve(async (req: Request) => {
               tenant_id: cfg.tenant_id,
               hoja: ws.name,
               ...parsed,
-              datos_raw: { values_preview: values.slice(0, 30) }, // primeras 30 filas para auditoría
+              datos_raw: { text: values }, // contenido completo de la hoja para la ficha
               excel_url: cfg.excel_url,
               sincronizado_en: new Date().toISOString(),
             }

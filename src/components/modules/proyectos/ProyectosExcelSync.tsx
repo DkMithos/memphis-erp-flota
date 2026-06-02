@@ -7,12 +7,13 @@
  * para refresco manual.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, ExternalLink, FileSpreadsheet, AlertCircle } from 'lucide-react';
+import { RefreshCw, ExternalLink, FileSpreadsheet, AlertCircle, Eye, X } from 'lucide-react';
 import { supabase } from '../../../lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../../ui/sheet';
 import { toast } from 'sonner';
 
 interface ProyectoEspejo {
@@ -31,6 +32,13 @@ interface ProyectoEspejo {
   items: number | null;
   acta_inicio: string | null;
   fecha_plazo: string | null;
+  doc_tecnico: string | null;
+  doc_actual: string | null;
+  plazo_dias_total: number | null;
+  tipo_valorizacion: string | null;
+  nuevo_plazo: string | null;
+  dias_penalidad: string | null;
+  datos_raw: { text?: string[][] } | null;
   sincronizado_en: string;
   excel_url: string | null;
 }
@@ -75,6 +83,7 @@ export function ProyectosExcelSync() {
   const [config, setConfig] = useState<SyncConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [detalle, setDetalle] = useState<ProyectoEspejo | null>(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -199,11 +208,12 @@ export function ProyectosExcelSync() {
                   <TableHead className="text-right">Pendiente</TableHead>
                   <TableHead className="text-center">Ítems</TableHead>
                   <TableHead>Fecha plazo</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {proyectos.map((p) => (
-                  <TableRow key={p.id}>
+                  <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setDetalle(p)}>
                     <TableCell className="font-medium">{p.proyecto ?? p.hoja}</TableCell>
                     <TableCell>{p.owner ?? '—'}</TableCell>
                     <TableCell className="font-mono text-xs">{p.ciu ?? '—'}</TableCell>
@@ -220,6 +230,11 @@ export function ProyectosExcelSync() {
                     <TableCell className="text-right font-mono text-xs text-amber-700">{fmtMonto(p.monto_pendiente)}</TableCell>
                     <TableCell className="text-center">{p.items ?? '—'}</TableCell>
                     <TableCell className="text-xs">{fmtFecha(p.fecha_plazo)}</TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDetalle(p); }}>
+                        <Eye className="size-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -227,6 +242,90 @@ export function ProyectosExcelSync() {
           )}
         </CardContent>
       </Card>
+
+      {/* Drawer con la ficha completa de la hoja */}
+      <Sheet open={!!detalle} onOpenChange={(open) => !open && setDetalle(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
+          {detalle && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <FileSpreadsheet className="size-5" />
+                  {detalle.proyecto ?? detalle.hoja}
+                </SheetTitle>
+                <SheetDescription>
+                  Ficha completa de la hoja <strong>{detalle.hoja}</strong> en el Excel.
+                </SheetDescription>
+              </SheetHeader>
+
+              {/* Resumen del proyecto */}
+              <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                <div><p className="text-xs text-muted-foreground">Owner</p><p className="font-medium">{detalle.owner ?? '—'}</p></div>
+                <div><p className="text-xs text-muted-foreground">CIU</p><p className="font-mono">{detalle.ciu ?? '—'}</p></div>
+                <div><p className="text-xs text-muted-foreground">Tipo</p><p>{detalle.tipo ?? '—'}</p></div>
+                <div><p className="text-xs text-muted-foreground">Fase actual</p><p>{detalle.fase_actual ?? '—'}</p></div>
+                <div><p className="text-xs text-muted-foreground">Estado</p><p>{detalle.estado_actual ?? '—'}</p></div>
+                <div><p className="text-xs text-muted-foreground">Doc. técnico</p><p className="text-xs">{detalle.doc_tecnico ?? '—'}</p></div>
+                <div><p className="text-xs text-muted-foreground">Doc. actual</p><p className="text-xs">{detalle.doc_actual ?? '—'}</p></div>
+                <div><p className="text-xs text-muted-foreground">Plazo total</p><p>{detalle.plazo_dias_total ?? '—'} días</p></div>
+                <div><p className="text-xs text-muted-foreground">Tipo valoriz.</p><p>{detalle.tipo_valorizacion ?? '—'}</p></div>
+                <div><p className="text-xs text-muted-foreground">Inversión inicial</p><p className="font-semibold">{fmtMonto(detalle.inversion_inicial)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Valor modificado</p><p className="font-semibold">{fmtMonto(detalle.valor_modificado)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Cobrado</p><p className="font-semibold text-green-600">{fmtMonto(detalle.monto_cobrado)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Pendiente</p><p className="font-semibold text-amber-600">{fmtMonto(detalle.monto_pendiente)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Acta de inicio</p><p>{fmtFecha(detalle.acta_inicio)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Fecha de plazo</p><p>{fmtFecha(detalle.fecha_plazo)}</p></div>
+              </div>
+
+              {detalle.excel_url && (
+                <div className="mt-4">
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={detalle.excel_url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="size-4 mr-1" /> Abrir esta hoja en Excel
+                    </a>
+                  </Button>
+                </div>
+              )}
+
+              {/* Contenido íntegro de la hoja del Excel */}
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold mb-2">Contenido íntegro de la hoja</h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Lo que ves abajo es la hoja del Excel sincronizada celda a celda — fases, items, base documentaria, suspensiones, comentarios y todo lo demás.
+                </p>
+                <div className="border rounded-md overflow-auto max-h-[500px]">
+                  <table className="text-xs w-max border-collapse">
+                    <tbody>
+                      {(detalle.datos_raw?.text ?? []).map((row, ri) => (
+                        <tr key={ri} className="border-b">
+                          {row.map((cell, ci) => {
+                            const text = String(cell ?? '').trim();
+                            const isLabel = /^[A-ZÁÉÍÓÚÑ\s./()]+:\s*$/.test(text) || text.endsWith(':');
+                            return (
+                              <td
+                                key={ci}
+                                className={`border-r px-2 py-1 align-top whitespace-pre-wrap min-w-[80px] ${
+                                  isLabel ? 'font-semibold bg-muted/40 text-muted-foreground' : ''
+                                } ${text === 'x' || text === 'X' ? 'text-center text-green-600 font-bold' : ''}`}
+                              >
+                                {text}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground mt-4">
+                Sincronizado: {new Date(detalle.sincronizado_en).toLocaleString('es-PE')}
+              </p>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <p className="text-xs text-muted-foreground">
         El equipo continúa trabajando en el Excel original. El ERP se sincroniza cada 30 min vía Microsoft Graph. Cuando el equipo migre a Planner y luego al ERP, esta vista quedará como respaldo y eventualmente se desactiva.
