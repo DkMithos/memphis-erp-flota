@@ -1,7 +1,63 @@
 # Auditoría QA de Código — Memphis ERP
 
-> Fecha: 2026-06-10
+> Auditoría original: 2026-06-10 (mañana) · **Re-auditoría: 2026-06-10 (tarde, post-sprints)**
 > Objetivo: identificar problemas que un QA encontraría antes de su visita
+
+---
+
+# ✅ RE-AUDITORÍA (post sprint corto + sprint medio)
+
+## Antes vs Después
+
+| Métrica | Auditoría original | Re-auditoría | Estado |
+|---|---|---|---|
+| Archivos `temp_*`/`pr_*` en raíz | 41 | **0** | ✅ |
+| `console.log` en bundle de producción | 128 | **0** | ✅ |
+| `tsconfig.json` strict | No existía | **Sí** (+ @types/react) | ✅ |
+| Bundle principal | 2.6 MB monolítico | **1.7 MB + 20 chunks** (lazy) | ✅ |
+| Tests automatizados | 3 archivos huérfanos | **34 tests verdes (5 suites)** | ✅ |
+| `npm run lint` | Crasheaba (sin eslint) | **Funcional — 0 errores** | ✅ |
+| Bugs `rules-of-hooks` | 4 (crash latente) | **0** | ✅ |
+| Stores con loading infinito | 5 | **0** (try/catch/finally) | ✅ |
+| `localStorage` writes sin guardar | 4 | **0** | ✅ |
+| Monitoreo de errores producción | Nada | **Sentry activo + verificado** | ✅ |
+| ErrorBoundary + Suspense en rutas | Parcial | **Global en renderModule** | ✅ |
+| Advisors seguridad Supabase | 7 hallazgos (no auditado antes) | **1 aceptado** (pg_net, no corregible) | ✅ |
+| Errores Sentry en producción | — | **0 capturados** | ✅ |
+| Crons (excel-sync / notif) | — | **395/395 y 12/12 OK, 0 fallos** | ✅ |
+
+## Hallazgos NUEVOS de la re-auditoría (seguridad de BD)
+
+La re-auditoría incluyó el linter de seguridad de Supabase (no corrido en la original):
+
+| Hallazgo | Nivel | Resolución |
+|---|---|---|
+| `handle_new_user()` SECURITY DEFINER ejecutable vía RPC por anon/authenticated | WARN | ✅ `REVOKE EXECUTE` (migración `20260610000000`) |
+| `rls_auto_enable()` ídem | WARN | ✅ `REVOKE EXECUTE` |
+| `tenant_email_domains` RLS sin políticas | INFO | ✅ Política SELECT para authenticated |
+| `tipos_comprobante_sunat` RLS sin políticas | INFO | ✅ Política SELECT para authenticated |
+| `pg_net` en esquema public | WARN | ⚠️ **Aceptado** — pg_net no soporta `SET SCHEMA` (error 0A000); sus funciones viven en esquema `net`. Riesgo bajo, documentado |
+
+## Hallazgos de performance (diferidos, no bloqueantes)
+
+Linter de performance de Supabase: 257 avisos — **144 FKs sin índice** y **60 índices sin uso** (normales en una BD joven; impacto nulo al volumen actual de ~400 vehículos), 21 `auth_rls_initplan` y 31 `multiple_permissive_policies` (optimizaciones de RLS). Se abordarán cuando el volumen de datos lo justifique; quedan registrados aquí para trazabilidad.
+
+## Pendientes conocidos (documentados, no críticos)
+
+- **M5:** 69 non-null assertions (`!`) — diferido (bajo riesgo, mitigado por error-monitor global).
+- **129 `console.log` en código fuente** — inofensivos: esbuild los elimina del bundle de producción (verificado: 0 en el bundle). Visibles solo en dev.
+- **Pasada a11y completa** por ~40 diálogos de formularios (warning dev-only de Radix; no aparece en producción).
+- **7 TODOs** en código (eran 6; +1 legítimo de trabajo en curso).
+- **Tests E2E Playwright** — requieren credenciales de prueba.
+
+## Veredicto
+
+El sistema pasa los checks que un QA típico correría: build limpio, lint sin errores, tests verdes, consola de producción limpia, monitoreo activo, seguridad de BD revisada y endurecida, crons sanos. Los riesgos residuales están documentados con justificación.
+
+---
+
+# Auditoría original (2026-06-10 mañana) — histórico
+
 > Build de producción: ✅ exitoso (2.6 MB)
 
 ## Resumen ejecutivo

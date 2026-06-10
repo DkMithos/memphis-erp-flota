@@ -173,6 +173,13 @@ Ambos pedidos comparten infraestructura crítica:
 
 ## ✅ Hecho recientemente (para no perder el hilo)
 
+- **Sprints QA hardening (corto + medio) completos** — repo limpio, 0 console.log en prod,
+  tsconfig strict, code splitting (2.6→1.7 MB), 34 tests, eslint 0 errores, 4 bugs de hooks
+  corregidos, 5 stores sin loading infinito, Sentry activo en producción (verificado)
+- **Hardening de seguridad BD** — advisors Supabase: REVOKE en funciones SECURITY DEFINER,
+  políticas RLS explícitas; 6/7 hallazgos resueltos, 1 aceptado (pg_net, no corregible)
+- **Re-auditoría completa** — sistema verificado listo para visita de QA (ver AUDITORIA-QA-Codigo.md)
+
 - SSO Entra ID + roles vía App Roles + gate "cuenta pendiente"
 - Fix loading/logout (sin necesidad de limpiar caché)
 - Notificaciones Teams (canal) vía Power Automate webhook

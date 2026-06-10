@@ -142,6 +142,25 @@
   - Dashboard: https://dkmithos.sentry.io (proyecto memphis-erp)
   - El próximo error real en producción aparecerá automáticamente con session replay.
 
+---
+
+# Re-auditoría final (2026-06-10, post-sprints)
+
+Verificación integral del sistema tras los dos sprints. Detalle completo con tabla
+antes/después en `AUDITORIA-QA-Codigo.md` (sección RE-AUDITORÍA).
+
+**Resultados clave:**
+- ✅ Build OK · 0 errores ESLint · 34 tests verdes · 0 `console.log` en bundle de producción (1.7 MB + 20 chunks)
+- ✅ Sentry activo en producción, **0 errores capturados** desde el deploy
+- ✅ Crons sanos: excel-sync **395/395 OK**, notif-scheduler **12/12 OK** (0 fallos)
+- ✅ Espejo Excel creció solo de 7 → **15 proyectos** (las hojas nuevas del equipo se reflejan automáticamente)
+
+**Hardening adicional de seguridad de BD** (advisors de Supabase, migración `20260610000000_security_hardening_advisors.sql`):
+- `REVOKE EXECUTE` sobre `handle_new_user()` y `rls_auto_enable()` (SECURITY DEFINER expuestas vía RPC a anon/authenticated)
+- Políticas SELECT explícitas para `tenant_email_domains` y `tipos_comprobante_sunat` (tenían RLS sin políticas)
+- Hallazgo aceptado: `pg_net` en esquema public — la extensión no soporta `SET SCHEMA`; riesgo bajo, documentado
+- Performance advisors (257 INFO/WARN: FKs sin índice, índices sin uso, optimizaciones RLS) → diferidos hasta que el volumen lo justifique
+
 ## Pendiente sprint medio (siguiente iteración)
 
 - **M3 eslint:** instalar eslint + config flat + `eslint-plugin-jsx-a11y`; corregir lo crítico. (Hoy `npm run lint` falla porque eslint no está instalado.)

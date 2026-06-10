@@ -1,8 +1,23 @@
 # Auditoría de Entrega — Memphis Maquinarias
 
-> Fecha de auditoría: 2026-06-10
+> Fecha de auditoría: 2026-06-10 · **Actualizada tras re-auditoría (mismo día, tarde)**
 > Cliente: Memphis Maquinarias S.A.C. (primer cliente del sistema)
 > Estado del sistema: Producción en `erp.memphismaquinarias.com`
+
+## ⚡ Actualización re-auditoría (2026-06-10 tarde)
+
+**Calidad técnica:** los bloqueadores de código del punto 5/6 quedaron resueltos en los
+sprints de hardening (ver `SPRINT-QA-Hardening.md` y `AUDITORIA-QA-Codigo.md`):
+monitoreo Sentry activo, 34 tests, lint limpio, bundle optimizado, seguridad de BD endurecida.
+
+**Datos:** sin cambios relevantes en datos maestros (sigue siendo el bloqueador #1 de entrega):
+- Usuarios activos: 2 de 16 · Clientes CRM: 0 · Artículos: 0 · Equipos biomédicos: 0
+- ✅ Único avance de datos: espejo Excel creció de 7 → **15 proyectos** (sync automático funcionando; el equipo agregó hojas y se reflejaron solas)
+- ✅ 14 notificaciones enviadas por el sistema (Teams + campanita operando)
+
+**Conclusión:** la plataforma técnica está lista para QA; la entrega al cliente sigue
+bloqueada por onboarding de usuarios + carga de datos maestros + reforma de Proyectos
+(Paquete 1 del `PLAN-Entrega-Memphis.md`).
 
 ## 1. Inventario actual de datos en el sistema
 
