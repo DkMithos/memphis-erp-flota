@@ -50,9 +50,26 @@
         '@': path.resolve(__dirname, './src'),
       },
     },
+    // En producción, esbuild elimina console.log/debug/info (mantiene warn/error).
+    // En el dev server no se aplica tree-shaking, así que los logs siguen en local.
+    esbuild: {
+      pure: ['console.log', 'console.debug', 'console.info'],
+    },
     build: {
       target: 'esnext',
       outDir: 'build',
+      chunkSizeWarningLimit: 900,
+      rollupOptions: {
+        output: {
+          // Partir el bundle único en chunks de vendor para acelerar la carga inicial
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom'],
+            'charts': ['recharts'],
+            'supabase': ['@supabase/supabase-js'],
+            'i18n': ['i18next', 'react-i18next'],
+          },
+        },
+      },
     },
     server: {
       port: 3000,

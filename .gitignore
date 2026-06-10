@@ -17,6 +17,10 @@ build/
 # Archivos temporales de PR / AI (no deben estar en el repo)
 pr_*.json
 pr_*.md
+temp_*
+
+# Scripts de carga histórica (one-off, no versionar)
+scripts/imports-historicos/
 
 # Claude Code (contiene tokens y configuración local)
 .claude/settings.local.json

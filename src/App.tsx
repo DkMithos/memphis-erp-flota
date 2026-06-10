@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 
 // Auth
 import { useAuth } from './auth/AuthProvider';
@@ -117,27 +117,27 @@ import { CRMOportunidades } from './components/modules/crm/CRMOportunidades';
 import { CRMActividades } from './components/modules/crm/CRMActividades';
 import { CRMProvider } from './lib/crm/crm-store';
 
-// Inventario
-import { InventarioDashboard } from './components/modules/inventario/InventarioDashboard';
-import { InventarioArticulos } from './components/modules/inventario/InventarioArticulos';
-import { InventarioMovimientos } from './components/modules/inventario/InventarioMovimientos';
-import { InventarioAlmacenes } from './components/modules/inventario/InventarioAlmacenes';
+// Inventario (carga diferida)
+const InventarioDashboard = lazy(() => import('./components/modules/inventario/InventarioDashboard').then(m => ({ default: m.InventarioDashboard })));
+const InventarioArticulos = lazy(() => import('./components/modules/inventario/InventarioArticulos').then(m => ({ default: m.InventarioArticulos })));
+const InventarioMovimientos = lazy(() => import('./components/modules/inventario/InventarioMovimientos').then(m => ({ default: m.InventarioMovimientos })));
+const InventarioAlmacenes = lazy(() => import('./components/modules/inventario/InventarioAlmacenes').then(m => ({ default: m.InventarioAlmacenes })));
 
-// BI
-import { BIDashboard } from './components/modules/bi/BIDashboard';
-import { ReporteCruzado } from './components/modules/bi/ReporteCruzado';
+// BI (carga diferida — incluye recharts)
+const BIDashboard = lazy(() => import('./components/modules/bi/BIDashboard').then(m => ({ default: m.BIDashboard })));
+const ReporteCruzado = lazy(() => import('./components/modules/bi/ReporteCruzado').then(m => ({ default: m.ReporteCruzado })));
 import { BIProvider } from './lib/bi/bi-store';
 
-// Contabilidad
-import { ContabilidadDashboard } from './components/modules/contabilidad/ContabilidadDashboard';
-import { PlanCuentas } from './components/modules/contabilidad/PlanCuentas';
-import { PeriodosContables } from './components/modules/contabilidad/PeriodosContables';
-import { AsientosLista } from './components/modules/contabilidad/AsientosLista';
-import { AsientoForm } from './components/modules/contabilidad/AsientoForm';
-import { ComprobantesLista } from './components/modules/contabilidad/ComprobantesLista';
-import { ComprobantePagoForm } from './components/modules/contabilidad/ComprobantePagoForm';
-import { RegistroCompras } from './components/modules/contabilidad/RegistroCompras';
-import { RegistroVentas } from './components/modules/contabilidad/RegistroVentas';
+// Contabilidad (carga diferida — módulo pesado, no en ruta crítica)
+const ContabilidadDashboard = lazy(() => import('./components/modules/contabilidad/ContabilidadDashboard').then(m => ({ default: m.ContabilidadDashboard })));
+const PlanCuentas = lazy(() => import('./components/modules/contabilidad/PlanCuentas').then(m => ({ default: m.PlanCuentas })));
+const PeriodosContables = lazy(() => import('./components/modules/contabilidad/PeriodosContables').then(m => ({ default: m.PeriodosContables })));
+const AsientosLista = lazy(() => import('./components/modules/contabilidad/AsientosLista').then(m => ({ default: m.AsientosLista })));
+const AsientoForm = lazy(() => import('./components/modules/contabilidad/AsientoForm').then(m => ({ default: m.AsientoForm })));
+const ComprobantesLista = lazy(() => import('./components/modules/contabilidad/ComprobantesLista').then(m => ({ default: m.ComprobantesLista })));
+const ComprobantePagoForm = lazy(() => import('./components/modules/contabilidad/ComprobantePagoForm').then(m => ({ default: m.ComprobantePagoForm })));
+const RegistroCompras = lazy(() => import('./components/modules/contabilidad/RegistroCompras').then(m => ({ default: m.RegistroCompras })));
+const RegistroVentas = lazy(() => import('./components/modules/contabilidad/RegistroVentas').then(m => ({ default: m.RegistroVentas })));
 import { PeriodosProvider } from './lib/contabilidad/periodos-store';
 import { PlanCuentasProvider } from './lib/contabilidad/plan-cuentas-store';
 import { AsientosProvider } from './lib/contabilidad/asientos-store';
@@ -949,7 +949,9 @@ export default function App() {
                         <main className={isSpecialRoute() ? '' : 'lg:ml-64 mt-16 p-4 md:p-6'}>
                           <div className={isSpecialRoute() ? '' : 'max-w-[1600px] mx-auto'}>
                             <ErrorBoundary>
-                              {renderModule()}
+                              <Suspense fallback={<LoadingScreen message="Cargando módulo..." />}>
+                                {renderModule()}
+                              </Suspense>
                             </ErrorBoundary>
                           </div>
                         </main>
