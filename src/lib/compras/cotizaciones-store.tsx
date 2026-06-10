@@ -223,18 +223,23 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
     if (!tenantId) { setLoading(false); return; }
     setLoading(true);
 
-    const { data, error } = await dbCotizaciones.list();
+    try {
+      const { data, error } = await dbCotizaciones.list();
 
-    if (error) {
-      console.error('[COTIZACIONES] Error al cargar:', error.message);
-    } else if (data) {
-      const mapped = (data as CotizacionWithRelations[]).map(mapFromDB);
-      setCotizaciones(mapped);
-      if (DEBUG_COTIZACIONES) {
-        console.log('[COTIZACIONES] Cargadas desde Supabase:', mapped.length);
+      if (error) {
+        console.error('[COTIZACIONES] Error al cargar:', error.message);
+      } else if (data) {
+        const mapped = (data as CotizacionWithRelations[]).map(mapFromDB);
+        setCotizaciones(mapped);
+        if (DEBUG_COTIZACIONES) {
+          console.log('[COTIZACIONES] Cargadas desde Supabase:', mapped.length);
+        }
       }
+    } catch (err) {
+      console.error('[COTIZACIONES] Error inesperado al cargar:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [tenantId]);
 
   useEffect(() => {

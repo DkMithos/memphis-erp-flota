@@ -83,7 +83,9 @@ export function loadFlujoAprobacion(): FlujoAprobacionConfig {
 }
 
 export function saveFlujoAprobacion(config: FlujoAprobacionConfig): void {
-  localStorage.setItem(LS_KEY, JSON.stringify({ ...config, updatedAt: new Date().toISOString() }));
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ ...config, updatedAt: new Date().toISOString() }));
+  } catch { /* almacenamiento no disponible — ignorar */ }
 }
 
 // ============================================================================

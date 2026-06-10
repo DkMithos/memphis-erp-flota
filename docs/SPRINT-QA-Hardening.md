@@ -77,10 +77,10 @@
 | M1 | Suite de tests unitarios para lógica de negocio crítica | ✅ Hecho (34 tests) |
 | M2 | Componente `VisuallyHidden` + fix a11y de diálogos sin título | ✅ Hecho (parcial) |
 | M3 | eslint funcional + corregir errores `rules-of-hooks` | ✅ Hecho |
-| M4 | try/catch en stores top (166 awaits) — mitigado por error-monitor global | 🟡 Parcial |
-| M5 | Reemplazar non-null assertions críticas por optional chaining | ⬜ Pendiente |
-| M6 | Migrar accesos a localStorage al helper safeLocalStorage | ⬜ Pendiente |
-| M7 | Conectar @sentry/react + DSN a setErrorReporter | ⬜ Pendiente (requiere cuenta Sentry) |
+| M4 | try/catch en stores top de carga (loading infinito + unhandled rejection) | ✅ Hecho |
+| M5 | Reemplazar non-null assertions críticas por optional chaining | ⬜ Diferido (bajo riesgo, alto esfuerzo) |
+| M6 | Guardar accesos a localStorage (writes sin try/catch) | ✅ Hecho |
+| M7 | Integración @sentry/react (gated por DSN) | ✅ Hecho (falta crear proyecto + DSN) |
 
 ## Bitácora sprint medio
 
@@ -111,9 +111,32 @@
   - `VehicleQRSection.tsx` — `useEffect` de generación de token movido antes del guard + eliminado el duplicado.
 - **Estado final: 0 errores ESLint** (222 warnings restantes son estilo/unused-vars, no críticos).
 
-### M4 — Manejo de errores en stores 🟡
-- **Mitigación principal ya en lugar:** el `error-monitor.ts` global (sprint corto) captura cualquier `unhandledrejection` de un store que falle, lo deduplica y lo enruta por `logger.error` en vez de una traza roja cruda. Esto cubre el peor caso visible para el QA.
-- Pendiente: try/catch explícito + `toast.error` al usuario en los stores más usados (Auth ya hecho, faltan Finanzas/Compras/Inventario).
+### M4 — Manejo de errores en stores ✅
+- **Mitigación global:** `error-monitor.ts` captura cualquier `unhandledrejection` de un store que falle (deduplica + enruta por `logger.error`).
+- **Fix de "loading infinito":** 5 stores cargaban en mount con `setLoading(false)` fuera de try/catch → si la red lanzaba, quedaban en estado de carga para siempre + unhandled rejection. Envueltos en try/catch/**finally** (el finally garantiza salir del loading):
+  - `inventario-store.fetchAll`
+  - `requerimientos-store.fetchRequerimientos`
+  - `cotizaciones-store.fetchCotizaciones`
+  - `ordenes-store.fetchOrdenes`
+  - `recepciones-store.fetchRecepciones`
+- Ya tenían try/catch: AuthProvider, finanzas-store, ot-store, vehiculos-store.
+
+### M6 — localStorage seguro ✅
+- Creado `safe-storage.ts` (sprint corto) y migrado/protegido los **writes sin try/catch** (los reads ya estaban guardados):
+  - `App.tsx` (tema) → usa `getStorageItem`/`setStorageItem`
+  - `modules-config.ts` (saveModulesConfig) → try/catch
+  - `tipo-cambio-store.tsx` (setTipoCambio) → try/catch
+  - `approval-flow.ts` (saveFlujoAprobacion) → try/catch
+- Ya guardados: vehiculo-service, biomedico-service, currency-utils.
+
+### M7 — Sentry ✅ (falta el paso manual)
+- Instalado `@sentry/react`; `src/lib/shared/sentry.ts` con init **gated por `VITE_SENTRY_DSN`** (sin DSN → no-op, no rompe).
+- Solo en producción; conecta `setErrorReporter` → `logger.error` y `error-monitor` reenvían a Sentry. Replay on-error + tracing 10%.
+- `.env.example` documenta la variable.
+- **Bloqueo:** la org de Sentry tiene deshabilitada la creación de proyectos vía API (403), así que el proyecto debe crearse en la **UI de Sentry**:
+  1. Sentry → Create Project → plataforma **React** → copiar el DSN.
+  2. Setear `VITE_SENTRY_DSN=<dsn>` en **Vercel** (Production) y en `.env.local` para pruebas.
+  3. Redeploy → Sentry queda activo automáticamente.
 
 ## Pendiente sprint medio (siguiente iteración)
 

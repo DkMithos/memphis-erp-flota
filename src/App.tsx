@@ -14,6 +14,7 @@ import { ERPTopbar } from './components/layout/ERPTopbar';
 import { ResponsiveIndicator } from './components/shared/ResponsiveIndicator';
 import { TutorialOnboarding } from './components/shared/TutorialOnboarding';
 import { ConfirmDialogProvider } from './components/shared/ConfirmDialogProvider';
+import { getStorageItem, setStorageItem } from './lib/shared/safe-storage';
 
 // Home
 import { HomeWelcome } from './components/modules/HomeWelcome';
@@ -194,10 +195,8 @@ const ENABLE_PUBLIC_LEGACY_ROUTES = false;
 
 // ─── Helpers de tema ────────────────────────────────────────────────────────
 function getInitialThemeMode(): 'light' | 'dark' | 'system' {
-  try {
-    const stored = localStorage.getItem('memphis-theme');
-    if (stored === 'dark' || stored === 'light' || stored === 'system') return stored;
-  } catch { /* SSR / modo privado */ }
+  const stored = getStorageItem('memphis-theme');
+  if (stored === 'dark' || stored === 'light' || stored === 'system') return stored;
   return 'system';
 }
 
@@ -228,7 +227,7 @@ export default function App() {
 
   // Aplicar tema, persistir en localStorage y escuchar cambios del sistema
   useEffect(() => {
-    localStorage.setItem('memphis-theme', themeMode);
+    setStorageItem('memphis-theme', themeMode);
     const isDark = applyTheme(themeMode);
     setDarkMode(isDark);
 

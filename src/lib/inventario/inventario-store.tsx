@@ -220,17 +220,22 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
   const fetchAll = useCallback(async () => {
     if (!tenantId) { setLoading(false); return; }
     setLoading(true);
-    const [artRes, almRes, catRes, movRes] = await Promise.all([
-      dbArticulos.list(tenantId),
-      dbAlmacenes.list(tenantId),
-      dbCategoriasInventario.list(tenantId),
-      dbMovimientos.list(tenantId),
-    ]);
-    if (artRes.data) setArticulos((artRes.data as ArticuloDB[]).map(mapArticuloFromDB));
-    if (almRes.data) setAlmacenes((almRes.data as AlmacenDB[]).map(mapAlmacenFromDB));
-    if (catRes.data) setCategorias((catRes.data as CategoriaInventarioDB[]).map(mapCategoriaFromDB));
-    if (movRes.data) setMovimientos((movRes.data as MovimientoInventarioDB[]).map(mapMovimientoFromDB));
-    setLoading(false);
+    try {
+      const [artRes, almRes, catRes, movRes] = await Promise.all([
+        dbArticulos.list(tenantId),
+        dbAlmacenes.list(tenantId),
+        dbCategoriasInventario.list(tenantId),
+        dbMovimientos.list(tenantId),
+      ]);
+      if (artRes.data) setArticulos((artRes.data as ArticuloDB[]).map(mapArticuloFromDB));
+      if (almRes.data) setAlmacenes((almRes.data as AlmacenDB[]).map(mapAlmacenFromDB));
+      if (catRes.data) setCategorias((catRes.data as CategoriaInventarioDB[]).map(mapCategoriaFromDB));
+      if (movRes.data) setMovimientos((movRes.data as MovimientoInventarioDB[]).map(mapMovimientoFromDB));
+    } catch (err) {
+      console.error('[inventario] error al cargar datos:', err);
+    } finally {
+      setLoading(false); // garantizar salida del estado de carga aunque falle la red
+    }
   }, [tenantId]);
 
   useEffect(() => {

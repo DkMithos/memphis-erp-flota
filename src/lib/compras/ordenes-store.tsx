@@ -251,18 +251,23 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
     if (!tenantId) { setLoading(false); return; }
     setLoading(true);
 
-    const { data, error } = await dbOrdenesCompra.list();
+    try {
+      const { data, error } = await dbOrdenesCompra.list();
 
-    if (error) {
-      console.error('[ORDENES] Error al cargar:', error.message);
-    } else if (data) {
-      const mapped = (data as OrdenWithRelations[]).map(mapFromDB);
-      setOrdenes(mapped);
-      if (DEBUG_ORDENES) {
-        console.log('[ORDENES] Cargadas desde Supabase:', mapped.length);
+      if (error) {
+        console.error('[ORDENES] Error al cargar:', error.message);
+      } else if (data) {
+        const mapped = (data as OrdenWithRelations[]).map(mapFromDB);
+        setOrdenes(mapped);
+        if (DEBUG_ORDENES) {
+          console.log('[ORDENES] Cargadas desde Supabase:', mapped.length);
+        }
       }
+    } catch (err) {
+      console.error('[ORDENES] Error inesperado al cargar:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [tenantId]);
 
   useEffect(() => {

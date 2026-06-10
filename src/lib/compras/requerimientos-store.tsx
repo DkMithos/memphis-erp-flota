@@ -211,18 +211,23 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
     if (!tenantId) { setLoading(false); return; }
     setLoading(true);
 
-    const { data, error } = await dbRequerimientos.list();
+    try {
+      const { data, error } = await dbRequerimientos.list();
 
-    if (error) {
-      console.error('[REQUERIMIENTOS] Error al cargar:', error.message);
-    } else if (data) {
-      const mapped = (data as RequerimientoWithItems[]).map(mapFromDB);
-      setRequerimientos(mapped);
-      if (DEBUG_REQUERIMIENTOS) {
-        console.log('[REQUERIMIENTOS] Cargados desde Supabase:', mapped.length);
+      if (error) {
+        console.error('[REQUERIMIENTOS] Error al cargar:', error.message);
+      } else if (data) {
+        const mapped = (data as RequerimientoWithItems[]).map(mapFromDB);
+        setRequerimientos(mapped);
+        if (DEBUG_REQUERIMIENTOS) {
+          console.log('[REQUERIMIENTOS] Cargados desde Supabase:', mapped.length);
+        }
       }
+    } catch (err) {
+      console.error('[REQUERIMIENTOS] Error inesperado al cargar:', err);
+    } finally {
+      setLoading(false); // garantizar salida del estado de carga
     }
-    setLoading(false);
   }, [tenantId]);
 
   useEffect(() => {

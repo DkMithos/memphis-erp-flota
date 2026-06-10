@@ -60,7 +60,9 @@ export function loadModulesConfig(): ModuleConfig[] {
 
 export function saveModulesConfig(modules: ModuleConfig[]): void {
   const toSave = modules.map(m => ({ id: m.id, enabled: m.enabled }));
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  } catch { /* almacenamiento no disponible — ignorar */ }
 }
 
 // ── Supabase (fuente de verdad) ───────────────────────────────────────────────
