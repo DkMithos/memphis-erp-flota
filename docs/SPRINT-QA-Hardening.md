@@ -80,7 +80,7 @@
 | M4 | try/catch en stores top de carga (loading infinito + unhandled rejection) | ✅ Hecho |
 | M5 | Reemplazar non-null assertions críticas por optional chaining | ⬜ Diferido (bajo riesgo, alto esfuerzo) |
 | M6 | Guardar accesos a localStorage (writes sin try/catch) | ✅ Hecho |
-| M7 | Integración @sentry/react (gated por DSN) | ✅ Hecho (falta crear proyecto + DSN) |
+| M7 | Integración @sentry/react (activo en producción) | ✅ Hecho y verificado |
 
 ## Bitácora sprint medio
 
@@ -133,10 +133,14 @@
 - Instalado `@sentry/react`; `src/lib/shared/sentry.ts` con init **gated por `VITE_SENTRY_DSN`** (sin DSN → no-op, no rompe).
 - Solo en producción; conecta `setErrorReporter` → `logger.error` y `error-monitor` reenvían a Sentry. Replay on-error + tracing 10%.
 - `.env.example` documenta la variable.
-- **Bloqueo:** la org de Sentry tiene deshabilitada la creación de proyectos vía API (403), así que el proyecto debe crearse en la **UI de Sentry**:
-  1. Sentry → Create Project → plataforma **React** → copiar el DSN.
-  2. Setear `VITE_SENTRY_DSN=<dsn>` en **Vercel** (Production) y en `.env.local` para pruebas.
-  3. Redeploy → Sentry queda activo automáticamente.
+- **Completado (2026-06-10):**
+  1. ✅ Proyecto `dkmithos/memphis-erp` (React) creado en la UI de Sentry.
+  2. ✅ `VITE_SENTRY_DSN` configurado en Vercel (Production) + redeploy.
+  3. ✅ **Verificado:** el DSN y el SDK (`captureException`) están incrustados en el
+     bundle de producción; `Sentry.init()` corre en `erp.memphismaquinarias.com`.
+  - DSN: `https://d420bdea...@o4511192163745792.ingest.us.sentry.io/4511543054827520`
+  - Dashboard: https://dkmithos.sentry.io (proyecto memphis-erp)
+  - El próximo error real en producción aparecerá automáticamente con session replay.
 
 ## Pendiente sprint medio (siguiente iteración)
 
