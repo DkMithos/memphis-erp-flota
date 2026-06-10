@@ -184,7 +184,8 @@ import { InventarioProvider } from './lib/inventario/inventario-store';
 // UI
 import { Menu } from 'lucide-react';
 import { Button } from './components/ui/button';
-import { Sheet, SheetContent } from './components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from './components/ui/sheet';
+import { VisuallyHidden } from './components/ui/visually-hidden';
 import { Toaster } from './components/ui/sonner';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { LoadingScreen } from './components/ui/LoadingScreen';
@@ -911,6 +912,9 @@ export default function App() {
                         {!isSpecialRoute() && user && (
                           <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
                             <SheetContent side="left" className="p-0 w-64 print:hidden">
+                              <VisuallyHidden>
+                                <SheetTitle>Menú de navegación</SheetTitle>
+                              </VisuallyHidden>
                               <ERPSidebar
                                 currentModule={currentModule}
                                 onModuleChange={handleModuleChange}

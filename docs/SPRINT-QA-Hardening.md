@@ -68,12 +68,49 @@
 - ✅ Preview en dev: app renderiza Login sin errores en consola.
 - ✅ Lazy loading + Suspense no rompen la navegación inicial.
 
-## Pendiente para el sprint medio (post-QA o si hay tiempo)
+---
 
-- Tests E2E con Playwright (smoke test de cada módulo)
-- Tests unitarios para stores críticos
-- Auditoría a11y con eslint-plugin-jsx-a11y
-- try/catch en stores top (sustituir los 166 awaits sin protección)
-- Reemplazar non-null assertions críticas por optional chaining
-- Migrar los 20 accesos a localStorage al helper safeLocalStorage
-- Instalar @sentry/react + DSN y conectar setErrorReporter
+# Sprint medio (en progreso)
+
+| # | Tarea | Estado |
+|---|---|---|
+| M1 | Suite de tests unitarios para lógica de negocio crítica | ✅ Hecho (34 tests) |
+| M2 | Componente `VisuallyHidden` + fix a11y de diálogos sin título | ✅ Hecho (parcial) |
+| M3 | eslint funcional (`npm run lint` hoy falla — eslint no instalado) | ⬜ Pendiente |
+| M4 | try/catch en stores top (166 awaits) — mitigado por error-monitor global | 🟡 Parcial |
+| M5 | Reemplazar non-null assertions críticas por optional chaining | ⬜ Pendiente |
+| M6 | Migrar accesos a localStorage al helper safeLocalStorage | ⬜ Pendiente |
+| M7 | Conectar @sentry/react + DSN a setErrorReporter | ⬜ Pendiente (requiere cuenta Sentry) |
+
+## Bitácora sprint medio
+
+### M1 — Suite de tests unitarios ✅
+- Instalado **Vitest 2** + `vitest.config.ts` (env de prueba para módulos que importan Supabase).
+- Scripts: `npm test` (run) y `npm run test:watch`.
+- **34 tests, 5 archivos, todos en verde**, cubriendo lógica de negocio crítica:
+  - `approval-flow.test.ts` (8) — ruteo de aprobaciones por monto + conversión USD→PEN
+  - `proyecto-financiero.test.ts` (10) — formato de montos + semáforos de ejecución/margen
+  - `vehiculos-config.test.ts` (5) — saldo preventivo de flota (preventivos realizados/restantes, costos)
+  - `ot-config.test.ts` (6) — generación/validación de correlativos de OT
+  - `requerimientos-config.test.ts` (5) — normalización de email + correlativos REQ
+- Son funciones puras (sin DB, sin red) → rápidas y deterministas.
+
+### M2 — Accesibilidad de diálogos ✅ (parcial)
+- Detectado warning real de Radix (dev-only): `DialogContent requires a DialogTitle`.
+- Creado `src/components/ui/visually-hidden.tsx`.
+- Sidebar móvil (`App.tsx`) ahora incluye `<SheetTitle>` oculto → **verificado en preview: el diálogo tiene `aria-labelledby` con texto** ("Menú de navegación").
+- **Nota:** el warning es solo en modo dev (Radix lo elimina en producción), así que el QA NO lo verá en `erp.memphismaquinarias.com`. Queda pendiente una pasada completa por los ~40 diálogos/sheets de formularios para los que aún no tienen título visible (no urgente — no afecta producción).
+
+### M4 — Manejo de errores en stores 🟡
+- **Mitigación principal ya en lugar:** el `error-monitor.ts` global (sprint corto) captura cualquier `unhandledrejection` de un store que falle, lo deduplica y lo enruta por `logger.error` en vez de una traza roja cruda. Esto cubre el peor caso visible para el QA.
+- Pendiente: try/catch explícito + `toast.error` al usuario en los stores más usados (Auth ya hecho, faltan Finanzas/Compras/Inventario).
+
+## Pendiente sprint medio (siguiente iteración)
+
+- **M3 eslint:** instalar eslint + config flat + `eslint-plugin-jsx-a11y`; corregir lo crítico. (Hoy `npm run lint` falla porque eslint no está instalado.)
+- **M4:** try/catch + toast en stores Finanzas/Compras/Inventario.
+- **M5:** reemplazar non-null assertions (`!`) críticas por `?.`.
+- **M6:** migrar los 20 accesos directos a localStorage al helper `safe-storage.ts`.
+- **M7:** crear cuenta Sentry, instalar `@sentry/react`, llamar `setErrorReporter(Sentry.captureException)` en `main.tsx`.
+- **Pasada a11y completa:** títulos en los ~40 diálogos/sheets de formularios restantes.
+- **Tests E2E (Playwright):** smoke test de login + navegación por módulos (requiere credenciales de prueba).
