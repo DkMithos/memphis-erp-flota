@@ -76,7 +76,7 @@
 |---|---|---|
 | M1 | Suite de tests unitarios para lógica de negocio crítica | ✅ Hecho (34 tests) |
 | M2 | Componente `VisuallyHidden` + fix a11y de diálogos sin título | ✅ Hecho (parcial) |
-| M3 | eslint funcional (`npm run lint` hoy falla — eslint no instalado) | ⬜ Pendiente |
+| M3 | eslint funcional + corregir errores `rules-of-hooks` | ✅ Hecho |
 | M4 | try/catch en stores top (166 awaits) — mitigado por error-monitor global | 🟡 Parcial |
 | M5 | Reemplazar non-null assertions críticas por optional chaining | ⬜ Pendiente |
 | M6 | Migrar accesos a localStorage al helper safeLocalStorage | ⬜ Pendiente |
@@ -100,6 +100,16 @@
 - Creado `src/components/ui/visually-hidden.tsx`.
 - Sidebar móvil (`App.tsx`) ahora incluye `<SheetTitle>` oculto → **verificado en preview: el diálogo tiene `aria-labelledby` con texto** ("Menú de navegación").
 - **Nota:** el warning es solo en modo dev (Radix lo elimina en producción), así que el QA NO lo verá en `erp.memphismaquinarias.com`. Queda pendiente una pasada completa por los ~40 diálogos/sheets de formularios para los que aún no tienen título visible (no urgente — no afecta producción).
+
+### M3 — ESLint + corrección de bugs de hooks ✅
+- Instalado **ESLint 9** (flat config) + `typescript-eslint` + `eslint-plugin-react-hooks` + `react-refresh`.
+- Creado `eslint.config.js` con filosofía pragmática: reglas que cazan **bugs reales** como error (`react-hooks/rules-of-hooks`), reglas de estilo como warn/off para no inundar.
+- `npm run lint` ahora **funciona** (antes crasheaba: eslint no estaba instalado).
+- **4 errores reales corregidos** — hooks llamados condicionalmente (violan las reglas de hooks, pueden causar crash "Rendered fewer hooks than expected"):
+  - `OrdenDetalle.tsx` — 2 `useMemo` (flujo de aprobación) movidos antes del return temprano, con defaults seguros.
+  - `AsientosLista.tsx` — `useMemo` de filtrado movido antes del return de detalle.
+  - `VehicleQRSection.tsx` — `useEffect` de generación de token movido antes del guard + eliminado el duplicado.
+- **Estado final: 0 errores ESLint** (222 warnings restantes son estilo/unused-vars, no críticos).
 
 ### M4 — Manejo de errores en stores 🟡
 - **Mitigación principal ya en lugar:** el `error-monitor.ts` global (sprint corto) captura cualquier `unhandledrejection` de un store que falle, lo deduplica y lo enruta por `logger.error` en vez de una traza roja cruda. Esto cubre el peor caso visible para el QA.
