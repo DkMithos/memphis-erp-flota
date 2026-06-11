@@ -171,6 +171,85 @@ Ambos pedidos comparten infraestructura crítica:
 
 ---
 
+### 🚨 ALTA PRIORIDAD — Migración oc-system (portal de compras Firebase) → ERP
+
+> **Decisión del negocio:** dejar de usar el portal `portal.memphismaquinarias.com` (oc-system,
+> Firebase/GCP) y quedarse solo con el ERP. Análisis completo realizado 2026-06-11.
+> **Es probablemente la migración con mejor retorno del backlog:** muda a los 12 usuarios de
+> Compras al ERP, atacando directamente el problema de adopción que bloquea la entrega.
+
+**Inventario real del legado (contado en Firestore con la service account):**
+| Colección | Docs | Destino en el ERP |
+|---|---|---|
+| transaccionesFinancieras | 2,929 | `transacciones` (validar forma con Finanzas) |
+| logs | 2,488 | archivo / auditoría |
+| ordenesCompra | 533 | `ordenes_compra` + `orden_items` |
+| requerimientos | 198 | `requerimientos_compra` |
+| cotizaciones | 174 | `cotizaciones` |
+| proveedores | 134 | `proveedores` |
+| centrosCosto | 75 | `centros_costo` |
+| solicitudesEdicion (sub) | 59 | — (ERP edita por estado) |
+| condicionesPago | 16 | catálogo nuevo |
+| usuarios | 12 | `profiles` (ya hay SSO Entra ID) |
+| inventario / recepcionBienes | 0 | sin uso — no migran |
+
+Total ~6,500 docs + Storage (PDFs cotizaciones, firmas manuscritas, comprobantes).
+**El módulo Compras del ERP está vacío → importación limpia, sin colisiones.**
+
+**Plan de migración (1.5–2 semanas):**
+1. **Catálogos** (1 día): proveedores, centros de costo, condiciones de pago (crear catálogo en ERP).
+2. **Histórico documental**: requerimientos → cotizaciones → OCs, con mapeo de estados
+   (legacy "Pendiente de Comprador/Operaciones/Gerencia General/Aprobada/Pagado" → estados ERP).
+3. **Firmas manuscritas**: importar como adjuntos de evidencia por OC (preservar rastro legal),
+   NO replicar la funcionalidad de firma gráfica.
+4. **transaccionesFinancieras** (2,929): revisar forma con Finanzas antes de mapear.
+5. **Archivos Storage** → Supabase Storage.
+6. **Corte**: oc-system a solo-lectura (deny-write en rules), periodo de doble verificación,
+   luego decomisar Firebase.
+
+**Gaps del ERP que la migración vuelve requisito:**
+- `detracciones` (ya estaba como gap SUNAT — ahora obligatorio)
+- Catálogo `condiciones_pago`
+- Datos bancarios por OC/proveedor
+- Decisión sobre estados legacy (ej. "Pendiente de Gerencia Operaciones", rol inactivo)
+
+**Opciones si NO se migra todo (evaluadas):**
+- A. Congelar oc-system en solo-lectura como archivo (~$0, pero 2 sistemas y BI ciego a la historia)
+- B. Exportar a Excel/ZIP en SharePoint y apagar Firebase (mínimo costo, consulta manual)
+- **C. Híbrido recomendado:** migrar catálogos + documentos vivos (OCs sin pagar, reqs pendientes);
+  archivar lo cerrado (~3 días, 80% del valor)
+- D. Mantener ambos → descartada (doble fuente de verdad, mata la adopción)
+
+---
+
+## 📌 Decisiones estratégicas registradas (análisis 2026-06-11)
+
+**¿Adoptar Firebase/GCP (stack del legado)?** NO. El ERP es relacional (60+ tablas, joins,
+agregaciones SQL, RLS multi-tenant); Firestore no tiene joins ni SQL y su costo escala por
+lectura. Migrar el ERP a Firebase = reescribir todo para terminar peor. Firebase queda solo
+como fuente del ETL y luego se decomisa.
+
+**¿Migrar a AWS?** NO por ahora. Cero valor visible para el usuario; pausaría el roadmap real.
+Revisar solo si un cliente enterprise exige residencia de datos/VPC/SLA o se superan límites
+de Supabase. Salida de emergencia existe: Supabase es Postgres open-source → self-host en AWS
+posible sin reescribir la app.
+
+**¿Qué falta para ser SaaS?** (la base multi-tenant ya existe: tenant_id + RLS + tenant demo KESA)
+- Provisioning de tenants (hoy: SQL manual)
+- Auth multi-IdP (SSO cableado al Entra ID de Memphis; otro cliente = otra config)
+- Facturación/suscripciones (no existe nada: planes, cobro, asientos)
+- Config de integraciones por tenant (TEAMS_WEBHOOK_URL y tenant default hardcodeados)
+- Aislamiento reforzado (auditoría cross-tenant RLS, storage por tenant, rate limits)
+- Staging + CI de migraciones
+- Operación formal (SLA, restore probado, DR, status page) + material de cliente
+- Estimado: 4–6 semanas DESPUÉS de terminar Memphis
+
+**¿Listo para vender a otros clientes?** NO todavía — el primer cliente (Memphis) aún no lo
+adoptó (2/16 usuarios). Secuencia: (1) migrar oc-system + Paquetes 1-2 de Memphis (~7-8 sem)
+→ caso de éxito real; (2) SaaS-ificación (4-6 sem); (3) vender con Memphis como referencia.
+
+---
+
 ## ✅ Hecho recientemente (para no perder el hilo)
 
 - **Sprints QA hardening (corto + medio) completos** — repo limpio, 0 console.log en prod,
