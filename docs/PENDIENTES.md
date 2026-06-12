@@ -196,7 +196,25 @@ Ambos pedidos comparten infraestructura crítica:
 Total ~6,500 docs + Storage (PDFs cotizaciones, firmas manuscritas, comprobantes).
 **El módulo Compras del ERP está vacío → importación limpia, sin colisiones.**
 
-**Plan de migración v2 (~1–1.5 semanas) — alcance recortado 2026-06-11:**
+**🆕 Hallazgo 2026-06-11 — Excel histórico de OCs (analizado):**
+`OC MEMPHIS MAQUINARIAS 2024.xlsx` (OneDrive, 8.6 MB): 540 hojas formato formulario,
+~539 OCs **y OSs** (`MM-S NNNN`/`MM-NNNN`), rango real **2022-06-26 → 2025-11-14**.
+Numeración continua con oc-system (Excel ~MM-0002..0416 manual → portal MM-000417..976).
+Juntos = historia completa 2022→2026, ~1,070 docs. Incluye datos bancarios/contacto de
+proveedores (enriquecen catálogo) + hoja CLIENTES (mapeo cliente→proyecto→CC).
+Dedup necesario en ventana de solape ago–nov 2025. Esfuerzo adicional: +2-3 días.
+⚠️ El portal oc-system está EN USO ACTIVO (OCs de hoy) → el corte requiere fecha coordinada.
+⚠️ Instrucción del negocio: NO apagar Firebase; exportar todo primero, revisar y comparar.
+
+**Plan de migración v3 (~2 semanas) — actualizado 2026-06-11:**
+- **Fase 0 — Exportar TODO primero:** Firestore completo → JSON + Storage → respaldo local +
+  SharePoint (incluye transaccionesFinancieras aunque no se migren). Firebase intocado.
+- **Fase 1 — Esquema ERP** · **Fase 2 — Catálogos** (proveedores enriquecidos con Excel) ·
+  **Fase 3 — Histórico Excel** (2022-2025) · **Fase 4 — oc-system** (2025-2026) ·
+  **Fase 5 — Revisión/comparación cruzada + dedup** (reporte para Kevin) ·
+  **Fase 6 — Corte coordinado con Compras** (portal queda en solo-lectura; apagado = decisión futura)
+
+**Plan v2 anterior (referencia):**
 - **Fase 0 — Esquema ERP (1-2 días):** catálogo `condiciones_pago`, campos detracción en
   `ordenes_compra` (cierra gap SUNAT), datos bancarios, mapeo de estados legacy.
 - **Fase 1 — Catálogos (1 día):** proveedores (134, dedup por RUC), centros de costo (75,
