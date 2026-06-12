@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../ui/card';
 import { Button } from '../../../ui/button';
+import { PageNav } from '../../../shared/PageNav';
 import { Badge } from '../../../ui/badge';
 import { Progress } from '../../../ui/progress';
 import {
@@ -173,23 +174,22 @@ export function FlotaReporteCostos({ onNavigate }: FlotaReporteCostosProps) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => onNavigate('/flota/reportes')}>
-            <ArrowLeft className="size-4" />
-          </Button>
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <DollarSign className="size-6 text-black dark:text-primary" />
+          </div>
           <div>
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <DollarSign className="size-5 text-primary" />
-              Reporte de Costos por Vehículo
-            </h2>
+            <h2 className="text-2xl font-semibold">Reporte de Costos por Vehículo</h2>
             <p className="text-sm text-muted-foreground">
               Mantenimiento preventivo contratado vs consumido + depreciación SUNAT
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={filas.length === 0}>
+        <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={filas.length === 0} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
           <Download className="size-4 mr-1" />
           Exportar CSV
         </Button>
@@ -216,31 +216,47 @@ export function FlotaReporteCostos({ onNavigate }: FlotaReporteCostosProps) {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-4 text-center">
-            <Car className="size-5 mx-auto text-blue-600 mb-1" />
-            <p className="text-2xl font-bold">{totales.vehiculos}</p>
-            <p className="text-xs text-muted-foreground">Vehículos</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <Car className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Vehículos</p>
+              <p className="text-2xl font-bold">{totales.vehiculos}</p>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
-            <DollarSign className="size-5 mx-auto text-blue-600 mb-1" />
-            <p className="text-lg font-bold">{fmt(totales.costoContratado)}</p>
-            <p className="text-xs text-muted-foreground">Contratado</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Contratado</p>
+              <p className="text-lg font-bold">{fmt(totales.costoContratado)}</p>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
-            <DollarSign className="size-5 mx-auto text-amber-600 mb-1" />
-            <p className="text-lg font-bold">{fmt(totales.costoConsumido)}</p>
-            <p className="text-xs text-muted-foreground">Consumido ({pctTotal}%)</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-amber-500 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Consumido ({pctTotal}%)</p>
+              <p className="text-lg font-bold">{fmt(totales.costoConsumido)}</p>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
-            <TrendingDown className="size-5 mx-auto text-purple-600 mb-1" />
-            <p className="text-lg font-bold">{fmt(totales.depAcumuladaTotal)}</p>
-            <p className="text-xs text-muted-foreground">Dep. Acumulada</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-purple-500 rounded-lg flex items-center justify-center shrink-0">
+              <TrendingDown className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Dep. Acumulada</p>
+              <p className="text-lg font-bold">{fmt(totales.depAcumuladaTotal)}</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -359,8 +375,8 @@ export function FlotaReporteCostos({ onNavigate }: FlotaReporteCostosProps) {
                   Mostrando {((page - 1) * 20) + 1}-{Math.min(page * 20, filas.length)} de {filas.length} vehículos
                 </span>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</Button>
-                  <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>Siguiente</Button>
+                  <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Anterior</Button>
+                  <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Siguiente</Button>
                 </div>
               </div>
             )}

@@ -2,10 +2,11 @@
  * TareaDetalle — Vista de detalle y edición de una tarea de proyecto
  */
 import { useState, useMemo } from 'react';
-import { ArrowLeft, Pencil, Trash2, Clock, Calendar, User, Flag, FolderKanban, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, Clock, Calendar, User, Flag, FolderKanban, CheckCircle2, ListChecks } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
@@ -94,9 +95,7 @@ export function TareaDetalle({ tareaDbId, onNavigate, onBack }: Props) {
     return (
       <div className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
         <p className="text-sm">Tarea no encontrada.</p>
-        <Button variant="outline" size="sm" onClick={() => onNavigate?.('/proyectos/tareas')}>
-          <ArrowLeft className="size-4" /> Volver a Tareas
-        </Button>
+        <PageNav />
       </div>
     );
   }
@@ -112,12 +111,14 @@ export function TareaDetalle({ tareaDbId, onNavigate, onBack }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-start gap-3">
-          <Button variant="ghost" size="sm" onClick={() => onBack ? onBack() : onNavigate?.('/proyectos/tareas')} className="mt-1">
-            <ArrowLeft className="size-4" />
-          </Button>
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+            <ListChecks className="size-6 text-black dark:text-primary" />
+          </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold">{tarea.titulo}</h1>
@@ -286,7 +287,7 @@ export function TareaDetalle({ tareaDbId, onNavigate, onBack }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setEditOpen(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleSave} disabled={saving || !form.titulo}>
               {saving ? 'Guardando...' : 'Guardar'}
             </Button>
@@ -302,7 +303,7 @@ export function TareaDetalle({ tareaDbId, onNavigate, onBack }: Props) {
           </DialogHeader>
           <p className="text-sm text-muted-foreground">Esta acción no se puede deshacer. La tarea "{tarea.titulo}" será eliminada permanentemente.</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDelOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setDelOpen(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button variant="destructive" onClick={handleDelete}>Eliminar</Button>
           </DialogFooter>
         </DialogContent>

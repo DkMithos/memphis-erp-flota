@@ -151,7 +151,7 @@ export function Finanzas() {
               <SelectItem value="2023">Año 2023</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">
+          <Button variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             Exportar
           </Button>

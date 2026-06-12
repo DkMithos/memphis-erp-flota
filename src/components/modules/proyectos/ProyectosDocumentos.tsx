@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -122,10 +123,12 @@ export function ProyectosDocumentos({ onNavigate }: DocumentosProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <PageNav />
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <FileText className="size-6 text-primary" />
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <FileText className="size-6 text-black dark:text-primary" />
           </div>
           <div>
             <h1 className="text-2xl font-bold">Documentos del Proyecto</h1>
@@ -140,7 +143,7 @@ export function ProyectosDocumentos({ onNavigate }: DocumentosProps) {
 
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -256,7 +259,7 @@ export function ProyectosDocumentos({ onNavigate }: DocumentosProps) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setShowDialog(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={agregar} disabled={saving}>
               {saving ? 'Guardando...' : 'Registrar'}
             </Button>

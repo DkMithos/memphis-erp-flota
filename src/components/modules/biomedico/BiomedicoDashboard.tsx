@@ -5,12 +5,13 @@
  * Alertas: vencimientos críticos, contratos por vencer.
  * Próximas actividades: mantenimientos y calibraciones programados.
  */
-import { useMemo } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import {
   Activity, AlertCircle, AlertTriangle, Calendar, CheckCircle2,
   Clock, FileText, Stethoscope, Wrench, XCircle, Plus,
-  ArrowRight, Zap, Shield
+  ArrowRight, Zap, Shield, ChevronRight
 } from 'lucide-react';
+import { useDarkMode } from '../../../hooks/useDarkMode';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -43,6 +44,28 @@ export function BiomedicoDashboard({ onNavigate }: BiomedicoDashboardProps) {
   const { calibraciones } = useCalibracionesStore();
   const { incidencias } = useIncidenciasStore();
   const { contratos } = useContratosBioStore();
+
+  // ── Cards tipo "Acceso Rápido" (patrón Home) ──
+  const isDark = useDarkMode();
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const quickCardStyle = (isHovered: boolean): CSSProperties => {
+    const accentColor = isDark ? '#f0c000' : '#000000';
+    return {
+      borderTopWidth: (isDark && !isHovered) ? 0 : 1,
+      borderTopStyle: 'solid',
+      borderTopColor: isHovered ? accentColor : '#64748B',
+      borderRightWidth: (isDark && !isHovered) ? 0 : 1,
+      borderRightStyle: 'solid',
+      borderRightColor: isHovered ? accentColor : '#64748B',
+      borderBottomWidth: (isDark && !isHovered) ? 0 : 1,
+      borderBottomStyle: 'solid',
+      borderBottomColor: isHovered ? accentColor : '#64748B',
+      borderLeftWidth: 4,
+      borderLeftStyle: 'solid',
+      borderLeftColor: accentColor,
+      backgroundColor: isDark ? undefined : (isHovered ? '#94A3B8' : '#E2E8F0'),
+    };
+  };
 
   // ── KPIs de equipos ────────────────────────────────────────────────────────
   const kpiEquipos = useMemo(() => {
@@ -173,7 +196,7 @@ export function BiomedicoDashboard({ onNavigate }: BiomedicoDashboardProps) {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => onNavigate?.('/biomedico/equipos')}>
+          <Button variant="outline" size="sm" onClick={() => onNavigate?.('/biomedico/equipos')} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             Ver equipos
           </Button>
           <Button size="sm" className="gap-2" onClick={() => onNavigate?.('/biomedico/mantenimientos/nuevo')}>
@@ -190,8 +213,7 @@ export function BiomedicoDashboard({ onNavigate }: BiomedicoDashboardProps) {
             value: kpiEquipos.total,
             sub: `${kpiEquipos.operativos} operativos`,
             icon: Stethoscope,
-            color: 'text-blue-500',
-            bg: 'bg-blue-500/10',
+            box: 'bg-blue-500',
             route: '/biomedico/equipos',
           },
           {
@@ -199,8 +221,7 @@ export function BiomedicoDashboard({ onNavigate }: BiomedicoDashboardProps) {
             value: kpiMant.programados + kpiMant.enEjecucion,
             sub: `${kpiMant.enEjecucion} en ejecución`,
             icon: Wrench,
-            color: kpiMant.vencidos > 0 ? 'text-amber-500' : 'text-green-500',
-            bg: kpiMant.vencidos > 0 ? 'bg-amber-500/10' : 'bg-green-500/10',
+            box: kpiMant.vencidos > 0 ? 'bg-amber-500' : 'bg-green-500',
             route: '/biomedico/mantenimientos',
           },
           {
@@ -208,8 +229,7 @@ export function BiomedicoDashboard({ onNavigate }: BiomedicoDashboardProps) {
             value: kpiCal.programadas,
             sub: kpiCal.vencidas > 0 ? `⚠ ${kpiCal.vencidas} vencida(s)` : 'al día',
             icon: Clock,
-            color: kpiCal.vencidas > 0 ? 'text-red-500' : 'text-purple-500',
-            bg: kpiCal.vencidas > 0 ? 'bg-red-500/10' : 'bg-purple-500/10',
+            box: kpiCal.vencidas > 0 ? 'bg-red-500' : 'bg-purple-500',
             route: '/biomedico/calibraciones',
           },
           {
@@ -217,30 +237,31 @@ export function BiomedicoDashboard({ onNavigate }: BiomedicoDashboardProps) {
             value: kpiInc.abiertas,
             sub: kpiInc.criticas > 0 ? `🔴 ${kpiInc.criticas} crítica(s)` : 'sin críticas',
             icon: AlertCircle,
-            color: kpiInc.criticas > 0 ? 'text-red-500' : kpiInc.abiertas > 0 ? 'text-amber-500' : 'text-muted-foreground',
-            bg: kpiInc.criticas > 0 ? 'bg-red-500/10' : kpiInc.abiertas > 0 ? 'bg-amber-500/10' : 'bg-muted/50',
+            box: kpiInc.criticas > 0 ? 'bg-red-500' : kpiInc.abiertas > 0 ? 'bg-amber-500' : 'bg-slate-400',
             route: '/biomedico/incidencias',
           },
-        ].map(k => (
-          <Card
-            key={k.label}
-            className="cursor-pointer hover:shadow-sm hover:border-primary/30 transition-all border-border/60"
-            onClick={() => onNavigate?.(k.route)}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">{k.label}</p>
-                  <p className="text-2xl font-bold">{k.value}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{k.sub}</p>
-                </div>
-                <div className={`size-9 rounded-xl flex items-center justify-center ${k.bg}`}>
-                  <k.icon className={`size-5 ${k.color}`} />
-                </div>
+        ].map(k => {
+          const isHovered = hoveredCard === k.label;
+          const accentColor = isDark ? '#f0c000' : '#000000';
+          return (
+            <button
+              key={k.label}
+              onClick={() => onNavigate?.(k.route)}
+              onMouseEnter={() => setHoveredCard(k.label)}
+              onMouseLeave={() => setHoveredCard(null)}
+              className="group text-left rounded-xl dark:bg-card p-4 hover:shadow-md dark:hover:bg-accent/30 transition-all relative"
+              style={quickCardStyle(isHovered)}
+            >
+              <ChevronRight className="size-4 absolute top-3 right-3" style={{ color: accentColor }} />
+              <div className={`size-10 rounded-lg flex items-center justify-center mb-3 ${k.box} text-white group-hover:!bg-black group-hover:!text-white transition-colors`}>
+                <k.icon className="size-5" />
               </div>
-            </CardContent>
-          </Card>
-        ))}
+              <p className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">{k.label}</p>
+              <p className="text-2xl font-bold leading-none mt-1 transition-colors">{k.value}</p>
+              <p className="text-xs text-muted-foreground group-hover:text-foreground mt-1 transition-colors">{k.sub}</p>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Alertas críticas ────────────────────────────────────────────── */}
@@ -284,7 +305,7 @@ export function BiomedicoDashboard({ onNavigate }: BiomedicoDashboardProps) {
                 <Calendar className="size-4 text-primary" />
                 Próximas Actividades
               </CardTitle>
-              <Button variant="ghost" size="sm" className="text-xs gap-1 h-auto py-1"
+              <Button variant="ghost" size="sm" className="text-xs gap-1 h-auto py-1 hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
                 onClick={() => onNavigate?.('/biomedico/mantenimientos')}>
                 Ver todo <ArrowRight className="size-3" />
               </Button>
@@ -341,7 +362,7 @@ export function BiomedicoDashboard({ onNavigate }: BiomedicoDashboardProps) {
                 <Shield className="size-4 text-primary" />
                 Contratos de Servicio
               </CardTitle>
-              <Button variant="ghost" size="sm" className="text-xs gap-1 h-auto py-1"
+              <Button variant="ghost" size="sm" className="text-xs gap-1 h-auto py-1 hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
                 onClick={() => onNavigate?.('/biomedico/contratos')}>
                 Ver todo <ArrowRight className="size-3" />
               </Button>
@@ -352,7 +373,7 @@ export function BiomedicoDashboard({ onNavigate }: BiomedicoDashboardProps) {
               <div className="text-center py-6 text-muted-foreground">
                 <FileText className="size-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Sin contratos activos</p>
-                <Button variant="outline" size="sm" className="mt-2 gap-2 text-xs"
+                <Button variant="outline" size="sm" className="mt-2 gap-2 text-xs hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
                   onClick={() => onNavigate?.('/biomedico/contratos/nuevo')}>
                   <Plus className="size-3" /> Registrar contrato
                 </Button>
@@ -408,15 +429,18 @@ export function BiomedicoDashboard({ onNavigate }: BiomedicoDashboardProps) {
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Operativos', value: kpiEquipos.operativos, color: 'bg-green-500', textColor: 'text-green-700 dark:text-green-400' },
-              { label: 'En mantenimiento', value: kpiEquipos.mantenimiento, color: 'bg-amber-500', textColor: 'text-amber-700 dark:text-amber-400' },
-              { label: 'Fuera de servicio', value: kpiEquipos.fueraServicio, color: 'bg-red-500', textColor: 'text-red-700 dark:text-red-400' },
-              { label: 'En calibración', value: kpiEquipos.calibracion, color: 'bg-purple-500', textColor: 'text-purple-700 dark:text-purple-400' },
+              { label: 'Operativos', value: kpiEquipos.operativos, color: 'bg-green-500', icon: CheckCircle2 },
+              { label: 'En mantenimiento', value: kpiEquipos.mantenimiento, color: 'bg-amber-500', icon: Wrench },
+              { label: 'Fuera de servicio', value: kpiEquipos.fueraServicio, color: 'bg-red-500', icon: XCircle },
+              { label: 'En calibración', value: kpiEquipos.calibracion, color: 'bg-purple-500', icon: Clock },
             ].map(s => (
-              <div key={s.label} className="text-center p-3 rounded-xl bg-muted/30 border border-border/50">
-                <div className={`text-2xl font-bold ${s.textColor}`}>{s.value}</div>
+              <div key={s.label} className="text-center p-3 rounded-xl bg-muted/30 border border-slate-400 dark:border-border/50">
+                <div className={`size-10 rounded-lg flex items-center justify-center mx-auto ${s.color}`}>
+                  <s.icon className="size-5 text-white" />
+                </div>
+                <div className="text-2xl font-bold mt-2">{s.value}</div>
                 <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
-                <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="mt-2 h-3 rounded-full bg-muted overflow-hidden border border-slate-400 dark:border-border/50">
                   <div
                     className={`h-full rounded-full ${s.color}`}
                     style={{ width: kpiEquipos.total > 0 ? `${(s.value / kpiEquipos.total) * 100}%` : '0%' }}
@@ -427,29 +451,6 @@ export function BiomedicoDashboard({ onNavigate }: BiomedicoDashboardProps) {
           </div>
         </CardContent>
       </Card>
-
-      {/* ── Acciones rápidas ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Nuevo Equipo',        icon: Stethoscope, route: '/biomedico/equipos/nuevo',             color: 'text-blue-500',   bg: 'bg-blue-500/10' },
-          { label: 'Nuevo Mantenimiento', icon: Wrench,      route: '/biomedico/mantenimientos/nuevo',      color: 'text-green-500',  bg: 'bg-green-500/10' },
-          { label: 'Nueva Calibración',   icon: Clock,       route: '/biomedico/calibraciones',             color: 'text-purple-500', bg: 'bg-purple-500/10' },
-          { label: 'Nuevo Contrato',      icon: FileText,    route: '/biomedico/contratos/nuevo',           color: 'text-cyan-500',   bg: 'bg-cyan-500/10' },
-        ].map(a => (
-          <button
-            key={a.label}
-            onClick={() => onNavigate?.(a.route)}
-            className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border hover:border-primary/40 hover:bg-accent/30 transition-all group"
-          >
-            <div className={`size-10 rounded-xl flex items-center justify-center ${a.bg}`}>
-              <a.icon className={`size-5 ${a.color}`} />
-            </div>
-            <span className="text-xs font-medium text-center group-hover:text-primary transition-colors">
-              {a.label}
-            </span>
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

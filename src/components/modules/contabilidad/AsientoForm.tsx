@@ -267,7 +267,7 @@ export function AsientoForm({ onNavigate }: Props) {
       )}
 
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={() => onNavigate('/contabilidad/asientos')}>Cancelar</Button>
+        <Button variant="outline" onClick={() => onNavigate('/contabilidad/asientos')} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
         <Button onClick={handleGuardar} disabled={guardando || !balanceado} className="gap-2">
           <BookOpen className="size-4" />{guardando ? 'Guardando…' : 'Guardar Asiento'}
         </Button>
@@ -278,7 +278,7 @@ export function AsientoForm({ onNavigate }: Props) {
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Seleccionar Cuenta Contable</DialogTitle></DialogHeader>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
             <Input value={cuentaQuery} onChange={e => setCuentaQuery(e.target.value)}
               placeholder="Código o nombre de cuenta…" className="pl-9 text-sm" autoFocus />
           </div>

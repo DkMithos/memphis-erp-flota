@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, Edit, XCircle, CheckCircle, AlertTriangle, Building2, Mail, Phone, MapPin, Calendar } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
 import { Alert, AlertDescription } from '../../ui/alert';
 import {
@@ -54,10 +55,7 @@ export function ProveedorDetalle({ proveedorId, onNavigate }: ProveedorDetallePr
             Proveedor no encontrado. El ID "{proveedorId}" no existe en el sistema.
           </AlertDescription>
         </Alert>
-        <Button variant="outline" onClick={() => onNavigate?.('/proveedores/directorio')}>
-          <ArrowLeft className="size-4" />
-          Volver al Directorio
-        </Button>
+        <PageNav />
       </div>
     );
   }
@@ -98,32 +96,28 @@ export function ProveedorDetalle({ proveedorId, onNavigate }: ProveedorDetallePr
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <Button variant="ghost" size="sm" onClick={() => onNavigate?.('/proveedores/directorio')}>
-            <ArrowLeft className="size-4" />
-            Volver al Directorio
-          </Button>
-          <div className="flex items-center gap-3 mt-2">
-            <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center">
-              <Building2 className="size-6 text-primary" />
-            </div>
-            <div>
-              <h2>{proveedor.razonSocial}</h2>
-              {proveedor.nombreComercial && (
-                <p className="text-muted-foreground">{proveedor.nombreComercial}</p>
-              )}
-              <div className="flex items-center gap-2 mt-2">
-                <Badge className={estadoConfig.className}>
-                  <estadoConfig.icon className="size-3" />
-                  {estadoConfig.label}
-                </Badge>
-                <Badge className={condicionConfig.className}>
-                  {condicionConfig.label}
-                </Badge>
-                <Badge className={tipoConfig.className}>{tipoConfig.label}</Badge>
-              </div>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+            <Building2 className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">{proveedor.razonSocial}</h2>
+            {proveedor.nombreComercial && (
+              <p className="text-muted-foreground">{proveedor.nombreComercial}</p>
+            )}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <Badge className={estadoConfig.className}>
+                <estadoConfig.icon className="size-3" />
+                {estadoConfig.label}
+              </Badge>
+              <Badge className={condicionConfig.className}>
+                {condicionConfig.label}
+              </Badge>
+              <Badge className={tipoConfig.className}>{tipoConfig.label}</Badge>
             </div>
           </div>
         </div>

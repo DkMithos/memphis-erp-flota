@@ -3,6 +3,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, AlertCircle,
   ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
+import { PageNav } from '@/components/shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -113,10 +114,17 @@ export function FinanzasDashboard({ onNavigate }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-semibold">Dashboard Financiero</h2>
-        <p className="text-muted-foreground mt-1 capitalize">{mesLabel}</p>
+      <div className="flex items-center gap-3">
+        <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+          <DollarSign className="size-6 text-black dark:text-primary" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-semibold">Dashboard Financiero</h2>
+          <p className="text-muted-foreground mt-1 capitalize">{mesLabel}</p>
+        </div>
       </div>
 
       {/* Alerta pendientes */}
@@ -135,59 +143,63 @@ export function FinanzasDashboard({ onNavigate }: Props) {
         </div>
       )}
 
-      {/* KPIs */}
+      {/* KPIs — patrón Home */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Ingresos del Mes</CardTitle>
-            <TrendingUp className="size-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{fmt(ingresosMes)}</div>
-            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-              <ArrowUpRight className="size-3" />
-              <span>Mes actual</span>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <TrendingUp className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Ingresos del Mes</p>
+              <p className="text-2xl font-bold">{fmt(ingresosMes)}</p>
+              <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                <ArrowUpRight className="size-3" />
+                <span>Mes actual</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Egresos del Mes</CardTitle>
-            <TrendingDown className="size-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500">{fmt(egresosMes)}</div>
-            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-              <ArrowDownRight className="size-3" />
-              <span>Mes actual</span>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-red-500 rounded-lg flex items-center justify-center shrink-0">
+              <TrendingDown className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Egresos del Mes</p>
+              <p className="text-2xl font-bold">{fmt(egresosMes)}</p>
+              <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                <ArrowDownRight className="size-3" />
+                <span>Mes actual</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Balance</CardTitle>
-            <DollarSign className={`size-4 ${balance >= 0 ? 'text-green-600' : 'text-red-500'}`} />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-              {fmt(balance)}
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${balance >= 0 ? 'bg-green-500' : 'bg-red-500'}`}>
+              <DollarSign className="size-5 text-white" />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Ingresos − Egresos</p>
+            <div>
+              <p className="text-xs text-muted-foreground">Balance</p>
+              <p className="text-2xl font-bold">{fmt(balance)}</p>
+              <p className="text-xs text-muted-foreground mt-1">Ingresos − Egresos</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Pendientes Aprobación</CardTitle>
-            <AlertCircle className={`size-4 ${pendientesAprobacion > 0 ? 'text-yellow-500' : 'text-muted-foreground'}`} />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${pendientesAprobacion > 0 ? 'text-yellow-600' : 'text-muted-foreground'}`}>
-              {pendientesAprobacion}
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${pendientesAprobacion > 0 ? 'bg-yellow-500' : 'bg-slate-400'}`}>
+              <AlertCircle className="size-5 text-white" />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Transacciones</p>
+            <div>
+              <p className="text-xs text-muted-foreground">Pendientes Aprobación</p>
+              <p className="text-2xl font-bold">{pendientesAprobacion}</p>
+              <p className="text-xs text-muted-foreground mt-1">Transacciones</p>
+            </div>
           </CardContent>
         </Card>
       </div>

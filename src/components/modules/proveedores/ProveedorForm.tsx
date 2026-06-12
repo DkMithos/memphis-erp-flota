@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Save, X, AlertCircle, CreditCard, Receipt, Plus, Trash2, CheckCircle, Loader2, ShieldCheck } from 'lucide-react';
+import { Save, X, AlertCircle, CreditCard, Receipt, Plus, Trash2, CheckCircle, Loader2, ShieldCheck, Building2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
@@ -15,6 +16,7 @@ import {
 import { Alert, AlertDescription } from '../../ui/alert';
 import { Badge } from '../../ui/badge';
 import { Checkbox } from '../../ui/checkbox';
+import { Switch } from '../../ui/switch';
 import { SunatRucInput } from '../../ui/SunatRucInput';
 import { formatearDireccionSunat, consultarRUC, type SunatRucResult } from '../../../lib/sunat/sunat-service';
 import { useProveedorStore, type NuevoProveedorInput } from '../../../lib/proveedores/proveedores-store';
@@ -371,17 +373,22 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
 
   return (
     <div className="space-y-6">
+      <PageNav onBack={onCancel} />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2>{isEditing ? 'Editar Proveedor' : 'Nuevo Proveedor'}</h2>
-          <p className="text-muted-foreground mt-1">
-            {isEditing 
-              ? `Modificando datos del proveedor ${proveedorExistente?.razonSocial}`
-              : 'Complete los datos del nuevo proveedor'}
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <Building2 className="size-6 shrink-0" style={{ color: '#000000' }} />
+          <div>
+            <h2 className="text-2xl font-semibold">{isEditing ? 'Editar Proveedor' : 'Nuevo Proveedor'}</h2>
+            <p className="text-muted-foreground mt-1">
+              {isEditing
+                ? `Modificando datos del proveedor ${proveedorExistente?.razonSocial}`
+                : 'Complete los datos del nuevo proveedor'}
+            </p>
+          </div>
         </div>
-        <Button variant="ghost" onClick={onCancel}>
+        <Button variant="ghost" onClick={onCancel} className="border border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
           <X className="size-4" />
           Cancelar
         </Button>
@@ -656,6 +663,7 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
                   type="button"
                   variant="outline"
                   size="sm"
+                  className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black"
                   onClick={() => {
                     setShowContactoPrincipal(!showContactoPrincipal);
                     if (!showContactoPrincipal) {
@@ -774,6 +782,7 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
                   type="button"
                   variant="outline"
                   size="sm"
+                  className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black"
                   onClick={() => setFormData(prev => ({
                     ...prev,
                     cuentasBancarias: [
@@ -956,18 +965,13 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
                     <p className="font-medium text-sm">Sujeto a Detracción</p>
                     <p className="text-xs text-muted-foreground">El proveedor está sujeto al Sistema de Pago de Obligaciones Tributarias (SPOT)</p>
                   </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={formData.datosTributarios?.sujetoDetraccion}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 ${formData.datosTributarios?.sujetoDetraccion ? 'bg-primary' : 'bg-input'}`}
-                    onClick={() => setFormData(prev => ({
+                  <Switch
+                    checked={!!formData.datosTributarios?.sujetoDetraccion}
+                    onCheckedChange={(v) => setFormData(prev => ({
                       ...prev,
-                      datosTributarios: { sujetoRetencion: false, ...prev.datosTributarios, sujetoDetraccion: !prev.datosTributarios?.sujetoDetraccion }
+                      datosTributarios: { sujetoRetencion: false, ...prev.datosTributarios, sujetoDetraccion: v }
                     }))}
-                  >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-900 transition-transform ${formData.datosTributarios?.sujetoDetraccion ? 'translate-x-6' : 'translate-x-1'}`} />
-                  </button>
+                  />
                 </div>
 
                 {formData.datosTributarios?.sujetoDetraccion && (
@@ -1009,18 +1013,13 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
                     <p className="font-medium text-sm">Sujeto a Retención</p>
                     <p className="text-xs text-muted-foreground">El proveedor está sujeto al Régimen de Retenciones del IGV (3%)</p>
                   </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={formData.datosTributarios?.sujetoRetencion}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 ${formData.datosTributarios?.sujetoRetencion ? 'bg-primary' : 'bg-input'}`}
-                    onClick={() => setFormData(prev => ({
+                  <Switch
+                    checked={!!formData.datosTributarios?.sujetoRetencion}
+                    onCheckedChange={(v) => setFormData(prev => ({
                       ...prev,
-                      datosTributarios: { sujetoDetraccion: false, ...prev.datosTributarios, sujetoRetencion: !prev.datosTributarios?.sujetoRetencion }
+                      datosTributarios: { sujetoDetraccion: false, ...prev.datosTributarios, sujetoRetencion: v }
                     }))}
-                  >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-900 transition-transform ${formData.datosTributarios?.sujetoRetencion ? 'translate-x-6' : 'translate-x-1'}`} />
-                  </button>
+                  />
                 </div>
                 {formData.datosTributarios?.sujetoRetencion && (
                   <p className="text-xs text-muted-foreground mt-2 pl-4 border-l-2 border-primary/20">
@@ -1048,7 +1047,7 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
 
           {/* Botones de Acción */}
           <div className="flex items-center justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={onCancel} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
               <X className="size-4" />
               Cancelar
             </Button>

@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
 import { supabase } from '../../../lib/supabase/client';
@@ -111,10 +112,12 @@ export function ProyectosCronograma({ onNavigate }: CronogramaProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <PageNav />
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <CalendarDays className="size-6 text-primary" />
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <CalendarDays className="size-6 text-black dark:text-primary" />
           </div>
           <div>
             <h1 className="text-2xl font-bold">Cronograma</h1>
@@ -183,7 +186,7 @@ export function ProyectosCronograma({ onNavigate }: CronogramaProps) {
                     <div className="flex-1 relative py-2 px-0">
                       {barStyle ? (
                         <div
-                          className={`absolute top-1/2 -translate-y-1/2 h-5 rounded-full ${cfg.color} opacity-80 cursor-pointer hover:opacity-100 transition-opacity flex items-center px-2`}
+                          className={`absolute top-1/2 -translate-y-[55%] h-5 rounded-full ${cfg.color} opacity-80 cursor-pointer hover:opacity-100 transition-opacity flex items-center px-2`}
                           style={barStyle}
                           title={`${t.titulo} — ${t.fechaInicio ?? '?'} → ${t.fechaVencimiento}`}
                         >

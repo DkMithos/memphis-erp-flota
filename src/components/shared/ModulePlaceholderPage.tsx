@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
+import { PageNav } from './PageNav';
 import { Badge } from '../ui/badge';
 import { Alert, AlertDescription } from '../ui/alert';
 import { 
@@ -112,19 +113,16 @@ export function ModulePlaceholderPage({
         </div>
       )}
 
-      {/* Back Button */}
+      {/* Page Nav */}
       {showBackButton && onBack && (
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="size-4" />
-          Volver
-        </Button>
+        <PageNav onBack={onBack} />
       )}
 
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center">
-            <Icon className="size-6 text-primary" />
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Icon className="size-6 text-black dark:text-primary" />
           </div>
           <div>
             <div className="flex items-center gap-2">

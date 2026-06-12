@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
+import { PageNav } from '../../shared/PageNav';
 import {
   Dialog,
   DialogContent,
@@ -110,16 +111,20 @@ export function CentrosCostoAdmin() {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Building2 className="size-6" />
-            {t('admin.cost_centers', 'Centros de Costo')}
-          </h2>
-          <p className="text-muted-foreground text-sm mt-1">
-            {t('admin.cost_centers_desc', 'Gestiona los centros de costo internos de la empresa')}
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Building2 className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">{t('admin.cost_centers', 'Centros de Costo')}</h2>
+            <p className="text-muted-foreground text-sm mt-1">
+              {t('admin.cost_centers_desc', 'Gestiona los centros de costo internos de la empresa')}
+            </p>
+          </div>
         </div>
         <Button onClick={openCreate} className="gap-2">
           <Plus className="size-4" />
@@ -159,12 +164,13 @@ export function CentrosCostoAdmin() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(cc)} title={t('common.edit', 'Editar')}>
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(cc)} title={t('common.edit', 'Editar')} className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground">
                         <Pencil className="size-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
                         onClick={() => handleToggle(cc._dbId)}
                         title={cc.activo ? t('common.deactivate', 'Inactivar') : t('common.activate', 'Activar')}
                       >
@@ -220,7 +226,7 @@ export function CentrosCostoAdmin() {
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
               {t('common.cancel', 'Cancelar')}
             </Button>
             <Button onClick={handleSubmit} disabled={submitting}>

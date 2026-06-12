@@ -435,7 +435,7 @@ export function PlanPreventivoTab({ vehiculoId, vehiculo }: PlanPreventivoTabPro
           variant="outline"
           onClick={handleRestablecer}
           disabled={guardando || !modificado}
-          className="gap-2"
+          className="gap-2 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
         >
           <RotateCcw className="size-4" />
           Restablecer

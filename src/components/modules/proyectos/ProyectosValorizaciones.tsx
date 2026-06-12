@@ -5,10 +5,11 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
 import { Progress } from '../../ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
-import { Calculator, TrendingUp, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
+import { Calculator, TrendingUp, DollarSign, TrendingDown } from 'lucide-react';
 import { supabase } from '../../../lib/supabase/client';
 import { useAuth } from '../../../auth/AuthProvider';
 import { toast } from 'sonner';
@@ -70,40 +71,66 @@ export function ProyectosValorizaciones({ onNavigate }: ValorizacionesProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <PageNav />
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Calculator className="size-6 text-primary" />
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Calculator className="size-6 text-black dark:text-primary" />
           </div>
           <div>
             <h1 className="text-2xl font-bold">Valorizaciones</h1>
             <p className="text-sm text-muted-foreground">Control de avance financiero por proyecto</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => onNavigate?.('/proyectos/lista')}>
+        <Button variant="outline" size="sm" onClick={() => onNavigate?.('/proyectos/lista')} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
           Ver proyectos
         </Button>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — patrón Home */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardContent className="p-5">
-          <p className="text-xs text-muted-foreground">Presupuesto Total</p>
-          <p className="text-xl font-bold text-primary">{formatMoney(totalPresupuesto)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{proyectos.length} proyectos</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-5">
-          <p className="text-xs text-muted-foreground">Costo Ejecutado</p>
-          <p className="text-xl font-bold">{formatMoney(totalEjecutado)}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {totalPresupuesto > 0 ? ((totalEjecutado / totalPresupuesto) * 100).toFixed(1) : 0}% del presupuesto
-          </p>
-        </CardContent></Card>
-        <Card><CardContent className="p-5">
-          <p className="text-xs text-muted-foreground">Variación Presupuestal</p>
-          <p className={`text-xl font-bold ${variacion >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatMoney(Math.abs(variacion))}</p>
-          <p className="text-xs text-muted-foreground mt-1">{variacion >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}</p>
-        </CardContent></Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-emerald-600 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Presupuesto Total</p>
+              <p className="text-2xl font-bold">{formatMoney(totalPresupuesto)}</p>
+              <p className="text-xs text-muted-foreground mt-1">{proyectos.length} proyectos</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <TrendingUp className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Costo Ejecutado</p>
+              <p className="text-2xl font-bold">{formatMoney(totalEjecutado)}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {totalPresupuesto > 0 ? ((totalEjecutado / totalPresupuesto) * 100).toFixed(1) : 0}% del presupuesto
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${variacion >= 0 ? 'bg-green-500' : 'bg-red-500'}`}>
+              {variacion >= 0
+                ? <TrendingDown className="size-5 text-white" />
+                : <TrendingUp className="size-5 text-white" />
+              }
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Variación Presupuestal</p>
+              <p className="text-2xl font-bold">{formatMoney(Math.abs(variacion))}</p>
+              <p className="text-xs text-muted-foreground mt-1">{variacion >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>

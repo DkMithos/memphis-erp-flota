@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, CheckCircle, XCircle, Ban, Truck, Package, FileText, Calendar, DollarSign, ShieldAlert, ShieldCheck, Users } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle, XCircle, Ban, Truck, Package, FileText, Calendar, DollarSign, ShieldAlert, ShieldCheck, Users, ShoppingBag } from 'lucide-react';
 import { loadFlujoAprobacion, determinarNivelAprobacion, nivelAprobacionColor } from '../../../lib/compras/approval-flow';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { Label } from '../../ui/label';
@@ -140,26 +141,27 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <Button variant="ghost" size="sm" onClick={() => onNavigate('/compras/ordenes')}>
-              <ArrowLeft className="size-4" />
-              Volver a Órdenes
-            </Button>
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+            <ShoppingBag className="size-6 text-black dark:text-primary" />
           </div>
-          <div className="flex items-center gap-3">
-            <h2>{orden.id}</h2>
-            <Badge className={estadoConfig.className}>
-              <estadoConfig.icon className="size-3" />
-              {estadoConfig.label}
-            </Badge>
-            <Badge variant="outline">{orden.tipo === 'oc' ? 'OC' : 'OS'}</Badge>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-2xl font-semibold">{orden.id}</h2>
+              <Badge className={estadoConfig.className}>
+                <estadoConfig.icon className="size-3" />
+                {estadoConfig.label}
+              </Badge>
+              <Badge variant="outline">{orden.tipo === 'oc' ? 'OC' : 'OS'}</Badge>
+            </div>
+            <p className="text-muted-foreground mt-1">
+              {ORDEN_TIPO_LABELS[orden.tipo]} - {orden.proveedorNombre}
+            </p>
           </div>
-          <p className="text-muted-foreground mt-1">
-            {ORDEN_TIPO_LABELS[orden.tipo]} - {orden.proveedorNombre}
-          </p>
         </div>
 
         {/* Acciones */}
@@ -425,7 +427,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAprobarDialog(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setShowAprobarDialog(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleAprobar}>Confirmar Aprobación</Button>
           </DialogFooter>
         </DialogContent>
@@ -456,7 +458,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
             {errorMotivo && <p className="text-sm text-red-600">{errorMotivo}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRechazarDialog(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setShowRechazarDialog(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button variant="destructive" onClick={handleRechazar}>Confirmar Rechazo</Button>
           </DialogFooter>
         </DialogContent>
@@ -487,7 +489,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
             {errorMotivo && <p className="text-sm text-red-600">{errorMotivo}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAnularDialog(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setShowAnularDialog(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button variant="destructive" onClick={handleAnular}>Confirmar Anulación</Button>
           </DialogFooter>
         </DialogContent>

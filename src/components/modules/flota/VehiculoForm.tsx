@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Car, Save, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import {
@@ -156,30 +157,17 @@ export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: Vehiculo
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          className="gap-2"
-        >
-          <ArrowLeft className="size-4" />
-          Cancelar
-        </Button>
-        <span>/</span>
-        <span>{modo === 'crear' ? 'Nuevo Vehículo' : `Editar ${placa}`}</span>
-      </div>
+      <PageNav onBack={onCancel} />
 
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <div className="size-16 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Car className="size-8 text-primary" />
+      <div className="flex items-center gap-3">
+        <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+          <Car className="size-6 text-black dark:text-primary" />
         </div>
         <div>
-          <h2>{modo === 'crear' ? 'Registrar Nuevo Vehículo' : 'Editar Vehículo'}</h2>
+          <h2 className="text-2xl font-semibold">{modo === 'crear' ? 'Registrar Nuevo Vehículo' : 'Editar Vehículo'}</h2>
           <p className="text-muted-foreground mt-1">
-            {modo === 'crear' 
+            {modo === 'crear'
               ? 'Complete los datos del vehículo a registrar en la flota'
               : 'Actualice la información del vehículo'
             }
@@ -546,7 +534,7 @@ export function VehiculoForm({ modo, vehiculoId, onCancel, onSuccess }: Vehiculo
 
         {/* Acciones */}
         <div className="flex items-center justify-end gap-4">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={guardando}>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={guardando} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             Cancelar
           </Button>
           <Button type="submit" disabled={guardando}>

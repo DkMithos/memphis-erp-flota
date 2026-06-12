@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Badge } from '../../ui/badge';
@@ -196,29 +197,29 @@ ${campaignNotes || '(sin notas)'}
     label: string,
     value: string | number,
     trend?: string,
-    variant?: 'default' | 'success' | 'warning' | 'danger'
+    variant: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'purple' = 'default'
   ) => {
-    const colors = {
-      default: 'text-[#0A66C2]',
-      success: 'text-green-600 dark:text-green-400',
-      warning: 'text-amber-600 dark:text-amber-400',
-      danger: 'text-red-600 dark:text-red-400'
+    const boxColors = {
+      default: 'bg-blue-500',
+      success: 'bg-green-500',
+      warning: 'bg-amber-500',
+      danger: 'bg-red-500',
+      info: 'bg-indigo-500',
+      purple: 'bg-purple-500'
     };
 
     return (
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">{label}</p>
-              <p className="text-2xl font-bold">{value}</p>
-              {trend && (
-                <p className="text-xs text-muted-foreground">{trend}</p>
-              )}
-            </div>
-            <div className={`${colors[variant || 'default']}`}>
-              {icon}
-            </div>
+        <CardContent className="p-4 flex items-center gap-4">
+          <div className={`size-10 ${boxColors[variant]} rounded-lg flex items-center justify-center shrink-0 text-white [&_svg]:size-5`}>
+            {icon}
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className="text-2xl font-bold">{value}</p>
+            {trend && (
+              <p className="text-xs text-muted-foreground">{trend}</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -302,15 +303,19 @@ ${campaignNotes || '(sin notas)'}
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-semibold flex items-center gap-2">
-          <TrendingUp className="size-7 text-[#0A66C2]" />
-          Análisis Preventivo Enterprise
-        </h2>
-        <p className="text-muted-foreground mt-1">
-          Identifica piezas/servicios adicionales detectados en mantenimientos para prevenir fallas recurrentes
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+          <TrendingUp className="size-6 text-black dark:text-primary" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-semibold">Análisis Preventivo Enterprise</h2>
+          <p className="text-muted-foreground mt-1">
+            Identifica piezas/servicios adicionales detectados en mantenimientos para prevenir fallas recurrentes
+          </p>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -467,14 +472,14 @@ ${campaignNotes || '(sin notas)'}
           'Piezas',
           kpis.totalPiezas || 'N/A',
           undefined,
-          'default'
+          'info'
         )}
         {renderKPICard(
           <Wrench className="size-8" />,
           'Servicios',
           kpis.totalServicios || 'N/A',
           undefined,
-          'default'
+          'purple'
         )}
         {renderKPICard(
           <BarChart3 className="size-8" />,
@@ -508,7 +513,7 @@ ${campaignNotes || '(sin notas)'}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={handleExportCSV} variant="outline" className="gap-2">
+              <Button onClick={handleExportCSV} variant="outline" className="gap-2 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
                 <Download className="size-4" />
                 Exportar CSV
               </Button>

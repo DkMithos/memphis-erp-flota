@@ -75,7 +75,13 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
 
   const handleSearch = useCallback(async (q: string) => {
     setQuery(q);
-    if (q.trim().length < 2) { setResults([]); setShowResults(false); return; }
+    if (q.trim().length < 2) {
+      setResults([]);
+      setShowResults(false);
+      setSearching(false);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      return;
+    }
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
@@ -117,13 +123,15 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
       {/* Search Bar */}
       <div className="hidden md:flex flex-1 max-w-xl" ref={searchRef}>
         <div className="relative w-full">
-          {searching
-            ? <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground animate-spin" />
-            : <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          }
+          <div className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground">
+            {searching
+              ? <Loader2 className="size-4 animate-spin" />
+              : <Search className="size-4" />
+            }
+          </div>
           <Input
             placeholder={t('topbar.search_placeholder')}
-            className="pl-10 bg-secondary border-0"
+            className="pl-10 bg-secondary border border-slate-300 dark:border-border"
             value={query}
             onChange={e => handleSearch(e.target.value)}
             onBlur={() => setTimeout(() => setShowResults(false), 150)}
@@ -163,7 +171,7 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
+            <Button variant="ghost" size="icon" className="relative hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground">
               <Bell className="size-5" />
               {noLeidas > 0 && (
                 <span className="absolute top-1 right-1 size-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center font-bold">
@@ -215,7 +223,7 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
         {/* Language Toggle */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" title={t('topbar.language')}>
+            <Button variant="ghost" size="icon" title={t('topbar.language')} className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground">
               <Languages className="size-5" />
             </Button>
           </DropdownMenuTrigger>
@@ -238,7 +246,7 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
         {/* Theme Toggle */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground">
               {themeMode === 'system' ? <Monitor className="size-5" /> : darkMode ? <Moon className="size-5" /> : <Sun className="size-5" />}
             </Button>
           </DropdownMenuTrigger>
@@ -266,7 +274,7 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="gap-2">
+            <Button variant="ghost" className="gap-2 hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground">
               <Avatar className="size-8">
                 <AvatarFallback className="bg-primary text-primary-foreground">
                   {userName.split(' ').map(n => n[0]).join('')}

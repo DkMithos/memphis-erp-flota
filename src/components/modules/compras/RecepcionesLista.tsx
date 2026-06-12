@@ -3,6 +3,7 @@ import { usePagination } from '../../../lib/shared/usePagination';
 import { Package, Search, Filter, Download, Eye, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
 import {
@@ -57,10 +58,12 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center">
-            <Package className="size-6 text-primary" />
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Package className="size-6 text-black dark:text-primary" />
           </div>
           <div>
             <h2>Recepciones y Conformidad</h2>
@@ -75,7 +78,7 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
             <Plus className="size-4" />
             Nueva Recepción
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             Exportar
           </Button>
@@ -133,7 +136,7 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar por ID o ID de orden..."
                   value={searchTerm}

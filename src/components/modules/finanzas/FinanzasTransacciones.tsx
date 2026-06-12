@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import {
   Plus, Search, Filter, TrendingUp, TrendingDown, AlertCircle,
-  Check, X, Ban, ChevronDown
+  Check, X, Ban, ChevronDown, ArrowLeftRight
 } from 'lucide-react';
+import { PageNav } from '@/components/shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -204,11 +205,18 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold">Transacciones</h2>
-          <p className="text-muted-foreground mt-1">Ingresos, egresos y transferencias financieras</p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <ArrowLeftRight className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">Transacciones</h2>
+            <p className="text-muted-foreground mt-1">Ingresos, egresos y transferencias financieras</p>
+          </div>
         </div>
         <Button onClick={() => setShowForm(true)}>
           <Plus className="size-4" />
@@ -216,33 +224,39 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
         </Button>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — patrón Home */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Ingresos del Mes</CardTitle>
-            <TrendingUp className="size-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold text-green-600">S/ {kpis.ingresos.toLocaleString()}</div>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <TrendingUp className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Ingresos del Mes</p>
+              <p className="text-2xl font-bold">S/ {kpis.ingresos.toLocaleString()}</p>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Egresos del Mes</CardTitle>
-            <TrendingDown className="size-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold text-red-500">S/ {kpis.egresos.toLocaleString()}</div>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-red-500 rounded-lg flex items-center justify-center shrink-0">
+              <TrendingDown className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Egresos del Mes</p>
+              <p className="text-2xl font-bold">S/ {kpis.egresos.toLocaleString()}</p>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Pendientes Aprobación</CardTitle>
-            <AlertCircle className="size-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold text-yellow-600">{kpis.pendientes}</div>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-yellow-500 rounded-lg flex items-center justify-center shrink-0">
+              <AlertCircle className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Pendientes Aprobación</p>
+              <p className="text-2xl font-bold">{kpis.pendientes}</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -252,7 +266,7 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
         <CardContent className="pt-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por número, descripción, categoría..."
                 className="pl-9"
@@ -580,7 +594,7 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setShowForm(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Guardando...' : 'Guardar'}
             </Button>

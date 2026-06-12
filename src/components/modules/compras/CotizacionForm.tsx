@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Save, AlertCircle, Plus, Trash2, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
@@ -221,17 +222,24 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
 
   return (
     <div className="space-y-6">
+      <PageNav onBack={onCancel} />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2>{isEditing ? 'Editar Cotización' : 'Nueva Cotización'}</h2>
-          <p className="text-muted-foreground mt-1">
-            {isEditing 
-              ? `Modificando ${cotizacionExistente?.id}`
-              : 'Complete los datos de la nueva cotización'}
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+            <FileText className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">{isEditing ? 'Editar Cotización' : 'Nueva Cotización'}</h2>
+            <p className="text-muted-foreground mt-1">
+              {isEditing
+                ? `Modificando ${cotizacionExistente?.id}`
+                : 'Complete los datos de la nueva cotización'}
+            </p>
+          </div>
         </div>
-        <Button variant="ghost" onClick={onCancel}>
+        <Button variant="ghost" onClick={onCancel} className="border border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
           <X className="size-4" />
           Cancelar
         </Button>
@@ -534,11 +542,11 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
 
           {/* Botones de Acción */}
           <div className="flex items-center justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={onCancel} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
               <X className="size-4" />
               Cancelar
             </Button>
-            <Button type="submit" variant="secondary" disabled={isSubmitting}>
+            <Button type="submit" variant="secondary" disabled={isSubmitting} className="border border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
               <Save className="size-4" />
               Guardar como Borrador
             </Button>

@@ -3,7 +3,8 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Plus, Search, CheckCircle2, Clock, XCircle, Phone, Mail, MapPin, Users2, FileText, ArrowRight, CalendarClock } from 'lucide-react';
+import { Plus, Search, CheckCircle2, Clock, XCircle, Phone, Mail, MapPin, Users2, FileText, ArrowRight, CalendarClock, TrendingUp } from 'lucide-react';
+import { PageNav } from '../../shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -196,10 +197,17 @@ export function CRMActividades({ onNavigate: _onNavigate }: Props) {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">Actividades</h2>
-          <p className="text-sm text-muted-foreground mt-1">Registro de llamadas, reuniones y seguimiento comercial</p>
+      <PageNav />
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <CheckCircle2 className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold">Actividades</h2>
+            <p className="text-sm text-muted-foreground mt-1">Registro de llamadas, reuniones y seguimiento comercial</p>
+          </div>
         </div>
         <Button onClick={() => { setForm(FORM_EMPTY); setCrearOpen(true); }}>
           <Plus className="size-4" /> Nueva Actividad
@@ -209,18 +217,21 @@ export function CRMActividades({ onNavigate: _onNavigate }: Props) {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Pendientes', value: pendientes, sub: 'por realizar', color: 'text-amber-600' },
-          { label: 'Realizadas Hoy', value: realizadasHoy, sub: 'completadas hoy', color: 'text-green-600' },
-          { label: 'Total Actividades', value: total, sub: 'historial completo', color: '' },
-          { label: 'Tasa Completitud', value: `${tasaCompletitud}%`, sub: 'del total registrado', color: '' },
+          { label: 'Pendientes', value: pendientes, sub: 'por realizar', icon: Clock, box: 'bg-amber-500' },
+          { label: 'Realizadas Hoy', value: realizadasHoy, sub: 'completadas hoy', icon: CheckCircle2, box: 'bg-green-500' },
+          { label: 'Total Actividades', value: total, sub: 'historial completo', icon: CalendarClock, box: 'bg-blue-500' },
+          { label: 'Tasa Completitud', value: `${tasaCompletitud}%`, sub: 'del total registrado', icon: TrendingUp, box: 'bg-indigo-500' },
         ].map(k => (
           <Card key={k.label}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs text-muted-foreground font-medium">{k.label}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${k.color}`}>{k.value}</div>
-              <p className="text-xs text-muted-foreground mt-1">{k.sub}</p>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${k.box}`}>
+                <k.icon className="size-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{k.label}</p>
+                <p className="text-2xl font-bold">{k.value}</p>
+                <p className="text-xs text-muted-foreground mt-1">{k.sub}</p>
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -229,7 +240,7 @@ export function CRMActividades({ onNavigate: _onNavigate }: Props) {
       {/* Filtros */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
           <Input placeholder="Buscar..." className="pl-8" value={busqueda} onChange={e => setBusqueda(e.target.value)} />
         </div>
         <Select value={filtroTipo} onValueChange={setFiltroTipo}>
@@ -400,7 +411,7 @@ export function CRMActividades({ onNavigate: _onNavigate }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCrearOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setCrearOpen(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleSubmit} disabled={saving}>
               {saving ? 'Guardando...' : 'Crear Actividad'}
             </Button>
@@ -435,7 +446,7 @@ export function CRMActividades({ onNavigate: _onNavigate }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCompletarOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setCompletarOpen(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleCompletar} disabled={completando || !resultado.trim()}>
               {completando ? 'Completando...' : 'Marcar como Realizada'}
             </Button>

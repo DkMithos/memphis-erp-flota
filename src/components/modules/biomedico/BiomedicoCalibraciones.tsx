@@ -13,6 +13,7 @@ import {
   Clock,
   AlertTriangle,
 } from 'lucide-react';
+import { PageNav } from '../../shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -75,13 +76,11 @@ const RESULTADO_LABELS: Record<NonNullable<Calibracion['resultado']>, string> = 
 function KpiCard({ icon, label, value, className }: { icon: React.ReactNode; label: string; value: number; className?: string }) {
   return (
     <Card>
-      <CardContent className="pt-4 pb-4">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${className}`}>{icon}</div>
-          <div>
-            <p className="text-2xl font-bold">{value}</p>
-            <p className="text-xs text-muted-foreground">{label}</p>
-          </div>
+      <CardContent className="p-4 flex items-center gap-4">
+        <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 text-white [&_svg]:text-white [&_svg]:size-5 ${className}`}>{icon}</div>
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-2xl font-bold">{value}</p>
         </div>
       </CardContent>
     </Card>
@@ -243,16 +242,20 @@ export function BiomedicoCalibraciones({ onNavigate }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ClipboardCheck className="size-6 text-primary" />
-            Calibraciones
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gestión de calibraciones y certificaciones de equipos médicos
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <ClipboardCheck className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Calibraciones</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Gestión de calibraciones y certificaciones de equipos médicos
+            </p>
+          </div>
         </div>
         <Button onClick={() => setDialogCrear(true)}>
           <Plus className="size-4" />
@@ -262,10 +265,10 @@ export function BiomedicoCalibraciones({ onNavigate }: Props) {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard icon={<Clock className="size-5 text-blue-600" />} label="Programadas" value={kpis.programadas} className="bg-blue-50 dark:bg-blue-950" />
-        <KpiCard icon={<AlertTriangle className="size-5 text-yellow-600" />} label="En proceso" value={kpis.enProceso} className="bg-yellow-50 dark:bg-yellow-950" />
-        <KpiCard icon={<CheckCircle className="size-5 text-green-600" />} label="Aprobadas" value={kpis.aprobadas} className="bg-green-50 dark:bg-green-950" />
-        <KpiCard icon={<XCircle className="size-5 text-gray-500" />} label="Vencidas" value={kpis.vencidas} className="bg-gray-50 dark:bg-gray-950" />
+        <KpiCard icon={<Clock className="size-5" />} label="Programadas" value={kpis.programadas} className="bg-blue-500" />
+        <KpiCard icon={<AlertTriangle className="size-5" />} label="En proceso" value={kpis.enProceso} className="bg-amber-500" />
+        <KpiCard icon={<CheckCircle className="size-5" />} label="Aprobadas" value={kpis.aprobadas} className="bg-green-500" />
+        <KpiCard icon={<XCircle className="size-5" />} label="Vencidas" value={kpis.vencidas} className="bg-red-500" />
       </div>
 
       {/* Filtros */}
@@ -273,7 +276,7 @@ export function BiomedicoCalibraciones({ onNavigate }: Props) {
         <CardContent className="pt-4 pb-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por número, equipo..."
                 value={search}
@@ -422,7 +425,7 @@ export function BiomedicoCalibraciones({ onNavigate }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogCrear(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setDialogCrear(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleCrear} disabled={guardando}>
               {guardando ? 'Guardando...' : 'Crear Calibración'}
             </Button>
@@ -602,7 +605,7 @@ export function BiomedicoCalibraciones({ onNavigate }: Props) {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogEstado(false)}>Cancelar</Button>
+              <Button variant="outline" onClick={() => setDialogEstado(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
               <Button onClick={handleCambiarEstado} disabled={guardando}>
                 {guardando ? 'Guardando...' : 'Confirmar'}
               </Button>

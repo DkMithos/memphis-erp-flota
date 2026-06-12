@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Plus, Wallet, Check, X, AlertCircle } from 'lucide-react';
+import { PageNav } from '@/components/shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -200,11 +201,18 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold">Caja Chica</h2>
-          <p className="text-muted-foreground mt-1">Gestión de fondos y gastos de caja chica</p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Wallet className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">Caja Chica</h2>
+            <p className="text-muted-foreground mt-1">Gestión de fondos y gastos de caja chica</p>
+          </div>
         </div>
         <Button onClick={() => setShowNuevaCaja(true)}>
           <Plus className="size-4" />
@@ -217,7 +225,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
         <p className="text-sm text-muted-foreground">Cargando...</p>
       ) : cajasChicas.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          <CardContent className="flex items-center justify-center min-h-[200px] text-sm text-muted-foreground">
             Sin cajas chicas. Crea la primera.
           </CardContent>
         </Card>
@@ -411,7 +419,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNuevaCaja(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setShowNuevaCaja(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleCrearCaja} disabled={saving}>{saving ? 'Creando...' : 'Crear'}</Button>
           </DialogFooter>
         </DialogContent>
@@ -530,7 +538,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNuevoGasto(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setShowNuevoGasto(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleCrearGasto} disabled={saving}>{saving ? 'Guardando...' : 'Registrar'}</Button>
           </DialogFooter>
         </DialogContent>
