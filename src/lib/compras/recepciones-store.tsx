@@ -200,18 +200,23 @@ export function RecepcionStoreProvider({ children }: { children: React.ReactNode
     if (!tenantId) { setLoading(false); return; }
     setLoading(true);
 
-    const { data, error } = await dbRecepciones.list();
+    try {
+      const { data, error } = await dbRecepciones.list();
 
-    if (error) {
-      console.error('[RECEPCIONES] Error al cargar:', error.message);
-    } else if (data) {
-      const mapped = (data as RecepcionWithRelations[]).map(mapFromDB);
-      setRecepciones(mapped);
-      if (DEBUG_RECEPCIONES) {
-        console.log('[RECEPCIONES] Cargadas desde Supabase:', mapped.length);
+      if (error) {
+        console.error('[RECEPCIONES] Error al cargar:', error.message);
+      } else if (data) {
+        const mapped = (data as RecepcionWithRelations[]).map(mapFromDB);
+        setRecepciones(mapped);
+        if (DEBUG_RECEPCIONES) {
+          console.log('[RECEPCIONES] Cargadas desde Supabase:', mapped.length);
+        }
       }
+    } catch (err) {
+      console.error('[RECEPCIONES] Error inesperado al cargar:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [tenantId]);
 
   useEffect(() => {

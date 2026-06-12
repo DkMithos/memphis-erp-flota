@@ -9,6 +9,7 @@ import { supabase } from '../supabase/client';
 import { dbOrdenesCompra } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { validateTransition, ORDEN_TRANSITIONS } from '../shared/state-machine';
+import { solicitarAprobacionTeams } from './solicitar-aprobacion';
 import type {
   OrdenCompra as OrdenCompraDB,
   OrdenItem as OrdenItemDB,
@@ -250,18 +251,23 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
     if (!tenantId) { setLoading(false); return; }
     setLoading(true);
 
-    const { data, error } = await dbOrdenesCompra.list();
+    try {
+      const { data, error } = await dbOrdenesCompra.list();
 
-    if (error) {
-      console.error('[ORDENES] Error al cargar:', error.message);
-    } else if (data) {
-      const mapped = (data as OrdenWithRelations[]).map(mapFromDB);
-      setOrdenes(mapped);
-      if (DEBUG_ORDENES) {
-        console.log('[ORDENES] Cargadas desde Supabase:', mapped.length);
+      if (error) {
+        console.error('[ORDENES] Error al cargar:', error.message);
+      } else if (data) {
+        const mapped = (data as OrdenWithRelations[]).map(mapFromDB);
+        setOrdenes(mapped);
+        if (DEBUG_ORDENES) {
+          console.log('[ORDENES] Cargadas desde Supabase:', mapped.length);
+        }
       }
+    } catch (err) {
+      console.error('[ORDENES] Error inesperado al cargar:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [tenantId]);
 
   useEffect(() => {
@@ -524,9 +530,21 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         )
       );
 
+      // Al enviar a aprobación → solicitar aprobación vía Teams (no bloquea)
+      if (nuevoEstado === 'pendiente_aprobacion' && ordActual) {
+        void solicitarAprobacionTeams({
+          modulo: 'orden_compra',
+          entidadId: dbId,
+          numero: ordActual.id,
+          titulo: ordActual.proveedorNombre,
+          monto: ordActual.total,
+          moneda: ordActual.moneda as 'PEN' | 'USD',
+        });
+      }
+
       return { exito: true };
     },
-    [user]
+    [user, ordenes]
   );
 
   const aprobarOrden = useCallback(

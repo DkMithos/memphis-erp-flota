@@ -142,13 +142,7 @@ export function AsientosLista({ onNavigate, detalleNumero }: Props) {
   const [filtroPeriodo, setFiltroPeriodo] = useState(periodoActual?.id ?? 'todos');
   const [detalleKey, setDetalleKey] = useState<string | null>(detalleNumero ?? null);
 
-  // Detalle view
-  const detalleAsiento = detalleKey ? obtenerPorNumero(detalleKey) : null;
-  if (detalleAsiento) {
-    return <DetalleAsiento asiento={detalleAsiento} onNavigate={onNavigate}
-      onBack={() => { setDetalleKey(null); onNavigate('/contabilidad/asientos'); }} />;
-  }
-
+  // Hook ANTES del return condicional (regla de los hooks)
   const filtrados = useMemo(() => {
     return asientos.filter(a => {
       if (filtroEstado !== 'todos' && a.estado !== filtroEstado) return false;
@@ -160,6 +154,13 @@ export function AsientosLista({ onNavigate, detalleNumero }: Props) {
       return true;
     });
   }, [asientos, filtroEstado, filtroPeriodo, query]);
+
+  // Detalle view
+  const detalleAsiento = detalleKey ? obtenerPorNumero(detalleKey) : null;
+  if (detalleAsiento) {
+    return <DetalleAsiento asiento={detalleAsiento} onNavigate={onNavigate}
+      onBack={() => { setDetalleKey(null); onNavigate('/contabilidad/asientos'); }} />;
+  }
 
   return (
     <div className="space-y-4">

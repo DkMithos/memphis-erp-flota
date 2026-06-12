@@ -767,6 +767,8 @@ export interface EquipoBiomedico {
   creado_en: string;
   modificado_por: string | null;
   modificado_en: string | null;
+  // Proyecto asociado
+  proyecto_id?: string | null;
   // QR público
   public_token?: string | null;
   public_view_enabled?: boolean;
@@ -839,6 +841,9 @@ export interface RequerimientoCompra {
   modificado_en: string | null;
   proyecto_id?: string | null;
   centro_costo_id?: string | null;
+  moneda?: string;
+  solicitante_email?: string | null;
+  solicitante_nombre?: string | null;
 }
 export type RequerimientoCompraInsert = Omit<RequerimientoCompra, 'id' | 'creado_en'>;
 export type RequerimientoCompraUpdate = Partial<Omit<RequerimientoCompraInsert, 'tenant_id'>>;
@@ -1401,6 +1406,14 @@ export interface ValorizacionDB {
   observaciones?: string | null;
   conformidad_parcial?: boolean; // true = conformidad parcial, false = total
   porcentaje_conformidad?: number | null; // 0-100 si parcial
+  creado_por?: string | null; creado_en: string;
+}
+
+// ── Adendas de Proyecto ──────────────────────────────────
+export interface AdendaProyectoDB {
+  id: string; tenant_id: string; proyecto_id: string;
+  numero: number; descripcion: string; monto: number; moneda: string;
+  fecha?: string | null; documento_url?: string | null;
   creado_por?: string | null; creado_en: string;
 }
 

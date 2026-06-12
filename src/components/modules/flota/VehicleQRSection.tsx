@@ -26,6 +26,14 @@ export function VehicleQRSection({ vehiculoId, placa, onNavigate }: VehicleQRSec
   const { obtenerVehiculo, actualizarVehiculo, ensurePublicToken } = useVehiculos();
   const vehiculo = obtenerVehiculo(vehiculoId);
 
+  // ✅ GARANTIZAR TOKEN: Si no existe, generarlo automáticamente (idempotente).
+  // IMPORTANTE: el hook va ANTES de cualquier return condicional (regla de los hooks).
+  useEffect(() => {
+    if (vehiculo && !vehiculo.publicToken) {
+      ensurePublicToken(vehiculoId);
+    }
+  }, [vehiculoId, vehiculo, vehiculo?.publicToken, ensurePublicToken]);
+
   // Si no hay vehículo, mostrar error (edge case)
   if (!vehiculo) {
     return (
@@ -46,13 +54,6 @@ export function VehicleQRSection({ vehiculoId, placa, onNavigate }: VehicleQRSec
       </Card>
     );
   }
-
-  // ✅ GARANTIZAR TOKEN: Si no existe, generarlo automáticamente (idempotente)
-  useEffect(() => {
-    if (!vehiculo.publicToken) {
-      ensurePublicToken(vehiculoId);
-    }
-  }, [vehiculoId, vehiculo.publicToken, ensurePublicToken]);
 
   // Si aún no tiene token (primera renderización), mostrar loading
   if (!vehiculo.publicToken) {

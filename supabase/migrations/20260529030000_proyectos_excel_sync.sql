@@ -1,0 +1,3 @@
+-- Espejo del Excel RESUMEN.xlsx (Fase A — coexistencia con Excel)
+-- Aplicada vía MCP. Incluye tabla proyectos_excel_sync + excel_sync_config con seed.
+-- Ver supabase/functions/excel-sync/index.ts

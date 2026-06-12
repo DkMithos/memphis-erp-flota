@@ -53,6 +53,16 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
   const [errorMotivo, setErrorMotivo] = useState('');
 
+  // Flujo de aprobación configurable.
+  // IMPORTANTE: estos hooks deben llamarse SIEMPRE en el mismo orden (regla de
+  // los hooks), por eso van ANTES del return condicional. Usan defaults seguros
+  // cuando la orden no existe (en cuyo caso el componente retorna abajo).
+  const flujoConfig = useMemo(() => loadFlujoAprobacion(), []);
+  const nivelAprobacion = useMemo(
+    () => determinarNivelAprobacion(orden?.total ?? 0, orden?.moneda ?? 'PEN', flujoConfig),
+    [orden?.total, orden?.moneda, flujoConfig]
+  );
+
   if (!orden) {
     return (
       <Alert variant="destructive">
@@ -64,13 +74,6 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
   }
 
   const estadoConfig = ORDEN_ESTADO_CONFIG[orden.estado];
-
-  // Flujo de aprobación configurable
-  const flujoConfig = useMemo(() => loadFlujoAprobacion(), []);
-  const nivelAprobacion = useMemo(
-    () => determinarNivelAprobacion(orden.total, orden.moneda, flujoConfig),
-    [orden.total, orden.moneda, flujoConfig]
-  );
   const rolActualPuedeAprobarEsteNivel = nivelAprobacion.roles.includes(usuarioActual.nombre) ||
     nivelAprobacion.roles.some(r => r.toLowerCase() === usuarioActual.rol.toLowerCase().replace(/_/g, ' '));
 

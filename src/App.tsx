@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 
 // Auth
 import { useAuth } from './auth/AuthProvider';
 import { Login } from './components/auth/Login';
+import { PendingAccess } from './components/auth/PendingAccess';
+import { usePermissions } from './lib/rbac/usePermissions';
 
 // Layout
 import { ERPSidebar } from './components/layout/ERPSidebar';
@@ -12,6 +14,7 @@ import { ERPTopbar } from './components/layout/ERPTopbar';
 import { ResponsiveIndicator } from './components/shared/ResponsiveIndicator';
 import { TutorialOnboarding } from './components/shared/TutorialOnboarding';
 import { ConfirmDialogProvider } from './components/shared/ConfirmDialogProvider';
+import { getStorageItem, setStorageItem } from './lib/shared/safe-storage';
 
 // Home
 import { HomeWelcome } from './components/modules/HomeWelcome';
@@ -82,10 +85,11 @@ import { ProveedoresTalleres } from './components/modules/proveedores/Proveedore
 import { GestionCategorias } from './components/modules/proveedores/GestionCategorias';
 
 // Proyectos
-import { ProyectosDashboard } from './components/modules/proyectos/ProyectosDashboard';
 import { ProyectosLista } from './components/modules/proyectos/ProyectosLista';
 import { ProyectoDetalle } from './components/modules/proyectos/ProyectoDetalle';
 import { Proyecto360 } from './components/modules/proyectos/Proyecto360';
+import { ProyectosPanorama } from './components/modules/proyectos/ProyectosPanorama';
+import { ProyectosExcelSync } from './components/modules/proyectos/ProyectosExcelSync';
 import { ProyectosTareasGlobal } from './components/modules/proyectos/ProyectosTareasGlobal';
 import { TareaDetalle } from './components/modules/proyectos/TareaDetalle';
 import { ProyectosProvider } from './lib/proyectos/proyectos-store';
@@ -114,27 +118,27 @@ import { CRMOportunidades } from './components/modules/crm/CRMOportunidades';
 import { CRMActividades } from './components/modules/crm/CRMActividades';
 import { CRMProvider } from './lib/crm/crm-store';
 
-// Inventario
-import { InventarioDashboard } from './components/modules/inventario/InventarioDashboard';
-import { InventarioArticulos } from './components/modules/inventario/InventarioArticulos';
-import { InventarioMovimientos } from './components/modules/inventario/InventarioMovimientos';
-import { InventarioAlmacenes } from './components/modules/inventario/InventarioAlmacenes';
+// Inventario (carga diferida)
+const InventarioDashboard = lazy(() => import('./components/modules/inventario/InventarioDashboard').then(m => ({ default: m.InventarioDashboard })));
+const InventarioArticulos = lazy(() => import('./components/modules/inventario/InventarioArticulos').then(m => ({ default: m.InventarioArticulos })));
+const InventarioMovimientos = lazy(() => import('./components/modules/inventario/InventarioMovimientos').then(m => ({ default: m.InventarioMovimientos })));
+const InventarioAlmacenes = lazy(() => import('./components/modules/inventario/InventarioAlmacenes').then(m => ({ default: m.InventarioAlmacenes })));
 
-// BI
-import { BIDashboard } from './components/modules/bi/BIDashboard';
-import { ReporteCruzado } from './components/modules/bi/ReporteCruzado';
+// BI (carga diferida — incluye recharts)
+const BIDashboard = lazy(() => import('./components/modules/bi/BIDashboard').then(m => ({ default: m.BIDashboard })));
+const ReporteCruzado = lazy(() => import('./components/modules/bi/ReporteCruzado').then(m => ({ default: m.ReporteCruzado })));
 import { BIProvider } from './lib/bi/bi-store';
 
-// Contabilidad
-import { ContabilidadDashboard } from './components/modules/contabilidad/ContabilidadDashboard';
-import { PlanCuentas } from './components/modules/contabilidad/PlanCuentas';
-import { PeriodosContables } from './components/modules/contabilidad/PeriodosContables';
-import { AsientosLista } from './components/modules/contabilidad/AsientosLista';
-import { AsientoForm } from './components/modules/contabilidad/AsientoForm';
-import { ComprobantesLista } from './components/modules/contabilidad/ComprobantesLista';
-import { ComprobantePagoForm } from './components/modules/contabilidad/ComprobantePagoForm';
-import { RegistroCompras } from './components/modules/contabilidad/RegistroCompras';
-import { RegistroVentas } from './components/modules/contabilidad/RegistroVentas';
+// Contabilidad (carga diferida — módulo pesado, no en ruta crítica)
+const ContabilidadDashboard = lazy(() => import('./components/modules/contabilidad/ContabilidadDashboard').then(m => ({ default: m.ContabilidadDashboard })));
+const PlanCuentas = lazy(() => import('./components/modules/contabilidad/PlanCuentas').then(m => ({ default: m.PlanCuentas })));
+const PeriodosContables = lazy(() => import('./components/modules/contabilidad/PeriodosContables').then(m => ({ default: m.PeriodosContables })));
+const AsientosLista = lazy(() => import('./components/modules/contabilidad/AsientosLista').then(m => ({ default: m.AsientosLista })));
+const AsientoForm = lazy(() => import('./components/modules/contabilidad/AsientoForm').then(m => ({ default: m.AsientoForm })));
+const ComprobantesLista = lazy(() => import('./components/modules/contabilidad/ComprobantesLista').then(m => ({ default: m.ComprobantesLista })));
+const ComprobantePagoForm = lazy(() => import('./components/modules/contabilidad/ComprobantePagoForm').then(m => ({ default: m.ComprobantePagoForm })));
+const RegistroCompras = lazy(() => import('./components/modules/contabilidad/RegistroCompras').then(m => ({ default: m.RegistroCompras })));
+const RegistroVentas = lazy(() => import('./components/modules/contabilidad/RegistroVentas').then(m => ({ default: m.RegistroVentas })));
 import { PeriodosProvider } from './lib/contabilidad/periodos-store';
 import { PlanCuentasProvider } from './lib/contabilidad/plan-cuentas-store';
 import { AsientosProvider } from './lib/contabilidad/asientos-store';
@@ -181,7 +185,8 @@ import { InventarioProvider } from './lib/inventario/inventario-store';
 // UI
 import { Menu } from 'lucide-react';
 import { Button } from './components/ui/button';
-import { Sheet, SheetContent } from './components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from './components/ui/sheet';
+import { VisuallyHidden } from './components/ui/visually-hidden';
 import { Toaster } from './components/ui/sonner';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { LoadingScreen } from './components/ui/LoadingScreen';
@@ -190,10 +195,8 @@ const ENABLE_PUBLIC_LEGACY_ROUTES = false;
 
 // ─── Helpers de tema ────────────────────────────────────────────────────────
 function getInitialThemeMode(): 'light' | 'dark' | 'system' {
-  try {
-    const stored = localStorage.getItem('memphis-theme');
-    if (stored === 'dark' || stored === 'light' || stored === 'system') return stored;
-  } catch { /* SSR / modo privado */ }
+  const stored = getStorageItem('memphis-theme');
+  if (stored === 'dark' || stored === 'light' || stored === 'system') return stored;
   return 'system';
 }
 
@@ -207,7 +210,8 @@ function applyTheme(mode: 'light' | 'dark' | 'system'): boolean {
 // ────────────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const { user, profile, tenantName, loading } = useAuth();
+  const { user, profile, tenantName, loading, signOut } = useAuth();
+  const { hasRole, isAdmin, loading: permsLoading } = usePermissions();
 
   const [currentModule, setCurrentModule] = useState(() => {
     const path = window.location.pathname || '/home';
@@ -223,7 +227,7 @@ export default function App() {
 
   // Aplicar tema, persistir en localStorage y escuchar cambios del sistema
   useEffect(() => {
-    localStorage.setItem('memphis-theme', themeMode);
+    setStorageItem('memphis-theme', themeMode);
     const isDark = applyTheme(themeMode);
     setDarkMode(isDark);
 
@@ -357,6 +361,18 @@ export default function App() {
   // 3) Si NO hay user: Login
   if (!user) {
     return <Login />;
+  }
+
+  // 4) Gate de acceso: usuario autenticado pero SIN rol RBAC asignado.
+  //    Espera a que terminen de cargar los permisos para evitar parpadeo.
+  if (!permsLoading && !isAdmin && !hasRole) {
+    return (
+      <PendingAccess
+        email={user.email}
+        nombre={profile?.nombre ?? null}
+        onSignOut={signOut}
+      />
+    );
   }
 
   const renderModule = () => {
@@ -528,7 +544,9 @@ export default function App() {
       if (currentRoute === '/proyectos/valorizaciones') return <ProyectosValorizaciones onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/riesgos') return <ProyectosRiesgos onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/documentos') return <ProyectosDocumentos onNavigate={navigateTo} />;
-      return <ProyectosDashboard onNavigate={navigateTo} />;
+      if (currentRoute === '/proyectos/excel-sync') return <ProyectosExcelSync />;
+      // Default: Panorama General como dashboard de proyectos
+      return <ProyectosPanorama onNavigate={navigateTo} />;
     }
 
     // Contabilidad
@@ -893,6 +911,9 @@ export default function App() {
                         {!isSpecialRoute() && user && (
                           <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
                             <SheetContent side="left" className="p-0 w-64 print:hidden">
+                              <VisuallyHidden>
+                                <SheetTitle>Menú de navegación</SheetTitle>
+                              </VisuallyHidden>
                               <ERPSidebar
                                 currentModule={currentModule}
                                 onModuleChange={handleModuleChange}
@@ -931,7 +952,9 @@ export default function App() {
                         <main className={isSpecialRoute() ? '' : 'lg:ml-64 mt-16 p-4 md:p-6'}>
                           <div className={isSpecialRoute() ? '' : 'max-w-[1600px] mx-auto'}>
                             <ErrorBoundary>
-                              {renderModule()}
+                              <Suspense fallback={<LoadingScreen message="Cargando módulo..." />}>
+                                {renderModule()}
+                              </Suspense>
                             </ErrorBoundary>
                           </div>
                         </main>

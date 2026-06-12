@@ -189,6 +189,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       href: '/proyectos',
       subItems: [
         { label: t('nav.sub.dashboard'), href: '/proyectos' },
+        { label: 'Espejo Excel (Operaciones)', href: '/proyectos/excel-sync' },
         { label: t('nav.sub.lista_proyectos'), href: '/proyectos/lista' },
         { label: t('nav.sub.tareas'), href: '/proyectos/tareas' },
         { label: t('nav.sub.cronograma'), href: '/proyectos/cronograma' },

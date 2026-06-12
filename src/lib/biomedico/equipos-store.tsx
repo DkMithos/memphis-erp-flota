@@ -90,6 +90,9 @@ export interface EquipoBiomedico {
 
   observaciones: string | null;
 
+  // Proyecto asociado
+  proyectoId: string | null;
+
   // QR público
   publicToken: string | null;
   publicViewEnabled: boolean;
@@ -228,6 +231,7 @@ function mapFromDB(row: EquipoDBRow): EquipoBiomedico {
       modificadoEn: row.modificado_en,
     },
     observaciones: row.observaciones ?? null,
+    proyectoId: row.proyecto_id ?? null,
     publicToken: row.public_token ?? null,
     publicViewEnabled: row.public_view_enabled ?? true,
   };

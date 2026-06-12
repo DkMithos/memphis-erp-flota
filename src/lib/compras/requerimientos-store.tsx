@@ -9,6 +9,7 @@ import { supabase } from '../supabase/client';
 import { dbRequerimientos } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { validateTransition, REQUERIMIENTO_TRANSITIONS } from '../shared/state-machine';
+import { solicitarAprobacionTeams } from './solicitar-aprobacion';
 import type {
   RequerimientoCompra,
   RequerimientoItem as RequerimientoItemDB,
@@ -57,6 +58,9 @@ export interface Requerimiento {
   // Temporal
   fechaRequerida: string | null;
 
+  // Moneda
+  moneda: 'PEN' | 'USD';
+
   // Items
   items: ItemRequerimiento[];
   totalEstimado: number;
@@ -92,6 +96,7 @@ export interface NuevoRequerimientoInput {
   solicitanteNombre: string;
   solicitanteEmail: string;
   fechaRequerida?: string;
+  moneda?: 'PEN' | 'USD';
   items: Omit<ItemRequerimiento, 'id' | '_dbId'>[];
   // Imputación dual (opcional — se guardan como FK en DB)
   proyectoId?: string | null;
@@ -158,9 +163,10 @@ function mapFromDB(row: RequerimientoWithItems): Requerimiento {
     centroCosto: row.centro_costo as CentroCosto,
     prioridad: row.prioridad as PrioridadRequerimiento,
     estado: row.estado as EstadoRequerimiento,
-    solicitanteNombre: row.creado_por ?? '',
-    solicitanteEmail: row.creado_por ?? '',
+    solicitanteNombre: row.solicitante_nombre ?? '',
+    solicitanteEmail: row.solicitante_email ?? '',
     fechaRequerida: row.fecha_requerida,
+    moneda: (row.moneda as 'PEN' | 'USD') ?? 'PEN',
     items,
     totalEstimado,
     proyectoId: row.proyecto_id ?? null,
@@ -171,7 +177,7 @@ function mapFromDB(row: RequerimientoWithItems): Requerimiento {
     rechazadoEn: null,
     motivoRechazo: row.motivo_rechazo,
     auditoria: {
-      creadoPor: row.creado_por ?? '',
+      creadoPor: row.solicitante_nombre ?? row.solicitante_email ?? row.creado_por ?? '',
       creadoEn: row.creado_en,
       modificadoPor: row.modificado_por,
       modificadoEn: row.modificado_en,
@@ -205,18 +211,23 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
     if (!tenantId) { setLoading(false); return; }
     setLoading(true);
 
-    const { data, error } = await dbRequerimientos.list();
+    try {
+      const { data, error } = await dbRequerimientos.list();
 
-    if (error) {
-      console.error('[REQUERIMIENTOS] Error al cargar:', error.message);
-    } else if (data) {
-      const mapped = (data as RequerimientoWithItems[]).map(mapFromDB);
-      setRequerimientos(mapped);
-      if (DEBUG_REQUERIMIENTOS) {
-        console.log('[REQUERIMIENTOS] Cargados desde Supabase:', mapped.length);
+      if (error) {
+        console.error('[REQUERIMIENTOS] Error al cargar:', error.message);
+      } else if (data) {
+        const mapped = (data as RequerimientoWithItems[]).map(mapFromDB);
+        setRequerimientos(mapped);
+        if (DEBUG_REQUERIMIENTOS) {
+          console.log('[REQUERIMIENTOS] Cargados desde Supabase:', mapped.length);
+        }
       }
+    } catch (err) {
+      console.error('[REQUERIMIENTOS] Error inesperado al cargar:', err);
+    } finally {
+      setLoading(false); // garantizar salida del estado de carga
     }
-    setLoading(false);
   }, [tenantId]);
 
   useEffect(() => {
@@ -273,11 +284,14 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
         prioridad: input.prioridad,
         centro_costo: input.centroCosto,
         fecha_requerida: input.fechaRequerida || null,
+        moneda: input.moneda ?? 'PEN',
+        solicitante_email: normalizeEmail(input.solicitanteEmail),
+        solicitante_nombre: input.solicitanteNombre,
         motivo_rechazo: null,
         motivo_anulacion: null,
         aprobado_por: null,
         aprobado_en: null,
-        creado_por: normalizeEmail(input.solicitanteEmail),
+        creado_por: user.id,
         modificado_por: null,
         modificado_en: null,
       });
@@ -462,9 +476,21 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
         console.log('[REQ_ESTADO_CHANGED]', { id, estadoNuevo: nuevoEstado });
       }
 
+      // Al enviar a aprobación → solicitar aprobación vía Teams (no bloquea)
+      if (nuevoEstado === 'enviado' && reqActual) {
+        void solicitarAprobacionTeams({
+          modulo: 'requerimiento',
+          entidadId: dbId,
+          numero: reqActual.id,
+          titulo: reqActual.titulo,
+          monto: reqActual.totalEstimado ?? 0,
+          moneda: reqActual.moneda ?? 'PEN',
+        });
+      }
+
       return { exito: true };
     },
-    [user]
+    [user, requerimientos]
   );
 
   const aprobarRequerimiento = useCallback(

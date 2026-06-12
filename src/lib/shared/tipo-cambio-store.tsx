@@ -49,7 +49,9 @@ export function TipoCambioProvider({ children }: { children: React.ReactNode }) 
       fuente: 'manual',
     };
     setTipoCambioState(nuevo);
-    localStorage.setItem(LS_KEY, JSON.stringify(nuevo));
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(nuevo));
+    } catch { /* almacenamiento no disponible — ignorar */ }
   }, []);
 
   const convertir = useCallback((monto: number, de: 'PEN' | 'USD', a: 'PEN' | 'USD'): number => {
