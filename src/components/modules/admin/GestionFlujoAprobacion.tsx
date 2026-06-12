@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Save, Shield, AlertTriangle, ChevronRight, ArrowRight, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Badge } from '../../ui/badge';
@@ -79,23 +80,27 @@ export function GestionFlujoAprobacion() {
   };
 
   const nivelColors = [
-    'border-green-200 bg-green-50 dark:border-green-900/50 dark:bg-green-950/20',
-    'border-yellow-200 bg-yellow-50 dark:border-yellow-900/50 dark:bg-yellow-950/20',
-    'border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/20',
+    'border-[#64748B] dark:border-border hover:shadow-[inset_4px_0_0_0_#22c55e]',
+    'border-[#64748B] dark:border-border hover:shadow-[inset_4px_0_0_0_#eab308]',
+    'border-[#64748B] dark:border-border hover:shadow-[inset_4px_0_0_0_#ef4444]',
   ];
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Shield className="size-5 text-primary" />
-            Flujo de Aprobación de Órdenes
-          </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Configura los umbrales de monto y los roles requeridos para aprobar órdenes de compra y servicio.
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Shield className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h3 className="text-2xl font-semibold">Flujo de Aprobación de Órdenes</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Configura los umbrales de monto y los roles requeridos para aprobar órdenes de compra y servicio.
+            </p>
+          </div>
         </div>
         <Button onClick={handleSave} disabled={saving}>
           <Save className="size-4" />
@@ -153,7 +158,7 @@ export function GestionFlujoAprobacion() {
       {/* Niveles */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {config.niveles.map((nivel, idx) => (
-          <Card key={nivel.nivel} className={`border-2 ${nivelColors[idx]}`}>
+          <Card key={nivel.nivel} className={`border-2 transition-shadow ${nivelColors[idx]}`}>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <span className="text-lg">{NIVEL_ICONS[idx]}</span>
@@ -174,7 +179,7 @@ export function GestionFlujoAprobacion() {
               <Input
                 value={nivel.descripcion}
                 onChange={e => updateNivel(idx as 0|1|2, { descripcion: e.target.value })}
-                className="h-7 text-xs text-muted-foreground border-dashed"
+                className="h-7 text-xs bg-white dark:bg-input/30"
                 placeholder="Descripción del nivel"
               />
 
@@ -187,14 +192,14 @@ export function GestionFlujoAprobacion() {
                     <Input
                       value={`S/ ${nivel.montoMin.toLocaleString('es-PE')}`}
                       disabled
-                      className="h-8 text-sm bg-muted/50"
+                      className="h-8 text-sm bg-white dark:bg-input/30"
                     />
                   </div>
                   <ChevronRight className="size-4 text-muted-foreground shrink-0 mt-5" />
                   <div className="space-y-1 flex-1">
                     <span className="text-xs text-muted-foreground">Hasta</span>
                     {nivel.montoMax === null ? (
-                      <Input value="Sin límite" disabled className="h-8 text-sm bg-muted/50" />
+                      <Input value="Sin límite" disabled className="h-8 text-sm bg-white dark:bg-input/30" />
                     ) : (
                       <Input
                         type="number"
@@ -202,7 +207,7 @@ export function GestionFlujoAprobacion() {
                         step={1000}
                         value={nivel.montoMax}
                         onChange={e => updateNivel(idx as 0|1|2, { montoMax: parseInt(e.target.value) || nivel.montoMax })}
-                        className="h-8 text-sm"
+                        className="h-8 text-sm bg-white dark:bg-input/30"
                       />
                     )}
                   </div>
@@ -219,8 +224,8 @@ export function GestionFlujoAprobacion() {
                       type="button"
                       onClick={() => updateNivel(idx as 0|1|2, { aprobadoresRequeridos: n })}
                       className={`flex-1 h-8 rounded text-sm font-medium transition-colors ${nivel.aprobadoresRequeridos === n
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'}`}
+                        ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        : 'bg-muted hover:!bg-black hover:!text-white dark:hover:!bg-muted/80 dark:hover:!text-muted-foreground text-muted-foreground'}`}
                     >
                       {n}
                     </button>

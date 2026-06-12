@@ -210,7 +210,7 @@ export function VehicleQRSection({ vehiculoId, placa, onNavigate }: VehicleQRSec
                 <Button
                   onClick={() => onNavigate(`/v/${vehiculo.publicToken}`)}
                   variant="outline"
-                  className="flex-1"
+                  className="flex-1 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
                 >
                   <Eye className="size-4" />
                   Ver Vista Pública
@@ -218,7 +218,7 @@ export function VehicleQRSection({ vehiculoId, placa, onNavigate }: VehicleQRSec
                 <Button
                   onClick={() => onNavigate(printUrl)}
                   variant="outline"
-                  className="flex-1"
+                  className="flex-1 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
                 >
                   <Printer className="size-4" />
                   Imprimir QR
@@ -226,7 +226,7 @@ export function VehicleQRSection({ vehiculoId, placa, onNavigate }: VehicleQRSec
                 <Button
                   onClick={handleCopyUrl}
                   variant="outline"
-                  className="flex-1"
+                  className="flex-1 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
                 >
                   <Copy className="size-4" />
                   Copiar URL

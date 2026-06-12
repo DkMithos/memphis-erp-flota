@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { usePagination } from '../../../lib/shared/usePagination';
-import { Plus, Search, Filter, Download, Eye, Edit, ShoppingCart } from 'lucide-react';
+import { Plus, Search, Filter, Download, Eye, Edit, ShoppingCart, ClipboardList, Clock, CheckCircle, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
 import {
@@ -102,11 +103,13 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center">
-            <ShoppingCart className="size-6 text-primary" />
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <ShoppingCart className="size-6 text-black dark:text-primary" />
           </div>
           <div>
             <h2>Requerimientos de Compra</h2>
@@ -123,52 +126,60 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
               Nuevo Requerimiento
             </Button>
           )}
-          <Button variant="outline">
+          <Button variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             Exportar
           </Button>
         </div>
       </div>
 
-      {/* Stats KPI */}
+      {/* Stats KPI — patrón Home */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Total Requerimientos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground mt-1">Registrados</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-slate-500 rounded-lg flex items-center justify-center shrink-0">
+              <ClipboardList className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Requerimientos</p>
+              <p className="text-2xl font-bold">{stats.total}</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Pendientes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-blue-600">{stats.enviados}</div>
-            <p className="text-xs text-muted-foreground mt-1">Por aprobar</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <Clock className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Pendientes</p>
+              <p className="text-2xl font-bold">{stats.enviados}</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Aprobados</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-green-600">{stats.aprobados}</div>
-            <p className="text-xs text-muted-foreground mt-1">Listos para OC</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <CheckCircle className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Aprobados</p>
+              <p className="text-2xl font-bold">{stats.aprobados}</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Total Estimado</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{formatearMonto(stats.totalEstimado)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Activos</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-orange-500 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Estimado</p>
+              <p className="text-2xl font-bold">{formatearMonto(stats.totalEstimado)}</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -186,7 +197,7 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
             {/* Búsqueda por texto */}
             <div className="md:col-span-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar por ID, título o solicitante..."
                   value={searchTerm}

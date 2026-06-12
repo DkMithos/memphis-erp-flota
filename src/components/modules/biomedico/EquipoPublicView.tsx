@@ -168,12 +168,15 @@ export function EquipoPublicView({ token }: EquipoPublicViewProps) {
   } catch { /* plain text */ }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-2xl mx-auto space-y-4">
         {/* Header */}
         <div className="text-center pt-4 pb-2">
-          <h1 className="text-2xl font-bold" style={{ color: '#0A66C2' }}>Memphis ERP</h1>
-          <p className="text-sm text-gray-500">Ficha Técnica del Equipo</p>
+          <div className="inline-flex items-center justify-center size-16 bg-primary/10 rounded-2xl mb-4">
+            <Activity className="size-8 text-primary" />
+          </div>
+          <h1 className="text-2xl font-bold">Memphis ERP</h1>
+          <p className="text-sm text-muted-foreground">Ficha Técnica del Equipo</p>
         </div>
 
         {/* Identificación */}

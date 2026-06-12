@@ -5,6 +5,7 @@ import { usePermissions } from '../../../lib/rbac/usePermissions';
 
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
@@ -34,7 +35,8 @@ import {
 } from '../../ui/select';
 import { toast } from 'sonner';
 import { useConfirmAction } from '@/components/shared/ConfirmDialogProvider';
-import { Shield, Users, Plus, Pencil, Trash2, UserCog, Layers, ClipboardList, UserPlus, GitBranch, List } from 'lucide-react';
+import { Shield, Users, Plus, Pencil, Trash2, UserCog, Layers, ClipboardList, UserPlus, GitBranch, List, CheckCircle2, UserX, Ban } from 'lucide-react';
+import { Card, CardContent } from '../../ui/card';
 import { usePagination } from '../../../lib/shared/usePagination';
 import { supabase } from '../../../lib/supabase/client';
 import { useAuth } from '../../../auth/AuthProvider';
@@ -170,7 +172,7 @@ function GestionarRolesDialog({ usuario, onClose }: GestionarRolesDialogProps) {
           ))}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cerrar</Button>
+          <Button variant="outline" onClick={onClose} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cerrar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -339,7 +341,7 @@ function RolDialog({ rol, onClose }: RolDialogProps) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>
+          <Button variant="outline" onClick={onClose} disabled={saving} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             Cancelar
           </Button>
           <Button onClick={handleSave} disabled={saving}>
@@ -429,7 +431,7 @@ function NuevoUsuarioDialog({ tenantId, onClose, onSuccess }: NuevoUsuarioDialog
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
           <Button onClick={handleCreate} disabled={saving}>
             {saving ? 'Creando...' : 'Crear Usuario'}
           </Button>
@@ -482,18 +484,39 @@ function TabUsuarios() {
     <div className="space-y-4">
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="border rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-green-600">{activos}</div>
-          <div className="text-sm text-muted-foreground">Activos</div>
-        </div>
-        <div className="border rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-muted-foreground">{inactivos}</div>
-          <div className="text-sm text-muted-foreground">Inactivos</div>
-        </div>
-        <div className="border rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-red-600">{suspendidos}</div>
-          <div className="text-sm text-muted-foreground">Suspendidos</div>
-        </div>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <CheckCircle2 className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Activos</p>
+              <p className="text-2xl font-bold">{activos}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-slate-400 rounded-lg flex items-center justify-center shrink-0">
+              <UserX className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Inactivos</p>
+              <p className="text-2xl font-bold">{inactivos}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-red-500 rounded-lg flex items-center justify-center shrink-0">
+              <Ban className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Suspendidos</p>
+              <p className="text-2xl font-bold">{suspendidos}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filtros */}
@@ -580,6 +603,7 @@ function TabUsuarios() {
                     <Button
                       size="sm"
                       variant="outline"
+                      className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
                       onClick={() => setUsuarioGestionando(u)}
                     >
                       <UserCog className="size-3.5" />
@@ -589,6 +613,7 @@ function TabUsuarios() {
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
                         disabled={saving === u._dbId}
                         onClick={() => handleCambiarEstado(u, 'inactivo')}
                       >
@@ -599,6 +624,7 @@ function TabUsuarios() {
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
                         disabled={saving === u._dbId}
                         onClick={() => handleCambiarEstado(u, 'activo')}
                       >
@@ -609,7 +635,7 @@ function TabUsuarios() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-red-600"
+                        className="text-red-600 hover:!bg-red-100 hover:!text-red-700 dark:hover:!bg-red-950/40 dark:hover:!text-red-400"
                         disabled={saving === u._dbId}
                         onClick={() => handleCambiarEstado(u, 'suspendido')}
                       >
@@ -626,8 +652,8 @@ function TabUsuarios() {
           <div className="flex items-center justify-between px-4 py-3 border-t">
             <span className="text-sm text-muted-foreground">Página {page} de {totalPages}</span>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</Button>
-              <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>Siguiente</Button>
+              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Anterior</Button>
+              <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Siguiente</Button>
             </div>
           </div>
         )}
@@ -726,6 +752,7 @@ function TabRoles() {
                     <Button
                       size="sm"
                       variant="outline"
+                      className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
                       onClick={() => setDialogRol(rol)}
                     >
                       <Pencil className="size-3.5" />
@@ -735,7 +762,7 @@ function TabRoles() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="text-destructive"
+                        className="text-destructive hover:!bg-red-100 hover:!text-red-700 dark:hover:!bg-red-950/40 dark:hover:!text-red-400"
                         disabled={eliminando === rol._dbId}
                         onClick={() => handleEliminar(rol)}
                       >
@@ -790,10 +817,12 @@ export function GestionUsuarios() {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-primary/10">
-          <Shield className="size-6 text-primary" />
+        <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+          <Shield className="size-6 text-black dark:text-primary" />
         </div>
         <div>
           <h1 className="text-2xl font-bold">Usuarios y Roles</h1>

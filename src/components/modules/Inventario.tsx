@@ -166,7 +166,7 @@ export function Inventario() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             Exportar
           </Button>
@@ -229,7 +229,7 @@ export function Inventario() {
         <CardContent className="pt-6">
           <div className="flex gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por código o nombre de producto..."
                 value={searchTerm}

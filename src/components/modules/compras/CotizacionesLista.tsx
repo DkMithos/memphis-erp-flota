@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { usePagination } from '../../../lib/shared/usePagination';
-import { Plus, Search, Filter, Download, Eye, Edit, FileText } from 'lucide-react';
+import { Plus, Search, Filter, Download, Eye, Edit, FileText, Clock, CheckCircle, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
 import {
@@ -106,11 +107,13 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center">
-            <FileText className="size-6 text-primary" />
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <FileText className="size-6 text-black dark:text-primary" />
           </div>
           <div>
             <h2>Cotizaciones</h2>
@@ -127,7 +130,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
               Nueva Cotización
             </Button>
           )}
-          <Button variant="outline">
+          <Button variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             Exportar
           </Button>
@@ -137,42 +140,50 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
       {/* Stats KPI */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Total Cotizaciones</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground mt-1">Registradas</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-slate-500 rounded-lg flex items-center justify-center shrink-0">
+              <FileText className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Cotizaciones</p>
+              <p className="text-2xl font-bold">{stats.total}</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Pendientes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-blue-600">{stats.enviadas}</div>
-            <p className="text-xs text-muted-foreground mt-1">Por aprobar</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <Clock className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Pendientes</p>
+              <p className="text-2xl font-bold">{stats.enviadas}</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Aprobadas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-green-600">{stats.aprobadas}</div>
-            <p className="text-xs text-muted-foreground mt-1">Listas para OC</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <CheckCircle className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Aprobadas</p>
+              <p className="text-2xl font-bold">{stats.aprobadas}</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Total Aprobado</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">S/ {stats.totalAprobadoPEN.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</div>
-            <p className="text-xs text-muted-foreground mt-1">En soles</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-orange-500 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Aprobado</p>
+              <p className="text-2xl font-bold">S/ {stats.totalAprobadoPEN.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -190,7 +201,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
             {/* Búsqueda por texto */}
             <div className="md:col-span-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar por ID, proveedor o requerimiento..."
                   value={searchTerm}

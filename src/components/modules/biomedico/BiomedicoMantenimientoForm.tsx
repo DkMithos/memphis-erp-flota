@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
@@ -160,18 +161,14 @@ export function BiomedicoMantenimientoForm({
 
   return (
     <div className="space-y-6">
+      <PageNav onBack={onCancel} />
+
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={onCancel}>
-          <ArrowLeft className="size-4" />
-          Volver
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Nuevo Mantenimiento Biomédico</h1>
-          <p className="text-sm text-muted-foreground">
-            Registra un nuevo mantenimiento para un equipo biomédico
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">Nuevo Mantenimiento Biomédico</h1>
+        <p className="text-sm text-muted-foreground">
+          Registra un nuevo mantenimiento para un equipo biomédico
+        </p>
       </div>
 
       {/* Formulario */}
@@ -347,7 +344,7 @@ export function BiomedicoMantenimientoForm({
 
       {/* Botones de acción */}
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onCancel}>
+        <Button variant="outline" onClick={onCancel} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
           Cancelar
         </Button>
         <Button onClick={handleSubmit}>

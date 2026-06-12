@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, Ban, Package, FileText, Calendar } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { Label } from '../../ui/label';
@@ -68,25 +69,26 @@ export function RecepcionDetalle({ recepcionId, onNavigate }: RecepcionDetallePr
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <Button variant="ghost" size="sm" onClick={() => onNavigate('/compras/recepciones')}>
-              <ArrowLeft className="size-4" />
-              Volver a Recepciones
-            </Button>
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+            <Package className="size-6 text-black dark:text-primary" />
           </div>
-          <div className="flex items-center gap-3">
-            <h2>{recepcion.id}</h2>
-            <Badge className={estadoConfig.className}>
-              <estadoConfig.icon className="size-3" />
-              {estadoConfig.label}
-            </Badge>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-2xl font-semibold">{recepcion.id}</h2>
+              <Badge className={estadoConfig.className}>
+                <estadoConfig.icon className="size-3" />
+                {estadoConfig.label}
+              </Badge>
+            </div>
+            <p className="text-muted-foreground mt-1">
+              Recepción de Orden {recepcion.ordenId}
+            </p>
           </div>
-          <p className="text-muted-foreground mt-1">
-            Recepción de Orden {recepcion.ordenId}
-          </p>
         </div>
 
         {/* Acciones */}
@@ -237,7 +239,7 @@ export function RecepcionDetalle({ recepcionId, onNavigate }: RecepcionDetallePr
             {errorMotivo && <p className="text-sm text-red-600">{errorMotivo}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAnularDialog(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setShowAnularDialog(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button variant="destructive" onClick={handleAnular}>Confirmar Anulación</Button>
           </DialogFooter>
         </DialogContent>

@@ -15,7 +15,10 @@ import {
   Timer,
   TrendingDown as MetricDown,
   Award,
-  AlertTriangle
+  AlertTriangle,
+  CheckCircle2,
+  PowerOff,
+  Gauge
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { AlertasPreventivo } from './AlertasPreventivo';
@@ -51,7 +54,8 @@ import {
   formatPercentage,
   formatNumber
 } from '../../../lib/flota/metrics';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type CSSProperties } from 'react';
+import { useDarkMode } from '../../../hooks/useDarkMode';
 
 interface FlotaDashboardProps {
   onNavigate: (route: string) => void;
@@ -60,7 +64,32 @@ interface FlotaDashboardProps {
 export function FlotaDashboard({ onNavigate }: FlotaDashboardProps) {
   const { vehiculos } = useVehiculos();
   const { ordenes } = useOTStore();
-  
+
+  // ── Cards tipo "Acceso Rápido" (patrón Home) ──
+  const isDark = useDarkMode();
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+
+  // Estilo del wrapper: fondo gris + borde izq de acento; en hover oscurece y los bordes toman el acento.
+  // El modo oscuro usa bg-card (Tailwind) y borde izquierdo amarillo.
+  const quickCardStyle = (isHovered: boolean): CSSProperties => {
+    const accentColor = isDark ? '#f0c000' : '#000000';
+    return {
+      borderTopWidth: (isDark && !isHovered) ? 0 : 1,
+      borderTopStyle: 'solid',
+      borderTopColor: isHovered ? accentColor : '#64748B',
+      borderRightWidth: (isDark && !isHovered) ? 0 : 1,
+      borderRightStyle: 'solid',
+      borderRightColor: isHovered ? accentColor : '#64748B',
+      borderBottomWidth: (isDark && !isHovered) ? 0 : 1,
+      borderBottomStyle: 'solid',
+      borderBottomColor: isHovered ? accentColor : '#64748B',
+      borderLeftWidth: 4,
+      borderLeftStyle: 'solid',
+      borderLeftColor: accentColor,
+      backgroundColor: isDark ? undefined : (isHovered ? '#94A3B8' : '#E2E8F0'),
+    };
+  };
+
   // ============================================================================
   // FILTROS
   // ============================================================================
@@ -169,7 +198,7 @@ export function FlotaDashboard({ onNavigate }: FlotaDashboardProps) {
         </div>
         
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline">
+          <Button variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             Exportar
           </Button>
@@ -276,95 +305,92 @@ export function FlotaDashboard({ onNavigate }: FlotaDashboardProps) {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground">Total Vehículos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold">{metrics.kpis.totalVehiculos}</div>
-              <p className="text-xs text-muted-foreground mt-1">Flota completa</p>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+                <Truck className="size-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Vehículos</p>
+                <p className="text-2xl font-bold">{metrics.kpis.totalVehiculos}</p>
+                <p className="text-xs text-muted-foreground mt-1">Flota completa</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+                <TrendingUp className="size-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Disponibilidad</p>
+                <p className="text-2xl font-bold">{formatPercentage(metrics.kpis.disponibilidadPct)}</p>
+                <p className="text-xs text-muted-foreground mt-1">Vehículos operativos</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="size-10 bg-orange-500 rounded-lg flex items-center justify-center shrink-0">
+                <Timer className="size-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">MTTR</p>
+                <p className="text-2xl font-bold">
+                  {metrics.kpis.mttrHoras !== null
+                    ? formatNumber(metrics.kpis.mttrHoras, 1)
+                    : 'N/A'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {metrics.kpis.mttrHoras !== null ? 'Horas promedio reparación' : 'Sin datos'}
+                </p>
+              </div>
             </CardContent>
           </Card>
           
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-                <TrendingUp className="size-4" />
-                Disponibilidad
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-green-600">
-                {formatPercentage(metrics.kpis.disponibilidadPct)}
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="size-10 bg-purple-500 rounded-lg flex items-center justify-center shrink-0">
+                <MetricDown className="size-5 text-white" />
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Vehículos operativos</p>
+              <div>
+                <p className="text-xs text-muted-foreground">MTBF</p>
+                <p className="text-2xl font-bold">
+                  {metrics.kpis.mtbfKm !== null
+                    ? formatNumber(metrics.kpis.mtbfKm, 0)
+                    : 'N/A'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {metrics.kpis.mtbfKm !== null ? 'Km entre fallas' : 'Sin datos'}
+                </p>
+              </div>
             </CardContent>
           </Card>
-          
+
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-                <Timer className="size-4" />
-                MTTR
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-blue-600">
-                {metrics.kpis.mttrHoras !== null 
-                  ? formatNumber(metrics.kpis.mttrHoras, 1) 
-                  : 'N/A'}
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="size-10 bg-red-500 rounded-lg flex items-center justify-center shrink-0">
+                <DollarSign className="size-5 text-white" />
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {metrics.kpis.mttrHoras !== null ? 'Horas promedio reparación' : 'Sin datos'}
-              </p>
+              <div>
+                <p className="text-xs text-muted-foreground">Costo Total</p>
+                <p className="text-2xl font-bold">{formatCurrency(metrics.kpis.costoTotal)}</p>
+                <p className="text-xs text-muted-foreground mt-1">Todas las OTs</p>
+              </div>
             </CardContent>
           </Card>
-          
+
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-                <MetricDown className="size-4" />
-                MTBF
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-purple-600">
-                {metrics.kpis.mtbfKm !== null 
-                  ? formatNumber(metrics.kpis.mtbfKm, 0) 
-                  : 'N/A'}
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="size-10 bg-emerald-600 rounded-lg flex items-center justify-center shrink-0">
+                <Target className="size-5 text-white" />
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {metrics.kpis.mtbfKm !== null ? 'Km entre fallas' : 'Sin datos'}
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-                <DollarSign className="size-4" />
-                Costo Total
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-red-600">
-                {formatCurrency(metrics.kpis.costoTotal)}
+              <div>
+                <p className="text-xs text-muted-foreground">SLA Cumplimiento</p>
+                <p className="text-2xl font-bold">{formatPercentage(metrics.kpis.slaCumplimientoPct)}</p>
+                <p className="text-xs text-muted-foreground mt-1">OTs a tiempo</p>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Todas las OTs</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-                <Target className="size-4" />
-                SLA Cumplimiento
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-green-600">
-                {formatPercentage(metrics.kpis.slaCumplimientoPct)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">OTs a tiempo</p>
             </CardContent>
           </Card>
         </div>
@@ -388,63 +414,90 @@ export function FlotaDashboard({ onNavigate }: FlotaDashboardProps) {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <Card 
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => onNavigate('/flota/vehiculos')}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground">Total Vehículos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold">{totalVehiculos}</div>
-              <p className="text-xs text-muted-foreground mt-1">Flota completa</p>
-            </CardContent>
-          </Card>
+          {(() => {
+            const isHovered = hoveredCard === 'total-veh';
+            const accentColor = isDark ? '#f0c000' : '#000000';
+            return (
+              <button
+                onClick={() => onNavigate('/flota/vehiculos')}
+                onMouseEnter={() => setHoveredCard('total-veh')}
+                onMouseLeave={() => setHoveredCard(null)}
+                className="group text-left rounded-xl dark:bg-card p-4 hover:shadow-md dark:hover:bg-accent/30 transition-all relative"
+                style={quickCardStyle(isHovered)}
+              >
+                <ChevronRight className="size-4 absolute top-3 right-3" style={{ color: accentColor }} />
+                <div className="size-10 rounded-lg flex items-center justify-center mb-3 bg-blue-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors">
+                  <Truck className="size-5" />
+                </div>
+                <p className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Total Vehículos</p>
+                <p className="text-2xl font-bold leading-none mt-1 transition-colors">{totalVehiculos}</p>
+                <p className="text-xs text-muted-foreground group-hover:text-foreground mt-1 transition-colors">Flota completa</p>
+              </button>
+            );
+          })()}
+
+          {(() => {
+            const isHovered = hoveredCard === 'activos';
+            const accentColor = isDark ? '#f0c000' : '#000000';
+            return (
+              <button
+                onClick={() => onNavigate('/flota/vehiculos')}
+                onMouseEnter={() => setHoveredCard('activos')}
+                onMouseLeave={() => setHoveredCard(null)}
+                className="group text-left rounded-xl dark:bg-card p-4 hover:shadow-md dark:hover:bg-accent/30 transition-all relative"
+                style={quickCardStyle(isHovered)}
+              >
+                <ChevronRight className="size-4 absolute top-3 right-3" style={{ color: accentColor }} />
+                <div className="size-10 rounded-lg flex items-center justify-center mb-3 bg-green-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors">
+                  <CheckCircle2 className="size-5" />
+                </div>
+                <p className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Activos</p>
+                <p className="text-2xl font-bold leading-none mt-1 transition-colors">{activos}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <Progress value={parseFloat(formatPercentage(metrics.kpis.disponibilidadPct))} className="flex-1" />
+                  <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">{formatPercentage(metrics.kpis.disponibilidadPct)}%</span>
+                </div>
+                <p className="text-xs text-muted-foreground group-hover:text-foreground mt-1 transition-colors">Disponibilidad</p>
+              </button>
+            );
+          })()}
           
-          <Card 
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => onNavigate('/flota/vehiculos')}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground">Activos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-green-600">{activos}</div>
-              <div className="flex items-center gap-2 mt-2">
-                <Progress value={parseFloat(formatPercentage(metrics.kpis.disponibilidadPct))} className="flex-1" />
-                <span className="text-sm text-muted-foreground">{formatPercentage(metrics.kpis.disponibilidadPct)}%</span>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="size-10 bg-amber-500 rounded-lg flex items-center justify-center shrink-0">
+                <Wrench className="size-5 text-white" />
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Disponibilidad</p>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">En Taller</p>
+                <p className="text-2xl font-bold">{enTaller}</p>
+                <p className="text-xs text-muted-foreground mt-1">Mantenimiento en curso</p>
+              </div>
             </CardContent>
           </Card>
-          
+
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground">En Taller</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-yellow-600">{enTaller}</div>
-              <p className="text-xs text-muted-foreground mt-1">Mantenimiento en curso</p>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="size-10 bg-red-500 rounded-lg flex items-center justify-center shrink-0">
+                <PowerOff className="size-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Inactivos</p>
+                <p className="text-2xl font-bold">{inactivos}</p>
+                <p className="text-xs text-muted-foreground mt-1">Fuera de servicio</p>
+              </div>
             </CardContent>
           </Card>
-          
+
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground">Inactivos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-red-600">{inactivos}</div>
-              <p className="text-xs text-muted-foreground mt-1">Fuera de servicio</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground">KM Promedio</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold">{kmPromedio.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1">Kilometraje promedio</p>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="size-10 bg-indigo-500 rounded-lg flex items-center justify-center shrink-0">
+                <Gauge className="size-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">KM Promedio</p>
+                <p className="text-2xl font-bold">{kmPromedio.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground mt-1">Kilometraje promedio</p>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -468,57 +521,69 @@ export function FlotaDashboard({ onNavigate }: FlotaDashboardProps) {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card 
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => onNavigate('/flota/mantenimientos')}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground">Total OTs</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold">{totalOTs}</div>
-              <p className="text-xs text-muted-foreground mt-1">Todas las órdenes</p>
-            </CardContent>
-          </Card>
+          {(() => {
+            const isHovered = hoveredCard === 'total-ots';
+            const accentColor = isDark ? '#f0c000' : '#000000';
+            return (
+              <button
+                onClick={() => onNavigate('/flota/mantenimientos')}
+                onMouseEnter={() => setHoveredCard('total-ots')}
+                onMouseLeave={() => setHoveredCard(null)}
+                className="group text-left rounded-xl dark:bg-card p-4 hover:shadow-md dark:hover:bg-accent/30 transition-all relative"
+                style={quickCardStyle(isHovered)}
+              >
+                <ChevronRight className="size-4 absolute top-3 right-3" style={{ color: accentColor }} />
+                <div className="size-10 rounded-lg flex items-center justify-center mb-3 bg-blue-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors">
+                  <Wrench className="size-5" />
+                </div>
+                <p className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Total OTs</p>
+                <p className="text-2xl font-bold leading-none mt-1 transition-colors">{totalOTs}</p>
+                <p className="text-xs text-muted-foreground group-hover:text-foreground mt-1 transition-colors">Todas las órdenes</p>
+              </button>
+            );
+          })()}
           
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground">En Ejecución</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-blue-600">{otEnEjecucion}</div>
-              <p className="text-xs text-muted-foreground mt-1">En proceso</p>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+                <RefreshCw className="size-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">En Ejecución</p>
+                <p className="text-2xl font-bold">{otEnEjecucion}</p>
+                <p className="text-xs text-muted-foreground mt-1">En proceso</p>
+              </div>
             </CardContent>
           </Card>
-          
-          <Card 
-            className={otEsperaAprobacion > 0 ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
+
+          <Card
+            className={otEsperaAprobacion > 0 ? "cursor-pointer hover:shadow-sm transition-shadow" : ""}
             onClick={() => otEsperaAprobacion > 0 && onNavigate('/flota/mantenimientos')}
           >
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground">Espera Aprobación</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-3xl font-semibold ${otEsperaAprobacion > 0 ? 'text-yellow-600' : ''}`}>
-                {otEsperaAprobacion}
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${otEsperaAprobacion > 0 ? 'bg-amber-500' : 'bg-slate-400'}`}>
+                <Clock className="size-5 text-white" />
               </div>
-              {otEsperaAprobacion > 0 && (
-                <div className="flex items-center gap-1 mt-2">
-                  <Clock className="size-4 text-yellow-600" />
-                  <span className="text-sm text-yellow-600">Requieren revisión</span>
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground mt-1">Pendientes</p>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Espera Aprobación</p>
+                <p className="text-2xl font-bold">{otEsperaAprobacion}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {otEsperaAprobacion > 0 ? 'Requieren revisión' : 'Pendientes'}
+                </p>
+              </div>
             </CardContent>
           </Card>
-          
+
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground">Cerradas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-green-600">{otCerradas}</div>
-              <p className="text-xs text-muted-foreground mt-1">Finalizadas</p>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+                <CheckCircle2 className="size-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Cerradas</p>
+                <p className="text-2xl font-bold">{otCerradas}</p>
+                <p className="text-xs text-muted-foreground mt-1">Finalizadas</p>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -863,59 +928,80 @@ export function FlotaDashboard({ onNavigate }: FlotaDashboardProps) {
       
       {/* Acciones rápidas */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => onNavigate('/flota/vehiculos')}
-        >
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Truck className="size-6 text-primary" />
+        {(() => {
+          const isHovered = hoveredCard === 'act-veh';
+          const accentColor = isDark ? '#f0c000' : '#000000';
+          return (
+            <button
+              onClick={() => onNavigate('/flota/vehiculos')}
+              onMouseEnter={() => setHoveredCard('act-veh')}
+              onMouseLeave={() => setHoveredCard(null)}
+              className="group text-left rounded-xl dark:bg-card p-4 hover:shadow-md dark:hover:bg-accent/30 transition-all"
+              style={quickCardStyle(isHovered)}
+            >
+              <div className="flex items-center gap-4">
+                <div className="size-12 rounded-lg flex items-center justify-center shrink-0 bg-blue-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors">
+                  <Truck className="size-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-foreground transition-colors">Gestionar Vehículos</h4>
+                  <p className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Ver, crear y editar vehículos</p>
+                </div>
+                <ChevronRight className="size-5 shrink-0" style={{ color: accentColor }} />
               </div>
-              <div className="flex-1">
-                <h4 className="font-semibold">Gestionar Vehículos</h4>
-                <p className="text-sm text-muted-foreground">Ver, crear y editar vehículos</p>
+            </button>
+          );
+        })()}
+
+        {(() => {
+          const isHovered = hoveredCard === 'act-ots';
+          const accentColor = isDark ? '#f0c000' : '#000000';
+          return (
+            <button
+              onClick={() => onNavigate('/flota/mantenimientos')}
+              onMouseEnter={() => setHoveredCard('act-ots')}
+              onMouseLeave={() => setHoveredCard(null)}
+              className="group text-left rounded-xl dark:bg-card p-4 hover:shadow-md dark:hover:bg-accent/30 transition-all"
+              style={quickCardStyle(isHovered)}
+            >
+              <div className="flex items-center gap-4">
+                <div className="size-12 rounded-lg flex items-center justify-center shrink-0 bg-orange-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors">
+                  <Wrench className="size-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-foreground transition-colors">Órdenes de Trabajo</h4>
+                  <p className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Ver y gestionar OTs</p>
+                </div>
+                <ChevronRight className="size-5 shrink-0" style={{ color: accentColor }} />
               </div>
-              <ChevronRight className="size-5 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => onNavigate('/flota/mantenimientos')}
-        >
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Wrench className="size-6 text-primary" />
+            </button>
+          );
+        })()}
+
+        {(() => {
+          const isHovered = hoveredCard === 'act-nueva';
+          const accentColor = isDark ? '#f0c000' : '#000000';
+          return (
+            <button
+              onClick={() => onNavigate('/flota/mantenimientos/nueva')}
+              onMouseEnter={() => setHoveredCard('act-nueva')}
+              onMouseLeave={() => setHoveredCard(null)}
+              className="group text-left rounded-xl dark:bg-card p-4 hover:shadow-md dark:hover:bg-accent/30 transition-all"
+              style={quickCardStyle(isHovered)}
+            >
+              <div className="flex items-center gap-4">
+                <div className="size-12 rounded-lg flex items-center justify-center shrink-0 bg-green-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors">
+                  <Package className="size-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-foreground transition-colors">Nueva OT</h4>
+                  <p className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Crear orden de trabajo</p>
+                </div>
+                <ChevronRight className="size-5 shrink-0" style={{ color: accentColor }} />
               </div>
-              <div className="flex-1">
-                <h4 className="font-semibold">Órdenes de Trabajo</h4>
-                <p className="text-sm text-muted-foreground">Ver y gestionar OTs</p>
-              </div>
-              <ChevronRight className="size-5 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => onNavigate('/flota/mantenimientos/nueva')}
-        >
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Package className="size-6 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-semibold">Nueva OT</h4>
-                <p className="text-sm text-muted-foreground">Crear orden de trabajo</p>
-              </div>
-              <ChevronRight className="size-5 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
+            </button>
+          );
+        })()}
       </div>
     </div>
   );

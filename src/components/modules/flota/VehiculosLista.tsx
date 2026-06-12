@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Car, Plus, Search, Filter, Eye, Wrench, FileText, MapPin, Download, X } from 'lucide-react';
+import { Car, Plus, Search, Filter, Eye, Wrench, FileText, MapPin, Download, X, CheckCircle2, PowerOff, Gauge } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
 import {
@@ -73,20 +74,24 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="flex items-center gap-2">
-            <Car className="size-6" />
-            Gestión de Vehículos
-          </h2>
-          <p className="text-muted-foreground mt-1">
-            Administración completa de la flota vehicular
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Car className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">Gestión de Vehículos</h2>
+            <p className="text-muted-foreground mt-1">
+              Administración completa de la flota vehicular
+            </p>
+          </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
-          <Button variant="outline">
+          <Button variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             Exportar
           </Button>
@@ -100,54 +105,69 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">Total Vehículos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-semibold">{totalVehiculos}</div>
-            <p className="text-xs text-muted-foreground mt-1">Flota completa</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <Car className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Total Vehículos</p>
+              <p className="text-2xl font-bold">{totalVehiculos}</p>
+              <p className="text-xs text-muted-foreground mt-1">Flota completa</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">Activos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-semibold text-green-600">{activos}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {totalVehiculos > 0 ? ((activos / totalVehiculos) * 100).toFixed(1) : 0}% disponibilidad
-            </p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <CheckCircle2 className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Activos</p>
+              <p className="text-2xl font-bold">{activos}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {totalVehiculos > 0 ? ((activos / totalVehiculos) * 100).toFixed(1) : 0}% disponibilidad
+              </p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">En Taller</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-semibold text-yellow-600">{enTaller}</div>
-            <p className="text-xs text-muted-foreground mt-1">Mantenimiento en curso</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-amber-500 rounded-lg flex items-center justify-center shrink-0">
+              <Wrench className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">En Taller</p>
+              <p className="text-2xl font-bold">{enTaller}</p>
+              <p className="text-xs text-muted-foreground mt-1">Mantenimiento en curso</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">Inactivos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-semibold text-red-600">{inactivos}</div>
-            <p className="text-xs text-muted-foreground mt-1">Fuera de servicio</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-red-500 rounded-lg flex items-center justify-center shrink-0">
+              <PowerOff className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Inactivos</p>
+              <p className="text-2xl font-bold">{inactivos}</p>
+              <p className="text-xs text-muted-foreground mt-1">Fuera de servicio</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">KM Promedio</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-semibold">{kmPromedio.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Kilometraje promedio</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-indigo-500 rounded-lg flex items-center justify-center shrink-0">
+              <Gauge className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">KM Promedio</p>
+              <p className="text-2xl font-bold">{kmPromedio.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground mt-1">Kilometraje promedio</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -158,7 +178,7 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar por placa, VIN, marca o modelo..."
                   value={busqueda}
@@ -256,9 +276,9 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
                   const diasProxMant = calcularDiasProximoMantenimiento(vehiculo.proximoMantenimiento);
                   
                   return (
-                    <TableRow 
+                    <TableRow
                       key={vehiculo.id}
-                      className="cursor-pointer hover:bg-accent/50"
+                      className="cursor-pointer hover:!bg-slate-100 dark:hover:!bg-accent/50"
                       onClick={() => onNavigate(`/flota/vehiculos/${vehiculo.id}`)}
                     >
                       <TableCell className="font-mono text-sm">{vehiculo.id}</TableCell>
@@ -318,6 +338,7 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
                               onNavigate(`/flota/vehiculos/${vehiculo.id}`);
                             }}
                             title="Ver detalle"
+                            className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
                           >
                             <Eye className="size-4" />
                           </Button>
@@ -329,6 +350,7 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
                               onNavigate(`/flota/mantenimientos/nueva?vehiculo=${vehiculo.id}`);
                             }}
                             title="Nueva OT"
+                            className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
                           >
                             <Wrench className="size-4" />
                           </Button>
@@ -340,6 +362,7 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
                               onNavigate(`/flota/vehiculos/${vehiculo.id}/documentos`);
                             }}
                             title="Documentos"
+                            className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
                           >
                             <FileText className="size-4" />
                           </Button>
@@ -357,10 +380,10 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
                 Página {page} de {totalPages}
               </span>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
+                <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
                   Anterior
                 </Button>
-                <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
+                <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
                   Siguiente
                 </Button>
               </div>

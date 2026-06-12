@@ -18,6 +18,7 @@ import {
   CheckCircle,
   ExternalLink,
 } from 'lucide-react';
+import { PageNav } from '../../shared/PageNav';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -246,13 +247,20 @@ export function ProveedoresContratos({ onNavigate: _onNavigate }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Contratos de Proveedores</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gestión de contratos activos, vencimientos y renovaciones
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Handshake className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Contratos de Proveedores</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Gestión de contratos activos, vencimientos y renovaciones
+            </p>
+          </div>
         </div>
         <Button onClick={() => setDialogNuevo(true)}>
           <Plus className="size-4" />
@@ -277,8 +285,8 @@ export function ProveedoresContratos({ onNavigate: _onNavigate }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Handshake className="size-5 text-green-600" />
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <Handshake className="size-5 text-white" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Contratos activos</p>
@@ -288,8 +296,8 @@ export function ProveedoresContratos({ onNavigate: _onNavigate }: Props) {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <CalendarDays className="size-5 text-yellow-600" />
+            <div className="size-10 bg-yellow-500 rounded-lg flex items-center justify-center shrink-0">
+              <CalendarDays className="size-5 text-white" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Por vencer (&lt;30 días)</p>
@@ -299,8 +307,8 @@ export function ProveedoresContratos({ onNavigate: _onNavigate }: Props) {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <DollarSign className="size-5 text-blue-600" />
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Monto en contratos activos</p>
@@ -317,7 +325,7 @@ export function ProveedoresContratos({ onNavigate: _onNavigate }: Props) {
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por proveedor, número, descripción..."
             className="pl-9"
@@ -578,7 +586,7 @@ export function ProveedoresContratos({ onNavigate: _onNavigate }: Props) {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogNuevo(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setDialogNuevo(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleGuardar} disabled={guardando}>
               {guardando ? 'Guardando...' : 'Crear Contrato'}
             </Button>
@@ -736,7 +744,7 @@ export function ProveedoresContratos({ onNavigate: _onNavigate }: Props) {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setDialogRenovar(null); setNuevaFechaFin(''); }}>
+              <Button variant="outline" onClick={() => { setDialogRenovar(null); setNuevaFechaFin(''); }} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
                 Cancelar
               </Button>
               <Button onClick={handleRenovar}>Confirmar Renovación</Button>

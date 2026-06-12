@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Badge } from '../../ui/badge';
@@ -144,19 +145,23 @@ export function ReporteCruzado() {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <BarChart3 className="size-6" />
-            Reporte Cruzado
-          </h2>
-          <p className="text-muted-foreground mt-1">
-            Análisis cruzado por proyecto y centro de costo
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <BarChart3 className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold">Reporte Cruzado</h2>
+            <p className="text-muted-foreground mt-1">
+              Análisis cruzado por proyecto y centro de costo
+            </p>
+          </div>
         </div>
         {rows.length > 0 && (
-          <Button onClick={handleExportCSV} variant="outline">
+          <Button onClick={handleExportCSV} variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             Exportar CSV
           </Button>
@@ -211,7 +216,7 @@ export function ReporteCruzado() {
           {/* Módulos */}
           <div>
             <Label className="mb-2 block">Módulos</Label>
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               {MODULOS_DISPONIBLES.map((mod) => (
                 <div key={mod} className="flex items-center gap-2">
                   <Checkbox
@@ -219,7 +224,7 @@ export function ReporteCruzado() {
                     checked={modulosSeleccionados.includes(mod)}
                     onCheckedChange={() => handleToggleModulo(mod)}
                   />
-                  <Label htmlFor={`mod-${mod}`} className="text-sm cursor-pointer">
+                  <Label htmlFor={`mod-${mod}`} className="text-sm cursor-pointer !mb-0">
                     {MODULO_LABELS[mod]}
                   </Label>
                 </div>
@@ -246,14 +251,14 @@ export function ReporteCruzado() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Total */}
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <FileSpreadsheet className="size-8 text-blue-600" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Registros</p>
-                  <p className="text-2xl font-bold">{kpis.totalRegistros}</p>
-                  <p className="text-sm font-medium text-blue-600">{formatCurrency(kpis.totalMonto)}</p>
-                </div>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+                <FileSpreadsheet className="size-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Total Registros</p>
+                <p className="text-2xl font-bold">{kpis.totalRegistros}</p>
+                <p className="text-sm font-medium text-blue-600">{formatCurrency(kpis.totalMonto)}</p>
               </div>
             </CardContent>
           </Card>

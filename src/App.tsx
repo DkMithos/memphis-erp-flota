@@ -378,7 +378,7 @@ export default function App() {
         return (
           <BiomedicoMantenimientoForm
             equipoIdInicial={equipoIdParam || undefined}
-            onCancel={() => navigateTo('/biomedico/mantenimientos')}
+            onCancel={() => window.history.back()}
             onSuccess={(numero) => navigateTo(`/biomedico/mantenimientos/${numero}`)}
           />
         );
@@ -409,7 +409,7 @@ export default function App() {
         return (
           <BiomedicoEquipoForm
             modo="crear"
-            onCancel={() => navigateTo('/biomedico/equipos')}
+            onCancel={() => window.history.back()}
             onSuccess={(codigo) => navigateTo(`/biomedico/equipos/${codigo}`)}
           />
         );
@@ -429,7 +429,7 @@ export default function App() {
           <BiomedicoEquipoForm
             modo="editar"
             codigoEquipo={codigo}
-            onCancel={() => navigateTo(`/biomedico/equipos/${codigo}`)}
+            onCancel={() => window.history.back()}
             onSuccess={(codigo) => navigateTo(`/biomedico/equipos/${codigo}`)}
           />
         );
@@ -467,7 +467,7 @@ export default function App() {
       if (currentRoute === '/biomedico/contratos/nuevo') {
         return (
           <BiomedicoContratoForm
-            onCancel={() => navigateTo('/biomedico/contratos')}
+            onCancel={() => window.history.back()}
             onSuccess={() => navigateTo('/biomedico/contratos')}
           />
         );
@@ -477,7 +477,7 @@ export default function App() {
         return (
           <BiomedicoContratoForm
             contratoId={contratoId}
-            onCancel={() => navigateTo('/biomedico/contratos')}
+            onCancel={() => window.history.back()}
             onSuccess={() => navigateTo('/biomedico/contratos')}
           />
         );
@@ -770,7 +770,7 @@ export default function App() {
           return (
             <VehiculoDetalle
               vehiculoId={param}
-              onBack={() => navigateTo('/flota/vehiculos')}
+              onBack={() => window.history.back()}
               onNavigate={navigateTo}
               initialTab={action}
             />
@@ -790,7 +790,7 @@ export default function App() {
             <MantenimientoForm
               tipoInicial={tipoParam || undefined}
               vehiculoIdInicial={vehiculoParam}
-              onCancel={() => navigateTo('/flota/mantenimientos')}
+              onCancel={() => window.history.back()}
               onSuccess={(numeroOT) => navigateTo(`/flota/mantenimientos/${numeroOT}`)}
             />
           );

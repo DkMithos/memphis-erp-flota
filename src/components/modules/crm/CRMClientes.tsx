@@ -5,8 +5,9 @@
 import { useState, useMemo } from 'react';
 import {
   Plus, Search, Eye, Pencil, Users, Building2, User, Landmark, Heart,
-  ChevronRight,
+  ChevronRight, CheckCircle2, Target, Award,
 } from 'lucide-react';
+import { PageNav } from '../../shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -172,10 +173,17 @@ export function CRMClientes({ onNavigate }: Props) {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">Clientes</h2>
-          <p className="text-sm text-muted-foreground mt-1">Directorio y gestión de cuentas de clientes</p>
+      <PageNav />
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Users className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold">Clientes</h2>
+            <p className="text-sm text-muted-foreground mt-1">Directorio y gestión de cuentas de clientes</p>
+          </div>
         </div>
         <Button onClick={openCrear}>
           <Plus className="size-4" /> Nuevo Cliente
@@ -185,18 +193,21 @@ export function CRMClientes({ onNavigate }: Props) {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Clientes', value: clientes.length, sub: 'registrados' },
-          { label: 'Activos', value: totalActivos, sub: 'en operación' },
-          { label: 'Prospectos', value: totalProspectos, sub: 'por convertir' },
-          { label: 'Cat. A / B', value: `${catA} / ${catB}`, sub: 'clientes premium' },
+          { label: 'Total Clientes', value: clientes.length, sub: 'registrados', icon: Users, box: 'bg-blue-500' },
+          { label: 'Activos', value: totalActivos, sub: 'en operación', icon: CheckCircle2, box: 'bg-green-500' },
+          { label: 'Prospectos', value: totalProspectos, sub: 'por convertir', icon: Target, box: 'bg-amber-500' },
+          { label: 'Cat. A / B', value: `${catA} / ${catB}`, sub: 'clientes premium', icon: Award, box: 'bg-purple-500' },
         ].map(k => (
           <Card key={k.label}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs text-muted-foreground font-medium">{k.label}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{k.value}</div>
-              <p className="text-xs text-muted-foreground mt-1">{k.sub}</p>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${k.box}`}>
+                <k.icon className="size-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{k.label}</p>
+                <p className="text-2xl font-bold">{k.value}</p>
+                <p className="text-xs text-muted-foreground mt-1">{k.sub}</p>
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -205,7 +216,7 @@ export function CRMClientes({ onNavigate }: Props) {
       {/* Filtros */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
           <Input placeholder="Buscar..." className="pl-8" value={busqueda} onChange={e => setBusqueda(e.target.value)} />
         </div>
         <Select value={filtroEstado} onValueChange={setFiltroEstado}>
@@ -288,10 +299,10 @@ export function CRMClientes({ onNavigate }: Props) {
                     <TableCell className="text-xs">{c.ejecutivoCuenta ?? '—'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => openDetalle(c)}>
+                        <Button variant="ghost" size="sm" onClick={() => openDetalle(c)} className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground">
                           <Eye className="size-3.5" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => openEditar(c)}>
+                        <Button variant="ghost" size="sm" onClick={() => openEditar(c)} className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground">
                           <Pencil className="size-3.5" />
                         </Button>
                       </div>
@@ -430,7 +441,7 @@ export function CRMClientes({ onNavigate }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleSubmit} disabled={saving}>
               {saving ? 'Guardando...' : dialogMode === 'crear' ? 'Crear Cliente' : 'Guardar Cambios'}
             </Button>
@@ -488,7 +499,7 @@ export function CRMClientes({ onNavigate }: Props) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="mt-2"
+                    className="mt-2 hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
                     onClick={() => { setDetalleOpen(false); onNavigate?.('/crm/oportunidades'); }}
                   >
                     Ver oportunidades <ChevronRight className="size-3 ml-1" />
@@ -511,7 +522,7 @@ export function CRMClientes({ onNavigate }: Props) {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setDetalleOpen(false)}>Cerrar</Button>
+                <Button variant="outline" onClick={() => setDetalleOpen(false)} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cerrar</Button>
                 <Button onClick={() => { setDetalleOpen(false); openEditar(clienteDetalle); }}>
                   <Pencil className="size-3.5" /> Editar
                 </Button>

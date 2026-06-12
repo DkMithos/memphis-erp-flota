@@ -235,14 +235,18 @@ export function DocumentosTab({ vehiculoId, vehiculo }: DocumentosTabProps) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <h3 className="font-semibold flex items-center gap-2">
-            <FileText className="size-5 text-[#0A66C2]" />
-            Documentos & Vigencias
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Gestiona SOAT, revisión técnica, seguros y otros documentos del vehículo
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="size-10 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+            <FileText className="size-5 text-black dark:text-primary" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-semibold">
+              Documentos & Vigencias
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Gestiona SOAT, revisión técnica, seguros y otros documentos del vehículo
+            </p>
+          </div>
         </div>
 
         <Button onClick={handleNuevoDocumento} className="gap-2">
@@ -391,7 +395,7 @@ export function DocumentosTab({ vehiculoId, vehiculo }: DocumentosTabProps) {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEditarDocumento(doc)}
-                            className="gap-2"
+                            className="gap-2 hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
                           >
                             <Edit className="size-4" />
                             Editar
@@ -400,7 +404,7 @@ export function DocumentosTab({ vehiculoId, vehiculo }: DocumentosTabProps) {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEliminarDocumento(doc)}
-                            className="gap-2 text-destructive hover:text-destructive"
+                            className="gap-2 text-destructive hover:!bg-red-300 hover:!text-red-900 dark:hover:!bg-red-950/40 dark:hover:!text-red-400"
                           >
                             <Trash2 className="size-4" />
                             Eliminar
@@ -567,7 +571,7 @@ export function DocumentosTab({ vehiculoId, vehiculo }: DocumentosTabProps) {
               variant="outline"
               onClick={() => setDialogOpen(false)}
               disabled={guardando}
-            >
+             className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
               Cancelar
             </Button>
             <Button onClick={handleGuardar} disabled={guardando}>

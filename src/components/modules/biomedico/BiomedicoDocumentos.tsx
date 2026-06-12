@@ -16,6 +16,7 @@ import {
   Download,
   Trash2,
 } from 'lucide-react';
+import { PageNav } from '../../shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -193,16 +194,20 @@ export function BiomedicoDocumentos({ onNavigate }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FileText className="size-6 text-primary" />
-            Documentos y Certificados
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gestión documental de certificaciones, manuales y protocolos
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <FileText className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Documentos y Certificados</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Gestión documental de certificaciones, manuales y protocolos
+            </p>
+          </div>
         </div>
         <Button onClick={() => setDialogAgregar(true)}>
           <Plus className="size-4" />
@@ -215,7 +220,7 @@ export function BiomedicoDocumentos({ onNavigate }: Props) {
         <CardContent className="pt-4 pb-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por nombre, equipo..."
                 value={search}
@@ -402,7 +407,7 @@ export function BiomedicoDocumentos({ onNavigate }: Props) {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogAgregar(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setDialogAgregar(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleAgregar} disabled={guardando}>
               {guardando ? 'Guardando...' : 'Agregar Documento'}
             </Button>

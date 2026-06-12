@@ -5,16 +5,18 @@
  */
 
 import { useState, useMemo } from 'react';
-import { 
-  Plus, 
-  Search, 
+import {
+  Plus,
+  Search,
   Filter,
   Download,
   Activity,
   AlertCircle,
   TrendingUp,
-  DollarSign
+  DollarSign,
+  Stethoscope,
 } from 'lucide-react';
+import { PageNav } from '../../shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -108,16 +110,23 @@ export function BiomedicoEquipos({ onNavigateToNuevo, onNavigateToDetalle }: Bio
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Equipos Biomédicos</h1>
-          <p className="text-sm text-muted-foreground">
-            Gestión de inventario biomédico y activos médicos
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Stethoscope className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Equipos Biomédicos</h1>
+            <p className="text-sm text-muted-foreground">
+              Gestión de inventario biomédico y activos médicos
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportPDF}>
+          <Button variant="outline" size="sm" onClick={handleExportPDF} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             PDF
           </Button>
@@ -131,54 +140,54 @@ export function BiomedicoEquipos({ onNavigateToNuevo, onNavigateToDetalle }: Bio
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Equipos</CardTitle>
-            <Activity className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{kpis.totalEquipos}</div>
-            <p className="text-xs text-muted-foreground">
-              {kpis.operativos} operativos
-            </p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <Activity className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Total Equipos</p>
+              <p className="text-2xl font-bold">{kpis.totalEquipos}</p>
+              <p className="text-xs text-muted-foreground mt-1">{kpis.operativos} operativos</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Disponibilidad</CardTitle>
-            <TrendingUp className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{kpis.disponibilidad.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">
-              {kpis.enMantenimiento} en mantenimiento
-            </p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <TrendingUp className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Disponibilidad</p>
+              <p className="text-2xl font-bold">{kpis.disponibilidad.toFixed(1)}%</p>
+              <p className="text-xs text-muted-foreground mt-1">{kpis.enMantenimiento} en mantenimiento</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Críticos Operativos</CardTitle>
-            <AlertCircle className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{kpis.criticosOperativos}</div>
-            <p className="text-xs text-muted-foreground">
-              Riesgo crítico activos
-            </p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-amber-500 rounded-lg flex items-center justify-center shrink-0">
+              <AlertCircle className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Críticos Operativos</p>
+              <p className="text-2xl font-bold">{kpis.criticosOperativos}</p>
+              <p className="text-xs text-muted-foreground mt-1">Riesgo crítico activos</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Valor Inventario</CardTitle>
-            <DollarSign className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${(kpis.valorTotal / 1000).toFixed(0)}K</div>
-            <p className="text-xs text-muted-foreground">
-              Activos biomédicos
-            </p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-emerald-600 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Valor Inventario</p>
+              <p className="text-2xl font-bold">${(kpis.valorTotal / 1000).toFixed(0)}K</p>
+              <p className="text-xs text-muted-foreground mt-1">Activos biomédicos</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -189,7 +198,7 @@ export function BiomedicoEquipos({ onNavigateToNuevo, onNavigateToDetalle }: Bio
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar por nombre, código, marca o modelo..."
                   value={searchTerm}

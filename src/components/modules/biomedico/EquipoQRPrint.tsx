@@ -6,6 +6,7 @@
 
 import { QrCode, Printer, ArrowLeft } from 'lucide-react';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { QRCodeWrapper } from '../../shared/QRCodeWrapper';
 import { PrintPageShell } from '../../layout/PrintPageShell';
 import { useEquiposStore } from '../../../lib/biomedico/equipos-store';
@@ -47,13 +48,7 @@ export function EquipoQRPrint({ codigoEquipo, onNavigate }: EquipoQRPrintProps) 
       forcedWhiteBackground={true}
       actions={
         <>
-          <Button
-            variant="outline"
-            onClick={() => onNavigate(`/biomedico/equipos/${codigoEquipo}`)}
-          >
-            <ArrowLeft className="size-4" />
-            Volver
-          </Button>
+          <PageNav />
           <Button onClick={handlePrint}>
             <Printer className="size-4" />
             Imprimir

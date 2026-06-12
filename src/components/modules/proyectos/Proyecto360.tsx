@@ -12,6 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Progress } from '../../ui/progress';
 import { Separator } from '../../ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
@@ -158,9 +159,7 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
   if (!proyecto) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" onClick={() => onNavigate('/proyectos')}>
-          <ArrowLeft className="size-4 mr-1" /> Volver
-        </Button>
+        <PageNav />
         <Card><CardContent className="py-12 text-center text-muted-foreground">Proyecto no encontrado</CardContent></Card>
       </div>
     );

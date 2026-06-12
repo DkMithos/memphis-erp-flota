@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, Car, Edit, FileText, Wrench, MapPin, Calendar, Gauge, Power, PowerOff, AlertCircle, FolderKanban } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
 import { Separator } from '../../ui/separator';
 import { Textarea } from '../../ui/textarea';
@@ -47,15 +48,7 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
   if (!vehiculo) {
     return (
       <div className="space-y-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onBack}
-          className="gap-2"
-        >
-          <ArrowLeft className="size-4" />
-          Volver a lista
-        </Button>
+        <PageNav />
         
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
@@ -122,15 +115,7 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
     <div className="space-y-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onBack}
-          className="gap-2"
-        >
-          <ArrowLeft className="size-4" />
-          Volver a lista
-        </Button>
+        <PageNav />
         <span>/</span>
         <span>Vehículo {vehiculo.placa}</span>
       </div>
@@ -138,8 +123,8 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-start gap-4">
-          <div className="size-16 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Car className="size-8 text-primary" />
+          <div className="size-16 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Car className="size-8 text-black dark:text-primary" />
           </div>
           <div>
             <div className="flex items-center gap-3 flex-wrap">
@@ -182,15 +167,16 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" onClick={() => {
+          <Button variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input" onClick={() => {
             setActiveTab('documentos');
             document.getElementById('vehiculo-tabs')?.scrollIntoView({ behavior: 'smooth' });
           }}>
             <FileText className="size-4" />
             Documentos
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
+            className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
             onClick={() => onNavigate(`/flota/mantenimientos/nueva?vehiculo=${vehiculoId}`)}
           >
             <Wrench className="size-4" />
@@ -203,16 +189,18 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
             </Button>
           )}
           {vehiculo.estado === 'inactivo' ? (
-            <Button 
+            <Button
               variant="outline"
+              className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
               onClick={() => setDialogActivarOpen(true)}
             >
               <Power className="size-4" />
               Activar
             </Button>
           ) : (
-            <Button 
+            <Button
               variant="destructive"
+              className="hover:!bg-red-700 dark:hover:!bg-destructive/90"
               onClick={() => setDialogInactivarOpen(true)}
             >
               <PowerOff className="size-4" />
@@ -321,8 +309,9 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
             <p className="text-sm text-muted-foreground">
               Consulta el historial completo de órdenes de trabajo
             </p>
-            <Button 
+            <Button
               variant="outline"
+              className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
               onClick={() => onNavigate('/flota/mantenimientos')}
             >
               <Wrench className="size-4" />
@@ -496,13 +485,14 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
                 setErroresMotivo([]);
               }}
               disabled={procesando}
-            >
+             className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
               Cancelar
             </Button>
             <Button
               variant="destructive"
               onClick={handleInactivar}
               disabled={procesando}
+              className="hover:!bg-red-700 dark:hover:!bg-destructive/90"
             >
               {procesando ? 'Inactivando...' : 'Inactivar Vehículo'}
             </Button>
@@ -526,7 +516,7 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
               variant="outline"
               onClick={() => setDialogActivarOpen(false)}
               disabled={procesando}
-            >
+             className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
               Cancelar
             </Button>
             <Button

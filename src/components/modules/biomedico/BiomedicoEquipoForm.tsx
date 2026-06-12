@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
@@ -288,20 +289,16 @@ export function BiomedicoEquipoForm({
 
   return (
     <div className="space-y-6">
+      <PageNav onBack={onCancel} />
+
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={onCancel}>
-          <ArrowLeft className="size-4" />
-          Volver
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">
-            {modo === 'crear' ? 'Nuevo Equipo Biomédico' : 'Editar Equipo'}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {modo === 'crear' ? 'Registra un nuevo equipo en el inventario' : `Modificar ${codigoEquipo}`}
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">
+          {modo === 'crear' ? 'Nuevo Equipo Biomédico' : 'Editar Equipo'}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {modo === 'crear' ? 'Registra un nuevo equipo en el inventario' : `Modificar ${codigoEquipo}`}
+        </p>
       </div>
 
       {/* Stepper */}

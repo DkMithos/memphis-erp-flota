@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, ChevronRight, Check, Trash2 } from 'lucide-react';
+import { Plus, ChevronRight, Check, Trash2, ClipboardList } from 'lucide-react';
+import { PageNav } from '@/components/shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -148,11 +149,18 @@ export function FinanzasPresupuestosModule({ onNavigate: _onNavigate }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold">Presupuestos</h2>
-          <p className="text-muted-foreground mt-1">Gestión de presupuestos y ejecución</p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <ClipboardList className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">Presupuestos</h2>
+            <p className="text-muted-foreground mt-1">Gestión de presupuestos y ejecución</p>
+          </div>
         </div>
         <Button onClick={() => setShowNuevo(true)}>
           <Plus className="size-4" />
@@ -382,7 +390,7 @@ export function FinanzasPresupuestosModule({ onNavigate: _onNavigate }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNuevo(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setShowNuevo(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleCrearPresupuesto} disabled={saving}>{saving ? 'Creando...' : 'Crear'}</Button>
           </DialogFooter>
         </DialogContent>
@@ -427,7 +435,7 @@ export function FinanzasPresupuestosModule({ onNavigate: _onNavigate }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNuevaLinea(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setShowNuevaLinea(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleAgregarLinea} disabled={saving}>{saving ? 'Guardando...' : 'Agregar'}</Button>
           </DialogFooter>
         </DialogContent>

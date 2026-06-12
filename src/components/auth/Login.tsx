@@ -41,14 +41,44 @@ export function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-amber-50 via-white to-amber-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4">
+    <div className="min-h-screen flex flex-col lg:flex-row">
 
-      {/* Card principal */}
-      <Card className="w-full max-w-md shadow-xl border-border/60">
+      {/* Lado izquierdo: BRAND PANEL (amarillo Memphis) */}
+      <div className="lg:flex-1 bg-[#f0c000] flex items-center justify-center p-8 lg:p-12 relative overflow-hidden">
+        {/* Patrón de puntos sutil */}
+        <div
+          className="absolute inset-0 opacity-15"
+          style={{
+            backgroundImage: 'radial-gradient(circle, black 1.2px, transparent 1.2px)',
+            backgroundSize: '24px 24px',
+          }}
+        ></div>
+
+        <div className="relative z-10 max-w-xl text-black">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="size-16 lg:size-20 flex items-center justify-center bg-black rounded-2xl shadow-lg shrink-0">
+              <MemphisIconSVG className="size-12 lg:size-14" />
+            </div>
+            <h2 className="text-xl lg:text-2xl xl:text-3xl font-bold leading-tight">
+              Bienvenido al sistema de<br />
+              Memphis Maquinarias
+            </h2>
+          </div>
+
+          <p className="text-lg opacity-80">
+            Gestión integral de flota, mantenimiento, compras,<br />
+            inventario y más en una sola plataforma.
+          </p>
+        </div>
+      </div>
+
+      {/* Lado derecho: FORMULARIO (negro Memphis) */}
+      <div className="dark lg:flex-1 flex items-center justify-center p-4 lg:p-12 bg-[#0D0D0D]">
+        <Card className="w-full max-w-md shadow-none lg:shadow-2xl border-[#2D2D2D] bg-[#1A1A1A]">
         <CardHeader className="space-y-4 pb-4">
 
-          {/* Logo de plataforma — Memphis ERP */}
-          <div className="flex justify-center pt-2">
+          {/* Logo móvil — solo se ve en pantallas pequeñas */}
+          <div className="flex lg:hidden justify-center pt-2">
             <div className="flex items-center gap-3">
               <div className="size-12 flex items-center justify-center">
                 <MemphisIconSVG className="size-12" />
@@ -61,7 +91,7 @@ export function Login({ onLogin }: LoginProps) {
           </div>
 
           <div className="text-center">
-            <CardTitle className="text-lg">Iniciar Sesión</CardTitle>
+            <CardTitle className="text-2xl">Iniciar Sesión</CardTitle>
             <CardDescription className="mt-1 text-sm">
               Ingresa tus credenciales para acceder al sistema
             </CardDescription>
@@ -74,7 +104,7 @@ export function Login({ onLogin }: LoginProps) {
             <div className="space-y-2">
               <Label htmlFor="email">Correo Electrónico</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground pointer-events-none" />
                 <Input
                   id="email"
                   type="email"
@@ -92,7 +122,7 @@ export function Login({ onLogin }: LoginProps) {
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground pointer-events-none" />
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
@@ -106,7 +136,7 @@ export function Login({ onLogin }: LoginProps) {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-[55%] text-muted-foreground hover:text-foreground"
                   aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -163,14 +193,15 @@ export function Login({ onLogin }: LoginProps) {
             </Button>
           </div>
         </CardContent>
-      </Card>
 
-      {/* Footer de plataforma — SIEMPRE Memphis Maquinarias */}
-      <div className="mt-6 flex items-center gap-2 text-xs text-muted-foreground/60">
-        <MemphisIconSVG className="size-4 opacity-50" />
-        <span>Powered by <strong className="font-medium text-muted-foreground/80">{PLATFORM.company}</strong></span>
-        <span>·</span>
-        <span>v{PLATFORM.version}</span>
+          {/* Footer dentro de la card */}
+          <div className="px-6 pb-6 flex items-center justify-center gap-2 text-xs text-muted-foreground/60">
+            <MemphisIconSVG className="size-4 opacity-50" />
+            <span>Powered by <strong className="font-medium text-muted-foreground/80">{PLATFORM.company}</strong></span>
+            <span>·</span>
+            <span>v{PLATFORM.version}</span>
+          </div>
+        </Card>
       </div>
     </div>
   );

@@ -382,7 +382,7 @@ export function ComprobantePagoForm({ onNavigate }: Props) {
       )}
 
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={() => onNavigate('/contabilidad/comprobantes')}>Cancelar</Button>
+        <Button variant="outline" onClick={() => onNavigate('/contabilidad/comprobantes')} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
         <Button onClick={handleGuardar} disabled={guardando} className="gap-2">
           <Receipt className="size-4" />{guardando ? 'Guardando…' : 'Registrar Comprobante'}
         </Button>

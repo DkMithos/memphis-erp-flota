@@ -140,7 +140,7 @@ export function UserProfile() {
                   />
                   <button
                     type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    className="absolute right-3 top-1/2 -translate-y-[55%] text-muted-foreground"
                     onClick={() => setShowPw(v => !v)}
                   >
                     {showPw ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -168,7 +168,7 @@ export function UserProfile() {
                   variant="ghost"
                   size="sm"
                   onClick={() => { setChangingPassword(false); setPwData({ nueva: '', confirmar: '' }); }}
-                >
+                 className="border border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
                   Cancelar
                 </Button>
               </div>

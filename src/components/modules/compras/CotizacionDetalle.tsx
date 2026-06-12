@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, Edit, Ban, CheckCircle, XCircle, AlertTriangle, FileText, Calendar, Package, ExternalLink, ShoppingBag, Plus, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
 import { Alert, AlertDescription } from '../../ui/alert';
 import {
@@ -78,10 +79,7 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
             Cotización no encontrada. El ID "{cotizacionId}" no existe en el sistema.
           </AlertDescription>
         </Alert>
-        <Button variant="outline" onClick={() => onNavigate?.('/compras/cotizaciones')}>
-          <ArrowLeft className="size-4" />
-          Volver a Cotizaciones
-        </Button>
+        <PageNav />
       </div>
     );
   }
@@ -138,27 +136,23 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <Button variant="ghost" size="sm" onClick={() => onNavigate?.('/compras/cotizaciones')}>
-            <ArrowLeft className="size-4" />
-            Volver a Cotizaciones
-          </Button>
-          <div className="flex items-center gap-3 mt-2">
-            <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center">
-              <FileText className="size-6 text-primary" />
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+            <FileText className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-2xl font-semibold">{cotizacion.id}</h2>
+              <Badge className={estadoConfig.className}>
+                <estadoConfig.icon className="size-3" />
+                {estadoConfig.label}
+              </Badge>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl">{cotizacion.id}</h2>
-                <Badge className={estadoConfig.className}>
-                  <estadoConfig.icon className="size-3" />
-                  {estadoConfig.label}
-                </Badge>
-              </div>
-              <p className="text-muted-foreground mt-1">{cotizacion.proveedorNombre}</p>
-            </div>
+            <p className="text-muted-foreground mt-1">{cotizacion.proveedorNombre}</p>
           </div>
         </div>
 

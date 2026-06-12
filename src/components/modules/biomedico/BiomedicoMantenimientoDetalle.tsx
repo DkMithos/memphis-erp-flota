@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { 
+import {
   ArrowLeft,
   Calendar,
   User,
@@ -13,11 +13,13 @@ import {
   AlertCircle,
   CheckCircle,
   Building2,
-  Activity
+  Activity,
+  Wrench
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Separator } from '../../ui/separator';
 import { Alert, AlertDescription } from '../../ui/alert';
 import {
@@ -55,16 +57,13 @@ export function BiomedicoMantenimientoDetalle({
   if (!mantenimiento) {
     return (
       <div className="space-y-6">
+        <PageNav onBack={onBack} />
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
           <AlertDescription>
             No se encontró el mantenimiento con número {numeroMantenimiento}
           </AlertDescription>
         </Alert>
-        <Button variant="outline" onClick={onBack}>
-          <ArrowLeft className="size-4" />
-          Volver
-        </Button>
       </div>
     );
   }
@@ -93,25 +92,24 @@ export function BiomedicoMantenimientoDetalle({
 
   return (
     <div className="space-y-6">
+      <PageNav onBack={onBack} />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={onBack}>
-            <ArrowLeft className="size-4" />
-            Volver
-          </Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">{mantenimiento.titulo}</h1>
-              <Badge variant={estadoConfig.variant} className={estadoConfig.className}>
-                <EstadoIcon className="size-3" />
-                {estadoConfig.label}
-              </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {mantenimiento.numeroMantenimiento}
-            </p>
+      <div className="flex items-center gap-3">
+        <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+          <Wrench className="size-6 text-black dark:text-primary" />
+        </div>
+        <div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-bold">{mantenimiento.titulo}</h1>
+            <Badge variant={estadoConfig.variant} className={estadoConfig.className}>
+              <EstadoIcon className="size-3" />
+              {estadoConfig.label}
+            </Badge>
           </div>
+          <p className="text-sm text-muted-foreground">
+            {mantenimiento.numeroMantenimiento}
+          </p>
         </div>
       </div>
 

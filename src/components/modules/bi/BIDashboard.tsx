@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
 import { cn } from '../../ui/utils';
 import { useBI } from '../../../lib/bi/bi-store';
@@ -72,21 +73,19 @@ interface KPICardProps {
   bgColor: string;
 }
 
-function KPICard({ label, value, subLabel, icon, accentColor, bgColor }: KPICardProps) {
+function KPICard({ label, value, subLabel, icon, bgColor }: KPICardProps) {
   return (
-    <Card className={cn('border-l-4', accentColor)}>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground mb-1 truncate">{label}</p>
-            <p className="text-2xl font-bold leading-tight">{value}</p>
-            {subLabel && (
-              <p className="text-xs text-muted-foreground mt-1 truncate">{subLabel}</p>
-            )}
-          </div>
-          <div className={cn('rounded-lg p-2 shrink-0', bgColor)}>
-            {icon}
-          </div>
+    <Card>
+      <CardContent className="p-4 flex items-center gap-4">
+        <div className={cn('size-10 rounded-lg flex items-center justify-center shrink-0 text-white [&_svg]:text-white [&_svg]:size-5', bgColor)}>
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground truncate">{label}</p>
+          <p className="text-2xl font-bold leading-tight">{value}</p>
+          {subLabel && (
+            <p className="text-xs text-muted-foreground mt-1 truncate">{subLabel}</p>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -103,11 +102,11 @@ interface ModuloCardProps {
   onNavigate?: (route: string) => void;
 }
 
-function ModuloCard({ titulo, color, bgColor, icon, kpis, ruta, onNavigate }: ModuloCardProps) {
+function ModuloCard({ titulo, icon, kpis, ruta, onNavigate }: ModuloCardProps) {
   return (
-    <Card className={cn('border', color)}>
-      <CardHeader className={cn('pb-2 rounded-t-lg', bgColor)}>
-        <CardTitle className="text-sm flex items-center gap-2">
+    <Card className="!border-2 overflow-hidden bg-card border-[#f0c000] dark:bg-black dark:border-[#f0c000]">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base text-black dark:text-foreground flex items-center gap-2 [&_svg]:text-black dark:[&_svg]:text-[#f0c000]">
           {icon}
           {titulo}
         </CardTitle>
@@ -115,8 +114,8 @@ function ModuloCard({ titulo, color, bgColor, icon, kpis, ruta, onNavigate }: Mo
       <CardContent className="pt-3 pb-3">
         <div className="space-y-1 mb-3">
           {kpis.map((kpi) => (
-            <div key={kpi.label} className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{kpi.label}</span>
+            <div key={kpi.label} className="flex justify-between text-base">
+              <span className="text-gray-600 dark:text-muted-foreground">{kpi.label}</span>
               <span className="font-semibold">{kpi.value}</span>
             </div>
           ))}
@@ -124,7 +123,7 @@ function ModuloCard({ titulo, color, bgColor, icon, kpis, ruta, onNavigate }: Mo
         <Button
           variant="outline"
           size="sm"
-          className="w-full text-xs"
+          className="w-full text-sm !border-slate-400 dark:!border-input hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
           onClick={() => onNavigate?.(ruta)}
         >
           Ver módulo
@@ -222,16 +221,20 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <BarChart3 className="size-6 text-primary" />
-            Centro de Control — BI &amp; Reportería
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Vista consolidada de todos los módulos del ERP
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <BarChart3 className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Centro de Control — BI &amp; Reportería</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Vista consolidada de todos los módulos del ERP
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {lastUpdate && (
@@ -244,7 +247,7 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
             size="sm"
             onClick={exportarMetricas}
             disabled={!metricas}
-            className="gap-1.5"
+            className="gap-1.5 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
           >
             <Download className="size-3.5" />
             Exportar CSV
@@ -278,7 +281,7 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
             subLabel={`Ing: ${formatMoney(metricas?.ingresosMes ?? 0)} · Egr: ${formatMoney(metricas?.egresosMes ?? 0)}`}
             icon={<DollarSign className="size-4 text-emerald-600" />}
             accentColor="border-l-emerald-500"
-            bgColor="bg-emerald-50 dark:bg-emerald-950"
+            bgColor="bg-emerald-600"
           />
           <KPICard
             label="Pipeline CRM"
@@ -286,7 +289,7 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
             subLabel={`${metricas?.oportunidadesAbiertas ?? 0} oportunidades abiertas`}
             icon={<Target className="size-4 text-blue-600" />}
             accentColor="border-l-blue-500"
-            bgColor="bg-blue-50 dark:bg-blue-950"
+            bgColor="bg-blue-500"
           />
           <KPICard
             label="OTs Abiertas"
@@ -294,7 +297,7 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
             subLabel="Flota — en proceso"
             icon={<Wrench className="size-4 text-orange-600" />}
             accentColor="border-l-orange-500"
-            bgColor="bg-orange-50 dark:bg-orange-950"
+            bgColor="bg-orange-500"
           />
           <KPICard
             label="Stock Crítico"
@@ -302,7 +305,7 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
             subLabel={`Inv. total: ${formatMoney(metricas?.valorTotalInventario ?? 0)}`}
             icon={<Package className="size-4 text-red-600" />}
             accentColor="border-l-red-500"
-            bgColor="bg-red-50 dark:bg-red-950"
+            bgColor="bg-red-500"
           />
           <KPICard
             label="Proyectos en Ejecución"
@@ -310,7 +313,7 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
             subLabel="Estado: en_ejecucion"
             icon={<FolderKanban className="size-4 text-violet-600" />}
             accentColor="border-l-violet-500"
-            bgColor="bg-violet-50 dark:bg-violet-950"
+            bgColor="bg-violet-500"
           />
           <KPICard
             label="Contratos por Vencer"
@@ -318,7 +321,7 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
             subLabel="Próximos 30 días"
             icon={<FileText className="size-4 text-yellow-600" />}
             accentColor="border-l-yellow-500"
-            bgColor="bg-yellow-50 dark:bg-yellow-950"
+            bgColor="bg-amber-500"
           />
           <KPICard
             label="Proveedores Activos"
@@ -326,7 +329,7 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
             subLabel={`OC activas: ${metricas?.ordenesCompraActivas ?? 0}`}
             icon={<Users className="size-4 text-cyan-600" />}
             accentColor="border-l-cyan-500"
-            bgColor="bg-cyan-50 dark:bg-cyan-950"
+            bgColor="bg-cyan-500"
           />
           <KPICard
             label="Tareas Vencidas"
@@ -334,7 +337,7 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
             subLabel="Proyectos — sin completar"
             icon={<Clock className="size-4 text-rose-600" />}
             accentColor="border-l-rose-500"
-            bgColor="bg-rose-50 dark:bg-rose-950"
+            bgColor="bg-rose-500"
           />
         </div>
       </div>
@@ -403,9 +406,9 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <ModuloCard
             titulo="Flota"
-            color="border-orange-200 dark:border-orange-900"
-            bgColor="bg-orange-50 dark:bg-orange-950"
-            icon={<Truck className="size-4 text-orange-600" />}
+            color="border-[#f0c000]"
+            bgColor="bg-black"
+            icon={<Truck className="size-4 text-[#f0c000]" />}
             kpis={[
               { label: 'Vehículos activos', value: formatNumber(metricas?.vehiculosActivos ?? 0) },
               { label: 'OTs abiertas', value: formatNumber(metricas?.otAbiertas ?? 0) },
@@ -415,9 +418,9 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
           />
           <ModuloCard
             titulo="Compras"
-            color="border-blue-200 dark:border-blue-900"
-            bgColor="bg-blue-50 dark:bg-blue-950"
-            icon={<ShoppingCart className="size-4 text-blue-600" />}
+            color="border-[#f0c000]"
+            bgColor="bg-black"
+            icon={<ShoppingCart className="size-4 text-[#f0c000]" />}
             kpis={[
               { label: 'OC activas', value: formatNumber(metricas?.ordenesCompraActivas ?? 0) },
               { label: 'Proveedores', value: formatNumber(metricas?.proveedoresActivos ?? 0) },
@@ -427,9 +430,9 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
           />
           <ModuloCard
             titulo="Inventario"
-            color="border-red-200 dark:border-red-900"
-            bgColor="bg-red-50 dark:bg-red-950"
-            icon={<Package className="size-4 text-red-600" />}
+            color="border-[#f0c000]"
+            bgColor="bg-black"
+            icon={<Package className="size-4 text-[#f0c000]" />}
             kpis={[
               { label: 'Stock crítico', value: formatNumber(metricas?.articulosBajoMinimo ?? 0) },
               { label: 'Valor total', value: formatMoney(metricas?.valorTotalInventario ?? 0) },
@@ -439,9 +442,9 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
           />
           <ModuloCard
             titulo="CRM"
-            color="border-blue-200 dark:border-blue-900"
-            bgColor="bg-blue-50 dark:bg-blue-950"
-            icon={<Target className="size-4 text-blue-600" />}
+            color="border-[#f0c000]"
+            bgColor="bg-black"
+            icon={<Target className="size-4 text-[#f0c000]" />}
             kpis={[
               { label: 'Clientes activos', value: formatNumber(metricas?.clientesActivos ?? 0) },
               { label: 'Pipeline', value: formatMoney(metricas?.valorPipelineCRM ?? 0) },
@@ -451,9 +454,9 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
           />
           <ModuloCard
             titulo="Proyectos"
-            color="border-violet-200 dark:border-violet-900"
-            bgColor="bg-violet-50 dark:bg-violet-950"
-            icon={<FolderKanban className="size-4 text-violet-600" />}
+            color="border-[#f0c000]"
+            bgColor="bg-black"
+            icon={<FolderKanban className="size-4 text-[#f0c000]" />}
             kpis={[
               { label: 'En ejecución', value: formatNumber(metricas?.proyectosEnEjecucion ?? 0) },
               { label: 'Tareas vencidas', value: formatNumber(metricas?.tareasVencidas ?? 0) },
@@ -463,9 +466,9 @@ export function BIDashboard({ onNavigate }: BIDashboardProps) {
           />
           <ModuloCard
             titulo="Finanzas"
-            color="border-emerald-200 dark:border-emerald-900"
-            bgColor="bg-emerald-50 dark:bg-emerald-950"
-            icon={<DollarSign className="size-4 text-emerald-600" />}
+            color="border-[#f0c000]"
+            bgColor="bg-black"
+            icon={<DollarSign className="size-4 text-[#f0c000]" />}
             kpis={[
               { label: 'Ingresos mes', value: formatMoney(metricas?.ingresosMes ?? 0) },
               { label: 'Balance mes', value: formatMoney(metricas?.balanceMes ?? 0) },

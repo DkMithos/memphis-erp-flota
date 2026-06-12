@@ -9,6 +9,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../../ui/table';
 import { useInventarioStore } from '../../../lib/inventario/inventario-store';
+import { PageNav } from '../../shared/PageNav';
 
 interface Props {
   onNavigate: (route: string) => void;
@@ -62,58 +63,69 @@ export function InventarioDashboard({ onNavigate }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-semibold">Inventario</h2>
-        <p className="text-muted-foreground mt-1">Control de stock, artículos y movimientos de almacén</p>
+      <div className="flex items-center gap-3">
+        <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+          <Package className="size-6 text-black dark:text-primary" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-semibold">Inventario</h2>
+          <p className="text-muted-foreground mt-1">Control de stock, artículos y movimientos de almacén</p>
+        </div>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — patrón Home */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card
-          className="cursor-pointer hover:border-primary/50 transition-colors"
+          className="cursor-pointer hover:border-[#f0c000] hover:shadow-sm transition-colors"
           onClick={() => onNavigate('/inventario/articulos')}
         >
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Total Artículos</CardTitle>
-            <Package className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground mt-1">Artículos activos</p>
-          </CardContent>
-        </Card>
-
-        <Card className="cursor-pointer hover:border-red-300 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Stock Crítico</CardTitle>
-            <AlertTriangle className="size-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-red-600">{stats.criticos}</div>
-            <p className="text-xs text-red-600 mt-1">Stock agotado</p>
-          </CardContent>
-        </Card>
-
-        <Card className="cursor-pointer hover:border-orange-300 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Bajo Mínimo</CardTitle>
-            <TrendingDown className="size-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-orange-600">{stats.bajos}</div>
-            <p className="text-xs text-orange-600 mt-1">Requieren reabastecimiento</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-slate-500 rounded-lg flex items-center justify-center shrink-0">
+              <Package className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Artículos</p>
+              <p className="text-2xl font-bold">{stats.total}</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Valor Total</CardTitle>
-            <DollarSign className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">S/ {formatMoney(stats.valorTotal)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Valorización del inventario</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-red-500 rounded-lg flex items-center justify-center shrink-0">
+              <AlertTriangle className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Stock Crítico</p>
+              <p className="text-2xl font-bold">{stats.criticos}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-orange-500 rounded-lg flex items-center justify-center shrink-0">
+              <TrendingDown className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Bajo Mínimo</p>
+              <p className="text-2xl font-bold">{stats.bajos}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-emerald-600 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Valor Total</p>
+              <p className="text-2xl font-bold">S/ {formatMoney(stats.valorTotal)}</p>
+            </div>
           </CardContent>
         </Card>
       </div>

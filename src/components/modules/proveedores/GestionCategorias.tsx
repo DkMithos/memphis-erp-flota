@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Check, X, GripVertical, Tag } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, X, Tag } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -7,6 +7,7 @@ import { Badge } from '../../ui/badge';
 import { useProveedorStore, type CategoriaConfig } from '../../../lib/proveedores/proveedores-store';
 import { toast } from 'sonner';
 import { useConfirmAction } from '@/components/shared/ConfirmDialogProvider';
+import { PageNav } from '../../shared/PageNav';
 
 export function GestionCategorias() {
   const { categorias, crearCategoria, actualizarCategoria, eliminarCategoria } = useProveedorStore();
@@ -78,6 +79,8 @@ export function GestionCategorias() {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Categorías de Proveedor</h3>
@@ -120,7 +123,7 @@ export function GestionCategorias() {
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" size="sm" onClick={() => { setAdding(false); setNewLabel(''); setNewKey(''); }}>
+              <Button type="button" variant="outline" size="sm" className="hover:!bg-black hover:!text-white hover:!border-black" onClick={() => { setAdding(false); setNewLabel(''); setNewKey(''); }}>
                 <X className="size-4" />Cancelar
               </Button>
               <Button type="button" size="sm" onClick={handleAdd}>
@@ -142,8 +145,6 @@ export function GestionCategorias() {
             <div className="divide-y">
               {categorias.map((cat) => (
                 <div key={cat.key} className="flex items-center gap-3 px-4 py-3">
-                  <GripVertical className="size-4 text-muted-foreground shrink-0" />
-
                   {editingId === cat.key ? (
                     <div className="flex-1 flex items-center gap-2">
                       <Input
@@ -166,22 +167,29 @@ export function GestionCategorias() {
                         <span className="font-medium text-sm">{cat.label}</span>
                         <span className="ml-2 text-xs text-muted-foreground font-mono">{cat.key}</span>
                       </div>
-                      <Badge variant={cat.activo ? 'secondary' : 'outline'} className={cat.activo ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'text-muted-foreground'}>
+                      <Badge
+                        variant={cat.activo ? 'default' : 'outline'}
+                        className={cat.activo
+                          ? 'bg-green-600 text-white hover:bg-green-600 border-green-600'
+                          : 'border-slate-400 text-slate-600 dark:text-muted-foreground'}
+                      >
                         {cat.activo ? 'Activa' : 'Inactiva'}
                       </Badge>
                       <div className="flex items-center gap-1 shrink-0">
-                        <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleStartEdit(cat)} title="Editar">
+                        <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0 hover:!bg-black hover:!text-white" onClick={() => handleStartEdit(cat)} title="Editar">
                           <Pencil className="size-3.5" />
                         </Button>
                         <Button
                           type="button" size="sm" variant="ghost"
-                          className={`h-8 px-2 text-xs ${cat.activo ? 'text-muted-foreground' : 'text-primary'}`}
+                          className={`h-8 px-2 text-xs ${cat.activo
+                            ? 'text-muted-foreground hover:!bg-orange-500 hover:!text-white'
+                            : 'text-primary hover:!bg-green-600 hover:!text-white'}`}
                           onClick={() => handleToggleActivo(cat)}
                           title={cat.activo ? 'Desactivar' : 'Activar'}
                         >
                           {cat.activo ? 'Desactivar' : 'Activar'}
                         </Button>
-                        <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDelete(cat)} title="Eliminar">
+                        <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-500 hover:!bg-red-600 hover:!text-white" onClick={() => handleDelete(cat)} title="Eliminar">
                           <Trash2 className="size-3.5" />
                         </Button>
                       </div>

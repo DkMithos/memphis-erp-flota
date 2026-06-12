@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Filter, Download, Eye, Edit, XCircle, Building2, CheckCircle, Clock, Settings2 } from 'lucide-react';
+import { Plus, Search, Filter, Download, Eye, Edit, XCircle, Building2, CheckCircle, Clock, Settings2, AlertCircle, UserX, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
 import {
@@ -105,11 +106,13 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center">
-            <Building2 className="size-6 text-primary" />
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Building2 className="size-6 text-black dark:text-primary" />
           </div>
           <div>
             <h2>Directorio de Proveedores</h2>
@@ -121,7 +124,7 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
 
         <div className="flex items-center gap-2 flex-wrap">
           {puedeAprobar && (
-            <Button variant="outline" size="sm" onClick={() => onNavigate?.('/proveedores/categorias')}>
+            <Button variant="outline" size="sm" onClick={() => onNavigate?.('/proveedores/categorias')} className="hover:!bg-black hover:!text-white hover:!border-black">
               <Settings2 className="size-4" />
               Categorías
             </Button>
@@ -132,67 +135,36 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
               Nuevo Proveedor
             </Button>
           )}
-          <Button variant="outline" onClick={handleExportar}>
+          <Button variant="outline" onClick={handleExportar} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             Exportar
           </Button>
         </div>
       </div>
 
-      {/* Stats KPI */}
+      {/* Stats KPI — mismo patrón que los KPIs del Home */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Total Proveedores</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground mt-1">Registrados</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Activos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-green-600">{stats.activos}</div>
-            <p className="text-xs text-muted-foreground mt-1">Operativos</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Observados</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-yellow-600">{stats.observados}</div>
-            <p className="text-xs text-muted-foreground mt-1">En evaluación</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Inactivos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-gray-600">{stats.inactivos}</div>
-            <p className="text-xs text-muted-foreground mt-1">Fuera de operación</p>
-          </CardContent>
-        </Card>
-
-        <Card className={stats.enEvaluacion > 0 ? 'border-blue-300' : ''}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="size-3" />
-              En Evaluación
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-blue-600">{stats.enEvaluacion}</div>
-            <p className="text-xs text-muted-foreground mt-1">Pendiente aprobación</p>
-          </CardContent>
-        </Card>
+        {[
+          { label: 'Total Proveedores', value: stats.total, sub: 'Registrados', icon: Building2, bg: 'bg-blue-500' },
+          { label: 'Activos', value: stats.activos, sub: 'Operativos', icon: CheckCircle, bg: 'bg-green-500' },
+          { label: 'Observados', value: stats.observados, sub: 'En evaluación', icon: AlertCircle, bg: 'bg-amber-500' },
+          { label: 'Inactivos', value: stats.inactivos, sub: 'Fuera de operación', icon: UserX, bg: 'bg-slate-500' },
+          { label: 'En Evaluación', value: stats.enEvaluacion, sub: 'Pendiente aprobación', icon: Clock, bg: 'bg-indigo-500' },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="bg-card rounded-xl p-4 shadow-sm flex items-center gap-3"
+            style={{ border: '1px solid #64748B' }}
+          >
+            <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${stat.bg}`}>
+              <stat.icon className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-bold leading-none">{stat.value}</p>
+              <p className="text-xs text-muted-foreground mt-1 truncate">{stat.label}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Filtros */}
@@ -208,7 +180,7 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
             {/* Búsqueda por texto */}
             <div className="md:col-span-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar por RUC, razón social o email..."
                   value={searchTerm}
@@ -270,10 +242,10 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
                 {filtroEstado !== 'todos' && ` • Estado: ${filtroEstado}`}
                 {filtroTipo !== 'todos' && ` • Tipo: ${filtroTipo}`}
                 {filtroCategoria !== 'todos' && ` • Categoría: ${categorias.find(c => c.key === filtroCategoria)?.label ?? filtroCategoria}`}
-                <Button 
-                  variant="link" 
-                  size="sm" 
-                  className="ml-2 h-auto p-0"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-3 gap-1.5 !bg-transparent !text-black !border-black hover:!bg-[#f0c000] hover:!text-black hover:!border-black"
                   onClick={() => {
                     setSearchTerm('');
                     setFiltroEstado('todos');
@@ -281,6 +253,7 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
                     setFiltroCategoria('todos');
                   }}
                 >
+                  <X className="size-3.5" />
                   Limpiar filtros
                 </Button>
               </AlertDescription>

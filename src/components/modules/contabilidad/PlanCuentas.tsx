@@ -128,7 +128,7 @@ export function PlanCuentas() {
       </div>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
         <Input value={query} onChange={e => setQuery(e.target.value)}
           placeholder="Buscar por código o nombre…" className="pl-9 text-sm" />
       </div>
@@ -214,7 +214,7 @@ export function PlanCuentas() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setModalNueva(false)}>Cancelar</Button>
+            <Button variant="outline" size="sm" onClick={() => setModalNueva(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button size="sm" onClick={handleCrear} disabled={!nueva.codigo || !nueva.nombre || guardando}>
               {guardando ? 'Guardando…' : 'Crear Cuenta'}
             </Button>

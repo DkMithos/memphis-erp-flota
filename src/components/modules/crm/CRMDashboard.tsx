@@ -2,10 +2,11 @@
  * CRM Dashboard — KPIs, Pipeline Kanban, Actividades pendientes
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
+import { useDarkMode } from '../../../hooks/useDarkMode';
 import {
   Users, Target, DollarSign, CalendarClock,
-  Phone, Mail, MapPin, Users2, FileText, ArrowRight, CheckCircle2,
+  Phone, Mail, MapPin, Users2, FileText, ArrowRight, CheckCircle2, ChevronRight,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
@@ -43,6 +44,28 @@ interface Props {
 
 export function CRMDashboard({ onNavigate }: Props) {
   const { clientes, oportunidades, actividades, actualizarOportunidad } = useCRMStore();
+
+  // ── Cards tipo "Acceso Rápido" (patrón Home) ──
+  const isDark = useDarkMode();
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const quickCardStyle = (isHovered: boolean): CSSProperties => {
+    const accentColor = isDark ? '#f0c000' : '#000000';
+    return {
+      borderTopWidth: (isDark && !isHovered) ? 0 : 1,
+      borderTopStyle: 'solid',
+      borderTopColor: isHovered ? accentColor : '#64748B',
+      borderRightWidth: (isDark && !isHovered) ? 0 : 1,
+      borderRightStyle: 'solid',
+      borderRightColor: isHovered ? accentColor : '#64748B',
+      borderBottomWidth: (isDark && !isHovered) ? 0 : 1,
+      borderBottomStyle: 'solid',
+      borderBottomColor: isHovered ? accentColor : '#64748B',
+      borderLeftWidth: 4,
+      borderLeftStyle: 'solid',
+      borderLeftColor: accentColor,
+      backgroundColor: isDark ? undefined : (isHovered ? '#94A3B8' : '#E2E8F0'),
+    };
+  };
 
   // ── KPIs ────────────────────────────────────────────────────────────────
   const clientesActivos = clientes.filter(c => c.estado === 'activo').length;
@@ -105,49 +128,51 @@ export function CRMDashboard({ onNavigate }: Props) {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-              <Users className="size-3.5" /> Clientes Activos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{clientesActivos}</div>
-            <p className="text-xs text-muted-foreground mt-1">{clientes.filter(c => c.estado === 'prospecto').length} prospectos</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-              <Target className="size-3.5" /> Oportunidades Abiertas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{oportunidadesAbiertas.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">En pipeline activo</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-              <DollarSign className="size-3.5" /> Valor Pipeline
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatMontoBase(valorPipelineTotal)}
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <Users className="size-5 text-white" />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Valor ponderado</p>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Clientes Activos</p>
+              <p className="text-2xl font-bold">{clientesActivos}</p>
+              <p className="text-xs text-muted-foreground mt-1">{clientes.filter(c => c.estado === 'prospecto').length} prospectos</p>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-              <CalendarClock className="size-3.5" /> Actividades Hoy
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{actividadesPendientesHoy.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">Pendientes para hoy</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-indigo-500 rounded-lg flex items-center justify-center shrink-0">
+              <Target className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Oportunidades Abiertas</p>
+              <p className="text-2xl font-bold">{oportunidadesAbiertas.length}</p>
+              <p className="text-xs text-muted-foreground mt-1">En pipeline activo</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-emerald-600 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Valor Pipeline</p>
+              <p className="text-2xl font-bold">{formatMontoBase(valorPipelineTotal)}</p>
+              <p className="text-xs text-muted-foreground mt-1">Valor ponderado</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-amber-500 rounded-lg flex items-center justify-center shrink-0">
+              <CalendarClock className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Actividades Hoy</p>
+              <p className="text-2xl font-bold">{actividadesPendientesHoy.length}</p>
+              <p className="text-xs text-muted-foreground mt-1">Pendientes para hoy</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -192,7 +217,7 @@ export function CRMDashboard({ onNavigate }: Props) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="w-full h-6 text-xs mt-1 px-1"
+                            className="w-full h-6 text-xs mt-1 px-1 hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
                             onClick={() => handleMoverEtapa(o)}
                           >
                             Mover a siguiente <ArrowRight className="size-3 ml-1" />
@@ -212,7 +237,7 @@ export function CRMDashboard({ onNavigate }: Props) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base">Actividades Pendientes</CardTitle>
-          <Button variant="ghost" size="sm" onClick={() => onNavigate?.('/crm/actividades')}>
+          <Button variant="ghost" size="sm" onClick={() => onNavigate?.('/crm/actividades')} className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground">
             Ver todas
           </Button>
         </CardHeader>
@@ -251,26 +276,34 @@ export function CRMDashboard({ onNavigate }: Props) {
       {/* Quick links */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { label: 'Gestionar Clientes', icon: Users, route: '/crm/clientes', desc: `${clientes.length} registros` },
-          { label: 'Ver Oportunidades', icon: Target, route: '/crm/oportunidades', desc: `${oportunidades.length} en total` },
-          { label: 'Ver Actividades', icon: CheckCircle2, route: '/crm/actividades', desc: `${actividades.filter(a => a.estado === 'pendiente').length} pendientes` },
-        ].map(item => (
-          <Card
-            key={item.route}
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => onNavigate?.(item.route)}
-          >
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <item.icon className="size-5 text-primary" />
+          { label: 'Gestionar Clientes', icon: Users, route: '/crm/clientes', desc: `${clientes.length} registros`, box: 'bg-blue-500' },
+          { label: 'Ver Oportunidades', icon: Target, route: '/crm/oportunidades', desc: `${oportunidades.length} en total`, box: 'bg-indigo-500' },
+          { label: 'Ver Actividades', icon: CheckCircle2, route: '/crm/actividades', desc: `${actividades.filter(a => a.estado === 'pendiente').length} pendientes`, box: 'bg-green-500' },
+        ].map(item => {
+          const isHovered = hoveredCard === item.route;
+          const accentColor = isDark ? '#f0c000' : '#000000';
+          return (
+            <button
+              key={item.route}
+              onClick={() => onNavigate?.(item.route)}
+              onMouseEnter={() => setHoveredCard(item.route)}
+              onMouseLeave={() => setHoveredCard(null)}
+              className="group text-left rounded-xl dark:bg-card p-4 hover:shadow-md dark:hover:bg-accent/30 transition-all relative"
+              style={quickCardStyle(isHovered)}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${item.box} text-white group-hover:!bg-black group-hover:!text-white transition-colors`}>
+                  <item.icon className="size-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm text-foreground transition-colors">{item.label}</p>
+                  <p className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">{item.desc}</p>
+                </div>
+                <ChevronRight className="size-4 shrink-0" style={{ color: accentColor }} />
               </div>
-              <div>
-                <p className="font-medium text-sm">{item.label}</p>
-                <p className="text-xs text-muted-foreground">{item.desc}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -85,53 +85,57 @@ export function ProyectosDashboard({ onNavigate }: Props) {
         </Button>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — patrón Home */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Proyectos Activos</CardTitle>
-            <Clock className="size-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{stats.activos.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">En ejecución o planificación</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Completados este año</CardTitle>
-            <CheckCircle2 className="size-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{stats.completadosAnio.length}</div>
-            <p className="text-xs text-green-600 mt-1">Proyectos finalizados {hoy.getFullYear()}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Presupuesto activos</CardTitle>
-            <DollarSign className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">
-              S/ {stats.presupuestoTotal.toLocaleString('es-PE', { minimumFractionDigits: 0 })}
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <Clock className="size-5 text-white" />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Suma de presupuestos activos</p>
+            <div>
+              <p className="text-xs text-muted-foreground">Proyectos Activos</p>
+              <p className="text-2xl font-bold">{stats.activos.length}</p>
+              <p className="text-xs text-muted-foreground mt-1">En ejecución o planificación</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Tareas vencidas</CardTitle>
-            <AlertTriangle className="size-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-semibold ${stats.tareasVencidas > 0 ? 'text-red-600' : ''}`}>
-              {stats.tareasVencidas}
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <CheckCircle2 className="size-5 text-white" />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Pendientes fuera de fecha</p>
+            <div>
+              <p className="text-xs text-muted-foreground">Completados este año</p>
+              <p className="text-2xl font-bold">{stats.completadosAnio.length}</p>
+              <p className="text-xs text-muted-foreground mt-1">Proyectos finalizados {hoy.getFullYear()}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-emerald-600 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Presupuesto activos</p>
+              <p className="text-2xl font-bold">S/ {stats.presupuestoTotal.toLocaleString('es-PE', { minimumFractionDigits: 0 })}</p>
+              <p className="text-xs text-muted-foreground mt-1">Suma de presupuestos activos</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${stats.tareasVencidas > 0 ? 'bg-red-500' : 'bg-slate-400'}`}>
+              <AlertTriangle className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Tareas vencidas</p>
+              <p className="text-2xl font-bold">{stats.tareasVencidas}</p>
+              <p className="text-xs text-muted-foreground mt-1">Pendientes fuera de fecha</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -178,7 +182,7 @@ export function ProyectosDashboard({ onNavigate }: Props) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Todos los Proyectos</CardTitle>
-          <Button variant="outline" size="sm" onClick={() => onNavigate?.('/proyectos/lista')}>
+          <Button variant="outline" size="sm" onClick={() => onNavigate?.('/proyectos/lista')} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             Gestionar
           </Button>
         </CardHeader>

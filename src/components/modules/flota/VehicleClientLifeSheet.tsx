@@ -63,7 +63,7 @@ export function VehicleClientLifeSheet({ vehiculoId, onNavigate }: VehicleClient
             </h1>
             <p className="text-muted-foreground">Vista Cliente - Historial Completo</p>
           </div>
-          <Button variant="outline" onClick={handleExportCSV}>
+          <Button variant="outline" onClick={handleExportCSV} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             Exportar CSV
           </Button>

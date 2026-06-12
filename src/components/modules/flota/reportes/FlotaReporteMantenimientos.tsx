@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/card';
 import { Button } from '../../../ui/button';
+import { PageNav } from '../../../shared/PageNav';
 import { Input } from '../../../ui/input';
 import { Label } from '../../../ui/label';
 import { Badge } from '../../../ui/badge';
@@ -182,18 +183,23 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
     );
   };
 
-  const renderKPICard = (icon: React.ReactNode, label: string, value: string | number) => {
+  const renderKPICard = (icon: React.ReactNode, label: string, value: string | number, variant: 'default' | 'success' | 'warning' | 'danger' | 'money' = 'default') => {
+    const boxColors = {
+      default: 'bg-blue-500',
+      success: 'bg-green-500',
+      warning: 'bg-amber-500',
+      danger: 'bg-red-500',
+      money: 'bg-emerald-600'
+    };
     return (
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">{label}</p>
-              <p className="text-2xl font-bold">{value}</p>
-            </div>
-            <div className="text-[#0A66C2]">
-              {icon}
-            </div>
+        <CardContent className="p-4 flex items-center gap-4">
+          <div className={`size-10 ${boxColors[variant]} rounded-lg flex items-center justify-center shrink-0 text-white [&_svg]:size-5`}>
+            {icon}
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className="text-2xl font-bold">{value}</p>
           </div>
         </CardContent>
       </Card>
@@ -202,21 +208,21 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold flex items-center gap-2">
-            <Wrench className="size-7 text-[#0A66C2]" />
-            Reporte de Mantenimientos
-          </h2>
-          <p className="text-muted-foreground mt-1">
-            Vista consolidada de órdenes de trabajo
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Wrench className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">Reporte de Mantenimientos</h2>
+            <p className="text-muted-foreground mt-1">
+              Vista consolidada de órdenes de trabajo
+            </p>
+          </div>
         </div>
-        <Button variant="outline" onClick={() => onNavigate('/flota')} className="gap-2">
-          <ArrowLeft className="size-4" />
-          Volver a Flota
-        </Button>
       </div>
 
       {/* Filtros */}
@@ -370,7 +376,7 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
           </div>
 
           <div className="flex items-center gap-2 pt-2">
-            <Button variant="outline" onClick={handleResetFilters}>
+            <Button variant="outline" onClick={handleResetFilters} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
               Limpiar Filtros
             </Button>
           </div>
@@ -380,9 +386,9 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {renderKPICard(<Wrench className="size-8" />, 'Total OTs', kpis.total)}
-        {renderKPICard(<DollarSign className="size-8" />, 'Costo Total', `S/ ${kpis.costoTotal.toFixed(2)}`)}
-        {renderKPICard(<AlertCircle className="size-8" />, 'Extras Piezas', kpis.extrasPiezas)}
-        {renderKPICard(<AlertCircle className="size-8" />, 'SLA Cumplimiento', `${kpis.slaCumplimiento.toFixed(1)}%`)}
+        {renderKPICard(<DollarSign className="size-8" />, 'Costo Total', `S/ ${kpis.costoTotal.toFixed(2)}`, 'money')}
+        {renderKPICard(<AlertCircle className="size-8" />, 'Extras Piezas', kpis.extrasPiezas, 'warning')}
+        {renderKPICard(<AlertCircle className="size-8" />, 'SLA Cumplimiento', `${kpis.slaCumplimiento.toFixed(1)}%`, 'success')}
       </div>
 
       {/* Tabla */}
@@ -396,15 +402,15 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={handleExportCSV} variant="outline" className="gap-2">
+              <Button onClick={handleExportCSV} variant="outline" className="gap-2 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
                 <Download className="size-4" />
                 CSV
               </Button>
-              <Button onClick={handleExportExcel} variant="outline" className="gap-2">
+              <Button onClick={handleExportExcel} variant="outline" className="gap-2 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
                 <FileSpreadsheet className="size-4" />
                 Excel (CSV)
               </Button>
-              <Button onClick={handleExportPDF} variant="outline" className="gap-2">
+              <Button onClick={handleExportPDF} variant="outline" className="gap-2 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
                 <FilePlus className="size-4" />
                 PDF
               </Button>
@@ -488,8 +494,8 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
                     Mostrando {((page - 1) * 20) + 1}-{Math.min(page * 20, rows.length)} de {rows.length} registros
                   </span>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</Button>
-                    <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>Siguiente</Button>
+                    <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Anterior</Button>
+                    <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Siguiente</Button>
                   </div>
                 </div>
               )}
