@@ -196,16 +196,23 @@ Ambos pedidos comparten infraestructura crítica:
 Total ~6,500 docs + Storage (PDFs cotizaciones, firmas manuscritas, comprobantes).
 **El módulo Compras del ERP está vacío → importación limpia, sin colisiones.**
 
-**Plan de migración (1.5–2 semanas):**
-1. **Catálogos** (1 día): proveedores, centros de costo, condiciones de pago (crear catálogo en ERP).
-2. **Histórico documental**: requerimientos → cotizaciones → OCs, con mapeo de estados
-   (legacy "Pendiente de Comprador/Operaciones/Gerencia General/Aprobada/Pagado" → estados ERP).
-3. **Firmas manuscritas**: importar como adjuntos de evidencia por OC (preservar rastro legal),
-   NO replicar la funcionalidad de firma gráfica.
-4. **transaccionesFinancieras** (2,929): revisar forma con Finanzas antes de mapear.
-5. **Archivos Storage** → Supabase Storage.
-6. **Corte**: oc-system a solo-lectura (deny-write en rules), periodo de doble verificación,
-   luego decomisar Firebase.
+**Plan de migración v2 (~1–1.5 semanas) — alcance recortado 2026-06-11:**
+- **Fase 0 — Esquema ERP (1-2 días):** catálogo `condiciones_pago`, campos detracción en
+  `ordenes_compra` (cierra gap SUNAT), datos bancarios, mapeo de estados legacy.
+- **Fase 1 — Catálogos (1 día):** proveedores (134, dedup por RUC), centros de costo (75,
+  dedup por código), condiciones de pago (16), usuarios (12, email → profiles vía SSO).
+- **Fase 2 — Documentos (3-4 días):** requerimientos (198) → cotizaciones (174 + PDFs de
+  Storage) → OCs (533: items + historial + firmas como adjuntos de evidencia + vínculos).
+- **Fase 3 — Cierre (2-3 días):** comprobantes de Storage; logs (2,488) como export JSON de
+  archivo (no a tablas); validación cruzada con Compras; oc-system a solo-lectura;
+  **export de respaldo de transaccionesFinancieras ANTES de decomisar** (seguro barato:
+  al apagar Firebase esos 2,929 registros desaparecen); doble verificación 1-2 sem; decomisar.
+
+**Fuera de alcance (decisión del negocio 2026-06-11):**
+- ❌ `transaccionesFinancieras` (2,929) — NO se migran (solo export de respaldo pre-apagado)
+- 📥 **Caja chica** — entrará vía Excel mejorado que Kevin compartirá → importador propio
+  (workstream separado, no bloquea la migración)
+- ❌ inventario / recepcionBienes (0 docs)
 
 **Gaps del ERP que la migración vuelve requisito:**
 - `detracciones` (ya estaba como gap SUNAT — ahora obligatorio)
