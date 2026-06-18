@@ -3,17 +3,13 @@ import {
   AlertCircle, 
   Wrench,
   Download,
-  TrendingUp,
   TrendingDown,
   Fuel,
-  DollarSign,
   Clock,
   RefreshCw,
   ChevronRight,
   Package,
   Target,
-  Timer,
-  TrendingDown as MetricDown,
   Award,
   AlertTriangle
 } from 'lucide-react';
@@ -264,111 +260,6 @@ export function FlotaDashboard({ onNavigate }: FlotaDashboardProps) {
           </div>
         </CardContent>
       </Card>
-      
-      {/* KPIs ENTERPRISE - Fila 1 */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold flex items-center gap-2">
-            <Award className="size-5" />
-            KPIs Enterprise
-          </h3>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground">Total Vehículos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold">{metrics.kpis.totalVehiculos}</div>
-              <p className="text-xs text-muted-foreground mt-1">Flota completa</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-                <TrendingUp className="size-4" />
-                Disponibilidad
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-green-600">
-                {formatPercentage(metrics.kpis.disponibilidadPct)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Vehículos operativos</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-                <Timer className="size-4" />
-                MTTR
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-blue-600">
-                {metrics.kpis.mttrHoras !== null 
-                  ? formatNumber(metrics.kpis.mttrHoras, 1) 
-                  : 'N/A'}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {metrics.kpis.mttrHoras !== null ? 'Horas promedio reparación' : 'Sin datos'}
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-                <MetricDown className="size-4" />
-                MTBF
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-purple-600">
-                {metrics.kpis.mtbfKm !== null 
-                  ? formatNumber(metrics.kpis.mtbfKm, 0) 
-                  : 'N/A'}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {metrics.kpis.mtbfKm !== null ? 'Km entre fallas' : 'Sin datos'}
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-                <DollarSign className="size-4" />
-                Costo Total
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-red-600">
-                {formatCurrency(metrics.kpis.costoTotal)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Todas las OTs</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-                <Target className="size-4" />
-                SLA Cumplimiento
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold text-green-600">
-                {formatPercentage(metrics.kpis.slaCumplimientoPct)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">OTs a tiempo</p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
       
       {/* KPI Dashboard - Fila 1: Vehículos */}
       <div>
