@@ -7,9 +7,10 @@
 import { useState, useEffect } from 'react';
 import {
   ChevronRight, ChevronLeft, CheckCircle2,
-  FileText, Shield, Zap, AlertCircle
+  FileText, Shield, Zap, AlertCircle, ArrowLeft
 } from 'lucide-react';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -155,6 +156,7 @@ export function BiomedicoContratoForm({ contratoId, onCancel, onSuccess }: Biome
 
   return (
     <div className="space-y-6 max-w-2xl">
+      <PageNav onBack={onCancel} />
 
       {/* Header */}
       <div>

@@ -150,14 +150,17 @@ export function VehiclePublicLifeSheet({ vehiculo }: VehiclePublicLifeSheetProps
   // ========================================================================
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-8 px-4">
+    <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-5xl mx-auto space-y-6">
         {/* HEADER */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2" style={{ color: '#0A66C2' }}>
+          <div className="inline-flex items-center justify-center size-16 bg-primary/10 rounded-2xl mb-4">
+            <Car className="size-8 text-primary" />
+          </div>
+          <h1 className="text-4xl font-bold mb-2">
             Hoja de Vida del Vehículo
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-muted-foreground">
             Vista pública - Información general
           </p>
         </div>
@@ -173,8 +176,8 @@ export function VehiclePublicLifeSheet({ vehiculo }: VehiclePublicLifeSheetProps
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Placa</p>
-                <p className="text-3xl font-bold" style={{ color: '#0A66C2' }}>
+                <p className="text-sm text-muted-foreground">Placa</p>
+                <p className="text-3xl font-bold text-primary">
                   {vehiculo.placa}
                 </p>
               </div>
@@ -412,7 +415,7 @@ export function VehiclePublicLifeSheet({ vehiculo }: VehiclePublicLifeSheetProps
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-semibold">Cumplimiento de Preventivos</p>
-                <p className="text-sm font-bold" style={{ color: '#0A66C2' }}>
+                <p className="text-sm font-bold text-primary">
                   {cumplimientoPreventivo}%
                 </p>
               </div>
@@ -426,7 +429,7 @@ export function VehiclePublicLifeSheet({ vehiculo }: VehiclePublicLifeSheetProps
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-semibold">Cumplimiento Documental</p>
-                <p className="text-sm font-bold" style={{ color: '#0A66C2' }}>
+                <p className="text-sm font-bold text-primary">
                   {cumplimientoDocumental}%
                 </p>
               </div>
@@ -440,7 +443,7 @@ export function VehiclePublicLifeSheet({ vehiculo }: VehiclePublicLifeSheetProps
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-semibold">Disponibilidad del Vehículo</p>
-                <p className="text-sm font-bold" style={{ color: '#0A66C2' }}>
+                <p className="text-sm font-bold text-primary">
                   {disponibilidad}%
                 </p>
               </div>

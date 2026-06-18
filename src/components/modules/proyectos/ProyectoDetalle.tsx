@@ -10,6 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Progress } from '../../ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import {
@@ -182,7 +183,7 @@ function TareaDialog({ open, tarea, proyectoDbId, tenantId, fases, estadoInicial
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
           <Button onClick={handleSave} disabled={saving}>{saving ? 'Guardando...' : tarea ? 'Actualizar' : 'Crear'}</Button>
         </DialogFooter>
       </DialogContent>
@@ -287,7 +288,7 @@ function FaseDialog({ open, fase, proyectoDbId, tenantId, ordenSiguiente, onClos
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
           <Button onClick={handleSave} disabled={saving}>{saving ? 'Guardando...' : fase ? 'Actualizar' : 'Crear'}</Button>
         </DialogFooter>
       </DialogContent>
@@ -353,7 +354,7 @@ function MiembroDialog({ open, proyectoDbId, tenantId, onClose }: MiembroDialogP
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
           <Button onClick={handleSave} disabled={saving}>{saving ? 'Guardando...' : 'Agregar'}</Button>
         </DialogFooter>
       </DialogContent>
@@ -551,7 +552,7 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
         ) : (
           <p>Proyecto no encontrado</p>
         )}
-        <Button className="mt-4" onClick={onBack}>Volver</Button>
+        <PageNav className="mt-4" />
       </div>
     );
   }
@@ -566,13 +567,13 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-start gap-4">
-        {onBack && (
-          <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0 mt-1">
-            <ArrowLeft className="size-4" />
-          </Button>
-        )}
+      <div className="flex items-start gap-3">
+        <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+          <FolderKanban className="size-6 text-black dark:text-primary" />
+        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <p className="font-mono text-sm text-muted-foreground">{proyecto.id}</p>

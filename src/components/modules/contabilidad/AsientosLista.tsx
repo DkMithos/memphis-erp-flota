@@ -176,7 +176,7 @@ export function AsientosLista({ onNavigate, detalleNumero }: Props) {
 
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
           <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar asiento o glosa…" className="pl-9 text-sm" />
         </div>
         <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>

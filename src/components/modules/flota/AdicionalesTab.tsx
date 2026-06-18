@@ -162,49 +162,41 @@ export function AdicionalesTab({
       {/* Cards resumen */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-              <Package className="size-4" />
-              Piezas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{resumen.piezas.count}</div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Total: ${resumen.piezas.total.toFixed(2)}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-              <Wrench className="size-4" />
-              Servicios
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{resumen.servicios.count}</div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Total: ${resumen.servicios.total.toFixed(2)}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-              <DollarSign className="size-4" />
-              Total Adicionales
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-primary">
-              ${resumen.total.toFixed(2)}
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <Package className="size-5 text-white" />
             </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              {resumen.piezas.count + resumen.servicios.count} items
-            </p>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Piezas</p>
+              <p className="text-2xl font-bold">{resumen.piezas.count}</p>
+              <p className="text-xs text-muted-foreground mt-1">Total: ${resumen.piezas.total.toFixed(2)}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-purple-500 rounded-lg flex items-center justify-center shrink-0">
+              <Wrench className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Servicios</p>
+              <p className="text-2xl font-bold">{resumen.servicios.count}</p>
+              <p className="text-xs text-muted-foreground mt-1">Total: ${resumen.servicios.total.toFixed(2)}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-emerald-600 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Total Adicionales</p>
+              <p className="text-2xl font-bold">${resumen.total.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground mt-1">{resumen.piezas.count + resumen.servicios.count} items</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -336,7 +328,7 @@ export function AdicionalesTab({
               </div>
 
               <SheetFooter>
-                <Button variant="outline" onClick={() => setSheetOpen(false)}>
+                <Button variant="outline" onClick={() => setSheetOpen(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
                   Cancelar
                 </Button>
                 <Button onClick={handleAgregar}>
@@ -483,7 +475,7 @@ export function AdicionalesTab({
                 setDeleteDialog({ open: false, extraId: null });
                 setMotivoEliminacion('');
               }}
-            >
+             className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
               Cancelar
             </Button>
             <Button

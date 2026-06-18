@@ -21,11 +21,13 @@ import {
   AlertCircle,
   Package,
   History,
-  Plus
+  Plus,
+  Wrench
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { Separator } from '../../ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
@@ -93,10 +95,7 @@ export function MantenimientoDetalle({
   if (!ot) {
     return (
       <div className="space-y-6">
-        <Button variant="ghost" onClick={onBack}>
-          <ArrowLeft className="size-4" />
-          Volver
-        </Button>
+        <PageNav />
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
           <AlertDescription>
@@ -183,24 +182,27 @@ export function MantenimientoDetalle({
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Button variant="ghost" size="sm" onClick={onBack} className="mb-2">
-            <ArrowLeft className="size-4" />
-            Volver a lista de OTs
-          </Button>
-          <div className="flex items-center gap-3">
-            <h2>{ot.numeroOT}</h2>
-            {getEstadoBadge(ot.estado)}
-            <Badge className={OT_TIPO_CONFIG[ot.tipo].className}>
-              {OT_TIPO_CONFIG[ot.tipo].label}
-            </Badge>
-            <Badge variant="outline" className={OT_CRITICIDAD_CONFIG[ot.criticidad].className}>
-              {OT_CRITICIDAD_CONFIG[ot.criticidad].label}
-            </Badge>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+            <Wrench className="size-6 text-black dark:text-primary" />
           </div>
-          <p className="text-muted-foreground mt-2">{ot.titulo}</p>
+          <div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-2xl font-semibold">{ot.numeroOT}</h2>
+              {getEstadoBadge(ot.estado)}
+              <Badge className={OT_TIPO_CONFIG[ot.tipo].className}>
+                {OT_TIPO_CONFIG[ot.tipo].label}
+              </Badge>
+              <Badge variant="outline" className={OT_CRITICIDAD_CONFIG[ot.criticidad].className}>
+                {OT_CRITICIDAD_CONFIG[ot.criticidad].label}
+              </Badge>
+            </div>
+            <p className="text-muted-foreground mt-1">{ot.titulo}</p>
+          </div>
         </div>
 
         {/* Acciones contextuales */}
@@ -635,7 +637,7 @@ export function MantenimientoDetalle({
               variant="outline" 
               onClick={() => setShowAnularDialog(false)}
               disabled={isAnulando}
-            >
+             className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
               Cancelar
             </Button>
             <Button 
@@ -672,7 +674,7 @@ export function MantenimientoDetalle({
               variant="outline"
               onClick={() => { setShowCerrarDialog(false); setNotasCierre(''); }}
               disabled={isCerrando}
-            >
+             className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
               Cancelar
             </Button>
             <Button

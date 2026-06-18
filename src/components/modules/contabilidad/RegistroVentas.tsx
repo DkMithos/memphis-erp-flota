@@ -90,7 +90,7 @@ export function RegistroVentas({ onNavigate }: Props) {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={exportarPLE} disabled={ventasPeriodo.length === 0} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={exportarPLE} disabled={ventasPeriodo.length === 0} className="gap-1.5 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-3.5" /> Exportar PLE
           </Button>
         </div>

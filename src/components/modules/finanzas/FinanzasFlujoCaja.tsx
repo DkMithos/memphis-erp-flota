@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import {
@@ -132,11 +133,13 @@ export function FinanzasFlujoCaja({ onNavigate }: FlujoCajaProps) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Wallet className="size-6 text-primary" />
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Wallet className="size-6 text-black dark:text-primary" />
           </div>
           <div>
             <h1 className="text-2xl font-bold">Flujo de Caja</h1>
@@ -158,53 +161,45 @@ export function FinanzasFlujoCaja({ onNavigate }: FlujoCajaProps) {
             <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>
-          <Button variant="outline" size="sm" onClick={exportCSV}>
+          <Button variant="outline" size="sm" onClick={exportCSV} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             Exportar
           </Button>
         </div>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — patrón Home */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
-                <ArrowUpRight className="size-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total Ingresos</p>
-                <p className="text-xl font-bold text-green-600">{formatMoney(totalIngresos)}</p>
-              </div>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <ArrowUpRight className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Ingresos</p>
+              <p className="text-2xl font-bold">{formatMoney(totalIngresos)}</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
-                <ArrowDownRight className="size-5 text-red-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total Egresos</p>
-                <p className="text-xl font-bold text-red-600">{formatMoney(totalEgresos)}</p>
-              </div>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-red-500 rounded-lg flex items-center justify-center shrink-0">
+              <ArrowDownRight className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Egresos</p>
+              <p className="text-2xl font-bold">{formatMoney(totalEgresos)}</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${balance >= 0 ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-orange-100 dark:bg-orange-900/30'}`}>
-                <DollarSign className={`size-5 ${balance >= 0 ? 'text-blue-600' : 'text-orange-600'}`} />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Balance Neto</p>
-                <p className={`text-xl font-bold ${balance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                  {formatMoney(balance)}
-                </p>
-              </div>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${balance >= 0 ? 'bg-blue-500' : 'bg-orange-500'}`}>
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Balance Neto</p>
+              <p className="text-2xl font-bold">{formatMoney(balance)}</p>
             </div>
           </CardContent>
         </Card>

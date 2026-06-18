@@ -8,6 +8,7 @@ import {
   DollarSign, Users, AlertTriangle, ChevronRight, Pencil, Eye,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../../ui/card';
+import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -415,7 +416,7 @@ function ProyectoDialog({ open, proyecto, onClose }: ProyectoDialogProps) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
           <Button onClick={handleSave} disabled={saving}>
             {saving ? 'Guardando...' : proyecto ? 'Actualizar' : 'Crear Proyecto'}
           </Button>
@@ -461,11 +462,18 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold">Proyectos</h2>
-          <p className="text-muted-foreground mt-1 text-sm">{proyectos.length} proyecto(s) registrados</p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <FolderKanban className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">Proyectos</h2>
+            <p className="text-muted-foreground mt-1 text-sm">{proyectos.length} proyecto(s) registrados</p>
+          </div>
         </div>
         <Button onClick={abrirNuevo}>
           <Plus className="size-4" />
@@ -476,7 +484,7 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
       {/* Filtros */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por nombre, código..."
             value={busqueda}

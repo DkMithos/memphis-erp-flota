@@ -22,6 +22,7 @@ import {
 import { MapaLeaflet, iconAzul, iconAmarillo, iconRojo, type MapaMarcador } from '../../ui/MapaLeaflet';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
 import {
@@ -316,13 +317,20 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Red de Talleres</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Talleres autorizados y especializados en la red de servicio
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Wrench className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Red de Talleres</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Talleres autorizados y especializados en la red de servicio
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex border rounded-lg overflow-hidden">
@@ -338,7 +346,7 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
             <Button
               variant={vistaActiva === 'mapa' ? 'default' : 'ghost'}
               size="sm"
-              className="rounded-none gap-1.5"
+              className="rounded-none gap-1.5 hover:!bg-black hover:!text-white"
               onClick={() => setVistaActiva('mapa')}
             >
               <Map className="size-4" />
@@ -356,8 +364,8 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Wrench className="size-5 text-blue-600" />
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <Wrench className="size-5 text-white" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Talleres activos</p>
@@ -383,7 +391,7 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por nombre, código..."
             className="pl-9"
@@ -788,7 +796,7 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogNuevo(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setDialogNuevo(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleGuardar} disabled={guardando}>
               {guardando ? 'Guardando...' : 'Crear Taller'}
             </Button>

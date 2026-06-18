@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Plus, Pencil, Trash2, Check, X, List, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Badge } from '../../ui/badge';
@@ -29,6 +30,30 @@ const TIPOS: TipoCatalogo[] = [
   'tipo_vehiculo', 'tipo_flota', 'tipo_contrato_flota',
   'tipo_doc_vehiculo', 'categoria_proveedor', 'categoria_equipo_bio',
   'modalidad_proyecto',
+];
+
+interface GrupoCatalogos {
+  label: string;
+  tipos: TipoCatalogo[];
+}
+
+const GRUPOS_CATALOGOS: GrupoCatalogos[] = [
+  {
+    label: 'Generales',
+    tipos: ['unidad_medida', 'moneda'],
+  },
+  {
+    label: 'Facturación y Pagos',
+    tipos: ['condicion_pago', 'forma_pago', 'tipo_comprobante', 'banco', 'zona_igv'],
+  },
+  {
+    label: 'Flota',
+    tipos: ['tipo_vehiculo', 'tipo_flota', 'tipo_contrato_flota', 'tipo_doc_vehiculo'],
+  },
+  {
+    label: 'Otros Módulos',
+    tipos: ['categoria_proveedor', 'categoria_equipo_bio', 'modalidad_proyecto'],
+  },
 ];
 
 interface ItemRowProps {
@@ -100,21 +125,21 @@ function ItemRow({ item, onUpdate, onDelete }: ItemRowProps) {
 
         {editing ? (
           <>
-            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-green-600" onClick={handleSave}>
+            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-green-600 hover:!bg-green-100 hover:!text-green-700 dark:hover:!bg-green-950/40 dark:hover:!text-green-400" onClick={handleSave}>
               <Check className="size-3.5" />
             </Button>
-            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditing(false); setLabel(item.label); }}>
+            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground" onClick={() => { setEditing(false); setLabel(item.label); }}>
               <X className="size-3.5" />
             </Button>
           </>
         ) : (
           <>
-            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100" onClick={() => setEditing(true)}>
+            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground" onClick={() => setEditing(true)}>
               <Pencil className="size-3.5" />
             </Button>
             <Button
               size="sm" variant="ghost"
-              className={`h-7 px-2 text-xs opacity-0 group-hover:opacity-100 ${item.activo ? 'text-muted-foreground' : 'text-primary'}`}
+              className={`h-7 px-2 text-xs opacity-0 group-hover:opacity-100 hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground ${item.activo ? 'text-muted-foreground' : 'text-primary'}`}
               onClick={() => onUpdate({ activo: !item.activo }).then(() => toast.success(item.activo ? 'Desactivado' : 'Activado'))}
               title={item.activo ? 'Desactivar' : 'Activar'}
             >
@@ -159,7 +184,7 @@ function NuevoItemForm({ tipo, ordenInicial, onCrear }: NuevoItemFormProps) {
   if (!show) {
     return (
       <div className="px-4 py-3 border-t">
-        <Button type="button" variant="outline" size="sm" onClick={() => setShow(true)}>
+        <Button type="button" variant="outline" size="sm" onClick={() => setShow(true)} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
           <Plus className="size-4" />
           Agregar item
         </Button>
@@ -204,7 +229,7 @@ function NuevoItemForm({ tipo, ordenInicial, onCrear }: NuevoItemFormProps) {
         <Button size="sm" onClick={handleCrear}>
           <Check className="size-4" />Crear
         </Button>
-        <Button size="sm" variant="outline" onClick={() => { setShow(false); setLabel(''); setKey(''); }}>
+        <Button size="sm" variant="outline" onClick={() => { setShow(false); setLabel(''); setKey(''); }} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
           <X className="size-4" />Cancelar
         </Button>
       </div>
@@ -219,20 +244,36 @@ function NuevoItemForm({ tipo, ordenInicial, onCrear }: NuevoItemFormProps) {
 export function GestionCatalogos() {
   const { items, getByTipo, crearItem, actualizarItem, eliminarItem } = useCatalogos();
   const [tipoActivo, setTipoActivo] = useState<TipoCatalogo>('unidad_medida');
+  const [grupoActivo, setGrupoActivo] = useState<string>(GRUPOS_CATALOGOS[0].label);
 
   const itemsDelTipo = getByTipo(tipoActivo, false); // incluir inactivos en admin
 
+  // Al cambiar de grupo, seleccionar el primer tipo del grupo
+  const handleCambioGrupo = (nuevoGrupo: string) => {
+    setGrupoActivo(nuevoGrupo);
+    const grupo = GRUPOS_CATALOGOS.find(g => g.label === nuevoGrupo);
+    if (grupo && grupo.tipos.length > 0) {
+      setTipoActivo(grupo.tipos[0]);
+    }
+  };
+
+  const grupoSeleccionado = GRUPOS_CATALOGOS.find(g => g.label === grupoActivo) ?? GRUPOS_CATALOGOS[0];
+
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div>
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <List className="size-5 text-primary" />
-          Catálogos Configurables
-        </h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          Gestiona las listas desplegables usadas en formularios del sistema (unidades, condiciones de pago, bancos, etc.)
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+          <List className="size-6 text-black dark:text-primary" />
+        </div>
+        <div>
+          <h3 className="text-2xl font-semibold">Catálogos Configurables</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            Gestiona las listas desplegables usadas en formularios del sistema (unidades, condiciones de pago, bancos, etc.)
+          </p>
+        </div>
       </div>
 
       {/* Selector de tipo — mobile friendly */}
@@ -249,20 +290,36 @@ export function GestionCatalogos() {
         </Select>
       </div>
 
-      {/* Tabs — desktop */}
-      <Tabs value={tipoActivo} onValueChange={v => setTipoActivo(v as TipoCatalogo)} className="hidden md:block">
-        <TabsList className="flex-wrap h-auto gap-1">
-          {TIPOS.map(t => {
-            const count = items.filter(i => i.tipo === t && i.activo).length;
-            return (
-              <TabsTrigger key={t} value={t} className="text-xs">
-                {TIPO_CATALOGO_LABELS[t]}
-                <Badge variant="secondary" className="ml-1.5 text-xs py-0 h-4 min-w-4">{count}</Badge>
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-      </Tabs>
+      {/* Selector de categoría + Tabs del grupo — desktop */}
+      <div className="hidden md:block space-y-3">
+        <div className="flex items-center gap-3">
+          <Label className="text-sm font-medium whitespace-nowrap">Categoría:</Label>
+          <Select value={grupoActivo} onValueChange={handleCambioGrupo}>
+            <SelectTrigger className="w-[280px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {GRUPOS_CATALOGOS.map(g => (
+                <SelectItem key={g.label} value={g.label}>{g.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Tabs value={tipoActivo} onValueChange={v => setTipoActivo(v as TipoCatalogo)}>
+          <TabsList className="flex-wrap h-auto gap-1 justify-start">
+            {grupoSeleccionado.tipos.map(t => {
+              const count = items.filter(i => i.tipo === t && i.activo).length;
+              return (
+                <TabsTrigger key={t} value={t} className="text-xs">
+                  {TIPO_CATALOGO_LABELS[t]}
+                  <Badge variant="secondary" className="ml-1.5 text-xs py-0 h-4 min-w-4">{count}</Badge>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </Tabs>
+      </div>
 
       {/* Lista de items */}
       <Card>

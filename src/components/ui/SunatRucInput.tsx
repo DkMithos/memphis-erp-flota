@@ -100,7 +100,7 @@ export function SunatRucInput({
             )}
           />
           {statusIcon && (
-            <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+            <div className="absolute right-2.5 top-1/2 -translate-y-[55%]">
               {statusIcon}
             </div>
           )}
@@ -111,7 +111,7 @@ export function SunatRucInput({
           size="sm"
           disabled={disabled || value.length !== 11 || status === 'loading'}
           onClick={() => buscar()}
-          className="shrink-0"
+          className="shrink-0 !border-slate-400 hover:!bg-black hover:!text-white hover:!border-black"
         >
           <Search className="size-4" />
           Buscar

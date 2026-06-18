@@ -3,17 +3,18 @@
  * Página de bienvenida mostrada al iniciar sesión.
  * Punto de entrada al sistema: saludo, accesos rápidos y actividad reciente.
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Truck, Activity, ShoppingCart, Package, DollarSign,
   FolderKanban, Users, BarChart3, ArrowRight, Stethoscope,
-  TrendingUp, Bell, CheckCircle2, Clock, AlertTriangle
+  TrendingUp, Bell, CheckCircle2, Clock, AlertTriangle, ChevronRight
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { useAuth } from '../../auth/AuthProvider';
 import { MemphisIconSVG, PLATFORM } from '../../lib/config/branding';
+import { useDarkMode } from '../../hooks/useDarkMode';
 
 interface HomeWelcomeProps {
   onNavigate: (route: string) => void;
@@ -26,7 +27,7 @@ const QUICK_ACCESS = [
     desc: 'Vehículos y mantenimientos',
     icon: Truck,
     route: '/flota',
-    color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+    color: 'bg-blue-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors',
   },
   {
     id: 'biomedico',
@@ -34,7 +35,7 @@ const QUICK_ACCESS = [
     desc: 'Equipos y servicios',
     icon: Stethoscope,
     route: '/biomedico',
-    color: 'bg-green-500/10 text-green-600 dark:text-green-400',
+    color: 'bg-purple-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors',
   },
   {
     id: 'compras',
@@ -42,7 +43,7 @@ const QUICK_ACCESS = [
     desc: 'Órdenes y requerimientos',
     icon: ShoppingCart,
     route: '/compras',
-    color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+    color: 'bg-orange-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors',
   },
   {
     id: 'proveedores',
@@ -50,7 +51,7 @@ const QUICK_ACCESS = [
     desc: 'Directorio y evaluaciones',
     icon: Users,
     route: '/proveedores/directorio',
-    color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+    color: 'bg-emerald-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors',
   },
   {
     id: 'inventario',
@@ -58,7 +59,7 @@ const QUICK_ACCESS = [
     desc: 'Artículos y almacenes',
     icon: Package,
     route: '/inventario',
-    color: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+    color: 'bg-amber-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors',
   },
   {
     id: 'finanzas',
@@ -66,7 +67,7 @@ const QUICK_ACCESS = [
     desc: 'Transacciones y presupuestos',
     icon: DollarSign,
     route: '/finanzas',
-    color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    color: 'bg-green-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors',
   },
   {
     id: 'proyectos',
@@ -74,7 +75,7 @@ const QUICK_ACCESS = [
     desc: 'Gestión de proyectos',
     icon: FolderKanban,
     route: '/proyectos',
-    color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+    color: 'bg-indigo-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors',
   },
   {
     id: 'bi',
@@ -82,7 +83,7 @@ const QUICK_ACCESS = [
     desc: 'Análisis e indicadores',
     icon: BarChart3,
     route: '/bi',
-    color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+    color: 'bg-rose-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors',
   },
 ];
 
@@ -104,6 +105,8 @@ function getGreeting(): string {
 
 export function HomeWelcome({ onNavigate }: HomeWelcomeProps) {
   const { profile, tenantName } = useAuth();
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const isDark = useDarkMode();
 
   const firstName = useMemo(() => {
     const nombre = profile?.nombre ?? '';
@@ -136,25 +139,27 @@ export function HomeWelcome({ onNavigate }: HomeWelcomeProps) {
             </p>
           </div>
 
-          {/* Ícono decorativo */}
-          <div className="hidden md:flex size-20 shrink-0 items-center justify-center opacity-20">
-            <MemphisIconSVG className="size-20" />
-          </div>
         </div>
 
         {/* Stats rápidos */}
-        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Módulos activos', value: '10', icon: Activity, color: 'text-blue-500' },
-            { label: 'Alertas pendientes', value: '3', icon: Bell, color: 'text-amber-500' },
-            { label: 'Tareas del día', value: '5', icon: CheckCircle2, color: 'text-green-500' },
-            { label: 'Tendencia', value: '+12%', icon: TrendingUp, color: 'text-emerald-500' },
+            { label: 'Módulos activos', value: '10', icon: Activity, color: 'text-white', bg: 'bg-blue-500', accent: 'border-l-blue-500' },
+            { label: 'Alertas pendientes', value: '3', icon: Bell, color: 'text-white', bg: 'bg-red-500', accent: 'border-l-red-500' },
+            { label: 'Tareas del día', value: '5', icon: CheckCircle2, color: 'text-white', bg: 'bg-green-500', accent: 'border-l-green-500' },
+            { label: 'Tendencia', value: '+12%', icon: TrendingUp, color: 'text-white', bg: 'bg-emerald-500', accent: 'border-l-emerald-500' },
           ].map((stat) => (
-            <div key={stat.label} className="bg-background/60 rounded-xl p-3 border border-border/50 flex items-center gap-3">
-              <stat.icon className={`size-5 shrink-0 ${stat.color}`} />
-              <div>
-                <p className="text-lg font-bold leading-none">{stat.value}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+            <div
+              key={stat.label}
+              className="bg-card rounded-xl p-4 shadow-sm flex items-center gap-3"
+              style={{ border: '1px solid #64748B' }}
+            >
+              <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${stat.bg}`}>
+                <stat.icon className={`size-5 ${stat.color}`} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-2xl font-bold leading-none">{stat.value}</p>
+                <p className="text-xs text-muted-foreground mt-1 truncate">{stat.label}</p>
               </div>
             </div>
           ))}
@@ -165,32 +170,57 @@ export function HomeWelcome({ onNavigate }: HomeWelcomeProps) {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold">Accesos Rápidos</h2>
-          <Button variant="ghost" size="sm" onClick={() => onNavigate('/dashboard')}>
+          <Button size="sm" onClick={() => onNavigate('/dashboard')} className="bg-[#f0c000] text-black hover:bg-[#d4a800]">
             Ver dashboard <ArrowRight className="size-3.5 ml-1" />
           </Button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {QUICK_ACCESS.map((item) => (
+          {QUICK_ACCESS.map((item) => {
+            const accentColor = isDark ? '#f0c000' : '#000000';
+            const isHovered = hoveredId === item.id;
+            const bgColor = isDark
+              ? undefined  // dark mode uses Tailwind classes
+              : (isHovered ? '#94A3B8' : '#E2E8F0');
+            return (
             <button
               key={item.id}
               onClick={() => onNavigate(item.route)}
-              className="group text-left rounded-xl border border-border bg-card p-4 hover:border-primary/40 hover:shadow-sm hover:bg-accent/30 transition-all duration-150"
+              onMouseEnter={() => setHoveredId(item.id)}
+              onMouseLeave={() => setHoveredId(null)}
+              className="group text-left rounded-xl dark:bg-card p-4 hover:shadow-md dark:hover:bg-accent/30 transition-all relative"
+              style={{
+                borderTopWidth: (isDark && !isHovered) ? '0' : '1px',
+                borderTopStyle: 'solid',
+                borderTopColor: isHovered ? accentColor : '#64748B',
+                borderRightWidth: (isDark && !isHovered) ? '0' : '1px',
+                borderRightStyle: 'solid',
+                borderRightColor: isHovered ? accentColor : '#64748B',
+                borderBottomWidth: (isDark && !isHovered) ? '0' : '1px',
+                borderBottomStyle: 'solid',
+                borderBottomColor: isHovered ? accentColor : '#64748B',
+                borderLeftWidth: '4px',
+                borderLeftStyle: 'solid',
+                borderLeftColor: accentColor,
+                backgroundColor: bgColor,
+              }}
             >
+              <ChevronRight className="size-4 absolute top-3 right-3" style={{ color: accentColor }} />
               <div className={`size-10 rounded-lg flex items-center justify-center mb-3 ${item.color}`}>
                 <item.icon className="size-5" />
               </div>
-              <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+              <p className="text-sm font-medium text-foreground transition-colors">
                 {item.label}
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.desc}</p>
+              <p className="text-xs text-muted-foreground group-hover:text-foreground mt-0.5 line-clamp-1 transition-colors">{item.desc}</p>
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {/* ── Actividad reciente ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        <Card className="bg-card shadow-sm" style={{ border: '1px solid #64748B' }}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Activity className="size-4 text-primary" />
@@ -214,7 +244,7 @@ export function HomeWelcome({ onNavigate }: HomeWelcomeProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card shadow-sm" style={{ border: '1px solid #64748B' }}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <TrendingUp className="size-4 text-primary" />
@@ -229,17 +259,12 @@ export function HomeWelcome({ onNavigate }: HomeWelcomeProps) {
               { label: 'Notificaciones', estado: 'En configuración', ok: false },
               { label: 'Backup automático', estado: 'Programado', ok: true },
             ].map((s) => (
-              <div key={s.label} className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{s.label}</span>
-                <Badge
-                  variant="secondary"
-                  className={s.ok
-                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                  }
-                >
-                  {s.estado}
-                </Badge>
+              <div key={s.label} className="grid grid-cols-[1fr_160px] gap-3 items-center text-sm">
+                <span className="text-foreground">{s.label}</span>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-block size-2 rounded-full shrink-0 ${s.ok ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                  <span className="text-foreground font-medium">{s.estado}</span>
+                </div>
               </div>
             ))}
           </CardContent>

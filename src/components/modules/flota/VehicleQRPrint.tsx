@@ -7,6 +7,7 @@
 
 import { QrCode, Printer, ArrowLeft } from 'lucide-react';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { QRCodeWrapper } from '../../shared/QRCodeWrapper';
 import { PrintPageShell } from '../../layout/PrintPageShell';
 import { useVehiculos } from '../../../lib/flota/vehiculos-store';
@@ -49,13 +50,7 @@ export function VehicleQRPrint({ vehiculoId, onNavigate }: VehicleQRPrintProps) 
       forcedWhiteBackground={true}
       actions={
         <>
-          <Button 
-            variant="outline" 
-            onClick={() => onNavigate(`/flota/vehiculos/${vehiculoId}`)}
-          >
-            <ArrowLeft className="size-4" />
-            Volver
-          </Button>
+          <PageNav />
           <Button onClick={handlePrint}>
             <Printer className="size-4" />
             Imprimir

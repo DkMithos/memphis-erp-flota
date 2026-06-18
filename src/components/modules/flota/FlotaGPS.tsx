@@ -27,6 +27,7 @@ import {
   List,
   Map,
 } from 'lucide-react';
+import { PageNav } from '../../shared/PageNav';
 import { toast } from 'sonner';
 import { MapaLeaflet, iconVerde, iconAmarillo, iconRojo, type MapaMarcador } from '../../ui/MapaLeaflet';
 
@@ -339,16 +340,23 @@ export function FlotaGPS({ onNavigate: _onNavigate }: FlotaGPSProps) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Monitoreo GPS</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {ultimasPosiciones.length} vehículo{ultimasPosiciones.length !== 1 ? 's' : ''} con datos GPS
-            {lastSync && (
-              <span className="ml-2 text-xs">· Último sync: {formatLastSync(lastSync)}</span>
-            )}
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Navigation className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Monitoreo GPS</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {ultimasPosiciones.length} vehículo{ultimasPosiciones.length !== 1 ? 's' : ''} con datos GPS
+              {lastSync && (
+                <span className="ml-2 text-xs">· Último sync: {formatLastSync(lastSync)}</span>
+              )}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {/* Toggle vista */}
@@ -365,7 +373,7 @@ export function FlotaGPS({ onNavigate: _onNavigate }: FlotaGPSProps) {
             <Button
               variant={vistaActiva === 'lista' ? 'default' : 'ghost'}
               size="sm"
-              className="rounded-none gap-1.5"
+              className={`rounded-none gap-1.5 ${vistaActiva === 'lista' ? '' : 'hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground'}`}
               onClick={() => setVistaActiva('lista')}
             >
               <List className="size-4" />
@@ -384,8 +392,8 @@ export function FlotaGPS({ onNavigate: _onNavigate }: FlotaGPSProps) {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="size-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <Wifi className="size-5 text-green-600 dark:text-green-400" />
+              <div className="size-10 rounded-lg bg-green-500 dark:bg-green-900/30 flex items-center justify-center">
+                <Wifi className="size-5 text-white dark:text-green-400" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{conSenal}</p>
@@ -398,8 +406,8 @@ export function FlotaGPS({ onNavigate: _onNavigate }: FlotaGPSProps) {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="size-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                <Car className="size-5 text-blue-600 dark:text-blue-400" />
+              <div className="size-10 rounded-lg bg-blue-500 dark:bg-blue-900/30 flex items-center justify-center">
+                <Car className="size-5 text-white dark:text-blue-400" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{enMovimiento}</p>
@@ -412,8 +420,8 @@ export function FlotaGPS({ onNavigate: _onNavigate }: FlotaGPSProps) {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="size-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
-                <Gauge className="size-5 text-yellow-600 dark:text-yellow-400" />
+              <div className="size-10 rounded-lg bg-amber-500 dark:bg-yellow-900/30 flex items-center justify-center">
+                <Gauge className="size-5 text-white dark:text-yellow-400" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{detenidosEncendidos}</p>
@@ -426,8 +434,8 @@ export function FlotaGPS({ onNavigate: _onNavigate }: FlotaGPSProps) {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="size-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <WifiOff className="size-5 text-red-600 dark:text-red-400" />
+              <div className="size-10 rounded-lg bg-red-500 dark:bg-red-900/30 flex items-center justify-center">
+                <WifiOff className="size-5 text-white dark:text-red-400" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{sinSenal}</p>

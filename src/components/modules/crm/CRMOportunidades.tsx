@@ -4,6 +4,7 @@
 
 import { useState, useMemo } from 'react';
 import { Plus, Search, Eye, Pencil, ArrowRight, TrendingUp, DollarSign, Target, Trophy } from 'lucide-react';
+import { PageNav } from '../../shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -189,10 +190,17 @@ export function CRMOportunidades({ onNavigate }: Props) {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">Oportunidades</h2>
-          <p className="text-sm text-muted-foreground mt-1">Pipeline de ventas y seguimiento de oportunidades</p>
+      <PageNav />
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Target className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold">Oportunidades</h2>
+            <p className="text-sm text-muted-foreground mt-1">Pipeline de ventas y seguimiento de oportunidades</p>
+          </div>
         </div>
         <Button onClick={openCrear}>
           <Plus className="size-4" /> Nueva Oportunidad
@@ -202,20 +210,21 @@ export function CRMOportunidades({ onNavigate }: Props) {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Oportunidades Abiertas', value: abiertas.length, icon: Target, sub: 'en pipeline' },
-          { label: 'Valor Pipeline', value: formatMontoBase(valorPipeline), icon: DollarSign, sub: 'monto en PEN' },
-          { label: 'Probabilidad Promedio', value: `${promProb}%`, icon: TrendingUp, sub: 'promedio abiertas' },
-          { label: 'Ganadas este Mes', value: ganadasEsteMes, icon: Trophy, sub: new Date().toLocaleString('es-PE', { month: 'long' }) },
+          { label: 'Oportunidades Abiertas', value: abiertas.length, icon: Target, sub: 'en pipeline', box: 'bg-blue-500' },
+          { label: 'Valor Pipeline', value: formatMontoBase(valorPipeline), icon: DollarSign, sub: 'monto en PEN', box: 'bg-emerald-600' },
+          { label: 'Probabilidad Promedio', value: `${promProb}%`, icon: TrendingUp, sub: 'promedio abiertas', box: 'bg-indigo-500' },
+          { label: 'Ganadas este Mes', value: ganadasEsteMes, icon: Trophy, sub: new Date().toLocaleString('es-PE', { month: 'long' }), box: 'bg-green-500' },
         ].map(k => (
           <Card key={k.label}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-                <k.icon className="size-3.5" />{k.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{k.value}</div>
-              <p className="text-xs text-muted-foreground mt-1">{k.sub}</p>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${k.box}`}>
+                <k.icon className="size-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{k.label}</p>
+                <p className="text-2xl font-bold">{k.value}</p>
+                <p className="text-xs text-muted-foreground mt-1">{k.sub}</p>
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -224,7 +233,7 @@ export function CRMOportunidades({ onNavigate }: Props) {
       {/* Filtros */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
           <Input placeholder="Buscar..." className="pl-8" value={busqueda} onChange={e => setBusqueda(e.target.value)} />
         </div>
         <Select value={filtroEtapa} onValueChange={setFiltroEtapa}>
@@ -402,7 +411,7 @@ export function CRMOportunidades({ onNavigate }: Props) {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleSubmit} disabled={saving}>
               {saving ? 'Guardando...' : dialogMode === 'crear' ? 'Crear Oportunidad' : 'Guardar Cambios'}
             </Button>

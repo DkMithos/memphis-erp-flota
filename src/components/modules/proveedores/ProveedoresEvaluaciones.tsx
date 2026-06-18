@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
 import { Progress } from '../../ui/progress';
@@ -263,13 +264,20 @@ export function ProveedoresEvaluaciones({ onNavigate: _onNavigate }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Evaluaciones de Proveedores</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Calificación periódica de desempeño por criterios
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Star className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Evaluaciones de Proveedores</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Calificación periódica de desempeño por criterios
+            </p>
+          </div>
         </div>
         <Button onClick={() => setDialogNueva(true)}>
           <Plus className="size-4" />
@@ -281,8 +289,8 @@ export function ProveedoresEvaluaciones({ onNavigate: _onNavigate }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Star className="size-5 text-blue-600" />
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <Star className="size-5 text-white" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Total evaluaciones</p>
@@ -292,8 +300,8 @@ export function ProveedoresEvaluaciones({ onNavigate: _onNavigate }: Props) {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-2 bg-emerald-100 rounded-lg">
-              <TrendingUp className="size-5 text-emerald-600" />
+            <div className="size-10 bg-emerald-500 rounded-lg flex items-center justify-center shrink-0">
+              <TrendingUp className="size-5 text-white" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Puntaje promedio</p>
@@ -305,8 +313,8 @@ export function ProveedoresEvaluaciones({ onNavigate: _onNavigate }: Props) {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Award className="size-5 text-green-600" />
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <Award className="size-5 text-white" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Excelente / Bueno</p>
@@ -319,7 +327,7 @@ export function ProveedoresEvaluaciones({ onNavigate: _onNavigate }: Props) {
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por proveedor, código..."
             className="pl-9"
@@ -561,7 +569,7 @@ export function ProveedoresEvaluaciones({ onNavigate: _onNavigate }: Props) {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogNueva(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setDialogNueva(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleGuardar} disabled={guardando}>
               {guardando ? 'Guardando...' : 'Crear Evaluación'}
             </Button>
@@ -701,7 +709,7 @@ export function ProveedoresEvaluaciones({ onNavigate: _onNavigate }: Props) {
               />
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setDialogRechazar(null); setMotivoRechazo(''); }}>
+              <Button variant="outline" onClick={() => { setDialogRechazar(null); setMotivoRechazo(''); }} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
                 Cancelar
               </Button>
               <Button variant="destructive" onClick={handleRechazar}>Confirmar rechazo</Button>

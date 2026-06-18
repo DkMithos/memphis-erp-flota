@@ -401,7 +401,7 @@ function ValorizacionDialog({ open, valorizacion, proyectoDbId, tenantId, fases,
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
           <Button onClick={handleSave} disabled={saving}>
             {saving ? 'Guardando...' : valorizacion ? 'Actualizar' : 'Crear'}
           </Button>

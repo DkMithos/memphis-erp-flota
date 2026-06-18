@@ -102,7 +102,7 @@ export function GestionModulos() {
       </div>
 
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={handleReset}>Restablecer</Button>
+        <Button variant="outline" onClick={handleReset} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Restablecer</Button>
         <Button onClick={handleSave} disabled={saving}>
           {saving ? 'Guardando...' : 'Guardar cambios'}
         </Button>

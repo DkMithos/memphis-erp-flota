@@ -100,7 +100,7 @@ export function AuditLogs() {
         <p className="text-sm text-muted-foreground">
           Historial de las últimas 200 acciones realizadas en el sistema.
         </p>
-        <Button variant="outline" size="sm" onClick={fetchLogs} className="gap-2">
+        <Button variant="outline" size="sm" onClick={fetchLogs} className="gap-2 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
           <RefreshCw className="size-3.5" /> Actualizar
         </Button>
       </div>
@@ -108,7 +108,7 @@ export function AuditLogs() {
       {/* Filtros */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar usuario, entidad..." className="pl-9" />
         </div>
         <Select value={filtroAccion} onValueChange={setFiltroAccion}>

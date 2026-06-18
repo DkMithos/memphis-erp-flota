@@ -123,8 +123,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         { label: t('nav.sub.directorio'), href: '/proveedores/directorio' },
         { label: t('nav.sub.evaluaciones'), href: '/proveedores/evaluaciones' },
         { label: t('nav.sub.contratos'), href: '/proveedores/contratos' },
-        { label: t('nav.sub.talleres'), href: '/proveedores/talleres' },
-        { label: t('nav.sub.categorias'), href: '/proveedores/categorias' }
+        { label: t('nav.sub.talleres'), href: '/proveedores/talleres' }
       ]
     },
     {
@@ -324,9 +323,10 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
     );
   };
 
-  const getSubItemIcon = (href: string) => {
-    // Dashboard (genérico)
+  const getSubItemIcon = (href: string, label?: string) => {
+    // Dashboard (genérico) — por href o por label
     if (href.includes('dashboard')) return <LayoutDashboard className="size-4" />;
+    if (label && label.toLowerCase() === 'dashboard') return <LayoutDashboard className="size-4" />;
     // Flota
     if (href.includes('vehiculos')) return <Car className="size-4" />;
     if (href.includes('mantenimientos') && !href.includes('reporte')) return <Wrench className="size-4" />;
@@ -407,7 +407,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
   };
 
   return (
-    <aside className="w-64 bg-card border-r border-border h-screen flex flex-col lg:fixed lg:left-0 lg:top-0 z-40">
+    <aside className="dark w-64 bg-[#1A1A1A] border-r border-border h-screen flex flex-col lg:fixed lg:left-0 lg:top-0 z-40">
       {/* Logo — branding por TENANT (nombre e imagen del cliente) — click = home */}
       <div className="h-16 flex items-center px-4 border-b border-border shrink-0 cursor-pointer" onClick={() => onNavigate('/home')}>
         <div className="flex items-center gap-3 min-w-0">
@@ -496,7 +496,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
                       }`}
                       onClick={() => onModuleChange(item.id, subItem.href)}
                     >
-                      {getSubItemIcon(subItem.href ?? '')}
+                      {getSubItemIcon(subItem.href ?? '', subItem.label)}
                       <span className="ml-2">{subItem.label}</span>
                     </Button>
                   ))}

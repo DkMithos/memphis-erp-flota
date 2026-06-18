@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -12,7 +13,7 @@ import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
-import { AlertCircle, Plus, Shield } from 'lucide-react';
+import { AlertCircle, Plus, Shield, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase/client';
 import { useAuth } from '../../../auth/AuthProvider';
 import { toast } from 'sonner';
@@ -130,10 +131,12 @@ export function ProyectosRiesgos({ onNavigate }: RiesgosProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <PageNav />
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Shield className="size-6 text-primary" />
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Shield className="size-6 text-black dark:text-primary" />
           </div>
           <div>
             <h1 className="text-2xl font-bold">Gestión de Riesgos</h1>
@@ -146,19 +149,52 @@ export function ProyectosRiesgos({ onNavigate }: RiesgosProps) {
         </Button>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — patrón Home */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Activos', value: activos, color: 'text-foreground' },
-          { label: 'Críticos', value: criticos, color: 'text-red-600' },
-          { label: 'Altos', value: altos, color: 'text-orange-600' },
-          { label: 'Mitigados', value: riesgos.filter(r => r.estado === 'mitigado').length, color: 'text-green-600' },
-        ].map(k => (
-          <Card key={k.label}><CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">{k.label}</p>
-            <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
-          </CardContent></Card>
-        ))}
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <Shield className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Activos</p>
+              <p className="text-2xl font-bold">{activos}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${criticos > 0 ? 'bg-red-500' : 'bg-slate-400'}`}>
+              <AlertCircle className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Críticos</p>
+              <p className="text-2xl font-bold">{criticos}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${altos > 0 ? 'bg-orange-500' : 'bg-slate-400'}`}>
+              <AlertTriangle className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Altos</p>
+              <p className="text-2xl font-bold">{altos}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <CheckCircle2 className="size-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Mitigados</p>
+              <p className="text-2xl font-bold">{riesgos.filter(r => r.estado === 'mitigado').length}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -275,7 +311,7 @@ export function ProyectosRiesgos({ onNavigate }: RiesgosProps) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setShowDialog(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={agregarRiesgo} disabled={saving}>
               {saving ? 'Guardando...' : 'Registrar Riesgo'}
             </Button>

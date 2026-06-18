@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, X, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, X, AlertTriangle, Package } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
@@ -163,14 +164,21 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2>Nueva Recepción</h2>
-          <p className="text-muted-foreground mt-1">
-            Registrar recepción para orden {orden.id}
-          </p>
+      <PageNav onBack={onCancel} />
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+            <Package className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">Nueva Recepción</h2>
+            <p className="text-muted-foreground mt-1">
+              Registrar recepción para orden {orden.id}
+            </p>
+          </div>
         </div>
-        <Button variant="ghost" onClick={onCancel}>
+        <Button variant="ghost" onClick={onCancel} className="border border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
           <X className="size-4" />
           Cancelar
         </Button>
@@ -306,7 +314,7 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
 
       {/* Acciones */}
       <div className="flex items-center justify-end gap-3">
-        <Button variant="outline" onClick={onCancel}>
+        <Button variant="outline" onClick={onCancel} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
           <ArrowLeft className="size-4" />
           Cancelar
         </Button>

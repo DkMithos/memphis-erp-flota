@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, Save, X, Plus, Trash2, AlertTriangle, FileText, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Save, X, Plus, Trash2, AlertTriangle, FileText, ChevronDown, ShoppingBag } from 'lucide-react';
+import { PageNav } from '../../shared/PageNav';
 import { useCatalogos } from '../../../lib/shared/catalogos-store';
 import { loadFlujoAprobacion, determinarNivelAprobacion, nivelAprobacionColor } from '../../../lib/compras/approval-flow';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -242,15 +243,22 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
 
   return (
     <div className="space-y-6">
+      <PageNav onBack={onCancel} />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2>{isEditing ? `Editar Orden ${ordenExistente?.id}` : 'Nueva Orden de Compra/Servicio'}</h2>
-          <p className="text-muted-foreground mt-1">
-            {isEditing ? 'Modificar datos de la orden' : 'Crear orden desde cotización aprobada'}
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+            <ShoppingBag className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">{isEditing ? `Editar Orden ${ordenExistente?.id}` : 'Nueva Orden de Compra/Servicio'}</h2>
+            <p className="text-muted-foreground mt-1">
+              {isEditing ? 'Modificar datos de la orden' : 'Crear orden desde cotización aprobada'}
+            </p>
+          </div>
         </div>
-        <Button variant="ghost" onClick={onCancel}>
+        <Button variant="ghost" onClick={onCancel} className="border border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
           <X className="size-4" />
           Cancelar
         </Button>
@@ -507,7 +515,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
 
       {/* Acciones */}
       <div className="flex items-center justify-end gap-3">
-        <Button variant="outline" onClick={onCancel}>
+        <Button variant="outline" onClick={onCancel} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
           <ArrowLeft className="size-4" />
           Cancelar
         </Button>

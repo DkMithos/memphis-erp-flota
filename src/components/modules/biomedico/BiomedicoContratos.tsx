@@ -10,6 +10,7 @@ import {
   XCircle, Clock, Filter, ChevronDown, Shield, Zap,
   Edit, Trash2, RefreshCw
 } from 'lucide-react';
+import { PageNav } from '../../shared/PageNav';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
@@ -137,14 +138,20 @@ export function BiomedicoContratos({ onNavigate }: BiomedicoContratosProps) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Contratos de Servicio</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Garantías, SLA y contratos de mantenimiento de equipos biomédicos
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <FileText className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Contratos de Servicio</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Garantías, SLA y contratos de mantenimiento de equipos biomédicos
+            </p>
+          </div>
         </div>
         <Button onClick={() => onNavigate('/biomedico/contratos/nuevo')} className="gap-2 shrink-0">
           <Plus className="size-4" />
@@ -159,39 +166,35 @@ export function BiomedicoContratos({ onNavigate }: BiomedicoContratosProps) {
             label: 'Contratos activos',
             value: kpis.activos,
             icon: CheckCircle2,
-            color: 'text-green-500',
-            bg: 'bg-green-500/10',
+            box: 'bg-green-500',
           },
           {
             label: 'Por vencer (≤30d)',
             value: kpis.porVencer,
             icon: AlertTriangle,
-            color: kpis.porVencer > 0 ? 'text-amber-500' : 'text-muted-foreground',
-            bg: kpis.porVencer > 0 ? 'bg-amber-500/10' : 'bg-muted/50',
+            box: kpis.porVencer > 0 ? 'bg-amber-500' : 'bg-slate-400',
           },
           {
             label: 'Vencidos',
             value: kpis.vencidos,
             icon: XCircle,
-            color: kpis.vencidos > 0 ? 'text-red-500' : 'text-muted-foreground',
-            bg: kpis.vencidos > 0 ? 'bg-red-500/10' : 'bg-muted/50',
+            box: kpis.vencidos > 0 ? 'bg-red-500' : 'bg-slate-400',
           },
           {
             label: 'Valor total activos',
             value: formatMoneda(kpis.valorTotal, 'PEN'),
             icon: Shield,
-            color: 'text-blue-500',
-            bg: 'bg-blue-500/10',
+            box: 'bg-blue-500',
           },
         ].map(k => (
           <Card key={k.label} className="border-border/60">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${k.bg}`}>
-                <k.icon className={`size-5 ${k.color}`} />
+              <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${k.box}`}>
+                <k.icon className="size-5 text-white" />
               </div>
-              <div>
-                <p className="text-xl font-bold leading-none">{loading ? '—' : k.value}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{k.label}</p>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{k.label}</p>
+                <p className="text-xl font-bold leading-none mt-0.5">{loading ? '—' : k.value}</p>
               </div>
             </CardContent>
           </Card>
@@ -203,7 +206,7 @@ export function BiomedicoContratos({ onNavigate }: BiomedicoContratosProps) {
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por N°, equipo o proveedor..."
                 className="pl-9"
@@ -213,7 +216,7 @@ export function BiomedicoContratos({ onNavigate }: BiomedicoContratosProps) {
             </div>
             <div className="flex gap-2">
               <div className="relative">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+                <Filter className="absolute left-3 top-1/2 -translate-y-[55%] size-3.5 text-muted-foreground pointer-events-none" />
                 <select
                   className="pl-8 pr-8 py-2 text-sm rounded-md border border-input bg-background appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
                   value={filtroTipo}
@@ -221,7 +224,7 @@ export function BiomedicoContratos({ onNavigate }: BiomedicoContratosProps) {
                 >
                   {TIPOS_FILTRO.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-[55%] size-3.5 text-muted-foreground pointer-events-none" />
               </div>
               <div className="relative">
                 <select
@@ -231,7 +234,7 @@ export function BiomedicoContratos({ onNavigate }: BiomedicoContratosProps) {
                 >
                   {ESTADOS_FILTRO.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-[55%] size-3.5 text-muted-foreground pointer-events-none" />
               </div>
             </div>
           </div>
@@ -378,7 +381,7 @@ export function BiomedicoContratos({ onNavigate }: BiomedicoContratosProps) {
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" size="sm" onClick={() => setConfirmDelete(null)}>Cancelar</Button>
+                <Button variant="outline" size="sm" onClick={() => setConfirmDelete(null)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
                 <Button variant="destructive" size="sm" onClick={() => handleDelete(confirmDelete)}>
                   Eliminar
                 </Button>

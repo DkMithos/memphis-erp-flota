@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, ArrowLeftRight } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
 import { Card, CardContent } from '../../ui/card';
+import { PageNav } from '../../shared/PageNav';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../../ui/table';
@@ -167,11 +168,18 @@ export function InventarioMovimientos({ onNavigate: _onNavigate }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-2xl font-semibold">Movimientos de Inventario</h2>
-          <p className="text-muted-foreground mt-1">{movimientos.length} movimientos registrados</p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <ArrowLeftRight className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">Movimientos de Inventario</h2>
+            <p className="text-muted-foreground mt-1">{movimientos.length} movimientos registrados</p>
+          </div>
         </div>
         <Button onClick={() => { setForm(FORM_EMPTY); setDialogNuevo(true); }}>
           <Plus className="size-4" />
@@ -184,7 +192,7 @@ export function InventarioMovimientos({ onNavigate: _onNavigate }: Props) {
         <CardContent className="pt-5 pb-4">
           <div className="flex flex-wrap gap-3">
             <div className="flex-1 min-w-[200px] relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar artículo o número..."
                 value={busqueda}
@@ -367,7 +375,7 @@ export function InventarioMovimientos({ onNavigate: _onNavigate }: Props) {
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setDialogNuevo(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setDialogNuevo(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button onClick={handleGuardar} disabled={guardando}>
               {guardando ? 'Registrando...' : 'Registrar Movimiento'}
             </Button>

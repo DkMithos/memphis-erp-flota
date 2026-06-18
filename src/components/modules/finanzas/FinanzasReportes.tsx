@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
@@ -12,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { Progress } from '../../ui/progress';
 import {
   BarChart3, Download, TrendingUp, TrendingDown, DollarSign, FileBarChart,
-  PieChart, CheckCircle, AlertCircle
+  PieChart, CheckCircle, AlertCircle, Percent
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase/client';
 import { convertirAMonedaBase, formatMontoBase } from '../../../lib/shared/currency-utils';
@@ -171,11 +172,13 @@ export function FinanzasReportes({ onNavigate }: ReportesProps) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <FileBarChart className="size-6 text-primary" />
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <FileBarChart className="size-6 text-black dark:text-primary" />
           </div>
           <div>
             <h1 className="text-2xl font-bold">Reportes Financieros</h1>
@@ -193,11 +196,11 @@ export function FinanzasReportes({ onNavigate }: ReportesProps) {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={exportCSV}>
+          <Button variant="outline" size="sm" onClick={exportCSV} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             CSV
           </Button>
-          <Button variant="outline" size="sm" onClick={exportPDF}>
+          <Button variant="outline" size="sm" onClick={exportPDF} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             PDF
           </Button>
@@ -214,21 +217,50 @@ export function FinanzasReportes({ onNavigate }: ReportesProps) {
         {/* P&G */}
         <TabsContent value="pyg" className="space-y-4 pt-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Ingresos', value: resumen.totalIngresos, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
-              { label: 'Egresos', value: resumen.totalEgresos, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20' },
-              { label: 'Utilidad Neta', value: resumen.utilidad, color: resumen.utilidad >= 0 ? 'text-blue-600' : 'text-orange-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-              { label: 'Margen', value: null, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20', suffix: `${resumen.margenUtilidad.toFixed(1)}%` },
-            ].map((kpi) => (
-              <Card key={kpi.label} className="border-0 shadow-sm">
-                <CardContent className={`p-4 rounded-lg ${kpi.bg}`}>
-                  <p className="text-xs text-muted-foreground mb-1">{kpi.label} {anio}</p>
-                  <p className={`text-lg font-bold ${kpi.color}`}>
-                    {kpi.suffix ?? formatMoney(kpi.value!)}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+            <Card>
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+                  <TrendingUp className="size-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Ingresos {anio}</p>
+                  <p className="text-2xl font-bold">{formatMoney(resumen.totalIngresos)}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="size-10 bg-red-500 rounded-lg flex items-center justify-center shrink-0">
+                  <TrendingDown className="size-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Egresos {anio}</p>
+                  <p className="text-2xl font-bold">{formatMoney(resumen.totalEgresos)}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${resumen.utilidad >= 0 ? 'bg-blue-500' : 'bg-orange-500'}`}>
+                  <DollarSign className="size-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Utilidad Neta {anio}</p>
+                  <p className="text-2xl font-bold">{formatMoney(resumen.utilidad)}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="size-10 bg-purple-500 rounded-lg flex items-center justify-center shrink-0">
+                  <Percent className="size-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Margen {anio}</p>
+                  <p className="text-2xl font-bold">{resumen.margenUtilidad.toFixed(1)}%</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <Card>

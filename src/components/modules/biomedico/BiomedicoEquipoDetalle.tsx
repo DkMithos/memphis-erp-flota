@@ -18,11 +18,13 @@ import {
   Clock,
   CheckCircle,
   Download,
-  QrCode
+  QrCode,
+  Stethoscope
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Separator } from '../../ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import {
@@ -71,16 +73,13 @@ export function BiomedicoEquipoDetalle({
   if (!equipo) {
     return (
       <div className="space-y-6">
+        <PageNav onBack={onBack} />
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
           <AlertDescription>
             No se encontró el equipo con código {codigoEquipo}
           </AlertDescription>
         </Alert>
-        <Button variant="outline" onClick={onBack}>
-          <ArrowLeft className="size-4" />
-          Volver
-        </Button>
       </div>
     );
   }
@@ -102,15 +101,16 @@ export function BiomedicoEquipoDetalle({
 
   return (
     <div className="space-y-6">
+      <PageNav onBack={onBack} />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={onBack}>
-            <ArrowLeft className="size-4" />
-            Volver
-          </Button>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+            <Stethoscope className="size-6 text-black dark:text-primary" />
+          </div>
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-bold">{equipo.nombre}</h1>
               <Badge variant={estadoConfig.variant} className={estadoConfig.className}>
                 <EstadoIcon className="size-3" />
@@ -123,7 +123,7 @@ export function BiomedicoEquipoDetalle({
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             Exportar
           </Button>
@@ -428,27 +428,47 @@ export function BiomedicoEquipoDetalle({
         <TabsContent value="mantenimientos" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{mantStats.total}</div>
-                <div className="text-sm text-muted-foreground">Total Mantenimientos</div>
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+                  <Wrench className="size-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Total Mantenimientos</p>
+                  <p className="text-2xl font-bold">{mantStats.total}</p>
+                </div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-green-600">{mantStats.completados}</div>
-                <div className="text-sm text-muted-foreground">Completados</div>
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+                  <CheckCircle className="size-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Completados</p>
+                  <p className="text-2xl font-bold">{mantStats.completados}</p>
+                </div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-blue-600">{mantStats.programados}</div>
-                <div className="text-sm text-muted-foreground">Programados</div>
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="size-10 bg-indigo-500 rounded-lg flex items-center justify-center shrink-0">
+                  <Clock className="size-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Programados</p>
+                  <p className="text-2xl font-bold">{mantStats.programados}</p>
+                </div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-primary">{mantStats.enEjecucion}</div>
-                <div className="text-sm text-muted-foreground">En Ejecución</div>
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="size-10 bg-amber-500 rounded-lg flex items-center justify-center shrink-0">
+                  <AlertCircle className="size-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">En Ejecución</p>
+                  <p className="text-2xl font-bold">{mantStats.enEjecucion}</p>
+                </div>
               </CardContent>
             </Card>
           </div>

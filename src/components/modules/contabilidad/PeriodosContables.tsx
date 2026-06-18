@@ -159,7 +159,7 @@ export function PeriodosContables() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setModalNuevo(false)}>Cancelar</Button>
+            <Button variant="outline" size="sm" onClick={() => setModalNuevo(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
             <Button size="sm" onClick={handleCrear} disabled={guardando}>
               {guardando ? 'Creando…' : 'Crear Período'}
             </Button>

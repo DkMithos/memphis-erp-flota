@@ -22,11 +22,14 @@ import {
   Building2,
   ShieldAlert,
   RotateCcw,
-  TrendingUp
+  TrendingUp,
+  X,
+  DollarSign
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Alert, AlertDescription } from '../../ui/alert';
 import {
@@ -184,12 +187,14 @@ export function MantenimientosLista({
   
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header con acciones */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center">
-              <Wrench className="size-6 text-primary" />
+            <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+              <Wrench className="size-6 text-black dark:text-primary" />
             </div>
             <div>
               <h2>Órdenes de Trabajo</h2>
@@ -229,7 +234,7 @@ export function MantenimientosLista({
           {/* Exportación */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
                 <Download className="size-4" />
                 Exportar
                 <ChevronDown className="size-4 ml-2" />
@@ -252,65 +257,73 @@ export function MantenimientosLista({
       {/* KPIs Dashboard */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Total OTs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{ordenes.length}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Programadas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-blue-600">
-              {ordenes.filter(ot => ot.estado === 'programada').length}
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <Wrench className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Total OTs</p>
+              <p className="text-2xl font-bold">{ordenes.length}</p>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">En Ejecución</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-green-600">
-              {ordenes.filter(ot => ot.estado === 'en_ejecucion').length}
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-indigo-500 rounded-lg flex items-center justify-center shrink-0">
+              <Calendar className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Programadas</p>
+              <p className="text-2xl font-bold">{ordenes.filter(ot => ot.estado === 'programada').length}</p>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Espera Repuesto</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-yellow-600">
-              {ordenes.filter(ot => ot.estado === 'espera_repuesto').length}
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <RotateCcw className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">En Ejecución</p>
+              <p className="text-2xl font-bold">{ordenes.filter(ot => ot.estado === 'en_ejecucion').length}</p>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Cerradas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">
-              {ordenes.filter(ot => ot.estado === 'cerrada').length}
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-amber-500 rounded-lg flex items-center justify-center shrink-0">
+              <Package className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Espera Repuesto</p>
+              <p className="text-2xl font-bold">{ordenes.filter(ot => ot.estado === 'espera_repuesto').length}</p>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground">Costo Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-semibold">
-              ${ordenes.reduce((total, ot) => total + ot.costos.total, 0).toLocaleString()}
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-emerald-600 rounded-lg flex items-center justify-center shrink-0">
+              <CheckCircle className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Cerradas</p>
+              <p className="text-2xl font-bold">{ordenes.filter(ot => ot.estado === 'cerrada').length}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-red-500 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Costo Total</p>
+              <p className="text-xl font-bold">${ordenes.reduce((total, ot) => total + ot.costos.total, 0).toLocaleString()}</p>
             </div>
           </CardContent>
         </Card>
@@ -344,7 +357,7 @@ export function MantenimientosLista({
             <div className="md:col-span-2">
               <label className="text-sm text-muted-foreground mb-2 block">Buscar OT</label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
                 <Input 
                   placeholder="Buscar por número, título, placa..." 
                   className="pl-10"
@@ -388,7 +401,8 @@ export function MantenimientosLista({
           
           <div className="flex items-center justify-between mt-4 pt-4 border-t">
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={limpiarFiltros}>
+              <Button variant="outline" size="sm" onClick={limpiarFiltros}>
+                <X className="size-4" />
                 Limpiar Filtros
               </Button>
             </div>

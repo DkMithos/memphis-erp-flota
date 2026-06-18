@@ -5,6 +5,7 @@
 import { useState, useMemo } from 'react';
 import { Search, AlertTriangle, ListChecks } from 'lucide-react';
 import { Card, CardContent } from '../../ui/card';
+import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -117,20 +118,27 @@ export function ProyectosTareasGlobal({ onNavigate }: Props) {
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold">Tareas</h2>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {filtradas.length} tarea(s) de todos los proyectos
-            {tareasVencidas > 0 && (
-              <span className="ml-2 text-red-500 flex items-center gap-1 inline-flex">
-                <AlertTriangle className="size-3.5" /> {tareasVencidas} vencida(s)
-              </span>
-            )}
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <ListChecks className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">Tareas</h2>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {filtradas.length} tarea(s) de todos los proyectos
+              {tareasVencidas > 0 && (
+                <span className="ml-2 text-red-500 flex items-center gap-1 inline-flex">
+                  <AlertTriangle className="size-3.5" /> {tareasVencidas} vencida(s)
+                </span>
+              )}
+            </p>
+          </div>
         </div>
-        <Button variant="outline" onClick={() => onNavigate?.('/proyectos/lista')}>
+        <Button variant="outline" onClick={() => onNavigate?.('/proyectos/lista')} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
           Ver Proyectos
         </Button>
       </div>
@@ -138,7 +146,7 @@ export function ProyectosTareasGlobal({ onNavigate }: Props) {
       {/* Filtros */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
           <Input
             placeholder="Buscar tarea, proyecto, asignado..."
             value={busqueda}

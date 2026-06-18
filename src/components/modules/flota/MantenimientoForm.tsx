@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
@@ -196,10 +197,7 @@ export function MantenimientoForm({
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Button variant="ghost" size="sm" onClick={onCancel}>
-              <ArrowLeft className="size-4" />
-              Volver
-            </Button>
+            <PageNav onBack={onCancel} />
           </div>
           <h2>Nueva Orden de Trabajo</h2>
           <p className="text-muted-foreground mt-1">
@@ -294,7 +292,7 @@ export function MantenimientoForm({
                 <div>
                   <Label htmlFor="vehiculo">Vehículo *</Label>
                   <Select value={selectedVehiculoId} onValueChange={setSelectedVehiculoId}>
-                    <SelectTrigger id="vehiculo">
+                    <SelectTrigger id="vehiculo" className="w-full [&>span]:truncate [&>span]:block [&>span]:min-w-0 [&>span]:flex-1 [&>span]:text-left">
                       <SelectValue placeholder="Seleccionar vehículo..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -338,16 +336,12 @@ export function MantenimientoForm({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="fechaProgramada">Fecha Programada *</Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-                    <Input 
-                      id="fechaProgramada"
-                      type="datetime-local"
-                      className="pl-10"
-                      value={fechaProgramada}
-                      onChange={(e) => setFechaProgramada(e.target.value)}
-                    />
-                  </div>
+                  <Input
+                    id="fechaProgramada"
+                    type="datetime-local"
+                    value={fechaProgramada}
+                    onChange={(e) => setFechaProgramada(e.target.value)}
+                  />
                   {errors.fechaProgramada && (
                     <p className="text-sm text-destructive mt-1">{errors.fechaProgramada}</p>
                   )}
@@ -536,7 +530,7 @@ export function MantenimientoForm({
             </Button>
             <Button 
               variant="outline" 
-              className="w-full" 
+              className="w-full !border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input" 
               onClick={onCancel}
               disabled={isSubmitting}
             >

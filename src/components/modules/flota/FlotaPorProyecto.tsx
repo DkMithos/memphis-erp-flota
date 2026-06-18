@@ -222,7 +222,7 @@ export function FlotaPorProyecto({ onNavigate }: FlotaPorProyectoProps) {
           />
         </div>
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por placa, marca o modelo..."
             value={busqueda}
@@ -247,31 +247,47 @@ export function FlotaPorProyecto({ onNavigate }: FlotaPorProyectoProps) {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-4 text-center">
-            <Car className="size-5 mx-auto text-blue-600 mb-1" />
-            <p className="text-2xl font-bold">{kpis.totalVehiculos}</p>
-            <p className="text-xs text-muted-foreground">Vehículos</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <Car className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Vehículos</p>
+              <p className="text-2xl font-bold">{kpis.totalVehiculos}</p>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
-            <DollarSign className="size-5 mx-auto text-blue-600 mb-1" />
-            <p className="text-lg font-bold">{formatCurrency(kpis.totalContratado)}</p>
-            <p className="text-xs text-muted-foreground">Total Contratado</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Total Contratado</p>
+              <p className="text-lg font-bold">{formatCurrency(kpis.totalContratado)}</p>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
-            <DollarSign className="size-5 mx-auto text-amber-600 mb-1" />
-            <p className="text-lg font-bold">{formatCurrency(kpis.totalConsumido)}</p>
-            <p className="text-xs text-muted-foreground">Consumido ({kpis.porcentaje}%)</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-amber-500 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Consumido ({kpis.porcentaje}%)</p>
+              <p className="text-lg font-bold">{formatCurrency(kpis.totalConsumido)}</p>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
-            <DollarSign className="size-5 mx-auto text-green-600 mb-1" />
-            <p className="text-lg font-bold">{formatCurrency(kpis.totalRestante)}</p>
-            <p className="text-xs text-muted-foreground">Saldo Disponible</p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <DollarSign className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Saldo Disponible</p>
+              <p className="text-lg font-bold">{formatCurrency(kpis.totalRestante)}</p>
+            </div>
           </CardContent>
         </Card>
       </div>

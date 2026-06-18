@@ -5,16 +5,17 @@
  */
 
 import { useState, useMemo } from 'react';
-import { 
-  Plus, 
-  Search, 
+import {
+  Plus,
+  Search,
   Filter,
   Download,
   Wrench,
   AlertCircle,
   CheckCircle,
-  Clock
+  Clock,
 } from 'lucide-react';
+import { PageNav } from '../../shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -96,16 +97,23 @@ export function BiomedicoMantenimientos({
 
   return (
     <div className="space-y-6">
+      <PageNav />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Mantenimientos Biomédicos</h1>
-          <p className="text-sm text-muted-foreground">
-            Gestión de mantenimientos preventivos, correctivos y calibraciones
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <Wrench className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Mantenimientos Biomédicos</h1>
+            <p className="text-sm text-muted-foreground">
+              Gestión de mantenimientos preventivos, correctivos y calibraciones
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             <Download className="size-4" />
             Exportar
           </Button>
@@ -119,54 +127,54 @@ export function BiomedicoMantenimientos({
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Mantenimientos</CardTitle>
-            <Wrench className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{kpis.total}</div>
-            <p className="text-xs text-muted-foreground">
-              Registrados en el sistema
-            </p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+              <Wrench className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Total Mantenimientos</p>
+              <p className="text-2xl font-bold">{kpis.total}</p>
+              <p className="text-xs text-muted-foreground mt-1">Registrados en el sistema</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Programados</CardTitle>
-            <Clock className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{kpis.programados}</div>
-            <p className="text-xs text-muted-foreground">
-              Pendientes de ejecución
-            </p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-indigo-500 rounded-lg flex items-center justify-center shrink-0">
+              <Clock className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Programados</p>
+              <p className="text-2xl font-bold">{kpis.programados}</p>
+              <p className="text-xs text-muted-foreground mt-1">Pendientes de ejecución</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">En Ejecución</CardTitle>
-            <AlertCircle className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{kpis.enEjecucion}</div>
-            <p className="text-xs text-muted-foreground">
-              Actualmente en proceso
-            </p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-amber-500 rounded-lg flex items-center justify-center shrink-0">
+              <AlertCircle className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">En Ejecución</p>
+              <p className="text-2xl font-bold">{kpis.enEjecucion}</p>
+              <p className="text-xs text-muted-foreground mt-1">Actualmente en proceso</p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tasa Completados</CardTitle>
-            <CheckCircle className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{kpis.tasaCompletados.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">
-              {kpis.completados} finalizados
-            </p>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="size-10 bg-green-500 rounded-lg flex items-center justify-center shrink-0">
+              <CheckCircle className="size-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Tasa Completados</p>
+              <p className="text-2xl font-bold">{kpis.tasaCompletados.toFixed(1)}%</p>
+              <p className="text-xs text-muted-foreground mt-1">{kpis.completados} finalizados</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -177,7 +185,7 @@ export function BiomedicoMantenimientos({
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar por número, equipo o título..."
                   value={searchTerm}
