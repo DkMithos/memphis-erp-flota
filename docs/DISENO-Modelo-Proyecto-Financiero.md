@@ -104,7 +104,13 @@ cada OC/factura, con los ejes de imputación (proyecto/proveedor/item).
 3. `gastos_fijos_proyecto` — (proyecto_id, concepto, porcentaje, monto_calculado, ejecutado bool, pagado bool)
 4. `proyecto_items_fisicos` — (proyecto_id, tipo: vehiculo/uniforme/equipo…, descripcion, cantidad, entregado, recepcionado)
 5. `cobros_proyecto` (ingresos) — (proyecto_id, tipo: valorizacion/CIPRL, monto, fecha, estado)
-6. `cuentas_por_pagar` — (origen: oc/factura/caja_chica, entidad_id, proveedor_id, proyecto_id?, centro_costo_id, monto, moneda, fecha_emision, fecha_vencimiento, estado: pendiente/pagado/vencido, fecha_pago)
+6. `cuentas_por_pagar` (deuda + proyección de pagos) — (origen: oc/factura/caja_chica,
+   proveedor_id, proyecto_id?, centro_costo_id, monto, moneda, forma_pago,
+   **estado_ejecucion**: proyectada/ejecutada, **es_proyeccion** bool, fecha_factura?,
+   **fecha_vencimiento** (=factura+plazo si ejecutada, =fecha proyectada si no),
+   estado_pago: pendiente/pagado/vencido, fecha_pago?)
+7. `cobros_proyecto` ya incluye proyección: (proyecto_id, monto_esperado, fecha_esperada,
+   monto_cobrado?, fecha_cobro?, estado: proyectado/cobrado)
 
 **Modificar `ordenes_compra` / `gastos_caja_chica`:** asegurar `centro_costo_id` +
 estado de pago + fecha vencimiento (para alimentar cuentas_por_pagar).
@@ -153,11 +159,42 @@ UTILIDAD = CIPRL − gasto total real
 - **CC:** usar los centros de costo de caja chica; reasignar los de las OCs según caja chica.
   Todo CC ≈ proyecto, pero hay CC sin proyecto (internos).
 
-## 9. Preguntas abiertas antes de construir
+## 9. Decisiones de Gerencia (2026-06-11) — INSIGHT: modelo de proyecciones
 
-1. **Gastos fijos:** ¿se calculan siempre como % del CIPRL/valor, o el monto puede fijarse manual?
-2. **Presupuesto modificado:** ¿quién aprueba una nueva versión? ¿genera flujo de aprobación?
-3. **CC sin proyecto:** ¿se reportan aparte (gasto interno/admin) o se ignoran en el financiero de proyectos?
-4. **Deuda — fecha de vencimiento:** ¿de dónde sale? (forma de pago de la OC, condición de pago del proveedor, o fecha factura + plazo)
-5. **Ingresos/cobros:** ¿se registran manual, vienen de valorizaciones, o ambos?
-6. **Caja chica multimoneda:** ¿el reporte consolidado convierte USD→PEN con qué tipo de cambio (fijo del proyecto, SBS diario)?
+> **El modelo financiero es de PROYECCIONES (flujo de caja proyectado), no solo de
+> montos ejecutados.** Tanto la deuda como los ingresos se registran como proyecciones,
+> y se confirman/realizan con la ejecución. Esto coincide con el archivo "Flujo de
+> proyectos" (deudas vencidas por mes = pagos proyectados por mes).
+
+1. **Gastos fijos:** el sistema los **calcula automáticamente según la fórmula del Excel**
+   (no monto manual). ⚠️ La fórmula de Contraprestación Privada es multi-paso (filas 48-57
+   del PROY-FOR-004): base − CIPRL(4%) → ×0.1875 → resta → ×5% → ×5% → resta. En F2 hay que
+   extraer las **fórmulas exactas** (cargar el Excel sin `data_only` para ver celdas con `=`),
+   no solo los valores. VENTA CIPRL = valor×4% (directo).
+
+2. **Fecha de vencimiento de deuda → DOS estados:**
+   - **Ejecutada** (orden ejecutada + bien/servicio recepcionado): la fecha es la de la
+     **factura** + el plazo de la forma de pago (contado / adelanto / crédito 30 / 120 días…).
+   - **No ejecutada:** la fecha es la **proyección de pago** (se contempla una proyección de
+     pagos por semestre: mensual, anual, etc.).
+   → `cuentas_por_pagar` necesita: `estado_ejecucion` (proyectada/ejecutada),
+     `fecha_factura?`, `forma_pago`, `fecha_vencimiento` (calculada o proyectada),
+     `es_proyeccion bool`. La deuda total mezcla ejecutado + proyectado.
+
+3. **CC internos (sin proyecto): AMBOS** → reporte interno propio (gasto admin/empresa) +
+   sumados a la **deuda total de la empresa**, pero fuera del financiero de proyectos.
+
+4. **Ingresos/cobros: manual, como PROYECCIONES** de lo que va a ingresar y se espera cobrar.
+   → `cobros_proyecto` registra proyecciones (monto esperado, fecha esperada) y luego el
+     cobro real confirmado. Permite ver esperado vs cobrado vs pendiente.
+
+### Implicación de diseño: añadir capa de FLUJO DE CAJA PROYECTADO
+- **Egresos proyectados** (pagos futuros por mes/semestre, ejecutados y no ejecutados)
+- **Ingresos proyectados** (cobros esperados por fecha)
+- Vista de flujo: por proyecto y consolidado empresa, por mes → responde "¿cuánto debemos y
+  cuándo?" y "¿cuánto vamos a cobrar y cuándo?" (lo que Gerencia pide en "Flujo de proyectos").
+
+### Pendiente de confirmar (menor)
+- Presupuesto modificado: ¿genera flujo de aprobación al crear una nueva versión?
+- Caja chica multimoneda: ¿tipo de cambio del consolidado? (fijo del proyecto vs SBS diario)
+  — el Excel PROY-FOR-004 usa tasa fija 3.6 por proyecto.
