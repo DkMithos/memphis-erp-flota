@@ -296,9 +296,10 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
               </TableHeader>
               <TableBody>
                 {proveedoresFiltrados.map((proveedor) => {
-                  const estadoConfig = PROVEEDOR_ESTADO_CONFIG[proveedor.estado];
-                  const condicionConfig = PROVEEDOR_CONDICION_CONFIG[proveedor.condicion];
-                  const tipoConfig = PROVEEDOR_TIPO_CONFIG[proveedor.tipo];
+                  // Fallbacks defensivos: un valor inesperado NO debe tumbar el módulo
+                  const estadoConfig = PROVEEDOR_ESTADO_CONFIG[proveedor.estado] ?? PROVEEDOR_ESTADO_CONFIG.observado;
+                  const condicionConfig = PROVEEDOR_CONDICION_CONFIG[proveedor.condicion] ?? PROVEEDOR_CONDICION_CONFIG.sin_evaluar;
+                  const tipoConfig = PROVEEDOR_TIPO_CONFIG[proveedor.tipo] ?? PROVEEDOR_TIPO_CONFIG.bienes;
                   const puedeEditar = tienePermiso(rolActual, 'editar');
 
                   return (

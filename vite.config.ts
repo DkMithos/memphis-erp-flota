@@ -72,7 +72,8 @@
       },
     },
     server: {
-      port: 3000,
+      // Usa el puerto asignado por el entorno (preview) o 3000 por defecto (dev local).
+      port: Number(process.env.PORT) || 3000,
       open: true,
     },
   });

@@ -152,8 +152,11 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
     calcularFinancieroProyecto({
       _dbId: proyecto._dbId,
       montoContrato: proyecto.montoContrato,
+      montoAdenda: proyecto.montoAdenda,
       presupuesto: proyecto.presupuesto,
       moneda: proyecto.moneda,
+      montoCobrado: proyecto.montoCobrado,
+      anioConvenio: proyecto.anioConvenio,
     }).then(fin => {
       if (!cancelled) {
         setFinanciero(fin);
@@ -164,7 +167,7 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
     });
 
     return () => { cancelled = true; };
-  }, [proyecto?._dbId, proyecto?.montoContrato, proyecto?.presupuesto, proyecto?.moneda]);
+  }, [proyecto?._dbId, proyecto?.montoContrato, proyecto?.montoAdenda, proyecto?.presupuesto, proyecto?.moneda]);
 
   // ── Vehiculos del proyecto ──
   const vehiculosProyecto = useMemo(() =>
@@ -529,12 +532,14 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
                     </div>
                   ))}
                 </>
-              ) : montoAdendas > 0 ? (
+              ) : montoAdendas !== 0 ? (
                 <>
                   <Separator />
                   <div className="flex items-center justify-between pl-4">
-                    <span className="text-sm">Adendas (total)</span>
-                    <span className="font-semibold text-blue-600">+{fmt(montoAdendas, proyecto.moneda)}</span>
+                    <span className="text-sm">Adenda / Equivalente {montoAdendas < 0 ? '(reducción)' : ''}</span>
+                    <span className={`font-semibold ${montoAdendas < 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                      {montoAdendas < 0 ? '−' : '+'}{fmt(Math.abs(montoAdendas), proyecto.moneda)}
+                    </span>
                   </div>
                 </>
               ) : null}
@@ -547,11 +552,11 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
             </CardContent>
           </Card>
 
-          {/* Desglose de gasto real */}
+          {/* 2) Desglose de Gastos (operativo: compras + caja chica) */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Wallet className="size-4" /> Desglose de Gasto Real
+                <Wallet className="size-4" /> Desglose de Gastos
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -574,46 +579,72 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between font-bold">
-                  <span className="text-sm">Gasto Total</span>
+                  <span className="text-sm">Total Gastos</span>
                   <span className="text-amber-600">{fmt(gastoTotal, proyecto.moneda)}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* KPIs de resultado */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card>
-              <CardContent className="p-3 text-center">
-                <p className="text-xs text-muted-foreground">Presupuesto (Techo)</p>
-                <p className="text-lg font-bold">{fmt(presupuesto, proyecto.moneda)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-3 text-center">
-                <p className="text-xs text-muted-foreground">Saldo Disponible</p>
-                <p className={`text-lg font-bold ${saldoDisponible >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {fmt(saldoDisponible, proyecto.moneda)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-3 text-center">
-                <p className="text-xs text-muted-foreground">Utilidad</p>
-                <p className={`text-lg font-bold ${utilidad >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {fmt(utilidad, proyecto.moneda)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-3 text-center">
-                <p className="text-xs text-muted-foreground">Margen Ganancia</p>
-                <p className={`text-2xl font-bold ${semaforoText(colorMargen(margen))}`}>
-                  {margen.toFixed(1)}%
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          {/* 3) Gastos de Asesoría (fijos: consultoría, contraprestación, venta CIPRL, IR) */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Receipt className="size-4" /> Gastos de Asesoría
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {(fin?.gastosFijos ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Sin gastos de asesoría calculados.</p>
+                ) : (
+                  (fin?.gastosFijos ?? []).map((gf) => (
+                    <div key={gf.concepto} className="flex items-center justify-between">
+                      <span className="text-sm">
+                        {gf.descripcion} <span className="text-xs text-muted-foreground">({(gf.porcentaje * 100).toFixed(1)}%)</span>
+                      </span>
+                      <span className="font-semibold">{fmt(gf.monto, proyecto.moneda)}</span>
+                    </div>
+                  ))
+                )}
+                <Separator />
+                <div className="flex items-center justify-between font-bold">
+                  <span className="text-sm">Total Asesoría</span>
+                  <span className="text-blue-600">{fmt(fin?.gastoFijos ?? 0, proyecto.moneda)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 4) Utilidad = Valor Modificado − Gastos (compras + caja) */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <DollarSign className="size-4" /> Utilidad
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Valor Modificado (contrato total)</span>
+                  <span className="font-semibold text-green-600">{fmt(montoContratoTotal, proyecto.moneda)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">(−) Gastos (compras + caja)</span>
+                  <span className="font-semibold text-amber-600">{fmt(gastoTotal, proyecto.moneda)}</span>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between font-bold">
+                  <span className="text-sm">Utilidad</span>
+                  <span className={utilidad >= 0 ? 'text-green-600' : 'text-red-600'}>{fmt(utilidad, proyecto.moneda)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Margen sobre contrato</span>
+                  <span>{margen.toFixed(1)}%</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Tabla de OCs reales — con paginación */}
           {ocsFinList.length > 0 && (

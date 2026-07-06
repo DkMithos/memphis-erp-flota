@@ -191,18 +191,20 @@ export function normalizeEmail(email: string): string {
 }
 
 /**
- * Genera ID único para requerimiento
+ * Genera ID único para requerimiento.
+ * Continúa la serie corporativa del legado oc-system (RQ-NNNNN).
  */
 export function generarIdRequerimiento(ultimoNumero: number): string {
   const siguiente = ultimoNumero + 1;
-  return `REQ-${String(siguiente).padStart(4, '0')}`;
+  return `RQ-${String(siguiente).padStart(5, '0')}`;
 }
 
 /**
- * Extrae número secuencial del ID del requerimiento
+ * Extrae número secuencial del ID del requerimiento.
+ * Reconoce la serie del legado (RQ-NNNNN) y la antigua REQ-NNNN.
  */
 export function extraerNumeroSecuencial(requerimientoId: string): number | null {
-  const match = requerimientoId.match(/REQ-(\d+)/);
+  const match = requerimientoId.match(/^R(?:EQ|Q)-(\d+)/);
   return match ? parseInt(match[1], 10) : null;
 }
 

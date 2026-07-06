@@ -376,7 +376,8 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
               </TableHeader>
               <TableBody>
                 {cotizacionesAsociadas.map((cot) => {
-                  const estadoCotConfig = COTIZACION_ESTADO_CONFIG[cot.estado];
+                  const estadoCotConfig = COTIZACION_ESTADO_CONFIG[cot.estado]
+                    ?? { label: cot.estado, icon: FileText, className: 'bg-gray-100 text-gray-600' };
                   return (
                     <TableRow key={cot.id}>
                       <TableCell className="font-mono text-sm">{cot.id}</TableCell>

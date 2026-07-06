@@ -5,9 +5,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Prevent scrollbar flicker when dialogs/dropdowns toggle overflow:hidden on body */
+/* Evita el "salto" del contenido cuando aparece/desaparece la barra de scroll:
+   se reserva el espacio del scrollbar (stable) y además se fuerza siempre visible. */
 html {
   scrollbar-gutter: stable;
+  overflow-y: scroll;
 }
 
 @layer properties {

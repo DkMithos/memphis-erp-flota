@@ -327,11 +327,26 @@ export const dbCotizaciones = {
 // =============================================================================
 
 export const dbOrdenesCompra = {
-  list: () =>
-    supabase
-      .from("ordenes_compra")
-      .select("*, proveedor:proveedores(razon_social, ruc), items:orden_items(*)")
-      .order("creado_en", { ascending: false }),
+  /**
+   * Lista TODAS las órdenes paginando de a 1000.
+   * PostgREST corta en 1000 filas por request (max-rows): sin esto,
+   * con 1095+ órdenes las más antiguas desaparecen silenciosamente de la UI.
+   */
+  list: async (): Promise<{ data: any[] | null; error: any }> => {
+    const PAGE = 1000;
+    const all: any[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from("ordenes_compra")
+        .select("*, proveedor:proveedores(razon_social, ruc), items:orden_items(*)")
+        .order("creado_en", { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (error) return { data: all.length ? all : null, error };
+      all.push(...(data ?? []));
+      if (!data || data.length < PAGE) break;
+    }
+    return { data: all, error: null };
+  },
 
   getByNumero: (numero: string) =>
     supabase
@@ -755,10 +770,21 @@ export const dbCajasChicas = {
 // =============================================================================
 
 export const dbGastosCajaChica = {
-  list: (tenantId: string) =>
-    supabase.from('gastos_caja_chica')
-      .select('*, caja:cajas_chicas(nombre, codigo)')
-      .eq('tenant_id', tenantId).order('fecha', { ascending: false }),
+  /** Lista TODOS los gastos paginando de a 1000 (PostgREST max-rows). Ya hay 700+ y crecerá al cerrar el Excel. */
+  list: async (tenantId: string): Promise<{ data: any[] | null; error: any }> => {
+    const PAGE = 1000;
+    const all: any[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase.from('gastos_caja_chica')
+        .select('*, caja:cajas_chicas(nombre, codigo)')
+        .eq('tenant_id', tenantId).order('fecha', { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (error) return { data: all.length ? all : null, error };
+      all.push(...(data ?? []));
+      if (!data || data.length < PAGE) break;
+    }
+    return { data: all, error: null };
+  },
   insert: (data: Omit<GastoCajaChicaDB, 'id' | 'creado_en' | 'caja'>) =>
     supabase.from('gastos_caja_chica').insert(data).select().single(),
   update: (id: string, data: Partial<GastoCajaChicaDB>) =>

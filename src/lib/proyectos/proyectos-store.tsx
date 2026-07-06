@@ -79,6 +79,13 @@ export interface Proyecto {
   region?: string;
   montoContrato?: number;
   montoAdenda?: number;
+  // Sinceramiento RESUMEN PROYECTOS
+  fase?: string;              // bucket macro: idea | actos_previos | ejecucion | post_ejecucion
+  situacion?: string;         // estado operativo: activo | suspension | revision_estado | arbitraje | plazo_vencido | liquidacion
+  fechaFirmaConvenio?: string;
+  anioConvenio?: number;      // derivado de fechaFirmaConvenio (cohorte)
+  codigoInversion?: string;   // CIU / CUI
+  montoCobrado?: number;
   // computed
   tareasTotal: number;
   tareasCompletadas: number;
@@ -174,6 +181,14 @@ function mapProyecto(row: ProyectoDB): Proyecto {
     region: (row as any).region ?? undefined,
     montoContrato: (row as any).monto_contrato ?? undefined,
     montoAdenda: (row as any).monto_adenda ?? undefined,
+    fase: (row as any).fase ?? undefined,
+    situacion: (row as any).situacion ?? undefined,
+    fechaFirmaConvenio: (row as any).fecha_firma_convenio ?? undefined,
+    anioConvenio: (row as any).fecha_firma_convenio
+      ? Number(String((row as any).fecha_firma_convenio).slice(0, 4))
+      : undefined,
+    codigoInversion: (row as any).codigo_inversion ?? undefined,
+    montoCobrado: (row as any).monto_cobrado ?? undefined,
     creadoEn: row.creado_en,
     fases,
     tareas,

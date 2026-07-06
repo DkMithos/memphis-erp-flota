@@ -16,9 +16,10 @@ export const DEBUG_COTIZACIONES = import.meta.env.DEV;
 // TIPOS Y ESTADOS
 // ============================================================================
 
-export type EstadoCotizacion = 
+export type EstadoCotizacion =
   | 'borrador'     // Creada pero no enviada
   | 'enviada'      // Enviada al proveedor
+  | 'recibida'     // Respuesta del proveedor recibida, pendiente de decisión
   | 'aprobada'     // Aprobada, lista para OC
   | 'rechazada'    // Rechazada con motivo
   | 'anulada';     // Anulada con motivo
@@ -57,6 +58,11 @@ export const COTIZACION_ESTADO_CONFIG: Record<EstadoCotizacion, BadgeConfig> = {
     label: 'Enviada',
     icon: Send,
     className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+  },
+  recibida: {
+    label: 'Recibida',
+    icon: Clock,
+    className: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
   },
   aprobada: {
     label: 'Aprobada',

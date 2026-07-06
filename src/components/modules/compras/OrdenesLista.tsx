@@ -36,6 +36,8 @@ import {
   type MonedaOrden
 } from '../../../lib/compras/ordenes-config';
 import { convertirAMonedaBase, formatMontoBase } from '../../../lib/shared/currency-utils';
+import { useProyectos } from '../../../lib/proyectos/proyectos-store';
+import { exportToExcel, exportToPDF } from '../../../lib/shared/export-utils';
 
 interface OrdenesListaProps {
   onNavigate?: (route: string) => void;
@@ -43,12 +45,17 @@ interface OrdenesListaProps {
 
 export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
   const { ordenes, usuarioActual } = useOrdenesStore();
-  
+  const { proyectos } = useProyectos();
+
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<EstadoOrden | 'todos'>('todos');
   const [filtroTipo, setFiltroTipo] = useState<TipoOrden | 'todos'>('todos');
   const [filtroMoneda, setFiltroMoneda] = useState<MonedaOrden | 'todos'>('todos');
+  const [filtroProyecto, setFiltroProyecto] = useState<string>('todos');
+  // Ordenamiento (default: por número, de la última generada hacia abajo)
+  const [sortBy, setSortBy] = useState<'numero' | 'proveedor' | 'tipo' | 'estado' | 'total'>('numero');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [tabActual, setTabActual] = useState<'activas' | 'completas' | 'anuladas' | 'todas'>('activas');
 
   // Órdenes filtradas por tab
@@ -88,9 +95,47 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
       // Filtro por moneda
       const matchMoneda = filtroMoneda === 'todos' || o.moneda === filtroMoneda;
 
-      return matchSearch && matchEstado && matchTipo && matchMoneda;
+      // Filtro por proyecto (vía proyecto_id de la orden)
+      const matchProyecto = filtroProyecto === 'todos' || (o as any).proyectoId === filtroProyecto;
+
+      return matchSearch && matchEstado && matchTipo && matchMoneda && matchProyecto;
     });
-  }, [ordenesPorTab, searchTerm, filtroEstado, filtroTipo, filtroMoneda]);
+  }, [ordenesPorTab, searchTerm, filtroEstado, filtroTipo, filtroMoneda, filtroProyecto]);
+
+  // Órdenes ordenadas (antes de paginar)
+  const ordenesOrdenadas = useMemo(() => {
+    const numVal = (s: string) => { const m = String(s).match(/\d+/g); return m ? parseInt(m[m.length - 1], 10) : 0; };
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...ordenesFiltradas].sort((a, b) => {
+      let cmp = 0;
+      switch (sortBy) {
+        case 'numero':    cmp = (numVal(a.id) - numVal(b.id)) || a.id.localeCompare(b.id); break;
+        case 'proveedor': cmp = (a.proveedorNombre || '').localeCompare(b.proveedorNombre || ''); break;
+        case 'tipo':      cmp = (a.tipo || '').localeCompare(b.tipo || ''); break;
+        case 'estado':    cmp = (a.estado || '').localeCompare(b.estado || ''); break;
+        case 'total':     cmp = convertirAMonedaBase(a.total, a.moneda) - convertirAMonedaBase(b.total, b.moneda); break;
+      }
+      return cmp * dir;
+    });
+  }, [ordenesFiltradas, sortBy, sortDir]);
+
+  // Click en header: alterna asc/desc o cambia de columna
+  const toggleSort = (campo: typeof sortBy) => {
+    if (sortBy === campo) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortBy(campo); setSortDir(campo === 'numero' || campo === 'total' ? 'desc' : 'asc'); }
+  };
+
+  // Datos para exportar (respetan filtros + orden actuales → "por filtro" o "totalidad")
+  const ordenesExportHeaders = { numero: 'N° Orden', tipo: 'Tipo', proveedor: 'Proveedor', estado: 'Estado', moneda: 'Moneda', total: 'Total', fecha: 'Fecha Emisión' };
+  const ordenesExport = useMemo(() => ordenesOrdenadas.map(o => ({
+    numero: o.id,
+    tipo: o.tipo === 'oc' ? 'OC' : 'OS',
+    proveedor: o.proveedorNombre,
+    estado: o.estado,
+    moneda: o.moneda,
+    total: Number(o.total ?? 0).toFixed(2),
+    fecha: o.fechaEmision ? new Date(o.fechaEmision).toLocaleDateString('es-PE') : '',
+  })), [ordenesOrdenadas]);
 
   // Estadísticas
   const stats = useMemo(() => ({
@@ -109,9 +154,9 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
 
   const puedeCrear = tienePermiso(usuarioActual.rol, 'crear');
 
-  const { paged: ordenesPaged, page, totalPages, setPage } = usePagination(ordenesFiltradas);
+  const { paged: ordenesPaged, page, totalPages, setPage } = usePagination(ordenesOrdenadas);
   // Reset page on filter change
-  useEffect(() => { setPage(1); }, [tabActual, searchTerm, filtroEstado, filtroTipo, filtroMoneda]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(1); }, [tabActual, searchTerm, filtroEstado, filtroTipo, filtroMoneda, filtroProyecto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-6">
@@ -132,9 +177,21 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
+          <Button
+            variant="outline"
+            disabled={ordenesOrdenadas.length === 0}
+            onClick={() => exportToExcel(`ordenes-compra-${new Date().toISOString().slice(0,10)}`, ordenesExport, ordenesExportHeaders)}
+          >
             <Download className="size-4" />
-            Exportar
+            Excel
+          </Button>
+          <Button
+            variant="outline"
+            disabled={ordenesOrdenadas.length === 0}
+            onClick={() => exportToPDF(`ordenes-compra-${new Date().toISOString().slice(0,10)}`, 'Órdenes de Compra y Servicio', ordenesExport, ordenesExportHeaders)}
+          >
+            <FileText className="size-4" />
+            PDF
           </Button>
           {puedeCrear && (
             <Button onClick={() => onNavigate?.('/compras/ordenes/nuevo')}>
@@ -247,10 +304,23 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
                 <SelectItem value="os">Orden de Servicio (OS)</SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Filtro por Proyecto */}
+            <Select value={filtroProyecto} onValueChange={(v) => setFiltroProyecto(v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Proyecto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los Proyectos</SelectItem>
+                {proyectos.map((p) => (
+                  <SelectItem key={p._dbId} value={p._dbId}>{p.nombre}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Resumen de filtros activos */}
-          {(searchTerm || filtroEstado !== 'todos' || filtroTipo !== 'todos' || filtroMoneda !== 'todos') && (
+          {(searchTerm || filtroEstado !== 'todos' || filtroTipo !== 'todos' || filtroMoneda !== 'todos' || filtroProyecto !== 'todos') && (
             <Alert className="mt-4">
               <AlertDescription>
                 Mostrando <strong>{ordenesFiltradas.length}</strong> de <strong>{ordenesPorTab.length}</strong> órdenes
@@ -258,15 +328,17 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
                 {filtroEstado !== 'todos' && ` • Estado: ${filtroEstado}`}
                 {filtroTipo !== 'todos' && ` • Tipo: ${filtroTipo === 'oc' ? 'OC' : 'OS'}`}
                 {filtroMoneda !== 'todos' && ` • Moneda: ${ORDEN_MONEDA_LABELS[filtroMoneda]}`}
-                <Button 
-                  variant="link" 
-                  size="sm" 
+                {filtroProyecto !== 'todos' && ` • Proyecto: ${proyectos.find(p => p._dbId === filtroProyecto)?.nombre ?? ''}`}
+                <Button
+                  variant="link"
+                  size="sm"
                   className="ml-2 h-auto p-0"
                   onClick={() => {
                     setSearchTerm('');
                     setFiltroEstado('todos');
                     setFiltroTipo('todos');
                     setFiltroMoneda('todos');
+                    setFiltroProyecto('todos');
                   }}
                 >
                   Limpiar filtros
@@ -313,12 +385,22 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Proveedor</TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('numero')}>
+                        N° Orden {sortBy === 'numero' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('tipo')}>
+                        Tipo {sortBy === 'tipo' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('proveedor')}>
+                        Proveedor {sortBy === 'proveedor' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                      </TableHead>
                       <TableHead>Cotización</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Total</TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('estado')}>
+                        Estado {sortBy === 'estado' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('total')}>
+                        Total {sortBy === 'total' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                      </TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>

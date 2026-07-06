@@ -186,7 +186,7 @@ export function BIProvider({ children }: { children: React.ReactNode }) {
 
         // Contratos próximos a vencer (activos, fecha_fin <= hoy + 30 días)
         supabase
-          .from('contratos_proveedor')
+          .from('contratos_proveedores')
           .select('id', { count: 'exact', head: true })
           .eq('estado', 'activo')
           .lte('fecha_fin', fecha30)

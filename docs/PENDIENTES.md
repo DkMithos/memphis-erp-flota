@@ -178,6 +178,24 @@ Ambos pedidos comparten infraestructura crítica:
 > **Es probablemente la migración con mejor retorno del backlog:** muda a los 12 usuarios de
 > Compras al ERP, atacando directamente el problema de adopción que bloquea la entrega.
 
+> ### ✅ ESTADO 2026-06-22 — Órdenes oc-system CARGADAS Y VERIFICADAS
+> La **Fase 4 (oc-system, órdenes ≤ MM-001031)** ya se ejecutó y verificó en Supabase:
+> **127 proveedores · 75 CC · 590 órdenes (MM-000417→MM-001031) · 1220 ítems**
+> (462 USD / 128 PEN; 558 aprobadas / 24 anuladas / 8 enviadas). Integridad FK 100%, sin duplicados.
+> Detalle completo, decisiones y rollback en **[`MIGRACION-oc-system-LOG.md`](MIGRACION-oc-system-LOG.md)**.
+> Sin `git push` ni deploy (trabajo local). Firebase intacto (órdenes > 1031 siguen vivas).
+>
+> **✅ TAMBIÉN CARGADO (2026-06-22):**
+> - **Histórico Excel OC 2024** (540 hojas): 505 órdenes + 1058 ítems + 11 proveedores nuevos.
+>   30 omitidas por solape con oc-system. `migrado_de='oc-excel-2024'`. Ver
+>   [`MIGRACION-oc2024-ANALISIS.md`](MIGRACION-oc2024-ANALISIS.md).
+> - **Caja chica** (hasta 11 USD / 17 soles): 27 cajas + 717 egresos + 103 ingresos; tabla nueva
+>   `ingresos_caja_chica`. `migrado_de='caja-excel-2025'`. Ver
+>   [`MIGRACION-cajachica-ANALISIS.md`](MIGRACION-cajachica-ANALISIS.md).
+> - **7 proveedores seed demo** eliminados (0 referencias).
+>
+> **Pendiente:** mapear prefijos de CC del OC 2024 (ICA, MI, L… → CCs reales), backup Firebase (sábado).
+
 **Inventario real del legado (contado en Firestore con la service account):**
 | Colección | Docs | Destino en el ERP |
 |---|---|---|

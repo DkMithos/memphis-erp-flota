@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Ban, Package, FileText, Calendar } from 'lucide-react';
+import { Ban, Package, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
@@ -164,7 +164,7 @@ export function RecepcionDetalle({ recepcionId, onNavigate }: RecepcionDetallePr
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {recepcion.itemsRecibidos.map((item, idx) => (
+            {recepcion.itemsRecibidos.map((item) => (
               <div key={item.id} className="border rounded-lg p-4">
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex-1">

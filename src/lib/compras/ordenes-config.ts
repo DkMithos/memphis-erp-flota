@@ -145,19 +145,24 @@ export function validarCondiciones(condiciones: string): ValidationResult {
 // ============================================================================
 
 /**
- * Genera ID único para orden según tipo
+ * Genera ID único para orden según tipo.
+ * Continúa la serie corporativa del legado oc-system:
+ *   OC → MM-NNNNNN   ·   OS → MM-S-NNNNNN
  */
 export function generarIdOrden(tipo: TipoOrden, ultimoNumero: number): string {
   const siguiente = ultimoNumero + 1;
-  const prefix = ORDEN_TIPO_PREFIX[tipo];
-  return `${prefix}-${String(siguiente).padStart(4, '0')}`;
+  const prefix = tipo === 'os' ? 'MM-S' : 'MM';
+  return `${prefix}-${String(siguiente).padStart(6, '0')}`;
 }
 
 /**
- * Extrae número secuencial del ID de la orden
+ * Extrae número secuencial del ID de la orden.
+ * Reconoce las series del legado (MM-NNNNNN / MM-S-NNNNNN) y las antiguas OC-/OS-.
  */
 export function extraerNumeroSecuencial(ordenId: string): number | null {
-  const match = ordenId.match(/(?:OC|OS)-(\d+)/);
+  let match = ordenId.match(/^MM-(?:S-)?(\d+)$/);
+  if (match) return parseInt(match[1], 10);
+  match = ordenId.match(/(?:OC|OS)-(\d+)/);
   return match ? parseInt(match[1], 10) : null;
 }
 
@@ -165,6 +170,8 @@ export function extraerNumeroSecuencial(ordenId: string): number | null {
  * Extrae tipo de orden desde el ID
  */
 export function extraerTipoDesdeId(ordenId: string): TipoOrden | null {
+  if (ordenId.startsWith('MM-S-')) return 'os';
+  if (ordenId.startsWith('MM-')) return 'oc';
   if (ordenId.startsWith('OC-')) return 'oc';
   if (ordenId.startsWith('OS-')) return 'os';
   return null;

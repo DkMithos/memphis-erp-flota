@@ -626,9 +626,10 @@ export default function App() {
         );
       }
 
-      if (currentRoute.match(/^\/compras\/ordenes\/(OC|OS)-\d{4}\/editar$/)) {
+      // Detalle/editar de orden: id agnóstico al formato (OC/OS-NNNN, MM-NNNNNN, MM-S-NNNNNN, …migradas)
+      if (currentRoute.match(/^\/compras\/ordenes\/[^/]+\/editar$/)) {
         const segments = currentRoute.split('/');
-        const ordenId = segments[3];
+        const ordenId = decodeURIComponent(segments[3]);
         return (
           <OrdenForm
             ordenId={ordenId}
@@ -638,9 +639,9 @@ export default function App() {
         );
       }
 
-      if (currentRoute.match(/^\/compras\/ordenes\/(OC|OS)-\d{4}$/)) {
+      if (currentRoute.match(/^\/compras\/ordenes\/[^/]+$/)) {
         const segments = currentRoute.split('/');
-        const ordenId = segments[3];
+        const ordenId = decodeURIComponent(segments[3].split('?')[0]);
         return <OrdenDetalle ordenId={ordenId} onNavigate={navigateTo} />;
       }
 
@@ -658,9 +659,12 @@ export default function App() {
         );
       }
 
-      if (currentRoute.match(/^\/compras\/cotizaciones\/COT-\d{4}\/editar$/)) {
+      // Detalle/editar agnóstico al formato del número: COT-0001, NC 0191-26, PTE..., o uuid.
+      // (Los números migrados de oc-system no siguen el patrón COT-NNNN; un patrón estricto
+      // los mandaba al fallback de Compras, que redirige a Requerimientos.)
+      if (currentRoute.match(/^\/compras\/cotizaciones\/[^/]+\/editar$/)) {
         const segments = currentRoute.split('/');
-        const cotizacionId = segments[3];
+        const cotizacionId = decodeURIComponent(segments[3]);
         return (
           <CotizacionForm
             cotizacionId={cotizacionId}
@@ -670,9 +674,9 @@ export default function App() {
         );
       }
 
-      if (currentRoute.match(/^\/compras\/cotizaciones\/COT-\d{4}$/)) {
+      if (currentRoute.match(/^\/compras\/cotizaciones\/[^/]+$/)) {
         const segments = currentRoute.split('/');
-        const cotizacionId = segments[3];
+        const cotizacionId = decodeURIComponent(segments[3]);
         return <CotizacionDetalle cotizacionId={cotizacionId} onNavigate={navigateTo} />;
       }
 

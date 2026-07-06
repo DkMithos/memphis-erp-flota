@@ -18,6 +18,9 @@ import {
   DialogTitle,
 } from '../../ui/dialog';
 import { useOrdenesStore } from '../../../lib/compras/ordenes-store';
+import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
+import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
+import { exportOrdenPDF } from '../../../lib/shared/export-utils';
 import { useRecepcionesStore } from '../../../lib/compras/recepciones-store';
 import {
   ORDEN_ESTADO_CONFIG,
@@ -43,6 +46,17 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
   const { obtenerRecepcionesPorOrden } = useRecepcionesStore();
   
   const orden = obtenerOrdenPorId(ordenId);
+  const { proveedores } = useProveedorStore();
+  const proveedorOC = useMemo(
+    () => proveedores.find(p => p._dbId === (orden as any)?.proveedorDbId),
+    [proveedores, orden]
+  );
+  // Cotización de origen: la orden guarda el UUID; mostrar el número legible
+  const { cotizaciones } = useCotizacionesStore();
+  const cotizacionOrigen = useMemo(
+    () => cotizaciones.find(c => c._dbId === orden?.cotizacionId || c.id === orden?.cotizacionId),
+    [cotizaciones, orden]
+  );
   const recepciones = obtenerRecepcionesPorOrden(ordenId);
 
   // Dialogs
@@ -166,6 +180,10 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
 
         {/* Acciones */}
         <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => exportOrdenPDF(orden, proveedorOC)}>
+            <FileText className="size-4" />
+            Exportar PDF
+          </Button>
           {puedeEditar && (
             <Button onClick={() => onNavigate(`/compras/ordenes/${orden.id}/editar`)}>
               <Edit className="size-4" />
@@ -241,9 +259,13 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
           <CardContent className="space-y-3">
             <div>
               <p className="text-sm text-muted-foreground">Cotización Origen</p>
-              <Button variant="link" className="p-0 h-auto" onClick={() => onNavigate(`/compras/cotizaciones/${orden.cotizacionId}`)}>
-                {orden.cotizacionId}
-              </Button>
+              {orden.cotizacionId ? (
+                <Button variant="link" className="p-0 h-auto" onClick={() => onNavigate(`/compras/cotizaciones/${cotizacionOrigen?.id ?? orden.cotizacionId}`)}>
+                  {cotizacionOrigen?.id ?? orden.cotizacionId}
+                </Button>
+              ) : (
+                <p className="text-sm">—</p>
+              )}
             </div>
             {orden.requerimientoId && (
               <div>

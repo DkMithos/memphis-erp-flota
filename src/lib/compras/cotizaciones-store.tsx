@@ -255,7 +255,9 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
   // ============================================================================
 
   const obtenerCotizacionPorId = useCallback(
-    (id: string) => cotizaciones.find(c => c.id === id),
+    // Acepta número (COT-0001, NC 0191-26…) o UUID interno — los enlaces desde
+    // órdenes migradas referencian por _dbId.
+    (id: string) => cotizaciones.find(c => c.id === id || c._dbId === id),
     [cotizaciones]
   );
 

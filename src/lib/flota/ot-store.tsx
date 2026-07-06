@@ -192,7 +192,10 @@ function mapFromDB(
     id: ot.numero_ot,
     _dbId: ot.id,
     numeroOT: ot.numero_ot,
-    vehiculoId: ot.vehiculo_id,   // stored as vehiculo codigo (VH-001) when inserting
+    // El frontend identifica vehículos por su CÓDIGO (vehiculo.id = codigo). En la DB,
+    // ordenes_trabajo.vehiculo_id es el UUID (FK), así que resolvemos el código vía el
+    // vehículo embebido; si no viene embebido, caemos al valor crudo.
+    vehiculoId: (ot as any).vehiculo?.codigo ?? ot.vehiculo_id,
     vehiculoPlaca: ot.vehiculo_placa,
     tipo: ot.tipo as TipoOT,
     criticidad: ot.criticidad as CriticidadOT,
@@ -257,7 +260,7 @@ export function OTStoreProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('ordenes_trabajo')
-        .select('*, repuestos:ot_repuestos(*), extras:ot_extras(*)')
+        .select('*, vehiculo:vehiculos(codigo), repuestos:ot_repuestos(*), extras:ot_extras(*)')
         .order('creado_en', { ascending: false });
 
       if (error) {

@@ -6,6 +6,7 @@ import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Textarea } from '../../ui/textarea';
 import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
 import { Alert, AlertDescription } from '../../ui/alert';
@@ -32,9 +33,12 @@ interface ItemRecibidoForm {
 
 export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFormProps) {
   const { crearRecepcion } = useRecepcionesStore();
-  const { obtenerOrdenPorId, aplicarEstadoRecepcion } = useOrdenesStore();
+  const { obtenerOrdenPorId, aplicarEstadoRecepcion, ordenes } = useOrdenesStore();
 
-  const orden = ordenIdParam ? obtenerOrdenPorId(ordenIdParam) : undefined;
+  // Permite iniciar la recepción seleccionando la OC si no vino por parámetro
+  const [selectedOrdenId, setSelectedOrdenId] = useState<string | undefined>(undefined);
+  const efectivoOrdenId = ordenIdParam ?? selectedOrdenId;
+  const orden = efectivoOrdenId ? obtenerOrdenPorId(efectivoOrdenId) : undefined;
 
   const [estado, setEstado] = useState<EstadoRecepcion>('conforme');
   const [observaciones, setObservaciones] = useState('');
@@ -67,7 +71,7 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
   const validarFormulario = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!ordenIdParam) {
+    if (!efectivoOrdenId) {
       newErrors.orden = 'Debe seleccionar una orden';
     }
 
@@ -153,12 +157,47 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
   };
 
   if (!orden) {
+    // Vino con un id explícito que no existe → error real
+    if (ordenIdParam) {
+      return (
+        <Alert variant="destructive">
+          <AlertDescription>No se encontró la orden con ID: <strong>{ordenIdParam}</strong></AlertDescription>
+        </Alert>
+      );
+    }
+    // Sin orden → selector de OCs por recepcionar (una recepción siempre es contra una OC)
+    const recepcionables = ordenes.filter((o: any) => ['aprobada', 'en_ejecucion', 'recepcion_parcial'].includes(o.estado));
     return (
-      <Alert variant="destructive">
-        <AlertDescription>
-          No se encontró la orden con ID: <strong>{ordenIdParam}</strong>
-        </AlertDescription>
-      </Alert>
+      <div className="space-y-6">
+        <PageNav onBack={onCancel} />
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+            <Package className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">Nueva Recepción</h2>
+            <p className="text-muted-foreground mt-1">Selecciona la orden de compra a recepcionar</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="p-6 space-y-3">
+            <Label>Orden de Compra / Servicio</Label>
+            <Select value={selectedOrdenId ?? ''} onValueChange={setSelectedOrdenId}>
+              <SelectTrigger><SelectValue placeholder="Selecciona una orden aprobada…" /></SelectTrigger>
+              <SelectContent>
+                {recepcionables.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">No hay órdenes pendientes de recepción</div>
+                ) : recepcionables.map((o: any) => (
+                  <SelectItem key={o.id} value={o.id}>{o.id} · {o.proveedorNombre} · {formatearMonto(o.total, o.moneda)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Una recepción se registra <strong>contra una orden</strong>. Solo se listan órdenes aprobadas, en ejecución o con recepción parcial.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 

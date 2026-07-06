@@ -60,7 +60,8 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
   const { obtenerOrdenesPorCotizacion } = useOrdenesStore();
   const cotizacion = obtenerCotizacionPorId(cotizacionId);
   const requerimiento = cotizacion ? obtenerRequerimientoPorId(cotizacion.requerimientoId) : undefined;
-  const ordenesAsociadas = cotizacion ? obtenerOrdenesPorCotizacion(cotizacion.id) : [];
+  // Las órdenes guardan el UUID de la cotización (cotizacion_id), no su número
+  const ordenesAsociadas = cotizacion ? obtenerOrdenesPorCotizacion((cotizacion as any)._dbId ?? cotizacion.id) : [];
 
   const [showAnularDialog, setShowAnularDialog] = useState(false);
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
@@ -84,7 +85,9 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
     );
   }
 
-  const estadoConfig = COTIZACION_ESTADO_CONFIG[cotizacion.estado];
+  // Defensivo: un estado fuera del catálogo nunca debe tumbar el módulo
+  const estadoConfig = COTIZACION_ESTADO_CONFIG[cotizacion.estado]
+    ?? { label: cotizacion.estado, icon: FileText, className: 'bg-gray-100 text-gray-600' };
 
   const puedeEditar = tienePermiso(usuarioActual.rol, 'editar') && puedeEditarCotizacion(cotizacion.estado);
   const puedeAnular = tienePermiso(usuarioActual.rol, 'anular') && puedeAnularCotizacion(cotizacion.estado);

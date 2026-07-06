@@ -92,6 +92,8 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showContactoPrincipal, setShowContactoPrincipal] = useState(false);
   const [verifyingSunat, setVerifyingSunat] = useState(false);
+  // Proveedor extranjero sin RUC peruano (Tax ID libre; no aplica SUNAT)
+  const [noDomiciliado, setNoDomiciliado] = useState(false);
 
   // Cargar datos si es edición
   useEffect(() => {
@@ -130,6 +132,8 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
         observaciones: proveedorExistente.observaciones || ''
       });
       setShowContactoPrincipal(!!proveedorExistente.contactoPrincipal);
+      // Un proveedor existente sin RUC peruano de 11 dígitos es no domiciliado
+      setNoDomiciliado(!/^\d{11}$/.test(proveedorExistente.ruc ?? ''));
     }
   }, [isEditing, proveedorExistente]);
 
@@ -137,15 +141,20 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    // RUC
-    if (!formData.ruc) {
+    // RUC — para NO DOMICILIADOS (extranjeros) no aplica el RUC peruano:
+    // se acepta un Tax ID libre (opcional; si falta se genera EXT-xxxx al guardar).
+    if (noDomiciliado) {
+      if (formData.ruc && /^\d{11}$/.test(formData.ruc)) {
+        newErrors.ruc = 'Un RUC de 11 dígitos corresponde a un proveedor domiciliado — desmarca la casilla';
+      }
+    } else if (!formData.ruc) {
       newErrors.ruc = 'El RUC es obligatorio';
     } else {
       const validRUC = validarRUC(formData.ruc);
       if (!validRUC.valid) newErrors.ruc = validRUC.error!;
     }
 
-    // Verificar RUC duplicado (solo en creación)
+    // Verificar RUC/Tax ID duplicado (solo en creación)
     if (!isEditing && formData.ruc) {
       const existente = obtenerProveedorPorRUC(formData.ruc);
       if (existente) {
@@ -269,8 +278,13 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
           }
         : undefined;
 
+      // No domiciliado sin Tax ID → identificador sintético único (patrón EXT- de la migración)
+      const rucFinal = noDomiciliado && !formData.ruc?.trim()
+        ? `EXT-${Date.now().toString(36).toUpperCase()}`
+        : formData.ruc!;
+
       const input: NuevoProveedorInput = {
-        ruc: formData.ruc!,
+        ruc: rucFinal,
         razonSocial: formData.razonSocial!,
         nombreComercial: formData.nombreComercial,
         tipo: formData.tipo!,
@@ -404,11 +418,46 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* RUC con búsqueda SUNAT */}
+                {/* RUC con búsqueda SUNAT / Tax ID para no domiciliados */}
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="ruc">RUC *</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="ruc">{noDomiciliado ? 'Identificación fiscal (Tax ID)' : 'RUC *'}</Label>
+                    <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                      <Checkbox
+                        checked={noDomiciliado}
+                        onCheckedChange={(v: boolean) => {
+                          setNoDomiciliado(!!v);
+                          if (errors.ruc) setErrors({ ...errors, ruc: '' });
+                        }}
+                        disabled={isEditing}
+                      />
+                      Proveedor no domiciliado (extranjero)
+                    </label>
+                  </div>
                   {isEditing ? (
                     <Input value={formData.ruc} disabled className="bg-muted" />
+                  ) : noDomiciliado ? (
+                    <>
+                      <Input
+                        id="ruc"
+                        value={formData.ruc ?? ''}
+                        onChange={(e) => {
+                          setFormData({ ...formData, ruc: e.target.value });
+                          if (errors.ruc) setErrors({ ...errors, ruc: '' });
+                        }}
+                        placeholder="Tax ID / VAT / EIN del proveedor extranjero (opcional)"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Sin RUC peruano: no aplica verificación SUNAT ni detracción/retención.
+                        Si se deja vacío, se genera un identificador interno (EXT-…).
+                      </p>
+                      {errors.ruc && (
+                        <p className="text-sm text-red-600 flex items-center gap-1">
+                          <AlertCircle className="size-3" />
+                          {errors.ruc}
+                        </p>
+                      )}
+                    </>
                   ) : (
                     <SunatRucInput
                       value={formData.ruc ?? ''}

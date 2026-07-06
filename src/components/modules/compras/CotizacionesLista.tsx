@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { usePagination } from '../../../lib/shared/usePagination';
+import { exportToExcel, exportToPDF } from '../../../lib/shared/export-utils';
 import { Plus, Search, Filter, Download, Eye, Edit, FileText, Clock, CheckCircle, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -53,7 +54,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
   // Cotizaciones filtradas por tab
   const cotizacionesPorTab = useMemo(() => {
     if (tabActual === 'activas') {
-      return cotizaciones.filter(c => c.estado === 'borrador' || c.estado === 'enviada');
+      return cotizaciones.filter(c => c.estado === 'borrador' || c.estado === 'enviada' || c.estado === 'recibida');
     } else if (tabActual === 'aprobadas') {
       return cotizaciones.filter(c => c.estado === 'aprobada');
     } else if (tabActual === 'rechazadas') {
@@ -89,11 +90,25 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
 
   const { paged: cotizacionesPaged, page, totalPages, totalItems: totalFiltrados, setPage } = usePagination(cotizacionesFiltradas);
 
+  // Export (respeta filtros activos)
+  const cotExportHeaders = { numero: 'N° Cotización', proveedor: 'Proveedor', requerimiento: 'N° Req', tipo: 'Tipo', estado: 'Estado', moneda: 'Moneda', total: 'Total', fecha: 'Vencimiento' };
+  const cotExport = useMemo(() => cotizacionesFiltradas.map((c: any) => ({
+    numero: c.id,
+    proveedor: c.proveedorNombre,
+    requerimiento: c.requerimientoId,
+    tipo: c.tipo === 'oc' ? 'OC' : c.tipo === 'os' ? 'OS' : (c.tipo ?? ''),
+    estado: c.estado,
+    moneda: c.moneda,
+    total: Number(c.total ?? 0).toFixed(2),
+    fecha: c.fechaVencimiento ? new Date(c.fechaVencimiento).toLocaleDateString('es-PE') : '',
+  })), [cotizacionesFiltradas]);
+
   // Estadísticas
   const stats = useMemo(() => ({
     total: cotizaciones.length,
     borradores: cotizaciones.filter(c => c.estado === 'borrador').length,
     enviadas: cotizaciones.filter(c => c.estado === 'enviada').length,
+    recibidas: cotizaciones.filter(c => c.estado === 'recibida').length,
     aprobadas: cotizaciones.filter(c => c.estado === 'aprobada').length,
     rechazadas: cotizaciones.filter(c => c.estado === 'rechazada').length,
     anuladas: cotizaciones.filter(c => c.estado === 'anulada').length,
@@ -130,9 +145,15 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
               Nueva Cotización
             </Button>
           )}
-          <Button variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
+          <Button variant="outline" disabled={cotExport.length === 0}
+            onClick={() => exportToExcel(`cotizaciones-${new Date().toISOString().slice(0,10)}`, cotExport, cotExportHeaders)}>
             <Download className="size-4" />
-            Exportar
+            Excel
+          </Button>
+          <Button variant="outline" disabled={cotExport.length === 0}
+            onClick={() => exportToPDF(`cotizaciones-${new Date().toISOString().slice(0,10)}`, 'Cotizaciones', cotExport, cotExportHeaders)}>
+            <FileText className="size-4" />
+            PDF
           </Button>
         </div>
       </div>
@@ -158,7 +179,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Pendientes</p>
-              <p className="text-2xl font-bold">{stats.enviadas}</p>
+              <p className="text-2xl font-bold">{stats.enviadas + stats.recibidas}</p>
             </div>
           </CardContent>
         </Card>
@@ -288,7 +309,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
             <div className="border-b px-6 pt-6">
               <TabsList>
                 <TabsTrigger value="activas">
-                  Activas ({stats.borradores + stats.enviadas})
+                  Activas ({stats.borradores + stats.enviadas + stats.recibidas})
                 </TabsTrigger>
                 <TabsTrigger value="aprobadas">
                   Aprobadas ({stats.aprobadas})
@@ -335,7 +356,9 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
                   </TableHeader>
                   <TableBody>
                     {cotizacionesPaged.map((cot) => {
-                      const estadoConfig = COTIZACION_ESTADO_CONFIG[cot.estado];
+                      // Defensivo: un estado fuera del catálogo nunca debe tumbar el módulo
+                      const estadoConfig = COTIZACION_ESTADO_CONFIG[cot.estado]
+                        ?? { label: cot.estado, icon: FileText, className: 'bg-gray-100 text-gray-600' };
                       const puedeEditar = tienePermiso(usuarioActual.rol, 'editar');
 
                       return (

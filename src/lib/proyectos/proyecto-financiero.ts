@@ -21,6 +21,7 @@ export interface OCProyecto {
   proveedorNombre: string;
   total: number;
   moneda: string;
+  tipoCambio?: number;   // TC USD->PEN del día de emisión (SBS/SUNAT); migrados 3.40/3.45
   estado: string;
   fecha: string;
 }
@@ -58,7 +59,9 @@ export interface ProyectoFinanciero {
   // Gasto real (solo OCs + Caja Chica, NUNCA OTs)
   gastoOCs: number;             // Σ total de OCs aprobadas/en ejecución
   gastoCajaChica: number;       // Σ monto de gastos caja chica aprobados
-  gastoTotal: number;           // OCs + Caja Chica
+  gastoFijos: number;           // Σ gastos fijos de asesoría (consultoría/contraprestación/IR/venta CIPRL)
+  gastosFijos: Array<{ concepto: string; descripcion: string; porcentaje: number; monto: number; moneda: string }>;
+  gastoTotal: number;           // OCs + Caja Chica + Gastos Fijos
 
   // Techo y disponibilidad
   presupuesto: number;          // techo o tope que no se puede pasar
@@ -68,6 +71,11 @@ export interface ProyectoFinanciero {
   // Utilidad y margen
   utilidad: number;             // montoContratoTotal - gastoTotal
   margenGanancia: number;       // (utilidad / montoContratoTotal) * 100
+
+  // Cobranza (RESUMEN PROYECTOS: monto cobrado / pendiente)
+  montoCobrado: number;         // ya cobrado al cliente/entidad
+  montoPendienteCobro: number;  // montoContratoTotal - montoCobrado
+  anioConvenio?: number;        // año de firma del convenio (cohorte)
 
   // Detalle
   adendas: AdendaProyecto[];
@@ -84,13 +92,13 @@ export interface ProyectoFinanciero {
 // En producción se puede parametrizar o leer de la DB
 // ============================================================================
 
-const TIPO_CAMBIO_DEFAULT = 3.75; // 1 USD = 3.75 PEN
+const TIPO_CAMBIO_DEFAULT = 3.40; // fallback. Lo correcto es el TC del día de emisión (SBS/SUNAT), guardado por orden.
 
-/** Convierte un monto a la moneda destino usando tipo de cambio fijo */
-function convertirMoneda(monto: number, monedaOrigen: string, monedaDestino: string): number {
+/** Convierte un monto a la moneda destino usando un tipo de cambio (por defecto el fallback). */
+function convertirMoneda(monto: number, monedaOrigen: string, monedaDestino: string, rate: number = TIPO_CAMBIO_DEFAULT): number {
   if (monedaOrigen === monedaDestino) return monto;
-  if (monedaOrigen === 'USD' && monedaDestino === 'PEN') return monto * TIPO_CAMBIO_DEFAULT;
-  if (monedaOrigen === 'PEN' && monedaDestino === 'USD') return monto / TIPO_CAMBIO_DEFAULT;
+  if (monedaOrigen === 'USD' && monedaDestino === 'PEN') return monto * rate;
+  if (monedaOrigen === 'PEN' && monedaDestino === 'USD') return monto / rate;
   return monto; // misma o desconocida
 }
 
@@ -126,7 +134,7 @@ export async function fetchAdendasProyecto(proyectoId: string): Promise<AdendaPr
 export async function fetchOCsProyecto(proyectoId: string): Promise<OCProyecto[]> {
   const { data, error } = await supabase
     .from('ordenes_compra')
-    .select('id, numero, total, moneda, estado, fecha_emision, proveedor:proveedores(razon_social)')
+    .select('id, numero, total, moneda, tipo_cambio, estado, fecha_emision, proveedor:proveedores(razon_social)')
     .eq('proyecto_id', proyectoId)
     .in('estado', ['aprobada', 'en_ejecucion', 'completada', 'recibida']);
 
@@ -141,6 +149,7 @@ export async function fetchOCsProyecto(proyectoId: string): Promise<OCProyecto[]
     proveedorNombre: row.proveedor?.razon_social ?? 'Sin proveedor',
     total: row.total ?? 0,
     moneda: row.moneda ?? 'PEN',
+    tipoCambio: row.tipo_cambio ?? undefined,
     estado: row.estado,
     fecha: row.fecha_emision,
   }));
@@ -170,6 +179,26 @@ export async function fetchGastosCCProyecto(proyectoId: string): Promise<GastoCC
   }));
 }
 
+/** Obtiene los gastos fijos de asesoría del proyecto (consultoría, contraprestación, IR, venta CIPRL) */
+export async function fetchGastosFijosProyecto(proyectoId: string) {
+  const { data, error } = await supabase
+    .from('gastos_fijos_proyecto')
+    .select('concepto, descripcion, porcentaje, monto, moneda')
+    .eq('proyecto_id', proyectoId)
+    .order('porcentaje', { ascending: false });
+  if (error) {
+    console.error('[FINANCIERO] Error cargando gastos fijos:', error.message);
+    return [];
+  }
+  return (data ?? []).map((r: any) => ({
+    concepto: r.concepto,
+    descripcion: r.descripcion,
+    porcentaje: r.porcentaje ?? 0,
+    monto: r.monto ?? 0,
+    moneda: r.moneda ?? 'PEN',
+  }));
+}
+
 // ============================================================================
 // CÁLCULO PRINCIPAL
 // ============================================================================
@@ -184,18 +213,22 @@ export async function calcularFinancieroProyecto(
   proyecto: {
     _dbId: string;
     montoContrato?: number;
+    montoAdenda?: number;
     presupuesto?: number;
     moneda: string;
+    montoCobrado?: number;
+    anioConvenio?: number;
   },
   tipoCambio: number = TIPO_CAMBIO_DEFAULT
 ): Promise<ProyectoFinanciero> {
   const monedaBase = proyecto.moneda || 'PEN';
 
   // Fetch en paralelo
-  const [adendas, ocs, gastosCC] = await Promise.all([
+  const [adendas, ocs, gastosCC, gastosFijos] = await Promise.all([
     fetchAdendasProyecto(proyecto._dbId),
     fetchOCsProyecto(proyecto._dbId),
     fetchGastosCCProyecto(proyecto._dbId),
+    fetchGastosFijosProyecto(proyecto._dbId),
   ]);
 
   // Sumar adendas (convertir a moneda base)
@@ -204,12 +237,15 @@ export async function calcularFinancieroProyecto(
     0
   );
 
+  // Valor modificado = inversión inicial (monto_contrato) + adenda/equivalente.
+  // El equivalente puede venir de la columna proyecto.montoAdenda y/o de adendas itemizadas.
   const montoContrato = proyecto.montoContrato ?? 0;
-  const montoContratoTotal = montoContrato + montoAdendas;
+  const montoAdendaTotal = (proyecto.montoAdenda ?? 0) + montoAdendas;
+  const montoContratoTotal = montoContrato + montoAdendaTotal;
 
-  // Sumar OCs (convertir a moneda base)
+  // Sumar OCs (convertir a moneda base con el TC de cada orden; fallback al global)
   const gastoOCs = ocs.reduce(
-    (sum, oc) => sum + convertirMoneda(oc.total, oc.moneda, monedaBase),
+    (sum, oc) => sum + convertirMoneda(oc.total, oc.moneda, monedaBase, oc.tipoCambio ?? tipoCambio),
     0
   );
 
@@ -219,6 +255,14 @@ export async function calcularFinancieroProyecto(
     0
   );
 
+  // Gastos fijos de asesoría (consultoría 10% + contraprestación 5% + IR 3.5% + venta CIPRL 4%).
+  // Se muestran en su propio bloque y NO entran en el gasto operativo ni en la utilidad.
+  const gastoFijos = gastosFijos.reduce(
+    (sum, g) => sum + convertirMoneda(g.monto, g.moneda, monedaBase),
+    0
+  );
+
+  // Gasto operativo = Órdenes de Compra + Caja Chica (lo que descuenta la utilidad)
   const gastoTotal = gastoOCs + gastoCajaChica;
 
   // Presupuesto (techo) — si no existe, usar monto contrato total
@@ -236,19 +280,28 @@ export async function calcularFinancieroProyecto(
     ? Math.round((utilidad / montoContratoTotal) * 10000) / 100
     : 0;
 
+  // Cobranza
+  const montoCobrado = proyecto.montoCobrado ?? 0;
+  const montoPendienteCobro = montoContratoTotal - montoCobrado;
+
   return {
     montoContrato,
-    montoAdendas,
+    montoAdendas: montoAdendaTotal,
     montoContratoTotal,
     moneda: monedaBase,
     gastoOCs,
     gastoCajaChica,
+    gastoFijos,
+    gastosFijos,
     gastoTotal,
     presupuesto,
     saldoDisponible,
     porcentajeEjecutado,
     utilidad,
     margenGanancia,
+    montoCobrado,
+    montoPendienteCobro,
+    anioConvenio: proyecto.anioConvenio,
     adendas,
     ocs,
     gastosCajaChica: gastosCC,

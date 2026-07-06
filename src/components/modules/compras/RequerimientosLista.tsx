@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { usePagination } from '../../../lib/shared/usePagination';
-import { Plus, Search, Filter, Download, Eye, Edit, ShoppingCart, ClipboardList, Clock, CheckCircle, DollarSign } from 'lucide-react';
+import { exportToExcel, exportToPDF } from '../../../lib/shared/export-utils';
+import { Plus, Search, Filter, Download, Eye, Edit, ShoppingCart, ClipboardList, Clock, CheckCircle, DollarSign, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
@@ -86,6 +87,19 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
 
   const { paged: requerimientosPaged, page, totalPages, totalItems: totalFiltrados, setPage } = usePagination(requerimientosFiltrados);
 
+  // Export (respeta filtros activos)
+  const reqExportHeaders = { numero: 'N° Req', titulo: 'Título', solicitante: 'Solicitante', centroCosto: 'Centro de Costo', prioridad: 'Prioridad', estado: 'Estado', total: 'Total Estimado', fecha: 'Fecha Requerida' };
+  const reqExport = useMemo(() => requerimientosFiltrados.map((r: any) => ({
+    numero: r.id,
+    titulo: r.titulo,
+    solicitante: r.solicitanteNombre,
+    centroCosto: r.centroCosto,
+    prioridad: r.prioridad,
+    estado: r.estado,
+    total: Number(r.totalEstimado ?? 0).toFixed(2),
+    fecha: r.fechaRequerida ? new Date(r.fechaRequerida).toLocaleDateString('es-PE') : '',
+  })), [requerimientosFiltrados]);
+
   // Estadísticas
   const stats = useMemo(() => ({
     total: requerimientos.length,
@@ -126,9 +140,15 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
               Nuevo Requerimiento
             </Button>
           )}
-          <Button variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
+          <Button variant="outline" disabled={reqExport.length === 0}
+            onClick={() => exportToExcel(`requerimientos-${new Date().toISOString().slice(0,10)}`, reqExport, reqExportHeaders)}>
             <Download className="size-4" />
-            Exportar
+            Excel
+          </Button>
+          <Button variant="outline" disabled={reqExport.length === 0}
+            onClick={() => exportToPDF(`requerimientos-${new Date().toISOString().slice(0,10)}`, 'Requerimientos de Compra', reqExport, reqExportHeaders)}>
+            <FileText className="size-4" />
+            PDF
           </Button>
         </div>
       </div>

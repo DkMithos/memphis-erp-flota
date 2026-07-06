@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Wallet, Check, X, AlertCircle } from 'lucide-react';
+import { Plus, Wallet, Check, X, AlertCircle, Download, FileText } from 'lucide-react';
 import { PageNav } from '@/components/shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,9 @@ import { useFinanzas, type CajaChica, type GastoCajaChica } from '@/lib/finanzas
 import { ProyectoSelector } from '../../shared/ProyectoSelector';
 import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
 import { useAuth } from '@/auth/AuthProvider';
+import { useProyectos } from '@/lib/proyectos/proyectos-store';
+import { exportToExcel, exportToPDF, exportCajaModeloExcel, type MovimientoCajaModelo } from '@/lib/shared/export-utils';
+import { supabase } from '@/lib/supabase/client';
 
 interface Props {
   onNavigate: (route: string) => void;
@@ -74,10 +77,81 @@ const defaultGastoForm: NuevoGastoForm = {
 };
 
 export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
-  const { cajasChicas, gastos, addCajaChica, addGasto, updateGasto, loading } = useFinanzas();
+  const { cajasChicas, gastos, addCajaChica, addGasto, updateGasto, updateCajaChica, loading } = useFinanzas();
   const { tenantId, user } = useAuth();
+  const { proyectos } = useProyectos();
 
   const [selectedCajaId, setSelectedCajaId] = useState<string | null>(null);
+  // Filtros de navegación de cajas (para no scrollear entre muchas)
+  const [cajaSearch, setCajaSearch] = useState('');
+  const [cajaMoneda, setCajaMoneda] = useState<'todos' | 'PEN' | 'USD'>('todos');
+  const [cajaEstado, setCajaEstado] = useState<'todos' | 'activo' | 'en_reposicion' | 'cerrada'>('todos');
+  const [filtroProyecto, setFiltroProyecto] = useState<string>('todos');
+
+  // Gastos del proyecto seleccionado (cruza todas las cajas) — para "datos por proyecto"
+  const gastosDelProyecto = useMemo(() => {
+    if (filtroProyecto === 'todos') return [];
+    return gastos.filter(g => g.proyectoId === filtroProyecto);
+  }, [gastos, filtroProyecto]);
+
+  const proyectoNombre = (id: string) => proyectos.find(p => p._dbId === id)?.nombre ?? id;
+
+  /** Exporta la caja seleccionada en el MISMO formato del Excel de Administración (modelo). */
+  const exportarModeloCaja = async (caja: CajaChica) => {
+    try {
+      const [egr, ing] = await Promise.all([
+        supabase.from('gastos_caja_chica')
+          .select('numero, centro_costo, categoria, comprobante_numero, beneficiario, descripcion, monto, fecha')
+          .eq('caja_id', caja._dbId),
+        supabase.from('ingresos_caja_chica')
+          .select('numero, centro_costo, comprobante_tipo, comprobante_numero, origen, descripcion, monto, fecha, tipo')
+          .eq('caja_id', caja._dbId),
+      ]);
+      if (egr.error) throw egr.error;
+      if (ing.error) throw ing.error;
+      const movs: MovimientoCajaModelo[] = [
+        ...(ing.data ?? []).map((r: any) => ({
+          item: r.numero, centroCosto: r.centro_costo, tipoDoc: r.comprobante_tipo,
+          comprobante: r.comprobante_numero, razonSocial: r.origen,
+          descripcion: r.descripcion, ingreso: Number(r.monto), egreso: null, fecha: r.fecha,
+        })),
+        ...(egr.data ?? []).map((r: any) => ({
+          item: r.numero, centroCosto: r.centro_costo, tipoDoc: r.categoria,
+          comprobante: r.comprobante_numero, razonSocial: r.beneficiario,
+          descripcion: r.descripcion, ingreso: null, egreso: Number(r.monto), fecha: r.fecha,
+        })),
+      ];
+      // Orden del modelo: por ITEM numérico (correlativo original); fallback por fecha
+      movs.sort((a, b) => {
+        const na = Number(a.item), nb = Number(b.item);
+        if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        return String(a.fecha ?? '').localeCompare(String(b.fecha ?? ''));
+      });
+      exportCajaModeloExcel(
+        { nombre: caja.nombre, codigo: caja.id, responsable: caja.responsable, moneda: caja.moneda },
+        movs,
+      );
+    } catch (e) {
+      toast.error('No se pudo exportar la caja: ' + (e instanceof Error ? e.message : 'error'));
+    }
+  };
+
+  const exportarGastosProyecto = (formato: 'excel' | 'pdf') => {
+    const datos = gastosDelProyecto.map(g => ({
+      fecha: g.fecha ? new Date(g.fecha).toLocaleDateString('es-PE') : '',
+      caja: g.cajaNombre,
+      descripcion: g.descripcion,
+      categoria: g.categoria,
+      beneficiario: g.beneficiario ?? '',
+      comprobante: g.comprobanteNumero ?? '',
+      monto: Number(g.monto ?? 0).toFixed(2),
+      moneda: g.moneda,
+    }));
+    const headers = { fecha: 'Fecha', caja: 'Caja', descripcion: 'Descripción', categoria: 'Categoría', beneficiario: 'Beneficiario', comprobante: 'Comprobante', monto: 'Monto', moneda: 'Moneda' };
+    const nombre = `caja-chica-${proyectoNombre(filtroProyecto).replace(/\s+/g, '_')}-${new Date().toISOString().slice(0,10)}`;
+    if (formato === 'excel') exportToExcel(nombre, datos, headers);
+    else exportToPDF(nombre, `Caja Chica — ${proyectoNombre(filtroProyecto)}`, datos, headers);
+  };
   const [showNuevaCaja, setShowNuevaCaja] = useState(false);
   const [showNuevoGasto, setShowNuevoGasto] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -94,6 +168,18 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
   const [gastoCentroCostoId, setGastoCentroCostoId] = useState<string | null>(null);
 
   const selectedCaja = cajasChicas.find(c => c._dbId === selectedCajaId) ?? null;
+
+  const cajasFiltradas = useMemo(() => {
+    const q = cajaSearch.trim().toLowerCase();
+    return cajasChicas.filter(c =>
+      (cajaMoneda === 'todos' || c.moneda === cajaMoneda) &&
+      (cajaEstado === 'todos' || c.estado === cajaEstado) &&
+      (!q ||
+        c.nombre.toLowerCase().includes(q) ||
+        (c.id ?? '').toLowerCase().includes(q) ||
+        (c.responsable ?? '').toLowerCase().includes(q))
+    );
+  }, [cajasChicas, cajaSearch, cajaMoneda, cajaEstado]);
 
   const gastosDeCaja = useMemo(() =>
     gastos.filter(g => g.cajaDbId === selectedCajaId),
@@ -220,7 +306,83 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
         </Button>
       </div>
 
-      {/* Cards de Cajas */}
+      {/* Vista por Proyecto — datos de caja chica filtrados/exportables por proyecto */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <Label className="shrink-0">Ver caja chica por proyecto:</Label>
+            <Select value={filtroProyecto} onValueChange={setFiltroProyecto}>
+              <SelectTrigger className="sm:w-72"><SelectValue placeholder="Todos los proyectos" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los proyectos</SelectItem>
+                {proyectos.map(p => (
+                  <SelectItem key={p._dbId} value={p._dbId}>{p.nombre}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {filtroProyecto !== 'todos' && (
+              <div className="flex gap-2 sm:ml-auto">
+                <Button variant="outline" size="sm" disabled={gastosDelProyecto.length === 0} onClick={() => exportarGastosProyecto('excel')}>
+                  <Download className="size-4" /> Excel
+                </Button>
+                <Button variant="outline" size="sm" disabled={gastosDelProyecto.length === 0} onClick={() => exportarGastosProyecto('pdf')}>
+                  <FileText className="size-4" /> PDF
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {filtroProyecto !== 'todos' && (
+            <div className="mt-4">
+              <p className="text-sm text-muted-foreground mb-2">
+                {gastosDelProyecto.length} gasto(s) de caja chica para <strong>{proyectoNombre(filtroProyecto)}</strong>
+                {(() => {
+                  // Totales por moneda — NUNCA sumar USD+PEN sin convertir
+                  const totPEN = gastosDelProyecto.filter(g => g.moneda !== 'USD').reduce((s, g) => s + (g.monto || 0), 0);
+                  const totUSD = gastosDelProyecto.filter(g => g.moneda === 'USD').reduce((s, g) => s + (g.monto || 0), 0);
+                  const combinado = Math.round((totPEN + totUSD * 3.40) * 100) / 100;
+                  return (
+                    <>
+                      {' '}· Total: {totPEN > 0 && fmt(totPEN, 'PEN')}
+                      {totPEN > 0 && totUSD > 0 && ' + '}
+                      {totUSD > 0 && fmt(totUSD, 'USD')}
+                      {totUSD > 0 && <span className="ml-1">(≈ {fmt(combinado, 'PEN')} al TC 3.40)</span>}
+                    </>
+                  );
+                })()}
+              </p>
+              {gastosDelProyecto.length > 0 && (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Caja</TableHead>
+                        <TableHead>Descripción</TableHead>
+                        <TableHead>Beneficiario</TableHead>
+                        <TableHead className="text-right">Monto</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {gastosDelProyecto.map(g => (
+                        <TableRow key={g._dbId}>
+                          <TableCell className="text-sm whitespace-nowrap">{g.fecha ? new Date(g.fecha).toLocaleDateString('es-PE') : '—'}</TableCell>
+                          <TableCell className="text-sm">{g.cajaNombre}</TableCell>
+                          <TableCell className="text-sm">{g.descripcion}</TableCell>
+                          <TableCell className="text-sm">{g.beneficiario ?? '—'}</TableCell>
+                          <TableCell className="text-right text-sm whitespace-nowrap">{fmt(g.monto, g.moneda)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Cards de Cajas — se ocultan cuando hay una caja abierta (el detalle toma el lugar) */}
       {loading ? (
         <p className="text-sm text-muted-foreground">Cargando...</p>
       ) : cajasChicas.length === 0 ? (
@@ -229,57 +391,131 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
             Sin cajas chicas. Crea la primera.
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {cajasChicas.map(c => (
-            <Card
-              key={c._dbId}
-              className={`cursor-pointer transition-colors hover:border-primary/50 ${selectedCajaId === c._dbId ? 'border-primary' : ''}`}
-              onClick={() => setSelectedCajaId(c._dbId)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Wallet className="size-4 text-primary" />
-                      <p className="font-medium text-sm">{c.nombre}</p>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">{c.id} · {c.responsable}</p>
-                  </div>
-                  <Badge className={`text-xs ${ESTADO_CAJA_COLORS[c.estado]}`}>
-                    {c.estado.replace('_', ' ')}
-                  </Badge>
-                </div>
-
-                <div className="mt-4">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">Disponible</span>
-                    <span className={c.porcentajeUsado > 80 ? 'text-red-500 font-medium' : 'text-green-600 font-medium'}>
-                      {fmt(c.montoDisponible)}
-                    </span>
-                  </div>
-                  <Progress
-                    value={Math.min(c.porcentajeUsado, 100)}
-                    className={`h-2 ${c.porcentajeUsado > 80 ? '[&>div]:bg-red-500' : '[&>div]:bg-blue-500'}`}
-                  />
-                  <div className="flex justify-between text-xs mt-1 text-muted-foreground">
-                    <span>Asignado: {fmt(c.montoAsignado)}</span>
-                    <span>{c.porcentajeUsado.toFixed(0)}% usado</span>
-                  </div>
-                </div>
+      ) : selectedCaja ? null : (
+        <>
+          {/* Barra de navegación de cajas — evita scrollear entre muchas */}
+          <div className="flex flex-col sm:flex-row gap-2 mb-3">
+            <Input
+              placeholder="Buscar por nombre, código o responsable…"
+              value={cajaSearch}
+              onChange={(e) => setCajaSearch(e.target.value)}
+              className="sm:max-w-xs"
+            />
+            <Select value={cajaMoneda} onValueChange={(v) => setCajaMoneda(v as 'todos' | 'PEN' | 'USD')}>
+              <SelectTrigger className="sm:w-36"><SelectValue placeholder="Moneda" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Toda moneda</SelectItem>
+                <SelectItem value="PEN">Soles (PEN)</SelectItem>
+                <SelectItem value="USD">Dólares (USD)</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={cajaEstado} onValueChange={(v) => setCajaEstado(v as 'todos' | 'activo' | 'en_reposicion' | 'cerrada')}>
+              <SelectTrigger className="sm:w-40"><SelectValue placeholder="Estado" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todo estado</SelectItem>
+                <SelectItem value="activo">Activa</SelectItem>
+                <SelectItem value="en_reposicion">En reposición</SelectItem>
+                <SelectItem value="cerrada">Cerrada</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={selectedCajaId ?? ''} onValueChange={(v) => setSelectedCajaId(v)}>
+              <SelectTrigger className="sm:w-56"><SelectValue placeholder="Ir directo a una caja…" /></SelectTrigger>
+              <SelectContent>
+                {cajasFiltradas.map(c => (
+                  <SelectItem key={c._dbId} value={c._dbId}>{c.nombre} · {c.moneda}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground mb-2">{cajasFiltradas.length} de {cajasChicas.length} cajas</p>
+          {cajasFiltradas.length === 0 ? (
+            <Card>
+              <CardContent className="flex items-center justify-center min-h-[120px] text-sm text-muted-foreground">
+                Ninguna caja coincide con el filtro.
               </CardContent>
             </Card>
-          ))}
-        </div>
+          ) : (
+          <Card>
+            <CardContent className="p-0 overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Caja</TableHead>
+                    <TableHead>Responsable</TableHead>
+                    <TableHead>Mon.</TableHead>
+                    <TableHead className="text-right">Asignado</TableHead>
+                    <TableHead className="text-right">Disponible</TableHead>
+                    <TableHead className="w-40">% Usado</TableHead>
+                    <TableHead>Estado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cajasFiltradas.map(c => (
+                    <TableRow
+                      key={c._dbId}
+                      className={`cursor-pointer ${selectedCajaId === c._dbId ? 'bg-primary/10 hover:bg-primary/10' : ''}`}
+                      onClick={() => setSelectedCajaId(c._dbId)}
+                    >
+                      <TableCell className="py-2">
+                        <div className="flex items-center gap-2">
+                          <Wallet className="size-4 text-primary shrink-0" />
+                          <div>
+                            <div className="font-medium text-sm leading-tight">{c.nombre}</div>
+                            <div className="text-xs text-muted-foreground">{c.id}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">{c.responsable}</TableCell>
+                      <TableCell className="text-sm">{c.moneda}</TableCell>
+                      <TableCell className="text-right text-sm whitespace-nowrap">{fmt(c.montoAsignado, c.moneda)}</TableCell>
+                      <TableCell className={`text-right text-sm font-medium whitespace-nowrap ${c.porcentajeUsado > 80 ? 'text-red-500' : 'text-green-600'}`}>
+                        {fmt(c.montoDisponible, c.moneda)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Progress
+                            value={Math.min(c.porcentajeUsado, 100)}
+                            className={`h-2 flex-1 ${c.porcentajeUsado > 80 ? '[&>div]:bg-red-500' : '[&>div]:bg-blue-500'}`}
+                          />
+                          <span className="text-xs text-muted-foreground w-9 text-right">{c.porcentajeUsado.toFixed(0)}%</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={`text-xs ${ESTADO_CAJA_COLORS[c.estado]}`}>{c.estado.replace('_', ' ')}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          )}
+        </>
       )}
 
-      {/* Panel de gastos de la caja seleccionada */}
+      {/* Panel de gastos de la caja seleccionada (reemplaza la lista; sin scroll tedioso) */}
       {selectedCaja && (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between">
             <div>
-              <CardTitle className="text-base">{selectedCaja.nombre} — Gastos</CardTitle>
-              <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="px-2 -ml-2 mb-1 text-muted-foreground"
+                onClick={() => setSelectedCajaId(null)}
+              >
+                ← Volver a las cajas
+              </Button>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base">{selectedCaja.nombre}</CardTitle>
+                <Badge className={`text-xs ${ESTADO_CAJA_COLORS[selectedCaja.estado] ?? ''}`}>
+                  {selectedCaja.estado.replace('_', ' ')}
+                </Badge>
+              </div>
+              <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
+                <span>Responsable: <strong className="text-foreground">{selectedCaja.responsable}</strong></span>
+                <span>Asignado: <strong className="text-foreground">{fmt(selectedCaja.montoAsignado, selectedCaja.moneda)}</strong></span>
+                <span>Disponible: <strong className={selectedCaja.montoDisponible < 0 ? 'text-red-600' : 'text-green-600'}>{fmt(selectedCaja.montoDisponible, selectedCaja.moneda)}</strong></span>
                 <span>Total mes: <strong className="text-foreground">{fmt(kpisGastos.total)}</strong></span>
                 {kpisGastos.pendientes > 0 && (
                   <span className="flex items-center gap-1 text-yellow-600">
@@ -289,10 +525,52 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                 )}
               </div>
             </div>
-            <Button size="sm" onClick={() => setShowNuevoGasto(true)}>
-              <Plus className="size-4" />
-              Registrar Gasto
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => exportarModeloCaja(selectedCaja)}>
+                <Download className="size-4" />
+                Exportar modelo
+              </Button>
+              {selectedCaja.estado === 'cerrada' ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await updateCajaChica(selectedCaja._dbId, { estado: 'activo' });
+                      toast.success(`${selectedCaja.nombre} reabierta`);
+                    } catch (e) {
+                      toast.error('No se pudo reabrir: ' + (e instanceof Error ? e.message : 'error'));
+                    }
+                  }}
+                >
+                  Reabrir Caja
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700"
+                  onClick={async () => {
+                    if (!window.confirm(`¿Cerrar ${selectedCaja.nombre}? No se podrán registrar más gastos ni ingresos en esta caja.`)) return;
+                    try {
+                      await updateCajaChica(selectedCaja._dbId, { estado: 'cerrada' });
+                      toast.success(`${selectedCaja.nombre} cerrada — saldo final ${fmt(selectedCaja.montoDisponible, selectedCaja.moneda)}`);
+                    } catch (e) {
+                      toast.error('No se pudo cerrar: ' + (e instanceof Error ? e.message : 'error'));
+                    }
+                  }}
+                >
+                  <X className="size-4" />
+                  Cerrar Caja
+                </Button>
+              )}
+              {selectedCaja.estado !== 'cerrada' && (
+                <Button size="sm" onClick={() => setShowNuevoGasto(true)}>
+                  <Plus className="size-4" />
+                  Registrar Gasto
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {gastosDeCaja.length === 0 ? (
