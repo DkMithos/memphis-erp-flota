@@ -81,7 +81,8 @@
 
 > Skills instalados para ejecutarlo (en `.claude/skills/`): supabase-postgres-best-practices
 > (oficial Supabase), vercel-react-best-practices (oficial Vercel), performance + accessibility
-> (Addy Osmani), security-review (Sentry).
+> (Addy Osmani), security-review (Sentry), web-quality-audit + code-review-and-quality
+> (Addy Osmani, instalados 2026-07-07 para auditorías QA).
 
 ### FASE 1 — Optimización pre-producción de la DB · **✅ COMPLETADA (2026-07-07)**
 - 1.1 ✅ RLS initplan: **~90 políticas** reescritas con `( SELECT auth_… )` vía DO block
@@ -117,14 +118,44 @@
   localStorage y las sesiones de usuarios QA recreados se envenenan entre sí; usar un
   solo eval atómico login→navegación.
 
-### FASE 3 — TC SBS/SUNAT por fecha de emisión · pendiente
+### AUDITORÍA INTEGRAL #2 · **✅ COMPLETADA (2026-07-07)**
+
+Ejecutada con los skills QA (web-quality-audit, code-review-and-quality) tras FASE 1+2.
+Método: batería SQL de integridad + code review focalizado + recorrido UI con usuario QA
+temporal (eliminado al cierre) en preview local.
+
+- **Backend (integridad de datos): PERFECTO.** 0 items huérfanos, 0 enlaces req↔cot↔OC
+  rotos, 0 cajas descuadradas, 0 números duplicados, 0 usuarios sin rol, 0 gastos sin caja.
+- **Seguridad (advisors Supabase): 6 → 1.** Solo queda `pg_net` en schema public
+  (WARN menor; mover a schema propio cuando haya ventana).
+- ✅ **MOMARENTO consolidado:** PROV-0323 (EXT falso) repuntado a PROV-0197
+  (RUC real 20507115102, ahora 10 OCs) y eliminado. Pendiente de RUC solo GEREMIE (PROV-0324).
+- 🟡 **Hallazgo para decisión de Kevin — CCs con gasto grande sin proyecto** (308 OCs
+  activas): la mayoría son CCs internos legítimos (MDI 85 OCs, OFCENTRAL 28…), PERO:
+  - **MSS-30** (118 OCs · S/6.25M) — ¿es el proyecto pipeline SAN MARTIN MOVIL SALUD?
+  - **LORETOAMB** (29 OCs · S/10.8M) — proyecto legado LORETO AMBULANCIAS liquidado,
+    no registrado en el ERP.
+  - MUNSMSERENAZGO (S/487K), PDD (S/1.04M), C-OXI (S/215K), GLORETOHOSP.
+  - Decisión: ¿registrar proyectos legados/pipeline y enlazar sus CCs? (permite ver su
+    gasto en el 360 y en BI).
+- **Code review:** usePagination clamping ✓, lazy/Suspense ✓, sanitización buscador ✓.
+- **UI (todo ✓):** login, detalle de req/cot/OC (cotización legible, Exportar PDF),
+  caja chica (detalle, paginación, orden desc, Volver, export), Lista de Proyectos,
+  Espejo Excel, directorio proveedores paginado, Dashboard de Proveedores, búsqueda
+  global con caracteres peligrosos `ICA,)("` sanitizada. Consola sin errores de la app
+  (solo refresh-token del usuario QA recreado, artefacto del método).
+
+### FASE 3 — TC SBS/SUNAT por fecha de emisión · pendiente · **SIGUIENTE EJECUTABLE**
 - Revisar lo existente ANTES de construir: hay `TipoCambioProvider` en el front y edge
   function `sunat-proxy` desplegada. Elegir fuente (apis SBS/SUNAT), cachear por fecha en
   tabla, setear `tipo_cambio` al crear OC, backfill por `fecha_emision`.
 
 ### FASE 4 — Bloqueados en Kevin / eventos externos
 - Decisiones de `OCs_para_revision_2026-07-06.xlsx` (17 órdenes, columna DECISIÓN).
-- RUC real de GEREMIE KEVIN CALLUCO QUISPE (PROV-0324) y MOMARENTO EIRL (PROV-0323).
+- RUC real de GEREMIE KEVIN CALLUCO QUISPE (PROV-0324). ~~MOMARENTO~~ ✅ resuelto
+  (consolidado en PROV-0197, auditoría #2).
+- **Decisión CCs→proyectos legados/pipeline** (MSS-30, LORETOAMB, MUNSMSERENAZGO, PDD,
+  C-OXI, GLORETOHOSP — ver hallazgo de auditoría #2).
 - ICA V6: sumar 555,965 al cobrado cuando emitan el CIPRL.
 - Navegación caza-bugs de Kevin → alimenta la siguiente auditoría.
 
@@ -138,13 +169,15 @@ Contratos, Talleres (hoy básicos/placeholder).
 ### FASE 7 — Backup Firebase + apagado de oc-system · pendiente
 Export completo de Firestore antes de apagar el portal legado (coordinar fecha con Kevin).
 
-## 7. Último lote entregado (2026-07-07, este commit)
+## 7. Último lote entregado (2026-07-07, auditoría integral #2)
 
-Crashes: Lista de Proyectos (estado liquidacion), detalle de proveedor (bancos/cuentas jsonb),
-rutas RQ-/detalles agnósticas, CORS excel-sync. Datos: ICA cobrado, consolidación de 9
-proveedores duplicados, CC `GICAPATRUL` creado y 31 órdenes nuevas re-atribuidas a ICA,
-`GLORETOBOM` enlazado a Loreto. UX: paginación+orden en gastos de caja y directorio de
-proveedores, export Excel de gastos por caja, combobox con búsqueda (Proyecto/CC/cajas),
-dashboard real de Proveedores, buscador global ampliado (proveedores/OCs/códigos) y que se
-limpia al navegar, Dashboard con watchdog anti-cuelgue, notificaciones navegan a su entidad,
-logo Memphis en el PDF de orden.
+Auditoría #2 completada con skills QA (sección AUDITORÍA #2 arriba): integridad backend
+perfecta, advisors de seguridad 6→1, MOMARENTO consolidado (PROV-0323→PROV-0197,
+RUC 20507115102), UI 100% verde en preview con usuario QA temporal (creado y eliminado).
+Hallazgo abierto para Kevin: CCs con gasto grande sin proyecto (MSS-30 S/6.25M,
+LORETOAMB S/10.8M, y 4 menores) — decidir si se registran como proyectos legados/pipeline.
+
+Lote previo (mismo día): crashes de Lista de Proyectos / detalle de proveedor / rutas RQ- /
+CORS excel-sync; datos ICA cobrado + consolidación de 9 proveedores duplicados + GICAPATRUL;
+UX de paginaciones, export Excel de caja, comboboxes con búsqueda, dashboard de Proveedores,
+buscador global sanitizado, notificaciones navegables y logo en PDF de orden.
