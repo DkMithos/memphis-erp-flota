@@ -77,20 +77,53 @@
   local; el MCP de Vercel NO tiene scope del team kesa-erp) y confirmando strings nuevos en el
   bundle de producción.
 
-## 6. Pendientes (prioridad de arriba a abajo)
+## 6. PLAN DE ACCIÓN (2026-07-07) — fases y estado
 
-1. **Auditoría completa** post-lote de fixes (Kevin seguirá navegando y reportando).
-2. Decisiones de Kevin sobre `OCs_para_revision_2026-07-06.xlsx` (17 órdenes).
-3. RUC real de 2 proveedores peruanos: GEREMIE KEVIN CALLUCO QUISPE (PROV-0324) y
-   MOMARENTO EIRL (PROV-0323).
-4. ICA V6: sumar 555,965 al cobrado cuando emitan CIPRL.
-5. **Optimización pre-producción masiva:** 145 FKs sin índice + 21 políticas RLS initplan
-   + consolidar policies múltiples (advisors) — antes de cientos de usuarios concurrentes.
-6. Integración **TC SBS/SUNAT** por fecha de emisión (+ backfill por `fecha_emision`).
-7. **Rediseño módulo Flota** + sinceramiento de datos de flota.
-8. Placeholders por construir: Cronograma/Valorizaciones/Riesgos/Documentos (Proyectos),
-   Evaluaciones/Contratos/Talleres (Proveedores) son básicos.
-9. Backup programado de Firebase antes de apagar oc-system.
+> Skills instalados para ejecutarlo (en `.claude/skills/`): supabase-postgres-best-practices
+> (oficial Supabase), vercel-react-best-practices (oficial Vercel), performance + accessibility
+> (Addy Osmani), security-review (Sentry).
+
+### FASE 1 — Optimización pre-producción de la DB · **✅ COMPLETADA (2026-07-07)**
+- 1.1 ✅ RLS initplan: **~90 políticas** reescritas con `( SELECT auth_… )` vía DO block
+      desde el catálogo (migración `rls_initplan_optimizacion`). Advisor: **21 → 0**.
+- 1.2 ✅ Índices FK generados desde el catálogo para ~40 tablas calientes (migración
+      `indices_fk_tablas_calientes`). Advisor: 145 → 66 (las 66 restantes = módulos
+      fríos/semilla, decisión deliberada). "Unused index" subirá hasta que registren uso.
+- 1.3 ✅ Consolidación: eliminada `tenant_cc` (duplicada de `ti_centros` en centros_costo).
+      Multi-policy 31 → 11; las 11 restantes son INTENCIONALES (QR público de
+      vehiculo_documentos + memberships con 2 semánticas) — NO tocar.
+- 1.4 ✅ Verificación triple sin regresión: SQL como authenticated (rol+permisos visibles),
+      REST real con token (1.2s la consulta de usePermissions completa), login limpio en
+      preview con stores cargando (129 prov / 210 req / 185 cot / 386 veh / 1131 OCs).
+- Nota para FASE 2: warn `[usePermissions] timeout — unblocking UI` con varias pestañas —
+  revisar timeout/reintento del hook (la API responde en ~1.2s; el timeout parece corto).
+
+### FASE 2 — Auditoría técnica frontend · pendiente
+Con skills performance/accessibility/vercel-react/security-review:
+- 2.1 Bundle principal 1.8 MB → code-splitting por módulo (lazy import).
+- 2.2 Pasada de accesibilidad (labels, foco, contraste, DialogTitle warnings ya vistos).
+- 2.3 Security review del código (sanitización en exports HTML, supresión de datos client-side).
+
+### FASE 3 — TC SBS/SUNAT por fecha de emisión · pendiente
+- Revisar lo existente ANTES de construir: hay `TipoCambioProvider` en el front y edge
+  function `sunat-proxy` desplegada. Elegir fuente (apis SBS/SUNAT), cachear por fecha en
+  tabla, setear `tipo_cambio` al crear OC, backfill por `fecha_emision`.
+
+### FASE 4 — Bloqueados en Kevin / eventos externos
+- Decisiones de `OCs_para_revision_2026-07-06.xlsx` (17 órdenes, columna DECISIÓN).
+- RUC real de GEREMIE KEVIN CALLUCO QUISPE (PROV-0324) y MOMARENTO EIRL (PROV-0323).
+- ICA V6: sumar 555,965 al cobrado cuando emitan el CIPRL.
+- Navegación caza-bugs de Kevin → alimenta la siguiente auditoría.
+
+### FASE 5 — Rediseño módulo Flota + sinceramiento de datos · pendiente
+Sesión dedicada; requiere levantar requisitos con Kevin (qué debe mostrar/hacer Flota).
+
+### FASE 6 — Módulos placeholder · pendiente
+Proyectos: Cronograma, Valorizaciones, Riesgos, Documentos. Proveedores: Evaluaciones,
+Contratos, Talleres (hoy básicos/placeholder).
+
+### FASE 7 — Backup Firebase + apagado de oc-system · pendiente
+Export completo de Firestore antes de apagar el portal legado (coordinar fecha con Kevin).
 
 ## 7. Último lote entregado (2026-07-07, este commit)
 
