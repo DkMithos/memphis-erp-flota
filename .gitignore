@@ -29,6 +29,10 @@ scripts/imports-historicos/
 .claude/agents/
 .claude/superpowers/
 
+# Skills CLI (tooling local, no versionar)
+.agents/
+skills-lock.json
+
 # Editor
 .vscode/settings.json
 .vscode/launch.json

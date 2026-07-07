@@ -98,11 +98,24 @@
 - Nota para FASE 2: warn `[usePermissions] timeout — unblocking UI` con varias pestañas —
   revisar timeout/reintento del hook (la API responde en ~1.2s; el timeout parece corto).
 
-### FASE 2 — Auditoría técnica frontend · pendiente
-Con skills performance/accessibility/vercel-react/security-review:
-- 2.1 Bundle principal 1.8 MB → code-splitting por módulo (lazy import).
-- 2.2 Pasada de accesibilidad (labels, foco, contraste, DialogTitle warnings ya vistos).
-- 2.3 Security review del código (sanitización en exports HTML, supresión de datos client-side).
+### FASE 2 — Auditoría técnica frontend · **✅ COMPLETADA (2026-07-07)**
+- 2.1 ✅ Bundle: **index 1,789 KB → 460 KB (−74%)**. 73 componentes de módulos convertidos
+      a React.lazy (transformación programática de App.tsx; eager solo home/Dashboard y
+      vistas públicas QR que renderizan fuera del Suspense). manualChunks por función en
+      vite.config: react-vendor 167K / ui-vendor 217K (radix+lucide+cmdk+sonner) /
+      charts 432K / supabase 171K / i18n 48K — vendors cacheables a largo plazo.
+- 2.2 ✅ a11y: scan completo de DialogContent/SheetContent/AlertDialogContent — **cero sin
+      título**; el warning de Radix visto en consola de Kevin provenía de una extensión
+      del navegador. dangerouslySetInnerHTML solo en ui/chart.tsx (estándar shadcn, config
+      interna, seguro).
+- 2.3 ✅ Security: sanitizado el buscador global (el input entraba crudo a filtros `.or()`
+      de PostgREST — inyección de filtro con comas/paréntesis). Timeout de usePermissions
+      3s→8s (eliminaba falsos "cuenta pendiente de aprobación" con red lenta).
+- Verificación: build OK + login y navegación por 3 módulos lazy en preview
+  (órdenes 1131, 30 cajas, panorama) sin errores.
+- Aprendizaje operativo: NO verificar con varias pestañas del preview — comparten
+  localStorage y las sesiones de usuarios QA recreados se envenenan entre sí; usar un
+  solo eval atómico login→navegación.
 
 ### FASE 3 — TC SBS/SUNAT por fecha de emisión · pendiente
 - Revisar lo existente ANTES de construir: hay `TipoCambioProvider` en el front y edge

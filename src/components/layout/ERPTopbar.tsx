@@ -98,7 +98,11 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
       if (!tenantId) return;
       setSearching(true);
       try {
-        const term = `%${q}%`;
+        // Sanitizar: coma/paréntesis/comillas alteran la sintaxis de filtros .or() de
+        // PostgREST (inyección de filtro). Se eliminan antes de interpolar.
+        const qSafe = q.replace(/[,()"'\\%]/g, ' ').trim();
+        if (qSafe.length < 2) { setResults([]); setSearching(false); return; }
+        const term = `%${qSafe}%`;
         const [ots, vehiculos, proyectos, clientes, articulos, proveedores, ordenes] = await Promise.all([
           supabase.from('ordenes_trabajo').select('numero_ot,titulo').or(`titulo.ilike.${term},numero_ot.ilike.${term}`).limit(3),
           supabase.from('vehiculos').select('codigo,placa,marca,modelo').or(`placa.ilike.${term},codigo.ilike.${term}`).limit(3),

@@ -137,13 +137,15 @@ export function usePermissions() {
       }
     };
 
-    // Safety timeout: if query takes >3s, unblock with current state
+    // Safety timeout: si la consulta tarda, desbloquear la UI con el estado actual.
+    // 8s: la consulta normal toma ~1.2s, pero con red lenta/varias pestañas 3s
+    // provocaba falsos "cuenta pendiente de aprobación".
     const safetyTimer = setTimeout(() => {
       if (mounted) {
         console.warn('[usePermissions] timeout — unblocking UI');
         setLoading(false);
       }
-    }, 3000);
+    }, 8000);
 
     load().finally(() => clearTimeout(safetyTimer));
 

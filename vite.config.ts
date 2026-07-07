@@ -61,12 +61,16 @@
       chunkSizeWarningLimit: 900,
       rollupOptions: {
         output: {
-          // Partir el bundle único en chunks de vendor para acelerar la carga inicial
-          manualChunks: {
-            'react-vendor': ['react', 'react-dom'],
-            'charts': ['recharts'],
-            'supabase': ['@supabase/supabase-js'],
-            'i18n': ['i18next', 'react-i18next'],
+          // Partir el bundle único en chunks de vendor para acelerar la carga inicial.
+          // Los módulos de la app se parten aparte vía React.lazy en App.tsx.
+          manualChunks(id: string) {
+            if (!id.includes('node_modules')) return undefined;
+            if (/[\\/](recharts|d3-[^\\/]+)[\\/]/.test(id)) return 'charts';
+            if (id.includes('@supabase')) return 'supabase';
+            if (/[\\/](i18next|react-i18next)[\\/]/.test(id)) return 'i18n';
+            if (id.includes('@radix-ui') || /[\\/](lucide-react|cmdk|sonner|vaul|embla-carousel)[\\/]/.test(id)) return 'ui-vendor';
+            if (/[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'react-vendor';
+            return undefined; // resto de vendors: donde rollup decida
           },
         },
       },
