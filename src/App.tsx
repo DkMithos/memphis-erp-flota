@@ -691,9 +691,10 @@ export default function App() {
         );
       }
 
-      if (currentRoute.match(/^\/compras\/requerimientos\/REQ-\d{4}\/editar$/)) {
+      // Detalle/editar agnóstico al formato del número: REQ-0001 (antiguo) o RQ-00210 (serie del legado)
+      if (currentRoute.match(/^\/compras\/requerimientos\/[^/]+\/editar$/)) {
         const segments = currentRoute.split('/');
-        const requerimientoId = segments[3];
+        const requerimientoId = decodeURIComponent(segments[3]);
         return (
           <RequerimientoForm
             requerimientoId={requerimientoId}
@@ -703,9 +704,9 @@ export default function App() {
         );
       }
 
-      if (currentRoute.match(/^\/compras\/requerimientos\/REQ-\d{4}$/)) {
+      if (currentRoute.match(/^\/compras\/requerimientos\/[^/]+$/) && currentRoute !== '/compras/requerimientos/nuevo') {
         const segments = currentRoute.split('/');
-        const requerimientoId = segments[3];
+        const requerimientoId = decodeURIComponent(segments[3]);
         return <RequerimientoDetalle requerimientoId={requerimientoId} onNavigate={navigateTo} />;
       }
 
@@ -724,9 +725,10 @@ export default function App() {
         );
       }
 
-      if (currentRoute.match(/^\/proveedores\/directorio\/PROV-\d{4}\/editar$/)) {
+      // Detalle/editar agnóstico al formato del código (PROV-0101, futuros formatos, o uuid)
+      if (currentRoute.match(/^\/proveedores\/directorio\/[^/]+\/editar$/)) {
         const segments = currentRoute.split('/');
-        const proveedorId = segments[3];
+        const proveedorId = decodeURIComponent(segments[3]);
         return (
           <ProveedorForm
             proveedorId={proveedorId}
@@ -736,9 +738,9 @@ export default function App() {
         );
       }
 
-      if (currentRoute.match(/^\/proveedores\/directorio\/PROV-\d{4}$/)) {
+      if (currentRoute.match(/^\/proveedores\/directorio\/[^/]+$/) && currentRoute !== '/proveedores/directorio/nuevo') {
         const segments = currentRoute.split('/');
-        const proveedorId = segments[3];
+        const proveedorId = decodeURIComponent(segments[3]);
         return <ProveedorDetalle proveedorId={proveedorId} onNavigate={navigateTo} />;
       }
 
@@ -949,6 +951,7 @@ export default function App() {
                               tenantName={tenantName ?? 'Memphis ERP'}
                               userName={profile?.nombre ?? user?.email ?? 'Usuario'}
                               onNavigate={navigateTo}
+                              currentRoute={currentRoute}
                             />
                           </header>
                         )}

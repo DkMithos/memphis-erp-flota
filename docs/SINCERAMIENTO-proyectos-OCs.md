@@ -59,8 +59,15 @@ Corrección clave: **LORETO** contrato 43,840,000 → **43,865,818.59** (valor r
 - `LORMOVS` GORE LORETO - MOVIL SALUD — fase **idea**
 - `SMARTBOM` GORE SAN MARTIN - BOMBEROS — fase **actos_previos**
 
-### Pendiente ICA
-ICA no está en RESUMEN PROYECTOS (no tiene hoja). Faltan **convenio, CIU y monto_cobrado**. Por sus OCs, el gasto arranca en **2024** → la cohorte probable es 2024 (código sugerido `00ICAPNP24` o similar, a confirmar).
+### ICA — resuelto (2026-07-06, carpeta de liquidación)
+- **Convenio de Inversión: 2024-09-03** (`Convenio Patrulleros_240903.pdf`) → cohorte 2024, código **ICAPNP24**.
+- **CUI: 2587025** (confirmado en RESUMEN_ICA.pdf: "CON CUI N°2587025").
+- **Valorizaciones** (Anexo 1 de cada valorización):
+  - V1 (11-dic-2024): **S/ 21,431,235.50** — CIPRLs emitidos (251000129/134 ejecución + 128/135 supervisión) → **COBRADA**.
+  - V2–V5: S/ 0 (periodos sin valorización).
+  - V6 (oct-2025): S/ 325,785.00 (saldo contrato) + S/ 230,180.00 (derechos notariales, **Adenda N°04** 29-ago-2025) — **sin CIPRL aún**.
+- **monto_cobrado = S/ 21,431,235.50** (solo lo con CIPRL emitido; V6 pasa a cobrado cuando emitan su CIPRL).
+- Nota: el proyecto tiene **4 adendas** (carpeta ADENDAS); el valor modificado 21,878,020.50 vino de Gerencia. El doc equivalente de las valorizaciones muestra 21,723,020.50 + Adenda 4 (230,180) — si Gerencia quiere cuadrar al detalle de adendas, revisar las 4 ADENDAS PDF.
 
 ---
 

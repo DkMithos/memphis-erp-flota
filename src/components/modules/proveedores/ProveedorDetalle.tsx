@@ -60,9 +60,16 @@ export function ProveedorDetalle({ proveedorId, onNavigate }: ProveedorDetallePr
     );
   }
 
-  const estadoConfig = PROVEEDOR_ESTADO_CONFIG[proveedor.estado];
-  const condicionConfig = PROVEEDOR_CONDICION_CONFIG[proveedor.condicion];
-  const tipoConfig = PROVEEDOR_TIPO_CONFIG[proveedor.tipo];
+  // Defensivo: estados/condiciones fuera del catálogo nunca deben tumbar el módulo
+  const estadoConfig = PROVEEDOR_ESTADO_CONFIG[proveedor.estado] ?? PROVEEDOR_ESTADO_CONFIG.observado;
+  const condicionConfig = PROVEEDOR_CONDICION_CONFIG[proveedor.condicion] ?? PROVEEDOR_CONDICION_CONFIG.sin_evaluar;
+  const tipoConfig = PROVEEDOR_TIPO_CONFIG[proveedor.tipo] ?? PROVEEDOR_TIPO_CONFIG.bienes;
+
+  // Cuentas bancarias: la única (columnas banco/cuenta) + las múltiples del jsonb (migrados)
+  const bancos = [
+    ...(proveedor.datosBancarios ? [proveedor.datosBancarios] : []),
+    ...(proveedor.cuentasBancarias ?? []),
+  ];
 
   const puedeEditar = tienePermiso(rolActual, 'editar') && proveedor.estado !== 'inactivo';
   const puedeInactivar = tienePermiso(rolActual, 'inactivar') && proveedor.estado === 'activo';
@@ -282,9 +289,9 @@ export function ProveedorDetalle({ proveedorId, onNavigate }: ProveedorDetallePr
             <CardTitle>Datos Bancarios</CardTitle>
           </CardHeader>
           <CardContent>
-            {proveedor.bancos.length > 0 ? (
+            {bancos.length > 0 ? (
               <div className="space-y-4">
-                {proveedor.bancos.map((banco, idx) => (
+                {bancos.map((banco, idx) => (
                   <div key={idx} className="border rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
                       <p className="font-medium">{banco.banco}</p>

@@ -1,16 +1,10 @@
 /**
- * Selector de Centro de Costo — dropdown reutilizable
- * Muestra centros de costo activos
+ * Selector de Centro de Costo — combobox reutilizable CON BÚSQUEDA
+ * Muestra centros de costo activos; escribe para filtrar.
  */
 
 import { useTranslation } from 'react-i18next';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
+import { SearchableSelect } from './SearchableSelect';
 import { useCentrosCosto } from '../../lib/centros-costo/centros-costo-store';
 
 interface CentroCostoSelectorProps {
@@ -36,31 +30,20 @@ export function CentroCostoSelector({
   const activos = centrosCosto.filter(cc => cc.activo);
 
   return (
-    <Select
-      value={value ?? '__none__'}
-      onValueChange={v => onChange(v === '__none__' ? null : v)}
+    <SearchableSelect
+      value={value}
+      onChange={onChange}
+      options={activos.map(cc => ({
+        value: cc._dbId,
+        label: `${cc.codigo} — ${cc.nombre}`,
+      }))}
+      placeholder={t('selectors.select_cost_center', 'Seleccionar centro de costo')}
+      searchPlaceholder={t('selectors.search_cost_center', 'Buscar centro de costo…')}
+      emptyText={t('selectors.no_cost_centers_available', 'No hay centros de costo disponibles')}
+      nullable={nullable}
+      nullLabel={t('selectors.no_cost_center', 'Sin centro de costo')}
       disabled={disabled}
-    >
-      <SelectTrigger className={className}>
-        <SelectValue placeholder={t('selectors.select_cost_center', 'Seleccionar centro de costo')} />
-      </SelectTrigger>
-      <SelectContent>
-        {nullable && (
-          <SelectItem value="__none__">
-            {t('selectors.no_cost_center', 'Sin centro de costo')}
-          </SelectItem>
-        )}
-        {activos.map(cc => (
-          <SelectItem key={cc._dbId} value={cc._dbId}>
-            {cc.codigo} — {cc.nombre}
-          </SelectItem>
-        ))}
-        {activos.length === 0 && (
-          <SelectItem value="__empty__" disabled>
-            {t('selectors.no_cost_centers_available', 'No hay centros de costo disponibles')}
-          </SelectItem>
-        )}
-      </SelectContent>
-    </Select>
+      className={className}
+    />
   );
 }

@@ -180,7 +180,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
 
         {/* Acciones */}
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" onClick={() => exportOrdenPDF(orden, proveedorOC)}>
+          <Button variant="outline" onClick={() => exportOrdenPDF({ ...orden, cotizacionId: cotizacionOrigen?.id ?? orden.cotizacionId }, proveedorOC)}>
             <FileText className="size-4" />
             Exportar PDF
           </Button>

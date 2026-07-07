@@ -21,10 +21,12 @@ import { toast } from 'sonner';
 import { useFinanzas, type CajaChica, type GastoCajaChica } from '@/lib/finanzas/finanzas-store';
 import { ProyectoSelector } from '../../shared/ProyectoSelector';
 import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
+import { SearchableSelect } from '../../shared/SearchableSelect';
 import { useAuth } from '@/auth/AuthProvider';
 import { useProyectos } from '@/lib/proyectos/proyectos-store';
 import { exportToExcel, exportToPDF, exportCajaModeloExcel, type MovimientoCajaModelo } from '@/lib/shared/export-utils';
 import { supabase } from '@/lib/supabase/client';
+import { usePagination } from '@/lib/shared/usePagination';
 
 interface Props {
   onNavigate: (route: string) => void;
@@ -181,10 +183,20 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
     );
   }, [cajasChicas, cajaSearch, cajaMoneda, cajaEstado]);
 
+  // Gastos de la caja: del más reciente al más antiguo (fecha desc, luego creación desc)
   const gastosDeCaja = useMemo(() =>
-    gastos.filter(g => g.cajaDbId === selectedCajaId),
+    gastos
+      .filter(g => g.cajaDbId === selectedCajaId)
+      .sort((a, b) =>
+        String(b.fecha ?? '').localeCompare(String(a.fecha ?? '')) ||
+        String(b.creadoEn ?? '').localeCompare(String(a.creadoEn ?? ''))
+      ),
     [gastos, selectedCajaId]
   );
+  const {
+    paged: gastosPaged, page: gastosPage, totalPages: gastosTotalPages,
+    totalItems: gastosTotal, setPage: setGastosPage,
+  } = usePagination(gastosDeCaja);
 
   const hoy = new Date();
   const mesActual = hoy.getMonth();
@@ -418,14 +430,18 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                 <SelectItem value="cerrada">Cerrada</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={selectedCajaId ?? ''} onValueChange={(v) => setSelectedCajaId(v)}>
-              <SelectTrigger className="sm:w-56"><SelectValue placeholder="Ir directo a una caja…" /></SelectTrigger>
-              <SelectContent>
-                {cajasFiltradas.map(c => (
-                  <SelectItem key={c._dbId} value={c._dbId}>{c.nombre} · {c.moneda}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedCajaId}
+              onChange={(v) => setSelectedCajaId(v)}
+              options={cajasFiltradas.map(c => ({
+                value: c._dbId,
+                label: `${c.nombre} · ${c.moneda}`,
+                keywords: `${c.id} ${c.responsable}`,
+              }))}
+              placeholder="Ir directo a una caja…"
+              searchPlaceholder="Buscar caja…"
+              className="sm:w-64"
+            />
           </div>
           <p className="text-xs text-muted-foreground mb-2">{cajasFiltradas.length} de {cajasChicas.length} cajas</p>
           {cajasFiltradas.length === 0 ? (
@@ -525,10 +541,33 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                 )}
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button variant="outline" size="sm" onClick={() => exportarModeloCaja(selectedCaja)}>
                 <Download className="size-4" />
                 Exportar modelo
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={gastosDeCaja.length === 0}
+                onClick={() => exportToExcel(
+                  `gastos-${selectedCaja.id}`,
+                  gastosDeCaja.map(g => ({
+                    numero: g.id,
+                    fecha: g.fecha ? new Date(g.fecha).toLocaleDateString('es-PE') : '',
+                    descripcion: g.descripcion,
+                    categoria: g.categoria,
+                    beneficiario: g.beneficiario ?? '',
+                    comprobante: g.comprobanteNumero ?? '',
+                    monto: Number(g.monto ?? 0).toFixed(2),
+                    moneda: g.moneda,
+                    estado: g.estado,
+                  })),
+                  { numero: 'Número', fecha: 'Fecha', descripcion: 'Descripción', categoria: 'Categoría', beneficiario: 'Beneficiario', comprobante: 'Comprobante', monto: 'Monto', moneda: 'Moneda', estado: 'Estado' },
+                )}
+              >
+                <FileText className="size-4" />
+                Excel
               </Button>
               {selectedCaja.estado === 'cerrada' ? (
                 <Button
@@ -592,7 +631,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {gastosDeCaja.map(g => (
+                    {gastosPaged.map(g => (
                       <TableRow key={g._dbId}>
                         <TableCell className="font-mono text-xs">{g.id}</TableCell>
                         <TableCell className="text-sm">{g.fecha}</TableCell>
@@ -637,6 +676,21 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                     ))}
                   </TableBody>
                 </Table>
+                {gastosTotalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t">
+                    <span className="text-sm text-muted-foreground">
+                      Página {gastosPage} de {gastosTotalPages} · {gastosTotal} gasto(s)
+                    </span>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" disabled={gastosPage === 1} onClick={() => setGastosPage(gastosPage - 1)}>
+                        Anterior
+                      </Button>
+                      <Button variant="outline" size="sm" disabled={gastosPage === gastosTotalPages} onClick={() => setGastosPage(gastosPage + 1)}>
+                        Siguiente
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

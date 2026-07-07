@@ -30,13 +30,16 @@ import { toast } from 'sonner';
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
-const ESTADO_CONFIG: Record<Proyecto['estado'], { label: string; color: string }> = {
+const ESTADO_CONFIG: Record<string, { label: string; color: string }> = {
   planificacion: { label: 'Planificación', color: 'bg-slate-100 text-slate-700' },
   en_ejecucion:  { label: 'En Ejecución',  color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
   pausado:       { label: 'Pausado',        color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
   completado:    { label: 'Completado',     color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
   cancelado:     { label: 'Cancelado',      color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  liquidacion:   { label: 'Liquidación',    color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
 };
+// Fallback para estados fuera del catálogo — nunca tumbar el módulo
+const ESTADO_FALLBACK = { label: '—', color: 'bg-slate-100 text-slate-700' };
 
 const PRIORIDAD_CONFIG: Record<Proyecto['prioridad'], { label: string; color: string }> = {
   baja:    { label: 'Baja',    color: 'bg-slate-100 text-slate-600' },
@@ -572,8 +575,8 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
       {!loading && vista === 'cards' && filtrados.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtrados.map(p => {
-            const estadoCfg = ESTADO_CONFIG[p.estado];
-            const priorCfg = PRIORIDAD_CONFIG[p.prioridad];
+            const estadoCfg = ESTADO_CONFIG[p.estado] ?? ESTADO_FALLBACK;
+            const priorCfg = PRIORIDAD_CONFIG[p.prioridad] ?? ESTADO_FALLBACK;
             return (
               <Card
                 key={p._dbId}
@@ -695,8 +698,8 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
               </TableHeader>
               <TableBody>
                 {filtrados.map(p => {
-                  const estadoCfg = ESTADO_CONFIG[p.estado];
-                  const priorCfg = PRIORIDAD_CONFIG[p.prioridad];
+                  const estadoCfg = ESTADO_CONFIG[p.estado] ?? ESTADO_FALLBACK;
+                  const priorCfg = PRIORIDAD_CONFIG[p.prioridad] ?? ESTADO_FALLBACK;
                   return (
                     <TableRow key={p._dbId} className={p.estaRetrasado ? 'bg-red-50/40' : ''}>
                       <TableCell className="font-mono text-xs">{p.id}</TableCell>

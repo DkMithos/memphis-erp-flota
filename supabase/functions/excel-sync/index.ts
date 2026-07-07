@@ -18,7 +18,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-cron-secret',
+  // x-client-info / x-supabase-api-version: los envía supabase-js functions.invoke —
+  // sin ellos el preflight CORS falla desde el navegador ("Sincronizar ahora").
+  'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-cron-secret, x-client-info, x-supabase-api-version',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 const json = (b: unknown, s = 200) =>
@@ -208,7 +210,7 @@ Deno.serve(async (req: Request) => {
     const token = await getAppToken()
 
     for (const cfg of configs) {
-      const cfgOut: any = { nombre: cfg.nombre, hojas: 0, upserts: 0, errores: [] }
+      const cfgOut: any = { nombre: cfg.nombre, hojas: 0, upserts: 0, proyectos_actualizados: 0, errores: [] }
       try {
         // Listar worksheets
         const wsList = await graphGet(
@@ -242,6 +244,31 @@ Deno.serve(async (req: Request) => {
               .upsert(payload, { onConflict: 'tenant_id,hoja' })
             if (upErr) cfgOut.errores.push(`${ws.name}: ${upErr.message}`)
             else cfgOut.upserts++
+
+            // ── Propagación a `proyectos` (casando por CIU / codigo_inversion) ──
+            // SOLO desde las hojas de detalle oficiales (empiezan con '#') — las hojas
+            // sin '#' son de planificación con montos redondeados y NO son fuente.
+            // Solo MONTOS: contrato (inversión inicial), adenda (valor modificado −
+            // inicial) y monto cobrado. Códigos, fases y estados NO se tocan.
+            if (parsed.ciu && ws.name.trim().startsWith('#')) {
+              const upd: Record<string, number> = {}
+              if (parsed.inversion_inicial != null) upd.monto_contrato = parsed.inversion_inicial
+              if (parsed.inversion_inicial != null && parsed.valor_modificado != null) {
+                upd.monto_adenda = Math.round((parsed.valor_modificado - parsed.inversion_inicial) * 100) / 100
+              }
+              if (parsed.monto_cobrado != null) upd.monto_cobrado = parsed.monto_cobrado
+              if (parsed.presupuesto != null) upd.presupuesto = parsed.presupuesto
+              if (Object.keys(upd).length > 0) {
+                const { data: updData, error: pErr } = await admin
+                  .from('proyectos')
+                  .update(upd)
+                  .eq('tenant_id', cfg.tenant_id)
+                  .eq('codigo_inversion', String(parsed.ciu).trim())
+                  .select('id')
+                if (pErr) cfgOut.errores.push(`${ws.name} → proyectos: ${pErr.message}`)
+                else if (updData && updData.length > 0) cfgOut.proyectos_actualizados += updData.length
+              }
+            }
           } catch (eSheet) {
             cfgOut.errores.push(`${ws.name}: ${eSheet instanceof Error ? eSheet.message : String(eSheet)}`)
           }

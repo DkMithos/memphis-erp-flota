@@ -64,13 +64,13 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   useEffect(() => {
     if (!tenantId) return;
+    // Watchdog: si la red se cuelga, no dejar el dashboard en "cargando" infinito
+    const watchdog = setTimeout(() => setLoading(false), 12000);
     const cargar = async () => {
       setLoading(true);
       try {
-        // Parallel queries for all KPIs
-        const [
-          vehRes, otsRes, eqRes, proyRes, provRes, ocRes, reqRes
-        ] = await Promise.all([
+        // Parallel queries for all KPIs — allSettled: una consulta caída no bloquea el resto
+        const settled = await Promise.allSettled([
           supabase.from('vehiculos').select('estado', { count: 'exact', head: false }),
           supabase.from('ordenes_trabajo').select('id', { count: 'exact', head: true }).in('estado', ['abierta', 'en_progreso', 'pendiente']),
           supabase.from('equipos_biomedicos').select('id', { count: 'exact', head: true }),
@@ -79,6 +79,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           supabase.from('ordenes_compra').select('id', { count: 'exact', head: true }).in('estado', ['borrador', 'pendiente', 'aprobada']),
           supabase.from('requerimientos_compra').select('id', { count: 'exact', head: true }).in('estado', ['borrador', 'pendiente', 'aprobado']),
         ]);
+        const val = (i: number): any => settled[i].status === 'fulfilled' ? (settled[i] as PromiseFulfilledResult<any>).value : { data: null, count: 0 };
+        const [vehRes, otsRes, eqRes, proyRes, provRes, ocRes, reqRes] = [val(0), val(1), val(2), val(3), val(4), val(5), val(6)];
 
         const vehiculos = vehRes.data ?? [];
         const vehiculosActivos = vehiculos.filter((v: any) => v.estado === 'activo').length;
@@ -106,10 +108,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       } catch (e) {
         console.error('[Dashboard] Error cargando KPIs:', e);
       } finally {
+        clearTimeout(watchdog);
         setLoading(false);
       }
     };
     cargar();
+    return () => clearTimeout(watchdog);
   }, [tenantId]);
 
   const estadoBadge = (estado: string) => {

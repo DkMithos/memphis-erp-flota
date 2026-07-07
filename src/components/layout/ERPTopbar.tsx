@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { Bell, Search, Moon, Sun, Monitor, ChevronDown, LogOut, User, Settings, CheckCheck, Loader2, Languages } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -40,7 +40,8 @@ interface ERPTopbarProps {
   tenantName: string;
   userName: string;
   onNavigate?: (route: string) => void;
-
+  /** Ruta actual — al cambiar, el buscador se limpia (no queda "pegado") */
+  currentRoute?: string;
 }
 
 const TIPO_COLOR: Record<string, string> = {
@@ -60,7 +61,7 @@ function formatRelative(iso: string): string {
   return `Hace ${Math.floor(hrs / 24)}d`;
 }
 
-export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onSetTheme, tenantName, userName, onNavigate }: ERPTopbarProps) {
+export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onSetTheme, tenantName, userName, onNavigate, currentRoute }: ERPTopbarProps) {
 
   const { t, i18n } = useTranslation();
   const { signOut, user, tenantId } = useAuth();
@@ -72,6 +73,15 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
   const [showResults, setShowResults] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // Al navegar a otra ruta, limpiar el buscador (evita que quede "pegado")
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setQuery('');
+    setResults([]);
+    setShowResults(false);
+    setSearching(false);
+  }, [currentRoute]);
 
   const handleSearch = useCallback(async (q: string) => {
     setQuery(q);
@@ -89,17 +99,21 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
       setSearching(true);
       try {
         const term = `%${q}%`;
-        const [ots, vehiculos, proyectos, clientes, articulos] = await Promise.all([
-          supabase.from('ordenes_trabajo').select('numero_ot,titulo').ilike('titulo', term).limit(3),
+        const [ots, vehiculos, proyectos, clientes, articulos, proveedores, ordenes] = await Promise.all([
+          supabase.from('ordenes_trabajo').select('numero_ot,titulo').or(`titulo.ilike.${term},numero_ot.ilike.${term}`).limit(3),
           supabase.from('vehiculos').select('codigo,placa,marca,modelo').or(`placa.ilike.${term},codigo.ilike.${term}`).limit(3),
-          supabase.from('proyectos').select('id,codigo,nombre').ilike('nombre', term).limit(3),
+          supabase.from('proyectos').select('id,codigo,nombre').or(`nombre.ilike.${term},codigo.ilike.${term}`).limit(4),
           supabase.from('clientes').select('codigo,razon_social').ilike('razon_social', term).limit(3),
           supabase.from('articulos').select('codigo,nombre').ilike('nombre', term).limit(3),
+          supabase.from('proveedores').select('codigo,razon_social,ruc').or(`razon_social.ilike.${term},ruc.ilike.${term}`).limit(3),
+          supabase.from('ordenes_compra').select('numero,estado').ilike('numero', term).limit(3),
         ]);
         const res: SearchResult[] = [
+          ...(proyectos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Proyecto', label: `${r.codigo} — ${r.nombre}`, route: `/proyectos/360/${r.id}` })),
+          ...(ordenes.data ?? []).map((r: Record<string, string>) => ({ tipo: 'OC', label: `${r.numero} (${r.estado})`, route: `/compras/ordenes/${r.numero}` })),
+          ...(proveedores.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Proveedor', label: `${r.razon_social} — ${r.ruc}`, route: `/proveedores/directorio/${r.codigo}` })),
           ...(ots.data ?? []).map((r: Record<string, string>) => ({ tipo: 'OT', label: `${r.numero_ot} — ${r.titulo}`, route: `/flota/mantenimientos/${r.numero_ot}` })),
           ...(vehiculos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Vehículo', label: `${r.placa} — ${r.marca} ${r.modelo}`, route: `/flota/vehiculos/${r.codigo}` })),
-          ...(proyectos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Proyecto', label: `${r.codigo} — ${r.nombre}`, route: `/proyectos/detalle/${r.id}` })),
           ...(clientes.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Cliente', label: `${r.codigo} — ${r.razon_social}`, route: `/crm/clientes/${r.codigo}` })),
           ...(articulos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Artículo', label: `${r.codigo} — ${r.nombre}`, route: `/inventario/articulos/${r.codigo}` })),
         ];
@@ -203,7 +217,22 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
                   <div
                     key={n.id}
                     className={`p-3 cursor-pointer border-b last:border-0 hover:bg-accent transition-colors ${!n.leida ? 'bg-accent/40' : ''}`}
-                    onClick={() => { if (!n.leida) marcarLeida(n.id); }}
+                    onClick={() => {
+                      if (!n.leida) marcarLeida(n.id);
+                      // Navegar a la entidad relacionada según su tipo
+                      const rutas: Record<string, string> = {
+                        orden_trabajo: '/flota/mantenimientos',
+                        tarea: '/proyectos/tareas',
+                        orden_compra: n.entidadId ? `/compras/ordenes/${n.entidadId}` : '/compras/ordenes',
+                        requerimiento: n.entidadId ? `/compras/requerimientos/${n.entidadId}` : '/compras/requerimientos',
+                        cotizacion: n.entidadId ? `/compras/cotizaciones/${n.entidadId}` : '/compras/cotizaciones',
+                        proyecto: n.entidadId ? `/proyectos/360/${n.entidadId}` : '/proyectos',
+                        articulo: '/inventario/articulos',
+                        proveedor: n.entidadId ? `/proveedores/directorio/${n.entidadId}` : '/proveedores/directorio',
+                      };
+                      const destino = n.entidadTipo ? rutas[n.entidadTipo] : undefined;
+                      if (destino) onNavigate?.(destino);
+                    }}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`size-2 rounded-full mt-2 shrink-0 ${TIPO_COLOR[n.tipo]}`} />

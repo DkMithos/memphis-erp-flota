@@ -23,6 +23,7 @@ import {
 import { Alert, AlertDescription } from '../../ui/alert';
 import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
 import { useAuth } from '../../../auth/AuthProvider';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { exportToCSV } from '../../../lib/shared/export-utils';
 import {
   PROVEEDOR_ESTADO_CONFIG,
@@ -76,6 +77,10 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
       return matchSearch && matchEstado && matchTipo && matchCategoria;
     });
   }, [proveedores, searchTerm, filtroEstado, filtroTipo, filtroCategoria]);
+
+  const {
+    paged: proveedoresPaged, page: provPage, totalPages: provTotalPages, setPage: setProvPage,
+  } = usePagination(proveedoresFiltrados);
 
   // Estadísticas
   const stats = useMemo(() => ({
@@ -295,7 +300,7 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {proveedoresFiltrados.map((proveedor) => {
+                {proveedoresPaged.map((proveedor) => {
                   // Fallbacks defensivos: un valor inesperado NO debe tumbar el módulo
                   const estadoConfig = PROVEEDOR_ESTADO_CONFIG[proveedor.estado] ?? PROVEEDOR_ESTADO_CONFIG.observado;
                   const condicionConfig = PROVEEDOR_CONDICION_CONFIG[proveedor.condicion] ?? PROVEEDOR_CONDICION_CONFIG.sin_evaluar;
@@ -402,6 +407,21 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
                 })}
               </TableBody>
             </Table>
+          )}
+          {provTotalPages > 1 && (
+            <div className="flex items-center justify-between px-2 py-3 border-t">
+              <span className="text-sm text-muted-foreground">
+                Página {provPage} de {provTotalPages} · {proveedoresFiltrados.length} proveedor(es)
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={provPage === 1} onClick={() => setProvPage(provPage - 1)}>
+                  Anterior
+                </Button>
+                <Button variant="outline" size="sm" disabled={provPage === provTotalPages} onClick={() => setProvPage(provPage + 1)}>
+                  Siguiente
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

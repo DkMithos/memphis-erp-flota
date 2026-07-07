@@ -1,16 +1,10 @@
 /**
- * Selector de Proyecto — dropdown reutilizable
- * Muestra proyectos activos (en_ejecucion, planificacion)
+ * Selector de Proyecto — combobox reutilizable CON BÚSQUEDA
+ * Muestra proyectos activos (en_ejecucion, planificacion); escribe para filtrar.
  */
 
 import { useTranslation } from 'react-i18next';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
+import { SearchableSelect } from './SearchableSelect';
 import { useProyectos } from '../../lib/proyectos/proyectos-store';
 
 interface ProyectoSelectorProps {
@@ -38,31 +32,21 @@ export function ProyectoSelector({
   );
 
   return (
-    <Select
-      value={value ?? '__none__'}
-      onValueChange={v => onChange(v === '__none__' ? null : v)}
+    <SearchableSelect
+      value={value}
+      onChange={onChange}
+      options={proyectosActivos.map(p => ({
+        value: p._dbId,
+        label: `${p.id} — ${p.nombre}`,
+        keywords: `${p.entidadCliente ?? ''} ${p.region ?? ''}`,
+      }))}
+      placeholder={t('selectors.select_project', 'Seleccionar proyecto')}
+      searchPlaceholder={t('selectors.search_project', 'Buscar proyecto…')}
+      emptyText={t('selectors.no_projects_available', 'No hay proyectos disponibles')}
+      nullable={nullable}
+      nullLabel={t('selectors.no_project', 'Sin proyecto')}
       disabled={disabled}
-    >
-      <SelectTrigger className={className}>
-        <SelectValue placeholder={t('selectors.select_project', 'Seleccionar proyecto')} />
-      </SelectTrigger>
-      <SelectContent>
-        {nullable && (
-          <SelectItem value="__none__">
-            {t('selectors.no_project', 'Sin proyecto')}
-          </SelectItem>
-        )}
-        {proyectosActivos.map(p => (
-          <SelectItem key={p._dbId} value={p._dbId}>
-            {p.id} — {p.nombre}
-          </SelectItem>
-        ))}
-        {proyectosActivos.length === 0 && (
-          <SelectItem value="__empty__" disabled>
-            {t('selectors.no_projects_available', 'No hay proyectos disponibles')}
-          </SelectItem>
-        )}
-      </SelectContent>
-    </Select>
+      className={className}
+    />
   );
 }

@@ -297,11 +297,14 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
   @media print{ body{padding:0} @page{margin:14mm;size:A4} }
 </style></head><body>
   <div class="head">
-    <div>
-      <h1>${titulo}</h1>
-      <div style="font-size:10px;color:#444">Memphis Maquinarias S.A.C · RUC 20603847424<br>
-      AV. Circunvalación el Golf N° 158 Of. 203, Surco, Lima<br>
-      (01) 7174012 — www.memphismaquinarias.com</div>
+    <div style="display:flex;gap:12px;align-items:flex-start">
+      <img src="${window.location.origin}/fdf.svg" alt="Memphis" style="width:52px;height:52px;border-radius:8px" />
+      <div>
+        <h1>${titulo}</h1>
+        <div style="font-size:10px;color:#444"><b>MEMPHIS MAQUINARIAS S.A.C</b> · RUC 20603847424<br>
+        AV. Circunvalación el Golf N° 158 Of. 203, Surco, Lima<br>
+        (01) 7174012 — www.memphismaquinarias.com</div>
+      </div>
     </div>
     <div class="r"><b style="font-size:13px;color:#0A66C2">N° ${esc(orden.id)}</b><br>Estado: ${esc(orden.estado)}</div>
   </div>
@@ -325,7 +328,7 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
       <div><b>Correo:</b> ${esc(proveedor?.email)}</div>
       <div><b>Banco:</b> ${esc(cta.nombre || cta.banco)}</div>
       <div><b>Moneda:</b> ${orden.moneda === 'USD' ? 'Dólares' : 'Soles'}</div>
-      <div><b>Cuenta:</b> ${esc(cta.cuenta)}</div>
+      <div><b>Cuenta:</b> ${esc(cta.cuenta || cta.numeroCuenta)}</div>
       <div><b>CCI:</b> ${esc(cta.cci)}</div>
     </div>
   </div>

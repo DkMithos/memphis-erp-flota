@@ -59,6 +59,14 @@ export interface Proveedor {
     tipoCuenta: 'corriente' | 'ahorros';
     moneda: 'PEN' | 'USD';
   } | null;
+  /** Cuentas múltiples (jsonb cuentas_bancarias) — proveedores migrados de oc-system */
+  cuentasBancarias: {
+    banco: string;
+    numeroCuenta: string;
+    cci: string;
+    tipoCuenta: 'corriente' | 'ahorros';
+    moneda: 'PEN' | 'USD';
+  }[];
 
   // Datos tributarios
   datosTributarios: {
@@ -195,6 +203,17 @@ function mapFromDB(row: ProveedorDB): Proveedor {
           moneda: (row.moneda_cuenta as 'PEN' | 'USD') ?? 'PEN',
         }
       : null,
+    // Cuentas múltiples (jsonb) — los proveedores migrados de oc-system las traen aquí.
+    // Se normalizan claves con variantes del legado (cuenta/numeroCuenta, Dólares→USD).
+    cuentasBancarias: Array.isArray((row as any).cuentas_bancarias)
+      ? ((row as any).cuentas_bancarias as any[]).map((b) => ({
+          banco: b?.banco ?? b?.nombre ?? '',
+          numeroCuenta: b?.numeroCuenta ?? b?.cuenta ?? b?.nro_cuenta ?? b?.numero ?? '',
+          cci: b?.cci ?? '',
+          tipoCuenta: (b?.tipoCuenta ?? b?.tipo ?? 'corriente') as 'corriente' | 'ahorros',
+          moneda: (/d[oó]lar|usd/i.test(String(b?.moneda ?? '')) ? 'USD' : 'PEN') as 'PEN' | 'USD',
+        })).filter(b => b.banco || b.numeroCuenta)
+      : [],
     datosTributarios: {
       sujetoDetraccion: row.sujeto_detraccion ?? false,
       tasaDetraccion: row.tasa_detraccion ?? null,
