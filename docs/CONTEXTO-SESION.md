@@ -159,8 +159,16 @@ temporal (eliminado al cierre) en preview local.
 - ICA V6: sumar 555,965 al cobrado cuando emitan el CIPRL.
 - Navegación caza-bugs de Kevin → alimenta la siguiente auditoría.
 
-### FASE 5 — Rediseño módulo Flota + sinceramiento de datos · pendiente
-Sesión dedicada; requiere levantar requisitos con Kevin (qué debe mostrar/hacer Flota).
+### FASE 5 — Rediseño módulo Flota · **ACTIVADA (2026-07-08)** — requisitos completos
+Spec completa en [FLOTA-REQUISITOS.md](FLOTA-REQUISITOS.md) (N17). Resumen: flotas por
+proyecto con contratos de mantenimiento (tiempo/km, lo primero), provisión total vs
+gasto real = ahorro (por vehículo: consumo en precio y en cantidad), VIN primero placa
+después, cargas masivas de vehículos y mantenimientos, seguimiento documentario con
+alertas SOLO para vehículos administrativos (sin proyecto); FUERA: GPS, OTs, análisis
+preventivo, reportes, estados operativos. **Backup pre-rediseño: backups/flota-2026-07-08
+(10 tablas, 386 veh + 433 mant + 200 docs).** Los 433 mantenimientos están 100% enlazados
+en DB (50 vehículos) — el "no enlace" es de UI. Bloqueado en: Excel de Operaciones,
+matriz de costos por servicio, decisión QR, fuente de verdad de la data actual (§8 del doc).
 
 ### FASE 6 — Módulos placeholder · pendiente
 Proyectos: Cronograma, Valorizaciones, Riesgos, Documentos. Proveedores: Evaluaciones,
@@ -168,6 +176,25 @@ Contratos, Talleres (hoy básicos/placeholder).
 
 ### FASE 7 — Backup Firebase + apagado de oc-system · pendiente
 Export completo de Firestore antes de apagar el portal legado (coordinar fecha con Kevin).
+
+## 6.b FIX CRÍTICO PRODUCCIÓN (2026-07-08) — "módulos sin data" · ✅ desplegado
+
+Síntoma de Kevin en producción: al cambiar de módulo/recargar, dashboards y listas en 0;
+a la 3ª recarga aparecía la data. NO era caché HTTP (no hay service worker; sesión en
+localStorage, no cookies). Dos causas reales:
+1. **Recovery path del AuthProvider**: si `getSession()` tardaba >5s, publicaba la sesión
+   React (tenantId) con el cliente Supabase AÚN ANÓNIMO → los stores consultaban sin JWT
+   → RLS devolvía `[]` SIN error → módulos vacíos cacheados hasta recargar. Fix: hasta 4
+   reintentos de `setSession` ANTES de publicar; modo degradado solo como último recurso.
+2. **Carrera multi-pestaña de refresh token** (locks deshabilitados): dos pestañas rotaban
+   el mismo token → Supabase revoca por reuso → sesión anónima. Fix: listener de `storage`
+   que adopta el token renovado por otra pestaña (no re-habilitar navigator.locks: se
+   probó y reintroduce deadlocks — usePermissions timeout, cargas de 15s con 0 filas).
+3. Extra: reintento GET central (×3) en client.ts para blips de red; Cache-Control
+   explícito en vercel.json (no-cache HTML, immutable /assets).
+Verificado en preview (usuario QA, luego eliminado): login limpio, recarga en frío directa
+a /proveedores/directorio → 128 al instante, /compras/ordenes con data, consola sin
+warnings. Commit `7a228b2e`.
 
 ## 7. Último lote entregado (2026-07-07, auditoría integral #2)
 

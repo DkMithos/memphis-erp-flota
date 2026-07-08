@@ -22,6 +22,9 @@ temp_*
 # Scripts de carga histórica (one-off, no versionar)
 scripts/imports-historicos/
 
+# Backups de datos (dumps locales pre-migración, nunca al repo)
+backups/
+
 # Claude Code (contiene tokens y configuración local)
 .claude/settings.local.json
 .claude/worktrees/
