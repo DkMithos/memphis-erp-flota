@@ -75,13 +75,57 @@
 - **Roles**: después del rediseño se define quién ve y hace qué.
 - **Agentes de desarrollo**: definidos en `.claude/agents/` (tooling local, gitignored).
 
-## 8. Preguntas abiertas para Kevin
+## 8. Respuestas de Kevin (2026-07-08)
 
-1. **Excel de Operaciones**: compartir el archivo de control de flota (y el formato en
-   que registran mantenimientos) para modelar campos exactos y migrar.
-2. **Costo por mantenimiento**: ¿es un precio fijo por servicio (costo_total/N) o varía
-   según el tipo de servicio (5k vs 20k suelen costar distinto en concesionaria)?
-3. **QR público de vehículos**: ¿se mantiene o también se elimina con el rediseño?
-4. **Data actual**: ¿los 386 vehículos y 433 mantenimientos migrados son fieles, o se
-   re-migra todo desde el Excel de Operaciones como fuente de verdad?
-5. **API key de Claude** (Anthropic) para la IA embebida.
+1. **Fuente de datos**: carpeta OneDrive `Operaciones Teams - General/GOBIERNO REGIONAL
+   ICA OPERACIONES POSTVENTA/` — control de mantenimientos, contratos, planes con
+   precios, kilometrajes, placas.
+2. **Costo por mantenimiento VARÍA según el km** — el plan con precios está en la
+   carpeta (Perumotor camionetas / Promotora motos). → tabla `flota_contrato_tarifas`.
+3. **QR público SE MANTIENE pero cambia**: ya NO muestra documentación; solo información
+   básica del vehículo + cumplimiento de mantenimientos + último mantenimiento
+   (fecha y kilometraje).
+4. **La data actual del ERP NO es real** — la fuente de verdad son los archivos de la
+   carpeta (se re-migra desde ahí).
+5. **API key de Claude: sí** — Kevin la conseguirá (pendiente de entrega).
+
+## 9. Análisis de la carpeta de Operaciones (2026-07-08)
+
+Proyecto **GORE ICA (ICAPNP24)** — 2 flotas:
+
+| | Camionetas | Motos |
+|---|---|---|
+| Unidades | 50 Mitsubishi L200 2025 | 200 (175 con servicios registrados) |
+| Concesionaria/taller | Perumotor (+ talleres por provincia) | Promotora Genesis (STA: Importaciones…, Arife) |
+| Plan | cada 5,000 km hasta 120,000 (1,000 km gratis) | 1º a 500 km, luego cada 2,500 hasta 60,000 |
+| Moneda | USD (TC provisión 3.7) | PEN |
+| Costo/servicio | $222.66–$559.04 según km | S/150–S/466.84 según km |
+| Total por vehículo | $8,647.74 (con IGV) | S/8,245.06 (25 servicios) |
+| Modalidad de pago | mensual (según ejecutados) | **adelantado: S/1,649,011.20 PAGADO** |
+| Provisión mensual | S/21,426.86 | según plan mensual (hoja PLAN PROMOTORA) |
+| Histórico ejecutado | 222 servicios / 48 unidades (con OC MM- y factura) | 528 servicios / 175 unidades |
+| Identificación | PLACA INTERNA (KN-), PLACA RODAJE (EPI-), SERIE=VIN | Padrón interno + VIN (muchas sin placa) |
+
+Archivos clave: `Control de Mantenimientos Motos - Camioneta.xlsx` (BD MOTOS, PLAN
+PROMOTORA, historicomnto, EJECUTADO), `50 CAMIONETAS PLACAS.xlsx`, `CAMIONETA
+MANTENIMIENTO PREVENTIVO/CONTROL DE MANTENIMIENTO CAMIONETAS ICA.xlsx` (PRINCIPAL:
+programación por promedio km/día), `PLAN DE MANTENIMIENTOS/Contrato Perumotor ANEXO 1
+… con costos.xlsx` (tarifario), `MOTOS …/km acumulado flota GORE ICA.xlsx`.
+
+## 10. Modelo de datos aplicado (migración `flota_rediseno_esquema`, 2026-07-08)
+
+- `flotas` (proyecto_id NOT NULL, tipo, código único por tenant)
+- `flota_contratos` (proveedor, moneda+TC, duración/km límite, cantidad_servicios,
+  costo_total_por_vehiculo, modalidad adelantado|mensual, monto_pagado)
+- `flota_contrato_tarifas` (orden, km_servicio, mes_estimado, costo) ← plan con precios
+- `vehiculos` + columnas: flota_id, placa_interna, es_administrativo, tiene_soat/
+  soat_vigencia, tiene_seguro/seguro_vigencia (flota_id NULL + es_administrativo=true
+  → vehículo administrativo)
+- `vehiculo_mantenimientos` (km_servicio, km_odometro, fechas, estado, taller, costo,
+  oc_numero, factura, origen) ← reemplaza OTs para flota
+- `vehiculo_admin_eventos` (soat|seguro|tive|revision_tecnica|multa|papeleta, fechas,
+  vencimiento, alerta_dias) ← SOLO administrativos
+- `vehiculo_km_lecturas` (bitácora odómetro → promedio km/día → proyección de cita)
+- Vista `v_vehiculo_consumo`: servicios contratados vs ejecutados, provisión vs gastado,
+  saldo — la base del "cuánto va ahorrando".
+- RLS initplan en todas; índices FK; todo verificado con advisors (sin hallazgos nuevos).
