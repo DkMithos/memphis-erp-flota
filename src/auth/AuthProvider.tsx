@@ -223,30 +223,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (recovered?.user && recovered.access_token && recovered.refresh_token) {
           console.log('[auth] Sesión recuperada de localStorage para', recovered.user.email);
 
-          // 1) Desbloquear UI YA con el estado React; el supabase client se sincroniza
-          //    en segundo plano (y si se cuelga, no atrapa la UI).
+          // 1) Sincronizar el Supabase client ANTES de publicar la sesión en React.
+          //    Si publicamos con el cliente aún anónimo, los stores (gateados por
+          //    tenantId) disparan sus consultas sin JWT y RLS les devuelve listas
+          //    vacías SIN error → módulos "sin data" que no se recuperan hasta
+          //    recargar la página. Reintentamos hasta 4 veces (~14s peor caso).
+          let clienteSano = false;
+          for (let intento = 1; intento <= 4 && mounted; intento++) {
+            const setResult = await raceWithTimeout(
+              supabase.auth.setSession({
+                access_token: recovered.access_token,
+                refresh_token: recovered.refresh_token,
+              }),
+              2000,
+              { data: null, error: { message: 'setSession timeout' } } as any,
+            );
+            if (!setResult?.error) { clienteSano = true; break; }
+            console.warn(`[auth] setSession intento ${intento}/4 falló:`, setResult.error.message);
+            await new Promise(r => setTimeout(r, 1500));
+          }
+          if (!mounted) return;
+
+          // 2) Publicar la sesión (desbloquea la UI) y cargar el profile
           setSession(recovered as any);
-
-          // 2) Intentar setear la sesión en el Supabase client (con timeout corto)
-          const setResult = await raceWithTimeout(
-            supabase.auth.setSession({
-              access_token: recovered.access_token,
-              refresh_token: recovered.refresh_token,
-            }),
-            2000,
-            { data: null, error: { message: 'setSession timeout' } } as any,
-          );
-
-          // 3) Cargar el profile (con timeout). Si setSession falló/timeout, usar fetch directo
-          if (setResult?.error) {
-            console.warn('[auth] setSession falló/timeout, usando fetch directo:', setResult.error.message);
+          if (clienteSano) {
+            await raceWithTimeout(loadProfile(recovered.user.id), 3000, undefined as any);
+          } else {
+            // Modo degradado (cliente colgado >15s, muy raro): perfil por fetch
+            // directo para no dejar la UI atrapada en "Iniciando sesión...".
+            console.warn('[auth] Supabase client no sincronizó — perfil via fetch directo (modo degradado)');
             await raceWithTimeout(
               loadProfileDirect(recovered.user.id, recovered.access_token),
               3000,
               undefined as any,
             );
-          } else {
-            await raceWithTimeout(loadProfile(recovered.user.id), 3000, undefined as any);
           }
         }
       } catch (err) {
@@ -305,6 +315,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initAuth();
 
+    // Multi-tab sin navigator.locks: cuando OTRA pestaña renueva el token y lo
+    // persiste en localStorage, esta pestaña lo adopta en vez de renovar el suyo
+    // (ya rotado). Sin esto, Supabase detecta el reuso del refresh token viejo y
+    // revoca la sesión de TODAS las pestañas → consultas anónimas → RLS devuelve
+    // listas vacías sin error → módulos "sin data" hasta re-login.
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key?.startsWith('sb-') || !e.key.endsWith('-auth-token') || !e.newValue) return;
+      try {
+        const incoming = JSON.parse(e.newValue);
+        if (!incoming?.access_token || !incoming?.refresh_token) return;
+        void supabase.auth.getSession().then(({ data }) => {
+          const actual = data.session;
+          const esMasNuevo = (incoming.expires_at ?? 0) > (actual?.expires_at ?? 0);
+          if (!actual || (incoming.access_token !== actual.access_token && esMasNuevo)) {
+            void supabase.auth.setSession({
+              access_token: incoming.access_token,
+              refresh_token: incoming.refresh_token,
+            });
+          }
+        });
+      } catch { /* JSON inválido en storage — ignorar */ }
+    };
+    window.addEventListener('storage', onStorage);
+
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       if (!mounted) return;
       setSession(newSession);
@@ -340,6 +374,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
       clearTimeout(safetyTimer);
+      window.removeEventListener('storage', onStorage);
       sub.subscription.unsubscribe();
     };
   }, []);
