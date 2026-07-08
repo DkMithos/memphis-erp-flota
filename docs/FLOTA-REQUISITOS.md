@@ -129,3 +129,27 @@ programación por promedio km/día), `PLAN DE MANTENIMIENTOS/Contrato Perumotor 
 - Vista `v_vehiculo_consumo`: servicios contratados vs ejecutados, provisión vs gastado,
   saldo — la base del "cuánto va ahorrando".
 - RLS initplan en todas; índices FK; todo verificado con advisors (sin hallazgos nuevos).
+
+## 11. Migración ICA ejecutada (2026-07-08) — data real cargada
+
+Método: extracción Python (Excels→JSON) + carga Node pg atómica (rol temporal BYPASSRLS,
+UUIDs v5 deterministas → idempotente). Script: `scripts/migration-oc/migrar-flota-ica.mjs`.
+
+- **Flotas**: FL-ICA-CAM (50 camionetas) y FL-ICA-MOT (200 motos) → proyecto ICAPNP24.
+- **Contratos**: Perumotor (USD, TC 3.7, 25 servicios hasta 120,000 km, $8,647.73/vehículo,
+  pago mensual) y Promotora Genesis (PEN, 25 servicios hasta 60,000 km, S/8,245.16/moto,
+  **adelantado S/1,649,011.20**). 50 tarifas por km cargadas.
+- **Vehículos**: 50 camionetas actualizadas por VIN (placa interna KN- + rodaje EPI-/EPH-,
+  PNP en numero_padron, unidad asignada) y 200 motos (padrón, motor, comisaría-provincia).
+  **40 L200 fantasma** (no figuran en la data real) ya estaban inactivas — se mantienen así.
+- **Mantenimientos**: 1,074 servicios (546 camionetas $194,076.95 USD exactos vs fuente;
+  528 motos S/135,729.49 exactos). El Excel traía 5 filas duplicadas (mismo VIN+fecha+km,
+  deduplicadas) y 1 VIN con typo (`…SHO02674` letra O → corregido a `…SH002674` P03,
+  anotado en observaciones del registro).
+- **Lecturas km**: 577 (50 camionetas al 2026-07-08 desde 'km ica' + odómetros de motos
+  por servicio). `vehiculos.kilometraje` actualizado en camionetas.
+- **Verificación**: v_vehiculo_consumo operativa (ej.: EPI-012 → 19/25 servicios,
+  $6,834.56 gastado, saldo $1,813.17).
+
+**Siguiente**: UI del módulo (quitar GPS/OTs/reportes/análisis; pantallas Flotas/
+Vehículos/Mantenimientos/consumo; QR público rediseñado; cargas masivas).

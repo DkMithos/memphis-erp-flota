@@ -160,15 +160,24 @@ temporal (eliminado al cierre) en preview local.
 - Navegación caza-bugs de Kevin → alimenta la siguiente auditoría.
 
 ### FASE 5 — Rediseño módulo Flota · **ACTIVADA (2026-07-08)** — requisitos completos
-Spec completa en [FLOTA-REQUISITOS.md](FLOTA-REQUISITOS.md) (N17). Resumen: flotas por
-proyecto con contratos de mantenimiento (tiempo/km, lo primero), provisión total vs
-gasto real = ahorro (por vehículo: consumo en precio y en cantidad), VIN primero placa
-después, cargas masivas de vehículos y mantenimientos, seguimiento documentario con
-alertas SOLO para vehículos administrativos (sin proyecto); FUERA: GPS, OTs, análisis
-preventivo, reportes, estados operativos. **Backup pre-rediseño: backups/flota-2026-07-08
-(10 tablas, 386 veh + 433 mant + 200 docs).** Los 433 mantenimientos están 100% enlazados
-en DB (50 vehículos) — el "no enlace" es de UI. Bloqueado en: Excel de Operaciones,
-matriz de costos por servicio, decisión QR, fuente de verdad de la data actual (§8 del doc).
+Spec completa en [FLOTA-REQUISITOS.md](FLOTA-REQUISITOS.md) (N17) + respuestas de Kevin
+(§8) + análisis de la carpeta de Operaciones GORE ICA (§9). **Backup pre-rediseño:
+backups/flota-2026-07-08.**
+
+**Avance 2026-07-08:**
+- ✅ Esquema nuevo aplicado (migración `flota_rediseno_esquema`): flotas, flota_contratos,
+  flota_contrato_tarifas, vehiculo_mantenimientos, vehiculo_admin_eventos,
+  vehiculo_km_lecturas, columnas nuevas en vehiculos, vista v_vehiculo_consumo, RLS initplan.
+- ✅ **Data real de ICA migrada y cuadrada** (§11 del doc de requisitos): 2 flotas,
+  2 contratos (Perumotor USD mensual / Promotora PEN adelantado S/1.65M), 50 tarifas,
+  250 vehículos enlazados, 1,074 mantenimientos ($194,076.95 + S/135,729.49 exactos vs
+  fuente), 577 lecturas km. Typo de VIN corregido, 5 duplicados del Excel deduplicados,
+  40 L200 fantasma inactivas.
+- ⏳ Pendiente: **UI del módulo** (quitar GPS/OTs/reportes/análisis preventivo; pantallas
+  Flotas/Vehículos con carga masiva/Mantenimientos con carga masiva/consumo provisión vs
+  real; QR público rediseñado: info básica + cumplimiento + último manto con fecha y km);
+  vehículos administrativos (registro + alertas de vencimientos); IA embebida (Kevin
+  conseguirá API key de Claude).
 
 ### FASE 6 — Módulos placeholder · pendiente
 Proyectos: Cronograma, Valorizaciones, Riesgos, Documentos. Proveedores: Evaluaciones,
