@@ -173,11 +173,24 @@ backups/flota-2026-07-08.**
   250 vehículos enlazados, 1,074 mantenimientos ($194,076.95 + S/135,729.49 exactos vs
   fuente), 577 lecturas km. Typo de VIN corregido, 5 duplicados del Excel deduplicados,
   40 L200 fantasma inactivas.
-- ⏳ Pendiente: **UI del módulo** (quitar GPS/OTs/reportes/análisis preventivo; pantallas
-  Flotas/Vehículos con carga masiva/Mantenimientos con carga masiva/consumo provisión vs
-  real; QR público rediseñado: info básica + cumplimiento + último manto con fecha y km);
-  vehículos administrativos (registro + alertas de vencimientos); IA embebida (Kevin
-  conseguirá API key de Claude).
+- ✅ **UI nueva del módulo (2026-07-09)**: sidebar Flota = Dashboard/Flotas/Vehículos/
+  Mantenimientos (GPS, análisis preventivo, reportes y OTs FUERA de rutas y bundle;
+  componentes legacy quedan en disco sin rutas). Nuevos: flotas-store (flotas+contratos+
+  tarifas+v_vehiculo_consumo), FlotaDashboard (cards por flota: cumplimiento, provisión
+  vs gastado, saldo), FlotasLista, FlotaDetalleView (contrato+tarifario+consumo por
+  vehículo, tabs), FlotaMantenimientos (lista 1,074 desde vehiculo_mantenimientos +
+  registro manual con SearchableSelect), VehiculosLista (padrón/placa interna/VIN/flota,
+  filtro por flota y administrativos, KPI "sin placa"). dbFlotas/dbVehiculoMantenimientos/
+  dbVehiculoConsumo en helpers. Verificado en preview con usuario demo (dashboard cuadre
+  exacto: US$238,309.55 saldo camionetas; detalle 43.7% cumplimiento; 386 vehículos).
+  Lección: hooks SIEMPRE antes de early-returns (crash de usePagination corregido).
+- **Usuario demo para jefatura (2026-07-09)**: consultor@memphis.pe con rol Gerencia
+  (12 permisos de vista), provisional — Kevin le asignará rol definitivo en Admin.
+  Patrón: igual que usuario QA pero permanente (token cols '', tenant_id en app_metadata).
+- ⏳ Pendiente FASE 5: cargas masivas Excel (vehículos y mantenimientos), vehículos
+  administrativos (registro + alertas de vencimientos), QR público rediseñado (info
+  básica + cumplimiento + último manto fecha/km), rework de VehiculoDetalle (consumo +
+  historial nuevo); IA embebida (Kevin consigue API key de Claude en console.anthropic.com).
 
 ### FASE 6 — Módulos placeholder · pendiente
 Proyectos: Cronograma, Valorizaciones, Riesgos, Documentos. Proveedores: Evaluaciones,

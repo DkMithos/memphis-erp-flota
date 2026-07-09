@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Car, Plus, Search, Filter, Eye, Wrench, FileText, MapPin, Download, X, CheckCircle2, PowerOff, Gauge } from 'lucide-react';
+import { Car, Plus, Search, Eye, MapPin, X, CheckCircle2, PowerOff, Gauge } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
@@ -21,7 +21,8 @@ import {
   TableRow,
 } from '../../ui/table';
 import { useVehiculos } from '../../../lib/flota/vehiculos-store';
-import { EstadoVehiculo, TipoVehiculo, getEstadoBadge, getTipoBadge, calcularDiasProximoMantenimiento } from '../../../lib/flota/vehiculos-config';
+import { useFlotas } from '../../../lib/flota/flotas-store';
+import { getEstadoBadge, getTipoBadge } from '../../../lib/flota/vehiculos-config';
 import { usePagination } from '../../../lib/shared/usePagination';
 
 interface VehiculosListaProps {
@@ -29,48 +30,51 @@ interface VehiculosListaProps {
 }
 
 export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
-  const { vehiculos, buscarVehiculos } = useVehiculos();
-  
+  const { vehiculos } = useVehiculos();
+  const { flotas } = useFlotas();
+
   const [busqueda, setBusqueda] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<string>('todos');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
+  const [filtroFlota, setFiltroFlota] = useState<string>('todas');
 
-  // Filtrar vehículos
-  let vehiculosFiltrados = buscarVehiculos(busqueda);
-
-  if (filtroTipo !== 'todos') {
-    vehiculosFiltrados = vehiculosFiltrados.filter(v => v.tipo === filtroTipo);
-  }
-
-  if (filtroEstado !== 'todos') {
-    vehiculosFiltrados = vehiculosFiltrados.filter(v => v.estado === filtroEstado);
-  }
-
-  // Ordenar por ID descendente (más recientes primero)
-  vehiculosFiltrados = [...vehiculosFiltrados].sort((a, b) => {
-    const numA = parseInt(a.id.replace('VH-', ''));
-    const numB = parseInt(b.id.replace('VH-', ''));
-    return numB - numA;
+  let vehiculosFiltrados = vehiculos.filter(v => {
+    if (filtroTipo !== 'todos' && v.tipo !== filtroTipo) return false;
+    if (filtroEstado !== 'todos' && v.estado !== filtroEstado) return false;
+    if (filtroFlota === 'administrativos') {
+      if (!v.esAdministrativo) return false;
+    } else if (filtroFlota !== 'todas' && v.flotaId !== filtroFlota) return false;
+    if (busqueda) {
+      const q = busqueda.toLowerCase();
+      if (![v.placa, v.placaInterna, v.vin, v.numeroPadron, v.id, v.marca, v.modelo]
+        .some(x => x && String(x).toLowerCase().includes(q))) return false;
+    }
+    return true;
   });
+
+  // Orden: padrón/placa (numérico natural)
+  vehiculosFiltrados = [...vehiculosFiltrados].sort((a, b) =>
+    (a.numeroPadron ?? a.placa ?? a.id).localeCompare(b.numeroPadron ?? b.placa ?? b.id, 'es', { numeric: true })
+  );
 
   const { paged: vehiculosPaged, page, totalPages, totalItems: totalFiltrados, setPage } = usePagination(vehiculosFiltrados);
 
-  // KPIs reales desde el store
   const totalVehiculos = vehiculos.length;
   const activos = vehiculos.filter(v => v.estado === 'activo').length;
-  const enTaller = vehiculos.filter(v => v.estado === 'en_taller').length;
   const inactivos = vehiculos.filter(v => v.estado === 'inactivo').length;
-  const kmPromedio = vehiculos.length > 0
-    ? Math.round(vehiculos.reduce((sum, v) => sum + v.kilometraje, 0) / vehiculos.length)
-    : 0;
+  const sinPlaca = vehiculos.filter(v => v.estado === 'activo' && !v.placa).length;
+
+  const nombreFlota = (flotaId: string | null | undefined) =>
+    flotas.find(f => f.id === flotaId)?.nombre ?? null;
 
   const limpiarFiltros = () => {
     setBusqueda('');
     setFiltroTipo('todos');
     setFiltroEstado('todos');
+    setFiltroFlota('todas');
   };
 
-  const hayFiltrosActivos = busqueda !== '' || filtroTipo !== 'todos' || filtroEstado !== 'todos';
+  const hayFiltrosActivos = busqueda !== '' || filtroTipo !== 'todos' || filtroEstado !== 'todos' || filtroFlota !== 'todas';
 
   return (
     <div className="space-y-6">
@@ -83,27 +87,21 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
             <Car className="size-6 text-black dark:text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-semibold">Gestión de Vehículos</h2>
+            <h2 className="text-2xl font-semibold">Vehículos</h2>
             <p className="text-muted-foreground mt-1">
-              Administración completa de la flota vehicular
+              Unidades por flota y vehículos administrativos (VIN primero, placa después)
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
-            <Download className="size-4" />
-            Exportar
-          </Button>
-          <Button onClick={() => onNavigate('/flota/vehiculos/nuevo')}>
-            <Plus className="size-4" />
-            Nuevo Vehículo
-          </Button>
-        </div>
+        <Button onClick={() => onNavigate('/flota/vehiculos/nuevo')}>
+          <Plus className="size-4" />
+          Nuevo Vehículo
+        </Button>
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
@@ -112,7 +110,7 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
             <div className="min-w-0">
               <p className="text-xs text-muted-foreground">Total Vehículos</p>
               <p className="text-2xl font-bold">{totalVehiculos}</p>
-              <p className="text-xs text-muted-foreground mt-1">Flota completa</p>
+              <p className="text-xs text-muted-foreground mt-1">Todas las flotas</p>
             </div>
           </CardContent>
         </Card>
@@ -126,7 +124,7 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
               <p className="text-xs text-muted-foreground">Activos</p>
               <p className="text-2xl font-bold">{activos}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                {totalVehiculos > 0 ? ((activos / totalVehiculos) * 100).toFixed(1) : 0}% disponibilidad
+                {totalVehiculos > 0 ? ((activos / totalVehiculos) * 100).toFixed(1) : 0}% del total
               </p>
             </div>
           </CardContent>
@@ -135,12 +133,12 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="size-10 bg-amber-500 rounded-lg flex items-center justify-center shrink-0">
-              <Wrench className="size-5 text-white" />
+              <Gauge className="size-5 text-white" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">En Taller</p>
-              <p className="text-2xl font-bold">{enTaller}</p>
-              <p className="text-xs text-muted-foreground mt-1">Mantenimiento en curso</p>
+              <p className="text-xs text-muted-foreground">Sin placa (VIN)</p>
+              <p className="text-2xl font-bold">{sinPlaca}</p>
+              <p className="text-xs text-muted-foreground mt-1">Trámite de placa en curso</p>
             </div>
           </CardContent>
         </Card>
@@ -153,20 +151,7 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
             <div className="min-w-0">
               <p className="text-xs text-muted-foreground">Inactivos</p>
               <p className="text-2xl font-bold">{inactivos}</p>
-              <p className="text-xs text-muted-foreground mt-1">Fuera de servicio</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="size-10 bg-indigo-500 rounded-lg flex items-center justify-center shrink-0">
-              <Gauge className="size-5 text-white" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">KM Promedio</p>
-              <p className="text-2xl font-bold">{kmPromedio.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground mt-1">Kilometraje promedio</p>
+              <p className="text-xs text-muted-foreground mt-1">Fuera del padrón</p>
             </div>
           </CardContent>
         </Card>
@@ -175,17 +160,32 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
       {/* Filtros */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="md:col-span-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-[55%] size-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por placa, VIN, marca o modelo..."
+                  placeholder="Buscar por placa, VIN, padrón, marca o modelo..."
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
                   className="pl-10"
                 />
               </div>
+            </div>
+
+            <div>
+              <Select value={filtroFlota} onValueChange={setFiltroFlota}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Flota" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas las flotas</SelectItem>
+                  {flotas.map(f => (
+                    <SelectItem key={f.id} value={f.id}>{f.nombre}</SelectItem>
+                  ))}
+                  <SelectItem value="administrativos">Administrativos (Memphis)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
@@ -195,8 +195,9 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos los tipos</SelectItem>
-                  <SelectItem value="ambulancia">Ambulancia</SelectItem>
                   <SelectItem value="camioneta">Camioneta</SelectItem>
+                  <SelectItem value="moto">Moto</SelectItem>
+                  <SelectItem value="ambulancia">Ambulancia</SelectItem>
                   <SelectItem value="van">Van</SelectItem>
                   <SelectItem value="auto">Auto</SelectItem>
                   <SelectItem value="otro">Otro</SelectItem>
@@ -212,7 +213,6 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
                 <SelectContent>
                   <SelectItem value="todos">Todos los estados</SelectItem>
                   <SelectItem value="activo">Activo</SelectItem>
-                  <SelectItem value="en_taller">En Taller</SelectItem>
                   <SelectItem value="inactivo">Inactivo</SelectItem>
                 </SelectContent>
               </Select>
@@ -225,11 +225,7 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
               Mostrando <strong>{totalFiltrados}</strong> de <strong>{totalVehiculos}</strong> vehículos
             </p>
             {hayFiltrosActivos && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={limpiarFiltros}
-              >
+              <Button variant="ghost" size="sm" onClick={limpiarFiltros}>
                 <X className="size-4" />
                 Limpiar Filtros
               </Button>
@@ -247,15 +243,15 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
+                <TableHead>Padrón</TableHead>
                 <TableHead>Placa</TableHead>
+                <TableHead>VIN</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Marca/Modelo</TableHead>
-                <TableHead>Año</TableHead>
+                <TableHead>Flota</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead>Kilometraje</TableHead>
+                <TableHead className="text-right">Kilometraje</TableHead>
                 <TableHead>Ubicación</TableHead>
-                <TableHead>Próx. Mant.</TableHead>
                 <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -273,16 +269,24 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
                 vehiculosPaged.map((vehiculo) => {
                   const estadoBadge = getEstadoBadge(vehiculo.estado);
                   const tipoBadge = getTipoBadge(vehiculo.tipo);
-                  const diasProxMant = calcularDiasProximoMantenimiento(vehiculo.proximoMantenimiento);
-                  
+                  const flotaNombre = vehiculo.esAdministrativo
+                    ? 'Administrativo'
+                    : nombreFlota(vehiculo.flotaId);
+
                   return (
                     <TableRow
                       key={vehiculo.id}
                       className="cursor-pointer hover:!bg-slate-100 dark:hover:!bg-accent/50"
                       onClick={() => onNavigate(`/flota/vehiculos/${vehiculo.id}`)}
                     >
-                      <TableCell className="font-mono text-sm">{vehiculo.id}</TableCell>
-                      <TableCell className="font-semibold">{vehiculo.placa}</TableCell>
+                      <TableCell className="font-mono text-sm">{vehiculo.numeroPadron ?? '—'}</TableCell>
+                      <TableCell>
+                        <p className="font-semibold">{vehiculo.placa || 'Sin placa'}</p>
+                        {vehiculo.placaInterna && (
+                          <p className="text-xs text-muted-foreground">{vehiculo.placaInterna}</p>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{vehiculo.vin ?? '—'}</TableCell>
                       <TableCell>
                         <Badge variant={tipoBadge.variant}>{tipoBadge.label}</Badge>
                       </TableCell>
@@ -292,81 +296,32 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
                           <p className="text-xs text-muted-foreground">{vehiculo.modelo}</p>
                         </div>
                       </TableCell>
-                      <TableCell>{vehiculo.año}</TableCell>
+                      <TableCell className="text-sm">{flotaNombre ?? '—'}</TableCell>
                       <TableCell>
                         <Badge variant={estadoBadge.variant}>
                           {estadoBadge.label}
                         </Badge>
                       </TableCell>
-                      <TableCell>{vehiculo.kilometraje.toLocaleString()} km</TableCell>
+                      <TableCell className="text-right">{vehiculo.kilometraje.toLocaleString()} km</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="size-3 text-muted-foreground" />
-                          <span className="text-sm">{vehiculo.ubicacionActual}</span>
+                        <div className="flex items-center gap-1 max-w-48">
+                          <MapPin className="size-3 text-muted-foreground shrink-0" />
+                          <span className="text-sm truncate" title={vehiculo.ubicacionActual}>{vehiculo.ubicacionActual}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        {vehiculo.proximoMantenimiento ? (
-                          <div>
-                            <p className="text-sm">{vehiculo.proximoMantenimiento}</p>
-                            {diasProxMant !== null && (
-                              <p className={`text-xs ${
-                                diasProxMant < 0 ? 'text-red-600' :
-                                diasProxMant <= 7 ? 'text-yellow-600' :
-                                'text-muted-foreground'
-                              }`}>
-                                {diasProxMant < 0 
-                                  ? `${Math.abs(diasProxMant)}d vencido` 
-                                  : diasProxMant === 0 
-                                  ? 'Hoy' 
-                                  : `${diasProxMant}d restantes`
-                                }
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">No programado</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onNavigate(`/flota/vehiculos/${vehiculo.id}`);
-                            }}
-                            title="Ver detalle"
-                            className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
-                          >
-                            <Eye className="size-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onNavigate(`/flota/mantenimientos/nueva?vehiculo=${vehiculo.id}`);
-                            }}
-                            title="Nueva OT"
-                            className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
-                          >
-                            <Wrench className="size-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onNavigate(`/flota/vehiculos/${vehiculo.id}/documentos`);
-                            }}
-                            title="Documentos"
-                            className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
-                          >
-                            <FileText className="size-4" />
-                          </Button>
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNavigate(`/flota/vehiculos/${vehiculo.id}`);
+                          }}
+                          title="Ver detalle"
+                          className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
+                        >
+                          <Eye className="size-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );

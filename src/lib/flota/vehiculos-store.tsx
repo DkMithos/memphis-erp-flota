@@ -86,6 +86,7 @@ function mapDocFromDB(d: VehiculoDocumentoDB): VehiculoDocumento {
 function mapFromDB(v: VehiculoDB, docs: VehiculoDocumentoDB[]): Vehiculo {
   return {
     id: v.codigo,
+    _dbId: v.id,
     placa: v.placa,
     vin: v.vin ?? undefined,
     tipo: v.tipo as TipoVehiculo,
@@ -105,6 +106,14 @@ function mapFromDB(v: VehiculoDB, docs: VehiculoDocumentoDB[]): Vehiculo {
     publicToken: v.public_token ?? undefined,
     proyectoId: v.proyecto_id ?? null,
     tipoFlota: v.tipo_flota ?? null,
+    flotaId: (v as any).flota_id ?? null,
+    placaInterna: (v as any).placa_interna ?? null,
+    numeroPadron: (v as any).numero_padron ?? null,
+    esAdministrativo: (v as any).es_administrativo ?? false,
+    tieneSoat: (v as any).tiene_soat ?? null,
+    soatVigencia: (v as any).soat_vigencia ?? null,
+    tieneSeguro: (v as any).tiene_seguro ?? null,
+    seguroVigencia: (v as any).seguro_vigencia ?? null,
     vinculoContrato: v.contrato_cliente_nombre ? {
       clienteNombre: v.contrato_cliente_nombre,
       proyectoNombre: v.contrato_proyecto_nombre ?? '',

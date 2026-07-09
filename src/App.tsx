@@ -29,18 +29,11 @@ const FlotaDashboard = lazy(() => import('./components/modules/flota/FlotaDashbo
 const VehiculosLista = lazy(() => import('./components/modules/flota/VehiculosLista').then(m => ({ default: m.VehiculosLista })));
 const VehiculoDetalle = lazy(() => import('./components/modules/flota/VehiculoDetalle').then(m => ({ default: m.VehiculoDetalle })));
 const VehiculoForm = lazy(() => import('./components/modules/flota/VehiculoForm').then(m => ({ default: m.VehiculoForm })));
-const MantenimientosLista = lazy(() => import('./components/modules/flota/MantenimientosLista').then(m => ({ default: m.MantenimientosLista })));
-const MantenimientoDetalle = lazy(() => import('./components/modules/flota/MantenimientoDetalle').then(m => ({ default: m.MantenimientoDetalle })));
-const MantenimientoForm = lazy(() => import('./components/modules/flota/MantenimientoForm').then(m => ({ default: m.MantenimientoForm })));
-const FlotaPreventiveAnalytics = lazy(() => import('./components/modules/flota/FlotaPreventiveAnalytics').then(m => ({ default: m.FlotaPreventiveAnalytics })));
-const FlotaGPS = lazy(() => import('./components/modules/flota/FlotaGPS').then(m => ({ default: m.FlotaGPS })));
-const FlotaPorProyecto = lazy(() => import('./components/modules/flota/FlotaPorProyecto').then(m => ({ default: m.FlotaPorProyecto })));
-
-// Flota - Reportes
-const FlotaReporteVehiculos = lazy(() => import('./components/modules/flota/reportes/FlotaReporteVehiculos').then(m => ({ default: m.FlotaReporteVehiculos })));
-const FlotaReporteMantenimientos = lazy(() => import('./components/modules/flota/reportes/FlotaReporteMantenimientos').then(m => ({ default: m.FlotaReporteMantenimientos })));
-const FlotaReporteDocumentos = lazy(() => import('./components/modules/flota/reportes/FlotaReporteDocumentos').then(m => ({ default: m.FlotaReporteDocumentos })));
-const FlotaReporteCostos = lazy(() => import('./components/modules/flota/reportes/FlotaReporteCostos').then(m => ({ default: m.FlotaReporteCostos })));
+// Rediseño Flota 2026-07 (N17): flotas por proyecto, contratos y mantenimientos del plan.
+// GPS, análisis preventivo, reportes y OTs salieron del módulo.
+const FlotasLista = lazy(() => import('./components/modules/flota/FlotasLista').then(m => ({ default: m.FlotasLista })));
+const FlotaDetalleView = lazy(() => import('./components/modules/flota/FlotaDetalleView').then(m => ({ default: m.FlotaDetalleView })));
+const FlotaMantenimientos = lazy(() => import('./components/modules/flota/FlotaMantenimientos').then(m => ({ default: m.FlotaMantenimientos })));
 
 // Flota - Hojas de Vida QR
 import { VehiclePublicView } from './components/modules/flota/VehiclePublicView';
@@ -160,8 +153,8 @@ const UserProfile = lazy(() => import('./components/modules/perfil/UserProfile')
 
 // Stores
 import { OTStoreProvider } from './lib/flota/ot-store';
-import { GPSProvider } from './lib/flota/gps-store';
 import { VehiculosStoreProvider } from './lib/flota/vehiculos-store';
+import { FlotasStoreProvider } from './lib/flota/flotas-store';
 import { ProveedorStoreProvider } from './lib/proveedores/proveedores-store';
 import { CatalogosProvider } from './lib/shared/catalogos-store';
 import { TipoCambioProvider } from './lib/shared/tipo-cambio-store';
@@ -804,44 +797,17 @@ export default function App() {
         return <VehiculosLista onNavigate={navigateTo} />;
       }
 
-      if (submodulo === 'mantenimientos') {
-        if (param === 'nueva') {
-          const urlParams = new URLSearchParams(currentRoute.split('?')[1] || '');
-          const tipoParam = urlParams.get('tipo') as 'preventivo' | 'correctivo' | 'predictivo' | null;
-          const vehiculoParam = urlParams.get('vehiculo') || undefined;
-
-          return (
-            <MantenimientoForm
-              tipoInicial={tipoParam || undefined}
-              vehiculoIdInicial={vehiculoParam}
-              onCancel={() => window.history.back()}
-              onSuccess={(numeroOT) => navigateTo(`/flota/mantenimientos/${numeroOT}`)}
-            />
-          );
-        }
-
-        if (param && param !== 'nueva') {
-          return <MantenimientoDetalle numeroOT={param} onBack={() => navigateTo('/flota/mantenimientos')} />;
-        }
-
-        return (
-          <MantenimientosLista
-            onNavigateToDetalle={(numeroOT) => navigateTo(`/flota/mantenimientos/${numeroOT}`)}
-            onNavigateToNueva={(tipo) => navigateTo(`/flota/mantenimientos/nueva?tipo=${tipo}`)}
-          />
-        );
+      // Rediseño 2026-07: flotas por proyecto + mantenimientos del plan
+      if (submodulo === 'flotas') {
+        if (param) return <FlotaDetalleView codigo={param} onNavigate={navigateTo} />;
+        return <FlotasLista onNavigate={navigateTo} />;
       }
 
-      if (submodulo === 'reportes' && param === 'vehiculos') return <FlotaReporteVehiculos onNavigate={navigateTo} />;
-      if (submodulo === 'reportes' && param === 'mantenimientos') return <FlotaReporteMantenimientos onNavigate={navigateTo} />;
-      if (submodulo === 'reportes' && param === 'documentos') return <FlotaReporteDocumentos onNavigate={navigateTo} />;
-      if (submodulo === 'reportes' && param === 'costos') return <FlotaReporteCostos onNavigate={navigateTo} />;
+      if (submodulo === 'mantenimientos') {
+        return <FlotaMantenimientos onNavigate={navigateTo} />;
+      }
 
-      if (submodulo === 'por-proyecto') return <FlotaPorProyecto onNavigate={navigateTo} />;
-      if (submodulo === 'analisis-preventivo') return <FlotaPreventiveAnalytics onNavigate={navigateTo} />;
-      if (submodulo === 'gps') return <FlotaGPS onNavigate={navigateTo} />;
-      if (submodulo === 'dashboard' || !submodulo) return <FlotaDashboard onNavigate={navigateTo} />;
-
+      // GPS / análisis preventivo / reportes salieron del módulo (N17) → dashboard
       return <FlotaDashboard onNavigate={navigateTo} />;
     }
 
@@ -884,7 +850,7 @@ export default function App() {
     <RolesProvider>
     <InventarioProvider>
     <OTStoreProvider>
-      <GPSProvider>
+      <FlotasStoreProvider>
       <VehiculosStoreProvider>
         <ProveedorStoreProvider>
           <EvaluacionesProvider>
@@ -990,7 +956,7 @@ export default function App() {
           </EvaluacionesProvider>
         </ProveedorStoreProvider>
       </VehiculosStoreProvider>
-      </GPSProvider>
+      </FlotasStoreProvider>
     </OTStoreProvider>
     </InventarioProvider>
     </RolesProvider>

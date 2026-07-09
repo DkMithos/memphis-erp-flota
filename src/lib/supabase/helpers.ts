@@ -65,6 +65,59 @@ export const dbVehiculos = {
 };
 
 // =============================================================================
+// FLOTA — REDISEÑO: FLOTAS, CONTRATOS, MANTENIMIENTOS, CONSUMO
+// =============================================================================
+
+export const dbFlotas = {
+  /** Flotas con sus contratos y tarifario anidados */
+  list: () =>
+    supabase
+      .from("flotas")
+      .select("*, flota_contratos(*, flota_contrato_tarifas(*))")
+      .order("codigo"),
+  create: (data: object) => supabase.from("flotas").insert(data).select().single(),
+  update: (id: string, data: object) =>
+    supabase.from("flotas").update(data).eq("id", id).select().single(),
+};
+
+export const dbVehiculoMantenimientos = {
+  /** Lista completa paginada (>1000 filas, límite PostgREST) con datos del vehículo */
+  listAll: async () => {
+    const pageSize = 1000;
+    let from = 0;
+    const all: any[] = [];
+    // paginar hasta agotar
+    for (;;) {
+      const { data, error } = await supabase
+        .from("vehiculo_mantenimientos")
+        .select("*, vehiculos(codigo, placa, placa_interna, vin, numero_padron, flota_id, tipo)")
+        .order("fecha_ejecucion", { ascending: false, nullsFirst: false })
+        .range(from, from + pageSize - 1);
+      if (error) return { data: null, error };
+      all.push(...(data ?? []));
+      if (!data || data.length < pageSize) break;
+      from += pageSize;
+    }
+    return { data: all, error: null };
+  },
+  listByVehiculo: (vehiculoId: string) =>
+    supabase
+      .from("vehiculo_mantenimientos")
+      .select("*")
+      .eq("vehiculo_id", vehiculoId)
+      .order("fecha_ejecucion", { ascending: false, nullsFirst: false }),
+  create: (data: object) =>
+    supabase.from("vehiculo_mantenimientos").insert(data).select().single(),
+  update: (id: string, data: object) =>
+    supabase.from("vehiculo_mantenimientos").update(data).eq("id", id).select().single(),
+};
+
+/** Vista de consumo provisión vs real por vehículo (v_vehiculo_consumo) */
+export const dbVehiculoConsumo = {
+  list: () => supabase.from("v_vehiculo_consumo").select("*"),
+};
+
+// =============================================================================
 // FLOTA — ÓRDENES DE TRABAJO
 // =============================================================================
 

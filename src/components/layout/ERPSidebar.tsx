@@ -210,6 +210,11 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
           id: 'flota-dashboard',
         },
         {
+          label: 'Flotas',
+          href: '/flota/flotas',
+          id: 'flota-flotas',
+        },
+        {
           label: t('nav.sub.vehiculos'),
           href: '/flota/vehiculos',
           id: 'flota-vehiculos',
@@ -218,36 +223,6 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
           label: t('nav.sub.mantenimientos'),
           href: '/flota/mantenimientos',
           id: 'flota-mantenimientos',
-        },
-        {
-          label: t('nav.sub.analisis_preventivo'),
-          href: '/flota/analisis-preventivo',
-          id: 'flota-analisis-preventivo',
-        },
-        {
-          label: t('nav.sub.monitoreo_gps'),
-          href: '/flota/gps',
-          id: 'flota-gps',
-        },
-        {
-          label: t('nav.sub.reporte_vehiculos'),
-          href: '/flota/reportes/vehiculos',
-          id: 'flota-reportes-vehiculos',
-        },
-        {
-          label: t('nav.sub.reporte_mantenimientos'),
-          href: '/flota/reportes/mantenimientos',
-          id: 'flota-reportes-mantenimientos',
-        },
-        {
-          label: t('nav.sub.reporte_documentos'),
-          href: '/flota/reportes/documentos',
-          id: 'flota-reportes-documentos',
-        },
-        {
-          label: 'Costos por Vehículo',
-          href: '/flota/reportes/costos',
-          id: 'flota-reportes-costos',
         }
       ]
     },

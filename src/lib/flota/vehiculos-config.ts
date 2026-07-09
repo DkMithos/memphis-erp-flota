@@ -15,7 +15,7 @@ export const DEBUG_VEHICULOS = import.meta.env.DEV;
 // ============================================================================
 
 export type EstadoVehiculo = 'activo' | 'en_taller' | 'inactivo';
-export type TipoVehiculo = 'ambulancia' | 'camioneta' | 'motocicleta' | 'van' | 'auto' | 'otro';
+export type TipoVehiculo = 'ambulancia' | 'camioneta' | 'moto' | 'motocicleta' | 'van' | 'auto' | 'otro';
 export type EstadoDocumento = 'vigente' | 'proximo' | 'vencido';
 
 /**
@@ -24,6 +24,7 @@ export type EstadoDocumento = 'vigente' | 'proximo' | 'vencido';
 export const TIPO_VEHICULO_LABELS: Record<TipoVehiculo, string> = {
   ambulancia: 'Ambulancia',
   camioneta: 'Camioneta',
+  moto: 'Moto',
   motocicleta: 'Motocicleta',
   van: 'Van',
   auto: 'Auto',
@@ -147,6 +148,7 @@ export interface DocumentoVehiculo {
 
 export interface Vehiculo {
   id: string; // VH-001, VH-002, etc.
+  _dbId?: string; // UUID interno de la DB (para joins con consumo/mantenimientos)
   placa: string; // ABC-123 (única)
   vin?: string; // VIN (opcional, único si se proporciona)
   tipo: TipoVehiculo;
@@ -174,6 +176,17 @@ export interface Vehiculo {
   // Proyecto y tipo de flota
   proyectoId?: string | null; // FK a proyectos (UUID)
   tipoFlota?: string | null; // Configurable desde catálogos admin (patrulleros, ambulancias, etc.)
+
+  // Rediseño Flota 2026-07: flota (grupo por proyecto) e identificación operativa
+  flotaId?: string | null; // FK a flotas (UUID); NULL = vehículo administrativo
+  placaInterna?: string | null; // placa interna (ej. KN-28814) distinta a la de rodaje
+  numeroPadron?: string | null; // padrón/código operativo (P01, 112…)
+  esAdministrativo?: boolean; // vehículo de Memphis sin proyecto (seguimiento documentario)
+  // Seguros simplificados para vehículos de proyecto (sin alertas)
+  tieneSoat?: boolean | null;
+  soatVigencia?: string | null;
+  tieneSeguro?: boolean | null;
+  seguroVigencia?: string | null;
 
   // Adquisición y depreciación
   precioAdquisicion?: number; // Precio de compra del vehículo
@@ -518,8 +531,9 @@ export function getTipoBadge(tipo: TipoVehiculo): {
   label: string;
   color: string;
 } {
-  const label = TIPO_VEHICULO_LABELS[tipo];
-  
+  // Fallback: un tipo desconocido nunca debe romper la UI (regla del proyecto)
+  const label = TIPO_VEHICULO_LABELS[tipo] ?? (tipo ? String(tipo) : 'Otro');
+
   return {
     variant: 'secondary',
     label,
