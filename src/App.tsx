@@ -65,6 +65,7 @@ const OrdenesLista = lazy(() => import('./components/modules/compras/OrdenesList
 const OrdenDetalle = lazy(() => import('./components/modules/compras/OrdenDetalle').then(m => ({ default: m.OrdenDetalle })));
 const OrdenForm = lazy(() => import('./components/modules/compras/OrdenForm').then(m => ({ default: m.OrdenForm })));
 const RecepcionesLista = lazy(() => import('./components/modules/compras/RecepcionesLista').then(m => ({ default: m.RecepcionesLista })));
+const FacturasProveedores = lazy(() => import('./components/modules/compras/FacturasProveedores').then(m => ({ default: m.FacturasProveedores })));
 const RecepcionDetalle = lazy(() => import('./components/modules/compras/RecepcionDetalle').then(m => ({ default: m.RecepcionDetalle })));
 const RecepcionForm = lazy(() => import('./components/modules/compras/RecepcionForm').then(m => ({ default: m.RecepcionForm })));
 
@@ -603,6 +604,8 @@ export default function App() {
 
     // Compras
     if (currentRoute.startsWith('/compras')) {
+      if (currentRoute === '/compras/facturas') return <FacturasProveedores onNavigate={navigateTo} />;
+
       if (currentRoute.startsWith('/compras/recepciones/nuevo')) {
         const urlParams = new URLSearchParams(currentRoute.split('?')[1] || '');
         const ordenIdParam = urlParams.get('orden');

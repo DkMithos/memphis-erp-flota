@@ -136,7 +136,8 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         { label: t('nav.sub.requerimientos'), href: '/compras/requerimientos' },
         { label: t('nav.sub.cotizaciones'), href: '/compras/cotizaciones' },
         { label: t('nav.sub.ordenes_compra'), href: '/compras/ordenes' },
-        { label: t('nav.sub.recepciones'), href: '/compras/recepciones' }
+        { label: t('nav.sub.recepciones'), href: '/compras/recepciones' },
+        { label: 'Facturas Proveedores', href: '/compras/facturas' }
       ]
     },
     {

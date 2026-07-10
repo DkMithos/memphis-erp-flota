@@ -233,6 +233,7 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
                         proyecto: n.entidadId ? `/proyectos/360/${n.entidadId}` : '/proyectos',
                         articulo: '/inventario/articulos',
                         proveedor: n.entidadId ? `/proveedores/directorio/${n.entidadId}` : '/proveedores/directorio',
+                        factura: '/compras/facturas',
                       };
                       const destino = n.entidadTipo ? rutas[n.entidadTipo] : undefined;
                       if (destino) onNavigate?.(destino);

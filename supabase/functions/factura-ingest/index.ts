@@ -151,6 +151,17 @@ export default {
 
     if (insErr) return Response.json({ error: `No se pudo registrar: ${insErr.message}` }, { status: 500 });
 
+    // 10. Notificación interna para el equipo (campana del ERP → /compras/facturas)
+    await ctx.supabaseAdmin.from('notificaciones').insert({
+      tenant_id: tenantId,
+      tipo: 'factura_recibida',
+      titulo: `Factura ${f.numeroCompleto} recibida`,
+      mensaje: `${f.razonSocialEmisor ?? 'Proveedor'} envió la factura ${f.numeroCompleto} (${f.moneda} ${f.total.toFixed(2)}) para la orden ${oc!.numero}. Pendiente de conformidad.`,
+      leida: false,
+      entidad_tipo: 'factura',
+      entidad_id: inserted.id,
+    });
+
     return Response.json({
       ok: true,
       comprobante: inserted,

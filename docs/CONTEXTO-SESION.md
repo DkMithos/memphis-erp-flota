@@ -238,8 +238,17 @@ bloqueados, auto-match OrderReference). UI verificada en preview.
 **Proveedor de prueba VIVO para demo**: RUC 20999999991 / Portal-Test-2026! / OC MM-TESTPT1
 — eliminar tras revisión de Kevin. Hallazgo anotado (preexistente): política pública del QR
 permite ENUMERAR vehículos por REST → cerrar con RPC por token en el rediseño del QR.
-**Siguiente Fase C:** UI interna (botón Habilitar portal, bandeja de facturas, conformidad
-con recepción), notificaciones, enganche contable.
+**Fase C ✅ COMPLETADA (2026-07-09):** bandeja **Compras → Facturas Proveedores**
+(`/compras/facturas`): conformidad (con recepción opcional de la OC), observar (motivo
+visible al proveedor, libera saldo), programar pago, marcar pagada, descarga XML/PDF por
+URL firmada, link a la OC, KPIs y filtros. Tarjeta **"Portal de Proveedores"** en el detalle
+del proveedor (habilitar/regenerar enlace/revocar; no domiciliado → no aplica; RUC inválido
+→ bloquea). `factura-ingest` v3: notificación interna al recibir factura (campana →
+bandeja). Contabilidad: las facturas del portal son comprobantes_pago → flujo contable
+existente. Verificado en preview: conformidad a F001-777 → saldo exacto (aceptado 1,180 /
+trámite 590 / disponible 3,230, parcial); tarjeta OK en PROV-TEST1; consola limpia.
+**El portal está COMPLETO (A+B+C). Falta solo el "encendido" real** (habilitar proveedores
+verdaderos — Kevin autoriza cuándo y a quiénes) y la limpieza del proveedor de prueba.
 
 ### IA embebida (N18) · **EN PAUSA (2026-07-09)**
 La jefatura decide primero el monto de créditos a cargar en console.anthropic.com antes de

@@ -20,6 +20,7 @@ import { Label } from '../../ui/label';
 import { Separator } from '../../ui/separator';
 import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
 import { useAuth } from '../../../auth/AuthProvider';
+import { PortalProveedorCard } from './PortalProveedorCard';
 import {
   PROVEEDOR_ESTADO_CONFIG,
   PROVEEDOR_CONDICION_CONFIG,
@@ -352,6 +353,13 @@ export function ProveedorDetalle({ proveedorId, onNavigate }: ProveedorDetallePr
           </CardContent>
         </Card>
       )}
+
+      {/* Portal de proveedores (N20): habilitar acceso, reenviar enlace, revocar */}
+      <PortalProveedorCard
+        proveedorDbId={proveedor._dbId}
+        ruc={proveedor.ruc}
+        emailSugerido={proveedor.email}
+      />
 
       {/* Auditoría */}
       <Card>

@@ -71,9 +71,24 @@ flujo continúe. En una página:
   - **Proveedor de prueba ACTIVO para demo de Kevin**: RUC `20999999991`, contraseña
     `Portal-Test-2026!`, OC ficticia MM-TESTPT1 (S/5,000; solo ve eso). Eliminar al terminar
     la revisión (comprobantes+OC+proveedor+cuenta) — avisar para ejecutar la limpieza.
-- **Fase C — pendiente**: UI interna (botón "Habilitar portal" en Proveedores, bandeja de
-  facturas recibidas, dar conformidad/observar cruzando con recepción), notificaciones,
-  enganche contable. Hoy el alta se invoca por función (sin botón aún).
+- **Fase C — UI interna · ✅ COMPLETADA (2026-07-09)**
+  - **Compras → Facturas Proveedores** (`/compras/facturas`): bandeja de facturas recibidas
+    (portal o manual) con KPIs, filtros y búsqueda; acciones por estado: **dar conformidad**
+    (diálogo con selección de recepción de la OC — opcional si no hay), **observar** (motivo
+    obligatorio ≥10 caracteres, visible para el proveedor en su portal, libera el saldo),
+    **programar pago** y **marcar pagada**; descarga de XML/PDF vía URL firmada del bucket
+    privado; link directo a la OC.
+  - **Proveedores → Detalle → tarjeta "Portal de Proveedores"**: habilitar acceso (email real
+    + enlace de contraseña copiable), regenerar enlace, revocar; muestra estados especiales
+    (no domiciliado → no aplica; RUC inválido → corregir primero).
+  - **Notificaciones**: `factura-ingest` v3 inserta notificación interna al recibir factura;
+    la campana navega a la bandeja (`entidad_tipo: 'factura'`).
+  - **Contabilidad**: las facturas del portal SON `comprobantes_pago` (dirección 'recibido')
+    → aparecen en el módulo de Contabilidad existente para su contabilización normal.
+  - **Verificado en preview**: bandeja con las 2 facturas de prueba ("vía portal"),
+    conformidad dada a F001-00000777 → vista de saldo exacta (aceptado S/1,180, en trámite
+    S/590, disponible S/3,230, estado parcial); tarjeta del portal en PROV-TEST1 con
+    Habilitado/Regenerar/Revocar y email precargado. Consola limpia.
 
 ## Hallazgo de seguridad anotado (preexistente, NO del portal)
 
