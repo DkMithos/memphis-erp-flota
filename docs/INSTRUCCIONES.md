@@ -42,6 +42,8 @@
 | N18 | **IA embebida en el ERP**: asistente que resuelva consultas de cualquier usuario del sistema (Claude API vía Edge Function) | 2026-07-08 | **EN PAUSA** — la jefatura decide el monto de créditos a cargar antes de generar la API key |
 | N19 | **Roles y permisos finos** (quién ve y hace qué) se definen DESPUÉS del rediseño de Flota | 2026-07-08 | pendiente |
 | N20 | **Portal de proveedores para facturas** → [PORTAL-PROVEEDORES.md](PORTAL-PROVEEDORES.md). Decisiones cerradas: login Supabase Auth rol proveedor + RLS por RUC (A); credenciales las genera Memphis (alias `{ruc}@proveedores.memphismaquinarias.com`, proveedor fija su contraseña vía enlace a su email real, §11); XML+PDF (XML fuente de verdad); **conformidad obligatoria** antes de aceptar; **facturación parcial permitida** con modelo de saldo por OC (§12); dominio recomendado mismo `/proveedores` (a confirmar). Backend de factura ya existe (comprobantes_pago). Listo para construir Fase A | 2026-07-09 | decisiones cerradas |
+| N21 | **Identidades separadas**: personal Memphis = **@memphis.pe vía Microsoft Entra SSO**; proveedores del portal = alias `{ruc}@proveedores.memphismaquinarias.com` con contraseña. Dominio de la app: `erp.memphismaquinarias.com`. NO mezclar @memphis.pe con cuentas de proveedor | 2026-07-09 | vigente |
+| N22 | **No domiciliados fuera del portal**: los 6 proveedores extranjeros (Anthropic/Vercel/Supabase/Google/VMEG, sin IGV ni CPE) NO usan el portal; sus documentos del exterior los adjunta el equipo interno a la OC. Marcar con flag `proveedores.domiciliado` (no inferir del prefijo del RUC). **Geremie PROV-0324 es domiciliado con RUC pendiente** (será elegible al cargar su RUC), no extranjero | 2026-07-09 | vigente |
 
 ## Flujo de trabajo acordado (sesiones)
 

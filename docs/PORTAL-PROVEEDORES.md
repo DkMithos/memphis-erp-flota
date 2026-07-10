@@ -6,6 +6,29 @@
 > o masivo, bajo un formato. **Toda factura amarrada a una orden.**
 > Este documento es ANÁLISIS y PLAN — sin cambios de código todavía.
 
+## 0. Resumen de la solución (v2 — decisiones cerradas 2026-07-09)
+
+Portal para que los proveedores **domiciliados** suban sus facturas amarradas a la orden y el
+flujo continúe. En una página:
+
+- **Quién entra:** solo proveedores **domiciliados con RUC válido** (emiten factura
+  electrónica). Los **6 no domiciliados** (Anthropic, Vercel, Supabase, Google, VMEG) quedan
+  **fuera del portal**; sus documentos del exterior los adjunta el equipo interno a la OC (§12.b).
+- **Login:** RUC + contraseña (Supabase Auth, rol proveedor, alias interno
+  `{ruc}@proveedores.memphismaquinarias.com`). Aislamiento por **RLS**. El personal Memphis
+  sigue con **@memphis.pe vía Microsoft SSO** — identidades separadas (§11).
+- **Credenciales:** las genera Memphis con un botón "Habilitar portal"; el proveedor **fija su
+  propia contraseña** vía enlace a su email real (Memphis nunca ve la contraseña) (§11).
+- **Facturas:** XML UBL 2.1 (**fuente de verdad**, auto-match a la OC por OrderReference) +
+  PDF; carga individual o masiva (§3, §6).
+- **Amarre y parcial:** toda factura → una OC; una OC admite **varias**. Modelo de saldo
+  `Total / Aceptado / En trámite / Disponible`; no se puede exceder el disponible (§12).
+- **Conformidad obligatoria:** subir ≠ aceptar. Memphis concilia con la **recepción** antes de
+  aceptar; recién ahí cuenta contra el saldo (§12).
+- **Dominio:** recomendado mismo `erp.memphismaquinarias.com/proveedores` (§13, a confirmar).
+- **Base ya existe:** `comprobantes_pago` tiene el modelo SUNAT completo → el grueso es
+  auth+portal+storage+parseo, no el modelo de factura.
+
 ## 1. Qué ya tenemos (no partimos de cero)
 
 - **`comprobantes_pago`** ya modela la factura con TODO el detalle SUNAT: `tipo`, `serie`,
@@ -157,6 +180,13 @@ Diseño para que Memphis controle el acceso sin manipular contraseñas en texto 
   `{ruc}@proveedores.memphismaquinarias.com` (nunca recibe correo, solo identifica). El
   formulario del portal pide el RUC y arma el alias por detrás → `signInWithPassword`. No
   hace falta ninguna búsqueda previa.
+- **Separación de identidades (importante):** el personal de Memphis inicia sesión con
+  **@memphis.pe vía Microsoft Entra SSO** (Azure). Los proveedores usan un **namespace
+  distinto** (`@proveedores.memphismaquinarias.com`) con **email+contraseña**. Son dos
+  conjuntos de identidad disjuntos y con métodos de login distintos → sin colisión ni riesgo
+  de que un proveedor caiga en el ERP interno. El dominio de la app es
+  `erp.memphismaquinarias.com`; el subdominio del alias es solo un identificador interno, no
+  necesita DNS de correo.
 - **Email real del proveedor** se guarda aparte (del directorio) para notificaciones y para
   el enlace de contraseña.
 - **Alta (una acción de Memphis por proveedor, o masiva):** en el módulo Proveedores, botón
@@ -199,6 +229,37 @@ cruzando con la recepción** → `conforme` (recién ahí cuenta como *aceptado*
 → `programada_pago` → `pagada`. Es decir: subir la factura **no** la acepta sola; Memphis la
 concilia con la recepción de bienes/servicios antes de aceptarla. Si se observa, el proveedor
 ve el motivo y puede corregir y resubir (se libera el *en trámite*).
+
+## 12.b Proveedores NO domiciliados — fuera del portal (definición)
+
+**Dato real (2026-07-09):** de 128 proveedores, **6 son no domiciliados** (RUC placeholder
+`EXT-`/`SINRUC-`): ANTHROPIC PBC, VERCEL INC., SUPABASE PTE. LTD., Google LLC, VMEG AI —
+software extranjero, **sin IGV, sin CPE/XML** (14 OCs activas, montos chicos en USD). El
+equipo de Memphis ya los maneja internamente y normalmente **no hay factura peruana** que subir.
+
+**Regla de elegibilidad al portal:** un proveedor es **portal-elegible** solo si es
+**domiciliado** *y* tiene **RUC válido de 11 dígitos** (emite factura electrónica). Los no
+domiciliados **quedan excluidos** del portal (no se les habilita acceso, no suben facturas).
+
+**Cómo marcarlo (no inferir del RUC, que está sobrecargado):** agregar
+`proveedores.domiciliado boolean not null default true`. Backfill: los **5 extranjeros de
+software → false**; el resto → true. Portal-elegible = `domiciliado = true AND ruc ~ '^\d{11}$'`.
+
+**Caso especial detectado — Geremie Calluco (PROV-0324):** está con placeholder `EXT-0324`
+pero su OC **sí lleva IGV (S/3,000)** → es un **domiciliado peruano al que le falta el RUC
+real**, NO un extranjero. Queda `domiciliado = true`; será portal-elegible **en cuanto se
+cargue su RUC** (pendiente ya conocido). Confirma la necesidad del flag explícito en vez de
+adivinar por el prefijo del RUC.
+
+**Qué pasa con los no domiciliados (flujo interno, sin portal):**
+- No se les habilita cuenta ni suben nada.
+- Si existe un documento comercial del exterior (invoice/recibo, casi siempre PDF), el
+  **equipo interno lo adjunta a la OC** desde la UI interna de comprobantes como documento
+  de soporte **no-CPE** (sin XML, sin IGV, sin detracción; retención a no domiciliados solo
+  si aplica). Si no hay documento, la OC **no se bloquea**: avanza con la conformidad interna
+  y su pago, como hoy.
+- El modelo `comprobantes_pago` ya soporta esto (es solo un registro sin XML); no requiere
+  desarrollo nuevo del portal, solo permitir el adjunto interno opcional.
 
 ## 13. Dominio (a confirmar)
 
