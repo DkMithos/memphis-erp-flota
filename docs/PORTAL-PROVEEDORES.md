@@ -29,6 +29,26 @@ flujo continúe. En una página:
 - **Base ya existe:** `comprobantes_pago` tiene el modelo SUNAT completo → el grueso es
   auth+portal+storage+parseo, no el modelo de factura.
 
+## Estado de implementación
+
+- **Fase A — backend de la factura · ✅ COMPLETADA (2026-07-09)**
+  - Migración `portal_proveedores_fase_a`: flag `proveedores.domiciliado` (+ `portal_habilitado`,
+    `email_portal`) con 5 no domiciliados marcados y 122 elegibles; `comprobantes_pago` extendida
+    (FK `orden_compra_id` + `recepcion_id`, `estado_flujo`, `xml_path`/`pdf_path`,
+    `subido_por_proveedor`, campos de conformidad); índice único anti-duplicado; vista
+    `v_oc_saldo_facturacion` (total/aceptado/en_trámite/disponible/estado).
+  - Bucket privado `facturas-proveedores` (10 MB, solo XML/PDF).
+  - Edge Function `factura-ingest` (`@supabase/server`, `auth:'user'`): parseo UBL 2.1
+    (`ubl.ts`, anti-XXE), validaciones (emisor=proveedor, receptor=Memphis, OC válida y del
+    proveedor, factura no duplicada, monto ≤ saldo), auto-match por OrderReference, guardado
+    en Storage e inserción en `comprobantes_pago` (estado `recibida`).
+  - Verificado: parser con XML sintético (13/13 aserciones); función desplegada responde 403
+    a no-proveedores (arranca, valida JWT, corre la lógica). El end-to-end de subida real se
+    prueba en Fase B (requiere el rol proveedor).
+- **Fase B — auth + portal del proveedor · pendiente** (rol proveedor, alta de credenciales,
+  RLS por RUC, UI del portal).
+- **Fase C — integración conformidad + contabilidad · pendiente.**
+
 ## 1. Qué ya tenemos (no partimos de cero)
 
 - **`comprobantes_pago`** ya modela la factura con TODO el detalle SUNAT: `tipo`, `serie`,

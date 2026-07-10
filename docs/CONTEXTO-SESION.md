@@ -215,6 +215,17 @@ obligatoria antes de aceptar; facturación parcial permitida con modelo de saldo
 confirmar). **Listo para construir Fase A** (backend: extender comprobantes_pago con FK a OC
 + estado_flujo + refs XML/PDF, bucket privado + RLS, Edge Function de parseo/validación UBL).
 
+**Fase A ✅ COMPLETADA (2026-07-09):** migración `portal_proveedores_fase_a` (flag
+`domiciliado` + 5 no domiciliados marcados / 122 elegibles; `comprobantes_pago` extendida con
+FK a OC/recepción, `estado_flujo`, refs XML/PDF, campos de conformidad; índice único
+anti-duplicado; vista `v_oc_saldo_facturacion`). Bucket privado `facturas-proveedores`. Edge
+Function `factura-ingest` desplegada (`@supabase/server`, parser UBL en `ubl.ts` anti-XXE,
+validaciones + auto-match por OrderReference + storage + inserción). Skill nuevo instalado:
+`supabase-server`. Verificado: parser 13/13 aserciones; función responde 403 a no-proveedores.
+Dominio confirmado: mismo (`/proveedores`). **Siguiente: Fase B** (rol proveedor en Supabase
+Auth, alta de credenciales por Memphis, RLS por RUC, UI del portal mínimo) — el end-to-end de
+subida se prueba ahí.
+
 ### IA embebida (N18) · **EN PAUSA (2026-07-09)**
 La jefatura decide primero el monto de créditos a cargar en console.anthropic.com antes de
 generar la API key. Diseño previsto sin cambios (Edge Function con Claude API, respeta RLS).
