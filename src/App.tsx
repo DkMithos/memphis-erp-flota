@@ -151,6 +151,9 @@ import { EquipoQRPrint } from './components/modules/biomedico/EquipoQRPrint';
 // Perfil
 const UserProfile = lazy(() => import('./components/modules/perfil/UserProfile').then(m => ({ default: m.UserProfile })));
 
+// Portal de proveedores (ruta pública /portal, con su propio login por RUC)
+const PortalProveedores = lazy(() => import('./components/portal/PortalProveedores').then(m => ({ default: m.PortalProveedores })));
+
 // Stores
 import { OTStoreProvider } from './lib/flota/ot-store';
 import { VehiculosStoreProvider } from './lib/flota/vehiculos-store';
@@ -292,6 +295,7 @@ export default function App() {
   const isPublicAllowedWithoutAuth = () => {
     if (currentRoute.startsWith('/v/')) return true;
     if (currentRoute.startsWith('/e/')) return true; // QR público biomédico
+    if (currentRoute.startsWith('/portal')) return true; // Portal de proveedores (N20)
     if (currentRoute.startsWith('/flota/vehiculos/') && currentRoute.includes('/print-qr')) return true;
     if (ENABLE_PUBLIC_LEGACY_ROUTES && currentRoute.startsWith('/public/vehiculo/')) return true;
     return false;
@@ -299,6 +303,15 @@ export default function App() {
 
   // ─── Renderizar componentes de rutas públicas (sin auth, sin providers) ───
   const renderPublicRoute = (): React.ReactNode | null => {
+    // /portal — Portal de proveedores (login propio por RUC; aislado por RLS)
+    if (currentRoute.startsWith('/portal')) {
+      return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-muted-foreground">Cargando portal…</div>}>
+          <PortalProveedores route={currentRoute} onNavigate={navigateTo} />
+        </Suspense>
+      );
+    }
+
     // /v/:token
     if (currentRoute.startsWith('/v/')) {
       const cleanPath = currentRoute.split('?')[0];
@@ -354,6 +367,13 @@ export default function App() {
   // 3) Si NO hay user: Login
   if (!user) {
     return <Login />;
+  }
+
+  // 3.b) Cuenta de PROVEEDOR dentro del ERP → siempre al portal (/portal).
+  //      Su acceso real lo limita RLS; esto solo evita que vea el shell interno.
+  if ((user as any)?.app_metadata?.tipo === 'proveedor') {
+    window.location.replace('/portal');
+    return <LoadingScreen message="Abriendo portal de proveedores..." />;
   }
 
   // 4) Gate de acceso: usuario autenticado pero SIN rol RBAC asignado.

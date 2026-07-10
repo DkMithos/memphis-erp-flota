@@ -32,14 +32,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Carga de perfil usando el cliente Supabase (funciona cuando auth está sano)
   async function loadProfile(userId: string) {
     try {
+      // maybeSingle: las cuentas del portal de proveedores NO tienen profile
+      // interno por diseño (N21) — sin fila no es un error.
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
-        .single();
+        .maybeSingle();
 
-      if (error) {
-        console.error("[auth.loadProfile]", error.message);
+      if (error || !data) {
+        if (error) console.error("[auth.loadProfile]", error.message);
         setProfile(null);
         setTenantName(null);
         setTenantLogoUrl(null);

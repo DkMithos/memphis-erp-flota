@@ -45,9 +45,44 @@ flujo continúe. En una página:
   - Verificado: parser con XML sintético (13/13 aserciones); función desplegada responde 403
     a no-proveedores (arranca, valida JWT, corre la lógica). El end-to-end de subida real se
     prueba en Fase B (requiere el rol proveedor).
-- **Fase B — auth + portal del proveedor · pendiente** (rol proveedor, alta de credenciales,
-  RLS por RUC, UI del portal).
-- **Fase C — integración conformidad + contabilidad · pendiente.**
+- **Fase B — auth + portal del proveedor · ✅ COMPLETADA (2026-07-09)**
+  - Migración `portal_proveedores_fase_b_rls`: función `auth_proveedor_id()` (del JWT) +
+    políticas SELECT para el rol proveedor (su ficha, sus órdenes no borrador/anuladas, sus
+    facturas, sus archivos en storage) + staff lee archivos del tenant. **Clave de seguridad:
+    el JWT del proveedor NO lleva `tenant_id`** → todas las políticas internas lo bloquean.
+  - Trigger `handle_new_user` actualizado: cuentas `@proveedores.memphismaquinarias.com`
+    NO crean profile ni reciben tenant en app_metadata (GoTrue aplica app_metadata DESPUÉS
+    del INSERT, por eso la detección es por dominio, no por tipo).
+  - Edge Function `portal-proveedor-alta` (staff-only): crea la cuenta alias por RUC, genera
+    el enlace de contraseña (GoTrue Admin REST directo), acciones alta/reenviar/revocar,
+    guarda `portal_user_id`/`email_portal`/`portal_habilitado`. Sin SMTP: devuelve el enlace
+    y el staff lo envía al email real.
+  - `factura-ingest` v2: tenant/RUC derivados de la DB (no del token) + exige `portal_habilitado`.
+  - Portal UI en `/portal` (mismo dominio): login por RUC, "Mis órdenes" con saldo
+    (Total/Aceptado/En trámite/Disponible/estado), "Enviar facturas" (multi-XML + PDF
+    emparejado por nombre, reintento con selección de OC), "Mis facturas" con estado del
+    flujo, fijar/cambiar contraseña. Autocontenido (rama pública, sin stores del ERP);
+    cuentas proveedor en el ERP → redirect a /portal.
+  - **E2E 16/16 verificado** (proveedor de prueba PROV-TEST1): alta + rechazo de no
+    domiciliado, login por RUC, JWT sin tenant, RLS (1 orden de 1,082; solo su ficha; 0 cajas),
+    factura válida auto-amarrada, duplicada rechazada, exceso de saldo bloqueado, selección
+    manual de OC, vista de saldo exacta, suplantación de RUC rechazada. UI verificada en
+    preview (dashboard con orden, saldo y facturas).
+  - **Proveedor de prueba ACTIVO para demo de Kevin**: RUC `20999999991`, contraseña
+    `Portal-Test-2026!`, OC ficticia MM-TESTPT1 (S/5,000; solo ve eso). Eliminar al terminar
+    la revisión (comprobantes+OC+proveedor+cuenta) — avisar para ejecutar la limpieza.
+- **Fase C — pendiente**: UI interna (botón "Habilitar portal" en Proveedores, bandeja de
+  facturas recibidas, dar conformidad/observar cruzando con recepción), notificaciones,
+  enganche contable. Hoy el alta se invoca por función (sin botón aún).
+
+## Hallazgo de seguridad anotado (preexistente, NO del portal)
+
+La política pública del QR de vehículos (`public_view_enabled AND public_token IS NOT NULL`)
+permite a CUALQUIER anónimo **listar** los 386 vehículos por REST (enumeración), no solo
+resolver un token puntual. El proveedor no ve nada adicional (verificado: 386 = 386 anon).
+**Cierre planificado con el rediseño del QR (N17/§3 de Kevin)**: reemplazar la política
+pública por una RPC `get_vehiculo_publico(token)` SECURITY DEFINER que devuelva SOLO el
+vehículo del token con los campos mínimos (info básica + cumplimiento + último manto).
 
 ## 1. Qué ya tenemos (no partimos de cero)
 

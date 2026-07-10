@@ -19,15 +19,24 @@ export default {
       return Response.json({ error: 'Método no permitido' }, { status: 405 });
     }
 
-    // 1. Identidad del proveedor desde el JWT (app_metadata la setea el alta, Fase B)
+    // 1. Identidad del proveedor desde el JWT (app_metadata la setea el alta, Fase B).
+    //    El tenant y el RUC se derivan de la DB (fuente de verdad), no del token.
     const { data: userRes } = await ctx.supabase.auth.getUser();
     const meta = userRes?.user?.app_metadata ?? {};
     if (meta.tipo !== 'proveedor' || !meta.proveedor_id) {
       return Response.json({ error: 'Solo proveedores habilitados pueden subir facturas' }, { status: 403 });
     }
     const proveedorId = meta.proveedor_id as string;
-    const rucProveedor = String(meta.ruc ?? '');
-    const tenantId = meta.tenant_id as string;
+    const { data: prov } = await ctx.supabaseAdmin
+      .from('proveedores')
+      .select('tenant_id, ruc, portal_habilitado')
+      .eq('id', proveedorId)
+      .maybeSingle();
+    if (!prov || prov.portal_habilitado !== true) {
+      return Response.json({ error: 'El acceso al portal no está habilitado para su empresa' }, { status: 403 });
+    }
+    const rucProveedor = String(prov.ruc ?? '');
+    const tenantId = prov.tenant_id as string;
 
     // 2. Parsear el XML
     let body: Body;

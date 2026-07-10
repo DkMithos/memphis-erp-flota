@@ -222,9 +222,24 @@ anti-duplicado; vista `v_oc_saldo_facturacion`). Bucket privado `facturas-provee
 Function `factura-ingest` desplegada (`@supabase/server`, parser UBL en `ubl.ts` anti-XXE,
 validaciones + auto-match por OrderReference + storage + inserción). Skill nuevo instalado:
 `supabase-server`. Verificado: parser 13/13 aserciones; función responde 403 a no-proveedores.
-Dominio confirmado: mismo (`/proveedores`). **Siguiente: Fase B** (rol proveedor en Supabase
-Auth, alta de credenciales por Memphis, RLS por RUC, UI del portal mínimo) — el end-to-end de
-subida se prueba ahí.
+Dominio confirmado: mismo dominio — **el portal vive en `/portal`** (la ruta `/proveedores`
+ya era del módulo interno).
+
+**Fase B ✅ COMPLETADA (2026-07-09):** RLS del rol proveedor (auth_proveedor_id() del JWT,
+SIN tenant_id → bloqueado de todo lo interno; solo SELECT de su ficha/órdenes/facturas/
+archivos), trigger handle_new_user excluye cuentas @proveedores.* (GoTrue aplica app_metadata
+DESPUÉS del insert → detección por dominio), Edge Function `portal-proveedor-alta` v3
+(staff-only; alias por RUC; enlace de contraseña vía GoTrue Admin REST; alta/reenviar/
+revocar), `factura-ingest` v2 (tenant/RUC desde DB + exige portal_habilitado), portal UI en
+`/portal` (login RUC, órdenes con saldo, subida multi-XML+PDF con reintento por OC,
+mis facturas, cambio de clave; autocontenido en rama pública; proveedor en ERP → redirect).
+**E2E 16/16** con proveedor de prueba (RLS 1/1082 órdenes, duplicado/saldo/suplantación
+bloqueados, auto-match OrderReference). UI verificada en preview.
+**Proveedor de prueba VIVO para demo**: RUC 20999999991 / Portal-Test-2026! / OC MM-TESTPT1
+— eliminar tras revisión de Kevin. Hallazgo anotado (preexistente): política pública del QR
+permite ENUMERAR vehículos por REST → cerrar con RPC por token en el rediseño del QR.
+**Siguiente Fase C:** UI interna (botón Habilitar portal, bandeja de facturas, conformidad
+con recepción), notificaciones, enganche contable.
 
 ### IA embebida (N18) · **EN PAUSA (2026-07-09)**
 La jefatura decide primero el monto de créditos a cargar en console.anthropic.com antes de
