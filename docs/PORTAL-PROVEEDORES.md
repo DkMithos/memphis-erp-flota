@@ -140,17 +140,73 @@ contabilidad (`comprobantes_pago.asiento_id` / `contabilizado`).
 - Notificaciones (al proveedor cuando se observa/aprueba; al comprador cuando llega factura).
 - (Opcional) validación del CPE contra SUNAT.
 
-## 10. Decisiones abiertas para Kevin
+## 10. Decisiones de Kevin (RESUELTAS, 2026-07-09)
 
-1. **Login**: ¿RUC + contraseña (recomendado) o usuario/email por persona? (un proveedor
-   puede tener varias personas que facturan).
-2. **Alta de credenciales**: ¿las genera Memphis y las envía, o auto-registro del proveedor
-   con verificación?
-3. **XML obligatorio** (recomendado, habilita validación automática) **o permitir PDF solo**
-   cuando el proveedor no tenga el XML a la mano.
-4. **Conformidad**: ¿la factura debe cruzar con una recepción antes de aceptarse, o basta con
-   amarrarla a la OC?
-5. **Facturación parcial**: ¿se permiten varias facturas por OC / facturas parciales? ¿qué
-   tolerancia de monto factura vs OC?
-6. **Dominio**: ¿portal en el mismo dominio (`erp.memphismaquinarias.com/proveedores`) o en un
-   subdominio propio?
+1. **Login**: Opción **A** — Supabase Auth con rol proveedor + RLS, login por **RUC + contraseña**.
+2. **Alta de credenciales**: **las genera Memphis** → mecanismo definido en §11.
+3. **XML o PDF**: **ambos**, con el XML UBL 2.1 como fuente de verdad (§3).
+4. **Conformidad**: **sí, obligatoria antes de aceptar** la factura (cruce con recepción, §12).
+5. **Facturación parcial**: **permitida** (varias facturas por OC) → reglas claras en §12.
+6. **Dominio**: mismo dominio o subdominio → recomendación en §13 (a confirmar).
+
+## 11. Generación de credenciales (Memphis las genera)
+
+Diseño para que Memphis controle el acceso sin manipular contraseñas en texto plano:
+
+- **Identidad de login = RUC.** La cuenta Supabase Auth usa un email-alias determinista
+  `{ruc}@proveedores.memphismaquinarias.com` (nunca recibe correo, solo identifica). El
+  formulario del portal pide el RUC y arma el alias por detrás → `signInWithPassword`. No
+  hace falta ninguna búsqueda previa.
+- **Email real del proveedor** se guarda aparte (del directorio) para notificaciones y para
+  el enlace de contraseña.
+- **Alta (una acción de Memphis por proveedor, o masiva):** en el módulo Proveedores, botón
+  **"Habilitar portal"** → una Edge Function `portal-proveedor-alta` crea el usuario Auth
+  (`admin.createUser`, email confirmado, `app_metadata`: tipo='proveedor', proveedor_id,
+  ruc, tenant_id), genera un **token de un solo uso** y envía al **email real** del proveedor
+  un enlace para que **fije su propia contraseña**. Memphis genera el acceso; el proveedor
+  define el secreto (Memphis nunca ve la contraseña).
+- **Masivo:** "Habilitar portal a todos los proveedores con OC activa" (122 hoy) en un lote.
+- **Gestión desde Proveedores:** reenviar invitación, resetear contraseña (mismo mecanismo
+  de enlace al email real), y **deshabilitar/revocar** acceso. Todo con log de auditoría.
+- **Recuperación de contraseña:** el proveedor pide "olvidé mi contraseña" con su RUC → la
+  Edge Function envía el enlace a su email real registrado.
+
+## 12. Facturación parcial y conformidad (reglas para que el proveedor no se confunda)
+
+**Modelo de saldo por OC.** Cada orden lleva:
+- `total` (monto de la OC),
+- `facturado_aceptado` (suma de facturas ya dadas por conformes, no anuladas),
+- `facturado_en_tramite` (facturas subidas y aún no conformadas ni observadas),
+- `saldo_por_facturar` = total − aceptado − en_trámite.
+
+**Qué ve el proveedor en cada orden** (tarjeta clara, sin ambigüedad):
+`Total | Facturado (aceptado) | En trámite | Saldo disponible`. Solo puede subir facturas
+hasta el **saldo disponible**.
+
+**Reglas de carga:**
+- Toda factura se amarra a **exactamente una OC**; una OC puede recibir **varias facturas**.
+- Al subir, el sistema valida que el monto no exceda el **saldo disponible** (con tolerancia
+  mínima por redondeo). Si excede, se **bloquea con mensaje claro** ("esta factura supera el
+  saldo por facturar de la OC MM-XXXXXX: disponible S/ X, factura S/ Y").
+- Una factura recién subida **reserva** su monto como *en trámite* → el proveedor no puede
+  volver a facturar ese mismo saldo por error.
+- Estados de la **OC** frente a facturación: `sin facturar` → `parcialmente facturada` →
+  `facturada completa` (cuando aceptado = total). Una OC completa se marca y ya no admite carga.
+
+**Conformidad obligatoria (decisión #4):** el flujo de cada factura es
+`recibida` → (validaciones automáticas) → `validada`/`observada` → **Memphis da conformidad
+cruzando con la recepción** → `conforme` (recién ahí cuenta como *aceptado* contra el saldo)
+→ `programada_pago` → `pagada`. Es decir: subir la factura **no** la acepta sola; Memphis la
+concilia con la recepción de bienes/servicios antes de aceptarla. Si se observa, el proveedor
+ve el motivo y puede corregir y resubir (se libera el *en trámite*).
+
+## 13. Dominio (a confirmar)
+
+**Recomendación: mismo dominio, ruta `/proveedores`** (`erp.memphismaquinarias.com/proveedores`).
+Reutiliza el deploy de Vercel, el mismo proyecto Supabase y la misma auth; la app ya resuelve
+rutas de cara externa antes del gate de sesión, así que una sección `/proveedores/*` que
+renderiza un shell mínimo para usuarios `tipo='proveedor'` es directa. Un **subdominio**
+(`proveedores.memphismaquinarias.com`) es más limpio de marca y aísla el bundle, pero exige
+DNS/SSL y deploy aparte. Se recomienda arrancar en mismo dominio y, si se quiere, promover a
+subdominio después con un redirect. **Salvo que Kevin prefiera el subdominio, se procede con
+mismo dominio.**

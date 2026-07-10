@@ -207,8 +207,13 @@ proveedor vía **Supabase Auth con rol proveedor + RLS** (login por RUC), **XML 
 fuente de verdad** (auto-match a la OC por `cac:OrderReference`), PDF opcional, carga
 individual y masiva, bucket privado con RLS, Edge Function de parseo/validación. Plan por
 fases A (backend factura) / B (auth+portal) / C (integración con recepciones+contabilidad).
-**Bloqueado en decisiones de Kevin** (§10 del doc): tipo de login, alta de credenciales,
-XML obligatorio o PDF-only, si exige conformidad, facturación parcial, dominio del portal.
+**Decisiones cerradas (2026-07-09, §10-13 del doc):** login A (Supabase Auth rol proveedor +
+RLS por RUC); credenciales las genera Memphis (alias determinista por RUC, proveedor fija
+contraseña vía enlace a su email real); XML+PDF (XML fuente de verdad); conformidad
+obligatoria antes de aceptar; facturación parcial permitida con modelo de saldo por OC
+(total/aceptado/en trámite/disponible); dominio recomendado mismo `/proveedores` (a
+confirmar). **Listo para construir Fase A** (backend: extender comprobantes_pago con FK a OC
++ estado_flujo + refs XML/PDF, bucket privado + RLS, Edge Function de parseo/validación UBL).
 
 ### IA embebida (N18) · **EN PAUSA (2026-07-09)**
 La jefatura decide primero el monto de créditos a cargar en console.anthropic.com antes de
