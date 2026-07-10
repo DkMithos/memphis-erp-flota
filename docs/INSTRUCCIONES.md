@@ -2,7 +2,7 @@
 
 > Todas las instrucciones/decisiones dictadas por Kevin. Se actualiza cuando da una nueva
 > o modifica una existente. Norma cualquier trabajo en este proyecto.
-> Última actualización: **2026-07-08**.
+> Última actualización: **2026-07-09**.
 
 ## Proceso de trabajo
 
@@ -39,8 +39,9 @@
 | N15 | Proveedores con RUC inválido: **eliminarlos** → ejecutado como consolidación (9 duplicados eliminados repuntando referencias; 7 canónicos quedan) | 2026-07-06 | ejecutada |
 | N16 | Regla de cierre ICA: cobrado = solo valorizaciones **con CIPRL emitido** (V1); V6 suma cuando emitan el suyo | 2026-07-07 | vigente |
 | N17 | **Rediseño Flota** según spec de Kevin → [FLOTA-REQUISITOS.md](FLOTA-REQUISITOS.md): flotas amarradas a proyecto, contratos de mantenimiento por tiempo/km con provisión vs real (ahorro), VIN primero placa después, cargas masivas, seguimiento documentario SOLO para vehículos administrativos; FUERA: GPS, OTs, análisis preventivo, reportes, estados operativos. **Backup previo hecho** (backups/flota-2026-07-08) | 2026-07-08 | en curso |
-| N18 | **IA embebida en el ERP**: asistente que resuelva consultas de cualquier usuario del sistema (Claude API vía Edge Function; falta API key) | 2026-07-08 | pendiente |
+| N18 | **IA embebida en el ERP**: asistente que resuelva consultas de cualquier usuario del sistema (Claude API vía Edge Function) | 2026-07-08 | **EN PAUSA** — la jefatura decide el monto de créditos a cargar antes de generar la API key |
 | N19 | **Roles y permisos finos** (quién ve y hace qué) se definen DESPUÉS del rediseño de Flota | 2026-07-08 | pendiente |
+| N20 | **Portal de proveedores para facturas**: el proveedor entra (idea: RUC + contraseña), ve SOLO sus órdenes y sube facturas (XML/PDF, individual o masivo) amarradas a la orden, para continuar el flujo → análisis y plan en [PORTAL-PROVEEDORES.md](PORTAL-PROVEEDORES.md). Backend de factura ya existe (comprobantes_pago). Pendiente: decisiones de §10 antes de construir | 2026-07-09 | análisis entregado, pendiente de decisiones |
 
 ## Flujo de trabajo acordado (sesiones)
 

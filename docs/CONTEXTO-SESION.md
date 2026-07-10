@@ -199,6 +199,21 @@ Contratos, Talleres (hoy básicos/placeholder).
 ### FASE 7 — Backup Firebase + apagado de oc-system · pendiente
 Export completo de Firestore antes de apagar el portal legado (coordinar fecha con Kevin).
 
+### FASE 8 — Portal de proveedores para facturas (N20) · análisis entregado 2026-07-09
+Spec y opciones en [PORTAL-PROVEEDORES.md](PORTAL-PROVEEDORES.md). El backend de la factura
+ya existe casi completo: **`comprobantes_pago`** tiene todos los campos SUNAT + `proveedor_id`
++ `orden_compra_numero` + enganche contable (hoy 0 filas). Recomendación: acceso del
+proveedor vía **Supabase Auth con rol proveedor + RLS** (login por RUC), **XML UBL 2.1 como
+fuente de verdad** (auto-match a la OC por `cac:OrderReference`), PDF opcional, carga
+individual y masiva, bucket privado con RLS, Edge Function de parseo/validación. Plan por
+fases A (backend factura) / B (auth+portal) / C (integración con recepciones+contabilidad).
+**Bloqueado en decisiones de Kevin** (§10 del doc): tipo de login, alta de credenciales,
+XML obligatorio o PDF-only, si exige conformidad, facturación parcial, dominio del portal.
+
+### IA embebida (N18) · **EN PAUSA (2026-07-09)**
+La jefatura decide primero el monto de créditos a cargar en console.anthropic.com antes de
+generar la API key. Diseño previsto sin cambios (Edge Function con Claude API, respeta RLS).
+
 ## 6.b FIX CRÍTICO PRODUCCIÓN (2026-07-08) — "módulos sin data" · ✅ desplegado
 
 Síntoma de Kevin en producción: al cambiar de módulo/recargar, dashboards y listas en 0;
