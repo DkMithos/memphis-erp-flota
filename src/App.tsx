@@ -208,7 +208,7 @@ function applyTheme(mode: 'light' | 'dark' | 'system'): boolean {
 
 export default function App() {
   const { user, profile, tenantName, loading, signOut } = useAuth();
-  const { hasRole, isAdmin, loading: permsLoading } = usePermissions();
+  const { isAdmin, sinRolConfirmado, loading: permsLoading } = usePermissions();
 
   const [currentModule, setCurrentModule] = useState(() => {
     const path = window.location.pathname || '/home';
@@ -377,9 +377,10 @@ export default function App() {
     return <LoadingScreen message="Abriendo portal de proveedores..." />;
   }
 
-  // 4) Gate de acceso: usuario autenticado pero SIN rol RBAC asignado.
-  //    Espera a que terminen de cargar los permisos para evitar parpadeo.
-  if (!permsLoading && !isAdmin && !hasRole) {
+  // 4) Gate de acceso: usuario autenticado y la consulta CONFIRMÓ cero roles.
+  //    Un timeout o error de red NO manda aquí (sinRolConfirmado queda false) —
+  //    antes producía falsos "cuenta pendiente de aprobación".
+  if (!permsLoading && !isAdmin && sinRolConfirmado) {
     return (
       <PendingAccess
         email={user.email}

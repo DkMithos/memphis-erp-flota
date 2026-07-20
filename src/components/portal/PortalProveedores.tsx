@@ -6,7 +6,9 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from '../../lib/supabase/client';
+// Cliente EXCLUSIVO del portal (storageKey propio): la sesión del proveedor
+// nunca pisa la sesión del personal del ERP en el mismo navegador.
+import { portalSupabase as supabase } from '../../lib/supabase/portal-client';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
@@ -278,7 +280,7 @@ export function PortalProveedores({ route, onNavigate }: Props) {
       <header className="bg-white dark:bg-card border-b">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/fdf.svg" alt="Memphis" className="h-9 w-9" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <img src="/favicon.svg" alt="Memphis" className="h-9 w-9" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             <div>
               <p className="font-semibold leading-tight">Memphis Maquinarias</p>
               <p className="text-xs text-muted-foreground">Portal de Proveedores</p>

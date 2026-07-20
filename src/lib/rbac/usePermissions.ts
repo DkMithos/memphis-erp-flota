@@ -34,21 +34,25 @@ export function usePermissions() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   // hasRole = el usuario tiene al menos un rol RBAC asignado (o es admin).
-  // Se usa para el gate de acceso: sin rol → pantalla "cuenta pendiente".
   const [hasRole, setHasRole] = useState(false);
+  // sinRolConfirmado = la consulta RESPONDIÓ y devolvió cero roles. El gate de
+  // "cuenta pendiente" SOLO debe usar esto — un timeout o error de red no es
+  // evidencia de falta de rol (antes producía falsos "pendiente de aprobación").
+  const [sinRolConfirmado, setSinRolConfirmado] = useState(false);
 
   useEffect(() => {
     if (!user) {
       setPermisos([]);
       setIsAdmin(false);
       setHasRole(false);
+      setSinRolConfirmado(false);
       setLoading(false);
       return;
     }
 
     let mounted = true;
 
-    const load = async () => {
+    const load = async (intento = 1) => {
       setLoading(true);
       try {
         // Fast path 1: admin role in JWT bypasses DB query
@@ -57,6 +61,7 @@ export function usePermissions() {
           if (mounted) {
             setIsAdmin(true);
             setHasRole(true);
+            setSinRolConfirmado(false);
             setPermisos([]);
           }
           return;
@@ -68,14 +73,17 @@ export function usePermissions() {
           if (mounted) {
             setIsAdmin(true);
             setHasRole(true);
+            setSinRolConfirmado(false);
             setPermisos([]);
           }
           return;
         }
 
-        // Non-admin users need tenantId to query roles
+        // Non-admin users need tenantId to query roles.
+        // Sin tenant (profile aún cargando o falló): estado INDETERMINADO, no
+        // confirmar "sin rol" — evita falsos "cuenta pendiente".
         if (!tenantId) {
-          if (mounted) { setPermisos([]); setHasRole(false); }
+          if (mounted) { setPermisos([]); setHasRole(false); setSinRolConfirmado(false); }
           return;
         }
 
@@ -90,21 +98,25 @@ export function usePermissions() {
 
         if (error) {
           console.error('[usePermissions] Error loading roles:', error.message);
-          // Fallback: si hay error en la consulta, verificar si el email es admin conocido
+          // Error de red/API ≠ sin rol: reintentar una vez; nunca mandar a "pendiente"
           setPermisos([]);
           setHasRole(false);
+          setSinRolConfirmado(false);
+          if (intento < 2) setTimeout(() => { if (mounted) load(intento + 1); }, 2000);
           return;
         }
 
         if (!userRoles || userRoles.length === 0) {
-          // Sin roles asignados → el gate mostrará "cuenta pendiente"
+          // CONFIRMADO por la consulta: cero roles asignados → gate "cuenta pendiente"
           setPermisos([]);
           setHasRole(false);
+          setSinRolConfirmado(true);
           return;
         }
 
         // Tiene al menos un rol RBAC asignado
         setHasRole(true);
+        setSinRolConfirmado(false);
 
         // Flatten permisos
         const allPermisos: PermisoEntry[] = [];
@@ -171,5 +183,5 @@ export function usePermissions() {
     [can, isAdmin],
   );
 
-  return { can, canAny, loading, isAdmin, hasRole, permisos };
+  return { can, canAny, loading, isAdmin, hasRole, sinRolConfirmado, permisos };
 }

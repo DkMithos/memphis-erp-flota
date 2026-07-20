@@ -250,6 +250,22 @@ trámite 590 / disponible 3,230, parcial); tarjeta OK en PROV-TEST1; consola lim
 **El portal está COMPLETO (A+B+C). Falta solo el "encendido" real** (habilitar proveedores
 verdaderos — Kevin autoriza cuándo y a quiénes) y la limpieza del proveedor de prueba.
 
+**Fix post-C (2026-07-10) — sesiones pisadas y falsos "pendiente de aprobación":** Kevin
+reportó que consultor@memphis.pe caía en "requiere aprobación" y que al navegar volvían los
+módulos "en cero". Causa: el portal compartía el MISMO storage de sesión que el ERP → probar
+el portal pisaba la sesión del personal (JWT de proveedor sin tenant → RLS vacío). Fixes:
+(1) **cliente Supabase separado para el portal** (`portal-client.ts`, storageKey
+`memphis-portal-auth`) — las sesiones ERP y portal coexisten; el cliente del ERP no consume
+el hash de URL en rutas /portal; (2) **gate "cuenta pendiente" solo con sin-rol CONFIRMADO**
+por la consulta (`sinRolConfirmado` en usePermissions; timeout/error de red ya no manda a
+pending, con reintento automático); (3) loadProfile no anula un perfil ya cargado ante un
+error transitorio (tenantId nunca cae a null a mitad de sesión). Regresión verificada en
+preview: consultor login → portal login proveedor (misma pestaña) → volver al ERP =
+consultor intacto con 129 proveedores y OCs visibles, consola limpia.
+**Regla operativa**: dos usuarios del ERP en el mismo navegador siguen compartiendo sesión
+(comportamiento normal de Supabase) — para probar 2 cuentas internas a la vez, usar ventana
+de incógnito.
+
 ### IA embebida (N18) · **EN PAUSA (2026-07-09)**
 La jefatura decide primero el monto de créditos a cargar en console.anthropic.com antes de
 generar la API key. Diseño previsto sin cambios (Edge Function con Claude API, respeta RLS).

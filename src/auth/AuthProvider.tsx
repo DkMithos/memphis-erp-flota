@@ -42,10 +42,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error || !data) {
         if (error) console.error("[auth.loadProfile]", error.message);
-        setProfile(null);
-        setTenantName(null);
-        setTenantLogoUrl(null);
-        setTenantColor(null);
+        // Un error transitorio NO debe anular un perfil ya cargado: si tenantId
+        // pasa a null a mitad de sesión, los módulos consultan sin tenant y todo
+        // se ve "en cero" hasta recargar. Solo limpiar si nunca hubo perfil.
+        if (!profileLoadedRef.current) {
+          setProfile(null);
+          setTenantName(null);
+          setTenantLogoUrl(null);
+          setTenantColor(null);
+        }
         return;
       }
 

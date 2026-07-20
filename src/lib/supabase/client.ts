@@ -38,7 +38,10 @@ export const supabase = createClient<Database>(url, anon, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
+    // En rutas /portal el hash de la URL (enlace de contraseña del proveedor)
+    // pertenece al cliente del portal (portal-client.ts) — este cliente NO debe
+    // consumirlo, o la sesión del proveedor pisaría la del personal del ERP.
+    detectSessionInUrl: !window.location.pathname.startsWith('/portal'),
     flowType: 'implicit',
     // navigator.locks DESHABILITADO (no-op): con el lock activo, las consultas
     // que corren mientras el auth client sostiene el lock (login, refresh) se
