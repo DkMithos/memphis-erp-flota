@@ -247,8 +247,12 @@ del proveedor (habilitar/regenerar enlace/revocar; no domiciliado → no aplica;
 bandeja). Contabilidad: las facturas del portal son comprobantes_pago → flujo contable
 existente. Verificado en preview: conformidad a F001-777 → saldo exacto (aceptado 1,180 /
 trámite 590 / disponible 3,230, parcial); tarjeta OK en PROV-TEST1; consola limpia.
-**El portal está COMPLETO (A+B+C). Falta solo el "encendido" real** (habilitar proveedores
-verdaderos — Kevin autoriza cuándo y a quiénes) y la limpieza del proveedor de prueba.
+**ENCENDIDO EJECUTADO (2026-07-12, autorizado por Kevin):** 98 proveedores habilitados
+(97 masivo + prueba), cuentas creadas; el acceso real de cada uno se activa cuando el
+equipo le envía su enlace de contraseña (Regenerar enlace en la ficha; expiran en 24h).
+**25 elegibles pendientes por falta de email** en su ficha (lista en PORTAL-PROVEEDORES.md
+§Encendido). PDF de la OC con instrucciones del portal (URL + RUC + OrderReference con el
+número de la orden). Pendiente: limpieza del proveedor de prueba PROV-TEST1 tras revisión.
 
 **Fix post-C (2026-07-10) — sesiones pisadas y falsos "pendiente de aprobación":** Kevin
 reportó que consultor@memphis.pe caía en "requiere aprobación" y que al navegar volvían los

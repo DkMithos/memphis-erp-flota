@@ -90,6 +90,22 @@ flujo continúe. En una página:
     S/590, disponible S/3,230, estado parcial); tarjeta del portal en PROV-TEST1 con
     Habilitado/Regenerar/Revocar y email precargado. Consola limpia.
 
+## Encendido del portal · ✅ EJECUTADO (2026-07-12, autorizado por Kevin)
+
+- **98 proveedores habilitados** (97 del encendido masivo + el de prueba): cuenta creada y
+  `portal_habilitado = true`. **Nadie puede entrar aún**: cada proveedor necesita el enlace
+  de contraseña que Memphis le envía (se genera al momento con "Regenerar enlace" en la
+  ficha del proveedor — los enlaces expiran en 24h, por eso no se pre-generaron).
+- **25 elegibles quedaron pendientes por no tener email registrado** (lista en el commit y
+  entregada a Kevin): al registrarles email en su ficha, el botón "Habilitar portal" los activa.
+- **PDF de la OC actualizado**: el pie ahora instruye subir la factura por
+  `erp.memphismaquinarias.com/portal` con su RUC, referenciando el número de la orden
+  (OrderReference) para la asignación automática; se mantienen los correos de
+  facturación/consultas como canal de respaldo.
+- **Flujo operativo del equipo**: Proveedores → ficha → tarjeta "Portal de Proveedores" →
+  Regenerar enlace → enviarlo al email real del proveedor. El proveedor define su contraseña
+  y entra con su RUC.
+
 ## Hallazgo de seguridad anotado (preexistente, NO del portal)
 
 La política pública del QR de vehículos (`public_view_enabled AND public_token IS NOT NULL`)

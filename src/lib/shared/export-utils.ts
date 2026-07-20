@@ -355,6 +355,12 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
   </div>
 
   <div class="foot">
+    <b>ENVÍO DE SU FACTURA — PORTAL DE PROVEEDORES:</b><br>
+    Suba su factura electrónica (XML y PDF) en <b>erp.memphismaquinarias.com/portal</b>,
+    ingresando con su RUC y su contraseña del portal.<br>
+    Consigne el número de esta orden (<b>${esc(orden.numero ?? orden.id)}</b>) como
+    referencia/orden de compra en su facturador (OrderReference) para la asignación automática.
+    Si aún no cuenta con acceso al portal, solicítelo a su comprador o a facturacion@memphis.pe.<br><br>
     <b>ENVIAR SU COMPROBANTE CON COPIA A:</b><br>
     FACTURAS ELECTRÓNICAS: facturacion@memphis.pe | dmendez@memphis.pe | mcastaneda@memphis.pe<br>
     CONSULTA DE PAGOS: sbujaico@memphis.pe | dmendez@memphis.pe<br><br>
