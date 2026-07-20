@@ -134,21 +134,44 @@ export function ProyectosPanorama({ onNavigate }: Props) {
     return Array.from(set).sort();
   }, [proyectosRelevantes]);
 
-  // Cargar financieros (resumen) + gasto por año, en 2 RPC
+  // Reintento manual del usuario (banner) — incrementar re-dispara el effect
+  const [intentoFinanciero, setIntentoFinanciero] = useState(0);
+  const [errorFinanciero, setErrorFinanciero] = useState('');
+
+  // Cargar financieros (resumen) + gasto por año, en 2 RPC.
+  // Resiliente: timeout de 12s + 2 intentos por RPC — un cliente colgado (p.ej.
+  // refresh de token atascado) NUNCA debe dejar la pantalla en ceros silenciosos.
   useEffect(() => {
     if (!tenantId) return;
     let cancelled = false;
     setLoadingFinanciero(true);
+    setErrorFinanciero('');
+
+    const rpcResiliente = async (fn: string, args: object): Promise<{ data: any; error: { message: string } | null }> => {
+      for (let i = 1; i <= 2; i++) {
+        const res = await Promise.race([
+          supabase.rpc(fn, args),
+          new Promise<{ data: null; error: { message: string } }>(resolve =>
+            setTimeout(() => resolve({ data: null, error: { message: 'la consulta no respondió en 12s' } }), 12000)),
+        ]) as { data: any; error: { message: string } | null };
+        if (!res.error || cancelled) return res;
+        console.warn(`[PANORAMA] ${fn} intento ${i}/2 falló:`, res.error.message);
+        if (i < 2) await new Promise(r => setTimeout(r, 1200));
+        else return res;
+      }
+      return { data: null, error: { message: 'sin respuesta' } };
+    };
 
     (async () => {
       const [resumen, porAnio] = await Promise.all([
-        supabase.rpc('proyectos_financiero_resumen', { p_tenant: tenantId }),
-        supabase.rpc('proyectos_gasto_por_anio', { p_tenant: tenantId }),
+        rpcResiliente('proyectos_financiero_resumen', { p_tenant: tenantId }),
+        rpcResiliente('proyectos_gasto_por_anio', { p_tenant: tenantId }),
       ]);
       if (cancelled) return;
 
       if (resumen.error) {
         console.error('[PANORAMA] resumen financiero:', resumen.error.message);
+        setErrorFinanciero(`No se pudieron calcular los financieros (${resumen.error.message}).`);
       } else {
         const results: Record<string, any> = {};
         for (const r of (resumen.data ?? []) as any[]) {
@@ -179,6 +202,7 @@ export function ProyectosPanorama({ onNavigate }: Props) {
 
       if (porAnio.error) {
         console.error('[PANORAMA] gasto por año:', porAnio.error.message);
+        setErrorFinanciero(prev => prev || `No se pudo cargar el gasto por año (${porAnio.error!.message}).`);
       } else {
         const byProj: Record<string, GastoAnio[]> = {};
         for (const r of (porAnio.data ?? []) as any[]) {
@@ -195,7 +219,7 @@ export function ProyectosPanorama({ onNavigate }: Props) {
     })();
 
     return () => { cancelled = true; };
-  }, [tenantId, proyectos.length]);
+  }, [tenantId, proyectos.length, intentoFinanciero]);
 
   // Filtro de búsqueda/responsable (sin estado: la fase agrupa)
   const proyectosFiltrados = useMemo(() => {
@@ -313,6 +337,19 @@ export function ProyectosPanorama({ onNavigate }: Props) {
           </div>
         )}
       </div>
+
+      {/* Aviso: los financieros no cargaron — nunca dejar ceros silenciosos */}
+      {errorFinanciero && !loadingFinanciero && (
+        <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/20 p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+          <p className="text-sm text-red-700 dark:text-red-400 flex-1">
+            {errorFinanciero} Los montos mostrados pueden estar en cero.
+            Si el problema persiste tras reintentar, cierra sesión y vuelve a entrar.
+          </p>
+          <Button size="sm" variant="outline" onClick={() => setIntentoFinanciero(n => n + 1)}>
+            <RefreshCw className="size-4" /> Reintentar
+          </Button>
+        </div>
+      )}
 
       {/* KPIs Globales */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
