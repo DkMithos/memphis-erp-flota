@@ -180,7 +180,7 @@ import { RolesProvider } from './lib/rbac/roles-store';
 import { InventarioProvider } from './lib/inventario/inventario-store';
 
 // UI
-import { Menu } from 'lucide-react';
+import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from './components/ui/sheet';
 import { VisuallyHidden } from './components/ui/visually-hidden';
@@ -221,6 +221,17 @@ export default function App() {
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(getInitialThemeMode);
   const [darkMode, setDarkMode] = useState<boolean>(() => applyTheme(getInitialThemeMode()));
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  // Sidebar de escritorio colapsable (preferencia persistente por navegador)
+  const [sidebarColapsado, setSidebarColapsado] = useState<boolean>(() => {
+    try { return localStorage.getItem('erp-sidebar-colapsado') === '1'; } catch { return false; }
+  });
+  const toggleSidebar = () => {
+    setSidebarColapsado(prev => {
+      const next = !prev;
+      try { localStorage.setItem('erp-sidebar-colapsado', next ? '1' : '0'); } catch { /* storage bloqueado */ }
+      return next;
+    });
+  };
 
   // Aplicar tema, persistir en localStorage y escuchar cambios del sistema
   useEffect(() => {
@@ -892,8 +903,8 @@ export default function App() {
                           <DocumentosBioProvider>
                           <ContratosBioProvider>
                       <div className="min-h-screen bg-background">
-                        {/* Desktop Sidebar */}
-                        {!isSpecialRoute() && user && (
+                        {/* Desktop Sidebar (colapsable) */}
+                        {!isSpecialRoute() && user && !sidebarColapsado && (
                           <div className="hidden lg:block print:hidden">
                             <ERPSidebar
                               currentModule={currentModule}
@@ -921,7 +932,8 @@ export default function App() {
 
                         {/* Topbar */}
                         {!isSpecialRoute() && user && (
-                          <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 lg:px-6 fixed top-0 right-0 left-0 lg:left-64 z-30 print:hidden">
+                          <header className={`h-16 bg-card border-b border-border flex items-center justify-between px-4 lg:px-6 fixed top-0 right-0 left-0 z-30 print:hidden ${sidebarColapsado ? 'lg:left-0' : 'lg:left-64'}`}>
+                            {/* Móvil: abre el drawer */}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -929,6 +941,18 @@ export default function App() {
                               onClick={() => setIsMobileSidebarOpen(true)}
                             >
                               <Menu className="size-5" />
+                            </Button>
+
+                            {/* Escritorio: colapsa/expande el sidebar */}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="hidden lg:inline-flex"
+                              onClick={toggleSidebar}
+                              title={sidebarColapsado ? 'Mostrar menú' : 'Ocultar menú'}
+                              aria-label={sidebarColapsado ? 'Mostrar menú lateral' : 'Ocultar menú lateral'}
+                            >
+                              {sidebarColapsado ? <PanelLeftOpen className="size-5" /> : <PanelLeftClose className="size-5" />}
                             </Button>
 
                             <div className="flex-1 lg:hidden" />
@@ -946,7 +970,8 @@ export default function App() {
                           </header>
                         )}
 
-                        <main className={isSpecialRoute() ? '' : 'lg:ml-64 mt-16 p-4 md:p-6'}>
+                        {/* Sin clase de transición: transition-[margin] del CSS estático congela el valor */}
+                        <main className={isSpecialRoute() ? '' : `mt-16 p-4 md:p-6 ${sidebarColapsado ? '' : 'lg:ml-64'}`}>
                           <div className={isSpecialRoute() ? '' : 'max-w-[1600px] mx-auto'}>
                             <ErrorBoundary>
                               <Suspense fallback={<LoadingScreen message="Cargando módulo..." />}>
