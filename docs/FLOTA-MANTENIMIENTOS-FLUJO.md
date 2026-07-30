@@ -38,31 +38,38 @@ En su fecha/hora. (El conductor/PNP lleva la unidad; el taller ya "espera" esa c
 ### Etapa 3 — El taller lee el QR (aquí se bloquea el fraude)
 El taller, **autenticado** en el portal de talleres, escanea el QR del vehículo. El sistema
 valida **antes de permitir cualquier registro**:
-1. El vehículo **pertenece a una flota** (`flota_id` no nulo). Si no → **RECHAZO**: "este
-   vehículo no pertenece a ninguna flota gestionada por Memphis".
-2. Existe una **cita `programado` para ESE taller** en la fecha de hoy (con ventana de
-   tolerancia a definir). Si no → **RECHAZO/ALERTA**: "no hay cita programada para este
-   vehículo en su taller hoy".
-3. El taller logueado **es** el taller de la cita. Si no → **RECHAZO**: "este vehículo está
-   asignado a otro taller".
+1. El vehículo **pertenece a una flota** (`flota_id` no nulo). Si no → **RECHAZO SIEMPRE**:
+   "este vehículo no pertenece a ninguna flota gestionada por Memphis". *(Regla dura, sin excepción.)*
+2. El taller logueado **es el taller asignado a la flota** de ese vehículo (taller fijo por
+   flota, decisión #2/#10). Si no → **RECHAZO**: "este vehículo corresponde a otro taller".
+3. ¿Existe una **cita `programado` para HOY** (fecha exacta, decisión #4)?
+   - **Sí** → registro normal (camino feliz).
+   - **No** (llegó otro día, o sin cita — decisiones #4/#5) → **camino de excepción**: se acepta
+     el registro SOLO si el **odómetro corresponde a un servicio del plan pendiente** (el km
+     cuadra con un intervalo aún no ejecutado). Queda como **`pendiente_aprobación`** →
+     **requiere aprobación de Memphis** para contar. Si el km NO corresponde → **RECHAZO**.
 
-Solo si pasa las 3, se muestra el formulario de confirmación con el servicio esperado precargado.
-→ Un vehículo **sin flota** o **sin cita** NO puede registrarse: es imposible "colar" unidades ajenas.
+Solo si pasa 1 y 2 (y 3 en alguno de sus dos caminos) se abre el formulario de registro con el
+servicio esperado precargado. → Un vehículo **sin flota** nunca entra; uno de la flota sin cita
+solo entra por la vía controlada (km correcto + aprobación de Memphis).
 
-### Etapa 4 — El taller registra y confirma (registro automático)
-El taller ingresa: **km del odómetro real** (obligatorio → alimenta la proyección del siguiente
-servicio), observaciones y, opcional, evidencia (foto / N° de orden de servicio del taller).
-Al confirmar, el sistema **automáticamente**:
-- Cambia la cita de `programado` → `ejecutado`; setea `fecha_ejecucion` = hoy, `km_odometro`.
-- **Calcula el costo desde el tarifario** del contrato (`flota_contrato_tarifas`) según el
-  `km_servicio`. El taller NO teclea el precio → sin manipulación de montos.
-- Registra quién confirmó (taller) y cuándo; guarda la evidencia.
+### Etapa 4 — El taller registra (odómetro + fotos obligatorios)
+El taller ingresa: **km del odómetro real** (obligatorio, decisión #6 → alimenta la proyección
+del siguiente servicio), **fotos de evidencia** (obligatorias, decisión #7), y observaciones.
+Al registrar, el sistema **automáticamente**:
+- Cambia la cita de `programado` → **`registrado_taller`** (esperando a Memphis; el camino de
+  excepción queda en `pendiente_aprobación`).
+- **Calcula el costo desde el tarifario de la FLOTA** (`flota_contrato_tarifas`, que varía por
+  flota — decisión #9) según el `km_servicio`. **El taller NO modifica el costo.**
+- Setea `km_odometro`, guarda las fotos en storage, registra quién (taller) y cuándo.
 - Inserta una lectura en `vehiculo_km_lecturas` → recalcula la fecha del próximo servicio.
-"Automático" = el mantenimiento queda registrado y costeado sin que Memphis lo digite.
+"Automático" = el mantenimiento queda registrado y costeado sin que nadie digite el precio.
 
-### Etapa 5 — Conformidad Memphis (cierre)
-Memphis ve los mantenimientos ejecutados por talleres en su bandeja, da conformidad (o se
-configura automática) y el servicio **cuenta contra el consumo del contrato** (provisión vs real).
+### Etapa 5 — Memphis confirma y cierra (decisión #8)
+Memphis ve en su bandeja los mantenimientos `registrado_taller` y `pendiente_aprobación`,
+revisa (fotos, km, costo), y **confirma y cierra** → estado **`confirmado`**. Recién ahí el
+servicio **cuenta contra el consumo del contrato** (provisión vs real). Las excepciones
+(sin cita / fecha distinta) requieren la **aprobación explícita** de Memphis antes de cerrar.
 
 ## 3. Cómo se corta el fraude (resumen del control)
 
@@ -90,22 +97,50 @@ configura automática) y el servicio **cuenta contra el consumo del contrato** (
 - **Programación**: pantalla interna que proyecta próximos servicios y genera citas (individual
   y en lote).
 
-## 5. Decisiones abiertas para Kevin
+## 5. Decisiones de Kevin (RESUELTAS, 2026-07-30)
 
-1. **Acceso del taller**: ¿portal con login propio (recomendado, más seguro) o el QR basta y el
-   taller se identifica al escanear?
-2. **Asignación de taller a la cita**: ¿taller fijo por contrato de flota, por ubicación del
-   vehículo, o manual por Operaciones cada vez?
-3. **Quién programa**: ¿el sistema propone por km/tiempo y Operaciones confirma en lote, o
-   Operaciones las crea 100% manual?
-4. **Ventana de fecha**: ¿solo el día exacto de la cita, o ±N días de tolerancia? ¿Qué pasa si
-   el vehículo llega antes/después?
-5. **Vehículo sin cita que llega al taller**: ¿rechazo total, o permitir "registro fuera de
-   programa" con alerta a Memphis para que lo autorice?
-6. **Odómetro**: ¿el taller ingresa el km real? (recomendado sí — sostiene la proyección).
-7. **Evidencia**: ¿se exige foto y/o N° de orden de servicio del taller?
-8. **Cierre**: ¿la confirmación del taller cierra el mantenimiento, o siempre requiere
-   conformidad posterior de Memphis antes de contar contra el contrato?
-9. **Costo**: ¿siempre del tarifario, o el taller puede reportar un costo distinto sujeto a
-   aprobación de Memphis?
-10. **Un vehículo, ¿un solo taller asignado o puede ir a cualquiera de los del contrato?**
+1. **Acceso del taller**: **portal con login propio** (patrón del portal de proveedores).
+2. **Asignación de taller**: **taller fijo por flota** (no por vehículo ni por cita).
+3. **Quién programa**: **el sistema propone, Operaciones confirma en lote** (semanal / quincenal
+   / mensual — configurable).
+4. **Ventana de fecha**: **fecha exacta**. Si llega antes/después, se acepta **solo si el km
+   corresponde** al servicio del plan, y **requiere aprobación de Memphis**.
+5. **Vehículo sin cita**: se acepta **solo si el km corresponde**, y **requiere aprobación de Memphis**.
+6. **Odómetro**: lo **registra el taller** (obligatorio).
+7. **Evidencia**: **fotos obligatorias**.
+8. **Cierre**: el **taller registra**, **Memphis confirma y cierra**.
+9. **Costo**: **tarifario por flota**, fijo; **el taller no modifica nada**.
+10. **Taller por vehículo/flota**: **uno solo** (consistente con #2).
+
+## 6. Plan de construcción por fases (para ejecutar tras el visto bueno)
+
+**Fase A — Modelo de datos + talleres**
+- `flotas.taller_id` (FK a `talleres`) → taller fijo por flota; cada vehículo hereda el taller de su flota.
+- Poblar `talleres` (Perumotor → flota camionetas; Promotora Genesis → flota motos), con su `proveedor_id`.
+- Extender `vehiculo_mantenimientos`: `taller_id` (FK), `hora_cita`, `confirmado_por_taller`,
+  `confirmado_en`, `aprobado_por`, `aprobado_en`, `requiere_aprobacion`, fotos. Estados:
+  `programado` → `registrado_taller` / `pendiente_aprobacion` → `confirmado` / `observado`.
+- Bucket privado `evidencias-mantenimiento` (fotos) + RLS.
+
+**Fase B — Programación en lote (interno)**
+- Motor de proyección (km + promedio km/día, y tiempo) → próximos servicios.
+- Pantalla de Operaciones: revisa la propuesta y **confirma citas en lote** (periodicidad
+  configurable) → genera los `programado` con fecha/hora/taller(de la flota)/km_servicio.
+
+**Fase C — Portal de talleres + confirmación por QR**
+- Portal de talleres con login (cliente Supabase separado + RLS + alias por RUC del taller). El
+  taller ve **solo sus citas**.
+- Edge Function `manto-confirmar`: valida las reglas anti-fraude (§3), exige odómetro + fotos,
+  costea desde el tarifario de la flota, setea estado (`registrado_taller` o `pendiente_aprobacion`).
+
+**Fase D — Confirmación/cierre por Memphis**
+- Bandeja interna de `registrado_taller` + `pendiente_aprobacion`: Memphis revisa fotos/km/costo,
+  aprueba las excepciones y **cierra** → `confirmado`. Recién ahí cuenta contra el contrato.
+
+**Fase E — QR público rediseñado + detalle de vehículo**
+- QR público: info básica + cumplimiento + último mantenimiento (fecha/km). QR leído por taller
+  autenticado → confirmación de cita. Rework del detalle de vehículo con historial nuevo.
+
+**Nota de esquema (confirmar al arrancar Fase A):** el taller se vincula a un proveedor
+(`talleres.proveedor_id`; Perumotor y Promotora ya son proveedores) y la flota fija su taller
+(`flotas.taller_id`).
