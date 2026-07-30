@@ -2,7 +2,7 @@
 
 > Todas las instrucciones/decisiones dictadas por Kevin. Se actualiza cuando da una nueva
 > o modifica una existente. Norma cualquier trabajo en este proyecto.
-> Última actualización: **2026-07-09**.
+> Última actualización: **2026-07-30**.
 
 ## Proceso de trabajo
 
@@ -44,6 +44,8 @@
 | N20 | **Portal de proveedores para facturas** → [PORTAL-PROVEEDORES.md](PORTAL-PROVEEDORES.md). Decisiones cerradas: login Supabase Auth rol proveedor + RLS por RUC (A); credenciales las genera Memphis (alias `{ruc}@proveedores.memphismaquinarias.com`, proveedor fija su contraseña vía enlace a su email real, §11); XML+PDF (XML fuente de verdad); **conformidad obligatoria** antes de aceptar; **facturación parcial permitida** con modelo de saldo por OC (§12); dominio recomendado mismo `/proveedores` (a confirmar). Backend de factura ya existe (comprobantes_pago). Listo para construir Fase A | 2026-07-09 | decisiones cerradas |
 | N21 | **Identidades separadas**: personal Memphis = **@memphis.pe vía Microsoft Entra SSO**; proveedores del portal = alias `{ruc}@proveedores.memphismaquinarias.com` con contraseña. Dominio de la app: `erp.memphismaquinarias.com`. NO mezclar @memphis.pe con cuentas de proveedor | 2026-07-09 | vigente |
 | N22 | **No domiciliados fuera del portal**: los 6 proveedores extranjeros (Anthropic/Vercel/Supabase/Google/VMEG, sin IGV ni CPE) NO usan el portal; sus documentos del exterior los adjunta el equipo interno a la OC. Marcar con flag `proveedores.domiciliado` (no inferir del prefijo del RUC). **Geremie PROV-0324 es domiciliado con RUC pendiente** (será elegible al cargar su RUC), no extranjero | 2026-07-09 | vigente |
+| N23 | **Mantenimientos de flota con confirmación por QR** → [FLOTA-MANTENIMIENTOS-FLUJO.md](FLOTA-MANTENIMIENTOS-FLUJO.md): Memphis programa la cita (vehículo+taller+fecha/hora+servicio); el taller lee el QR y **registra/confirma** el mantenimiento programado; registro y costeo **automáticos** (costo desde el tarifario). **Anti-fraude central**: solo vehículos con flota + cita `programado` en su taller pueden registrarse (evita que lleven unidades ajenas, ya ocurrió). Diseño entregado, **pendiente de decisiones de Kevin** (§5 del doc) antes de tocar el sistema | 2026-07-30 | diseño en revisión |
+| N24 | **Migración total de generación de OCs y Caja chica al ERP**: hoy el equipo sigue usando oc-system en paralelo (se migra el delta incrementalmente). Kevin definirá con el equipo **cuándo** se corta el legado y todo se genera en el ERP | 2026-07-30 | pendiente de fecha (Kevin) |
 
 ## Flujo de trabajo acordado (sesiones)
 
