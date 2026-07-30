@@ -19,7 +19,7 @@
 
 | Dominio | Corte | Volumen | Marcador |
 |---|---|---|---|
-| Órdenes de compra | 02/07/26 (MM-001067) | 1,131 OCs + items | `migrado_de='oc-system'` / `'oc-excel-2024'` |
+| Órdenes de compra | **27/07/26 (MM-001158)** | **1,223 OCs + items** | `migrado_de='oc-system'` / `'oc-excel-2024'` |
 | Requerimientos | 03/07/26 | 209 (+675 items) | `oc-system` |
 | Cotizaciones | 03/07/26 | 185 (+687 items) | `oc-system` |
 | Caja chica | **02/07/26 — Excel CONGELADO** | 30 cajas · 779 gastos · 113 ingresos · 0 descuadres | `caja-excel-2025` |
@@ -273,6 +273,19 @@ de incógnito.
 ### IA embebida (N18) · **EN PAUSA (2026-07-09)**
 La jefatura decide primero el monto de créditos a cargar en console.anthropic.com antes de
 generar la API key. Diseño previsto sin cambios (Edge Function con Claude API, respeta RLS).
+
+## 6.c MIGRACIÓN INCREMENTAL oc-system (2026-07-30) — delta post-corte
+
+El equipo siguió usando oc-system tras el go-live. Extracción fresca read-only
+(`4-extract-fresh.cjs`) → Firestore tenía 717 OCs vs 626 migradas. Delta: **91 OCs nuevas
+MM-001068→MM-001158** (todas julio, 89 aprobadas / 1 pendiente / 1 rechazada→anulada).
+Método: transform fase 2 con CORTE=1067 (`5-transform-fase2.py`) + carga atómica por pooler
+con rol temporal `mig_f2_tmp` (`6-load-fase2.mjs`), UUIDs v5 → idempotente. Cargados 2
+proveedores nuevos (PROV-0325 Juan Meléndez dom.; PROV-0326 OpenAI no dom.). Resultado:
+**1,223 OCs** (717 de oc-system), 0 sin proveedor, 0 sin monto, 83 con cotización, sync de
+626 estados + backfill de cadena req→cot→OC. Suma de las 91: S/2,248,248.40 (72 son
+mantenimientos ICA de Peruana de Motores). Rol temporal eliminado. **Repetible**: correr
+4-extract-fresh → 5-transform-fase2 (ajustar CORTE al último MM) → 6-load-fase2.
 
 ## 6.b FIX CRÍTICO PRODUCCIÓN (2026-07-08) — "módulos sin data" · ✅ desplegado
 

@@ -298,7 +298,7 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
 </style></head><body>
   <div class="head">
     <div style="display:flex;gap:12px;align-items:flex-start">
-      <img src="${window.location.origin}/fdf.svg" alt="Memphis" style="width:52px;height:52px;border-radius:8px" />
+      <img src="${window.location.origin}/favicon.svg" alt="Memphis" style="width:52px;height:52px;border-radius:8px" />
       <div>
         <h1>${titulo}</h1>
         <div style="font-size:10px;color:#444"><b>MEMPHIS MAQUINARIAS S.A.C</b> · RUC 20603847424<br>
@@ -360,10 +360,7 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
     ingresando con su RUC y su contraseña del portal.<br>
     Consigne el número de esta orden (<b>${esc(orden.numero ?? orden.id)}</b>) como
     referencia/orden de compra en su facturador (OrderReference) para la asignación automática.
-    Si aún no cuenta con acceso al portal, solicítelo a su comprador o a facturacion@memphis.pe.<br><br>
-    <b>ENVIAR SU COMPROBANTE CON COPIA A:</b><br>
-    FACTURAS ELECTRÓNICAS: facturacion@memphis.pe | dmendez@memphis.pe | mcastaneda@memphis.pe<br>
-    CONSULTA DE PAGOS: sbujaico@memphis.pe | dmendez@memphis.pe<br><br>
+    Si aún no cuenta con acceso al portal, solicítelo a su comprador.<br><br>
     El presente servicio o producto cumple con los lineamientos de nuestro Sistema de Gestión Antisoborno.
   </div>
 </body></html>`;
