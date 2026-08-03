@@ -112,6 +112,22 @@ servicio **cuenta contra el consumo del contrato** (provisión vs real). Las exc
 9. **Costo**: **tarifario por flota**, fijo; **el taller no modifica nada**.
 10. **Taller por vehículo/flota**: **uno solo** (consistente con #2).
 
+## Estado de implementación
+
+- **Fase A — Modelo de datos + talleres · ✅ COMPLETADA (2026-08-03)**
+  - Migración `flota_mantos_qr_fase_a`: `flotas.taller_id` (FK); `talleres` con `codigo` único +
+    `portal_habilitado`/`portal_user_id`/`email_portal`; `vehiculo_mantenimientos` +taller_id,
+    hora_cita, confirmado_por_taller, confirmado_taller_en, requiere_aprobacion, aprobado_por/en,
+    cerrado_por/en, km_proyectado_siguiente, fotos(jsonb). Bucket privado `evidencias-mantenimiento`
+    + RLS (staff lee su tenant).
+  - Talleres poblados: **TALL-001 PERUMOTOR** (flota camionetas, sin proveedor por ahora) y
+    **TALL-002 PROMOTORA GENESIS** (flota motos, vinculado a su proveedor). Flotas vinculadas a
+    su taller. Los **1,074 mantenimientos migrados heredaron su taller** (backfill 100%).
+  - Verificado: advisors sin hallazgos nuevos; taller derivable de la flota en toda la data.
+  - Nota: los datos de ubicación/contacto de los talleres los completará Operaciones (Kevin
+    consulta si le entregan los datos completos).
+- **Fases B–E — pendientes** (programación en lote, portal de talleres + QR, cierre Memphis, QR público).
+
 ## 6. Plan de construcción por fases (para ejecutar tras el visto bueno)
 
 **Fase A — Modelo de datos + talleres**
