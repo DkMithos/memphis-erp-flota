@@ -116,7 +116,10 @@ servicio **cuenta contra el consumo del contrato** (provisión vs real). Las exc
 
 **Fase A — Modelo de datos + talleres**
 - `flotas.taller_id` (FK a `talleres`) → taller fijo por flota; cada vehículo hereda el taller de su flota.
-- Poblar `talleres` (Perumotor → flota camionetas; Promotora Genesis → flota motos), con su `proveedor_id`.
+- Poblar `talleres` con **datos mínimos: nombre + ubicación** (decisión de Kevin 2026-07-30). El
+  `talleres.proveedor_id` es **OPCIONAL** — un taller NO tiene que ser proveedor; se vincula solo
+  si más adelante Kevin obtiene los datos completos (RUC, contacto, bancos). Cada taller lleva un
+  **`codigo`** interno que Memphis asigna (TALL-NNN) — es su identidad de login (ver Fase C).
 - Extender `vehiculo_mantenimientos`: `taller_id` (FK), `hora_cita`, `confirmado_por_taller`,
   `confirmado_en`, `aprobado_por`, `aprobado_en`, `requiere_aprobacion`, fotos. Estados:
   `programado` → `registrado_taller` / `pendiente_aprobacion` → `confirmado` / `observado`.
@@ -128,8 +131,10 @@ servicio **cuenta contra el consumo del contrato** (provisión vs real). Las exc
   configurable) → genera los `programado` con fecha/hora/taller(de la flota)/km_servicio.
 
 **Fase C — Portal de talleres + confirmación por QR**
-- Portal de talleres con login (cliente Supabase separado + RLS + alias por RUC del taller). El
-  taller ve **solo sus citas**.
+- Portal de talleres con login — **mismo esquema que el portal de proveedores** (cliente Supabase
+  separado + RLS + credenciales que genera Memphis y contraseña que fija el taller), pero la
+  **identidad de login es el `codigo` del taller** (alias `{codigo}@talleres.memphismaquinarias.com`),
+  NO el RUC — porque el taller puede no tener RUC (solo nombre + ubicación). El taller ve **solo sus citas**.
 - Edge Function `manto-confirmar`: valida las reglas anti-fraude (§3), exige odómetro + fotos,
   costea desde el tarifario de la flota, setea estado (`registrado_taller` o `pendiente_aprobacion`).
 
@@ -141,6 +146,7 @@ servicio **cuenta contra el consumo del contrato** (provisión vs real). Las exc
 - QR público: info básica + cumplimiento + último mantenimiento (fecha/km). QR leído por taller
   autenticado → confirmación de cita. Rework del detalle de vehículo con historial nuevo.
 
-**Nota de esquema (confirmar al arrancar Fase A):** el taller se vincula a un proveedor
-(`talleres.proveedor_id`; Perumotor y Promotora ya son proveedores) y la flota fija su taller
-(`flotas.taller_id`).
+**Esquema del taller (definido 2026-07-30):** el taller es una **entidad independiente** con
+datos mínimos (nombre + ubicación); `talleres.proveedor_id` es **opcional** (se llena solo si
+Kevin obtiene los datos completos). Identidad de login = `talleres.codigo` (no RUC). La flota
+fija su taller vía `flotas.taller_id`.
