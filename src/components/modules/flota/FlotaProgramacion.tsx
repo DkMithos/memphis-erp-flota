@@ -6,7 +6,7 @@
  * flota), fecha, hora y km del plan.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarClock, Search, X, RefreshCw, CheckSquare, AlertTriangle, Wrench } from 'lucide-react';
+import { CalendarClock, Search, X, RefreshCw, CheckSquare, AlertTriangle, Wrench, CalendarPlus } from 'lucide-react';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
@@ -14,6 +14,7 @@ import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Checkbox } from '../../ui/checkbox';
 import { PageNav } from '../../shared/PageNav';
+import { SearchableSelect } from '../../shared/SearchableSelect';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../../ui/select';
@@ -27,6 +28,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../../../auth/AuthProvider';
 import { dbProgramacionFlota } from '../../../lib/supabase/helpers';
 import { useFlotas, fmtMoneda } from '../../../lib/flota/flotas-store';
+import { useVehiculos } from '../../../lib/flota/vehiculos-store';
 import { usePagination } from '../../../lib/shared/usePagination';
 
 interface Props { onNavigate: (route: string) => void; }
@@ -55,6 +57,7 @@ const enDias = (dias: number) => { const d = new Date(); d.setDate(d.getDate() +
 export function FlotaProgramacion({ onNavigate: _onNavigate }: Props) {
   const { tenantId, user } = useAuth();
   const { flotas } = useFlotas();
+  const { vehiculos } = useVehiculos();
 
   const [filas, setFilas] = useState<ProximoServicio[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,13 +65,31 @@ export function FlotaProgramacion({ onNavigate: _onNavigate }: Props) {
   const [filtroFlota, setFiltroFlota] = useState('todas');
   const [ventana, setVentana] = useState('30'); // días; 'vencidos' | 'todos'
   const [sel, setSel] = useState<Set<string>>(new Set());
+  // Fechas de proyección editadas por el usuario (override por vehículo)
+  const [fechasEditadas, setFechasEditadas] = useState<Map<string, string>>(new Map());
 
-  // Diálogo de generación
+  // Diálogo de generación en lote
   const [dialogOpen, setDialogOpen] = useState(false);
   const [horaCita, setHoraCita] = useState('08:00');
   const [usarProyectada, setUsarProyectada] = useState(true);
   const [fechaFija, setFechaFija] = useState(enDias(7));
   const [generando, setGenerando] = useState(false);
+
+  // Diálogo de programación MANUAL (un vehículo, sin depender de la proyección)
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manVehiculoId, setManVehiculoId] = useState<string | null>(null); // _dbId
+  const [manTarifaId, setManTarifaId] = useState<string | null>(null);
+  const [manFecha, setManFecha] = useState(enDias(7));
+  const [manHora, setManHora] = useState('08:00');
+  const [manGenerando, setManGenerando] = useState(false);
+
+  // Fecha efectiva de una fila: la editada por el usuario o la proyectada
+  const fechaDe = useCallback(
+    (r: ProximoServicio) => fechasEditadas.get(r.vehiculoId) ?? r.fechaProyectada,
+    [fechasEditadas],
+  );
+  const setFechaFila = (vehiculoId: string, fecha: string) =>
+    setFechasEditadas(m => { const n = new Map(m); fecha ? n.set(vehiculoId, fecha) : n.delete(vehiculoId); return n; });
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -88,16 +109,12 @@ export function FlotaProgramacion({ onNavigate: _onNavigate }: Props) {
     }
     setLoading(false);
     setSel(new Set());
+    setFechasEditadas(new Map());
   }, []);
 
   useEffect(() => { if (tenantId) cargar(); }, [tenantId, cargar]);
 
   const nombreFlota = (id: string) => flotas.find(f => f.id === id)?.nombre ?? '—';
-  const tallerFlota = (id: string) => {
-    const f = flotas.find(x => x.id === id);
-    // el nombre del taller no está en el store de flotas; se muestra el de la fila si aplica
-    return f?.nombre ? '' : '';
-  };
 
   const filtradas = useMemo(() => {
     const limite = ventana === 'todos' || ventana === 'vencidos' ? null : enDias(parseInt(ventana, 10));
@@ -138,7 +155,7 @@ export function FlotaProgramacion({ onNavigate: _onNavigate }: Props) {
       contrato_id: r.contratoId,
       taller_id: r.tallerId,
       km_servicio: r.proximoKm,
-      fecha_programada: usarProyectada ? (r.fechaProyectada ?? fechaFija) : fechaFija,
+      fecha_programada: usarProyectada ? (fechaDe(r) ?? fechaFija) : fechaFija,
       hora_cita: horaCita,
       costo: r.costo,
       moneda: r.moneda,
@@ -155,6 +172,60 @@ export function FlotaProgramacion({ onNavigate: _onNavigate }: Props) {
     }
     toast.success(`${citas.length} cita(s) de mantenimiento programada(s)`);
     setDialogOpen(false);
+    cargar();
+  };
+
+  // ── Programación manual (un vehículo) ─────────────────────────────────────
+  const vehiculosConFlota = useMemo(
+    () => vehiculos.filter(v => v.flotaId && v.estado !== 'inactivo'),
+    [vehiculos],
+  );
+  const manVehiculo = vehiculos.find(v => v._dbId === manVehiculoId);
+  const manFlota = flotas.find(f => f.id === manVehiculo?.flotaId);
+  const manContrato = manFlota
+    ? (manFlota.contratos.find(c => c.estado === 'activo') ?? manFlota.contratos[0])
+    : undefined;
+  const manTarifas = manContrato?.tarifas ?? [];
+  const manTarifa = manTarifas.find(t => t.id === manTarifaId);
+
+  const abrirManual = () => {
+    setManVehiculoId(null);
+    setManTarifaId(null);
+    setManFecha(enDias(7));
+    setManHora('08:00');
+    setManualOpen(true);
+  };
+
+  const generarManual = async () => {
+    if (!manVehiculo) { toast.error('Selecciona un vehículo'); return; }
+    if (!manFlota?.tallerId) { toast.error('La flota del vehículo no tiene taller asignado'); return; }
+    if (!manContrato) { toast.error('La flota del vehículo no tiene contrato configurado'); return; }
+    if (!manTarifa) { toast.error('Selecciona el servicio del plan (tarifa)'); return; }
+    if (!manFecha) { toast.error('Indica la fecha de la cita'); return; }
+
+    setManGenerando(true);
+    const { error } = await dbProgramacionFlota.generarCitas([{
+      tenant_id: tenantId,
+      vehiculo_id: manVehiculo._dbId,
+      contrato_id: manContrato.id,
+      taller_id: manFlota.tallerId,
+      km_servicio: manTarifa.kmServicio,
+      fecha_programada: manFecha,
+      hora_cita: manHora,
+      costo: manTarifa.costo,
+      moneda: manContrato.moneda,
+      estado: 'programado',
+      origen: 'manual',
+      creado_por: user?.id ?? null,
+    }]);
+    setManGenerando(false);
+    if (error) {
+      console.error('[PROGRAMACION] Error al programar manual:', error.message);
+      toast.error('No se pudo programar la cita');
+      return;
+    }
+    toast.success(`Cita programada para ${manVehiculo.placa || manVehiculo.vin || manVehiculo.id}`);
+    setManualOpen(false);
     cargar();
   };
 
@@ -177,6 +248,9 @@ export function FlotaProgramacion({ onNavigate: _onNavigate }: Props) {
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={cargar} disabled={loading}>
             <RefreshCw className="size-4" /> Actualizar
+          </Button>
+          <Button variant="outline" onClick={abrirManual}>
+            <CalendarPlus className="size-4" /> Programación manual
           </Button>
           <Button onClick={() => setDialogOpen(true)} disabled={sel.size === 0}>
             <CheckSquare className="size-4" /> Programar {sel.size > 0 ? `(${sel.size})` : ''}
@@ -267,7 +341,8 @@ export function FlotaProgramacion({ onNavigate: _onNavigate }: Props) {
               ) : paged.length === 0 ? (
                 <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Sin vehículos en esta ventana</TableCell></TableRow>
               ) : paged.map(r => {
-                const vencido = r.fechaProyectada && r.fechaProyectada < hoy();
+                const fEff = fechaDe(r);
+                const vencido = fEff && fEff < hoy();
                 const puede = !!(r.tallerId && r.contratoId && r.proximoKm);
                 return (
                   <TableRow key={r.vehiculoId} className={sel.has(r.vehiculoId) ? 'bg-accent/40' : ''}>
@@ -285,9 +360,18 @@ export function FlotaProgramacion({ onNavigate: _onNavigate }: Props) {
                     <TableCell className="text-right font-medium">{r.proximoKm?.toLocaleString() ?? '—'}</TableCell>
                     <TableCell className="text-right">{r.kmFaltante?.toLocaleString() ?? '—'}</TableCell>
                     <TableCell>
-                      {r.fechaProyectada ? (
-                        <Badge variant={vencido ? 'destructive' : 'outline'}>{r.fechaProyectada}</Badge>
-                      ) : <span className="text-xs text-muted-foreground">sin proyección</span>}
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          type="date"
+                          value={fechaDe(r) ?? ''}
+                          onChange={e => setFechaFila(r.vehiculoId, e.target.value)}
+                          className={`h-8 w-[9.5rem] ${vencido ? 'border-red-500 text-red-600' : ''}`}
+                          aria-label={`Fecha proyectada de ${r.placa ?? r.codigo}`}
+                        />
+                        {fechasEditadas.has(r.vehiculoId) && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5">editada</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">{r.costo != null ? fmtMoneda(r.costo, r.moneda) : '—'}</TableCell>
                   </TableRow>
@@ -320,7 +404,7 @@ export function FlotaProgramacion({ onNavigate: _onNavigate }: Props) {
             </p>
             <div className="flex items-center gap-2">
               <Checkbox id="proy" checked={usarProyectada} onCheckedChange={v => setUsarProyectada(!!v)} />
-              <Label htmlFor="proy" className="cursor-pointer">Usar la fecha proyectada de cada vehículo</Label>
+              <Label htmlFor="proy" className="cursor-pointer">Usar la fecha de cada vehículo (proyectada o editada)</Label>
             </div>
             {!usarProyectada && (
               <div>
@@ -337,6 +421,93 @@ export function FlotaProgramacion({ onNavigate: _onNavigate }: Props) {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
             <Button onClick={generar} disabled={generando}>
               {generando ? 'Programando…' : `Programar ${sel.size}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo: programación MANUAL de un vehículo */}
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarPlus className="size-4" /> Programación manual
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Programa una cita para cualquier vehículo con flota, sin depender de la proyección.
+              El taller y el costo salen de la flota y su tarifario.
+            </p>
+
+            <div>
+              <Label className="mb-1.5 block">Vehículo</Label>
+              <SearchableSelect
+                value={manVehiculoId}
+                onChange={id => { setManVehiculoId(id); setManTarifaId(null); }}
+                options={vehiculosConFlota.map(v => ({
+                  value: v._dbId!,
+                  label: `${v.placa || v.vin || v.id} — ${v.id}`,
+                  keywords: `${v.vin ?? ''} ${v.numeroPadron ?? ''} ${nombreFlota(v.flotaId ?? '')}`,
+                }))}
+                placeholder="Seleccionar vehículo"
+                searchPlaceholder="Buscar por placa, VIN, padrón…"
+                emptyText="Sin vehículos con flota"
+              />
+            </div>
+
+            {manVehiculo && (
+              <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1">
+                <p><span className="text-muted-foreground">Flota:</span> {manFlota?.nombre ?? '—'}</p>
+                {!manFlota?.tallerId && (
+                  <p className="text-red-600 text-xs">⚠ La flota no tiene taller asignado</p>
+                )}
+                {!manContrato && (
+                  <p className="text-red-600 text-xs">⚠ La flota no tiene contrato configurado</p>
+                )}
+              </div>
+            )}
+
+            {manContrato && manTarifas.length > 0 && (
+              <div>
+                <Label className="mb-1.5 block">Servicio del plan</Label>
+                <Select value={manTarifaId ?? undefined} onValueChange={setManTarifaId}>
+                  <SelectTrigger><SelectValue placeholder="Selecciona el servicio (km)" /></SelectTrigger>
+                  <SelectContent>
+                    {manTarifas.map(t => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.orden}. {t.kmServicio.toLocaleString('es-PE')} km — {fmtMoneda(t.costo, manContrato.moneda)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="mb-1.5 block">Fecha</Label>
+                <Input type="date" value={manFecha} onChange={e => setManFecha(e.target.value)} />
+              </div>
+              <div>
+                <Label className="mb-1.5 block">Hora</Label>
+                <Input type="time" value={manHora} onChange={e => setManHora(e.target.value)} />
+              </div>
+            </div>
+
+            {manTarifa && (
+              <p className="text-sm">
+                Costo del servicio: <strong>{fmtMoneda(manTarifa.costo, manContrato!.moneda)}</strong>
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={generarManual}
+              disabled={manGenerando || !manVehiculo || !manFlota?.tallerId || !manContrato || !manTarifa}
+            >
+              {manGenerando ? 'Programando…' : 'Programar cita'}
             </Button>
           </DialogFooter>
         </DialogContent>

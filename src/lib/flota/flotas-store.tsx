@@ -45,6 +45,7 @@ export interface Flota {
   nombre: string;
   tipo: string;
   proyectoId: string;
+  tallerId: string | null; // taller fijo de la flota (para citas de mantenimiento)
   descripcion: string | null;
   estado: string;
   contratos: ContratoFlota[];
@@ -122,6 +123,7 @@ function mapFlota(f: any): Flota {
     nombre: f.nombre,
     tipo: f.tipo ?? 'otro',
     proyectoId: f.proyecto_id,
+    tallerId: f.taller_id ?? null,
     descripcion: f.descripcion ?? null,
     estado: f.estado ?? 'activa',
     contratos: (f.flota_contratos ?? []).map(mapContrato),
