@@ -40,6 +40,7 @@ interface CrudResult {
 interface VehiculosContextType {
   vehiculos: Vehiculo[];
   loading: boolean;
+  recargar: () => Promise<void>;
   crearVehiculo: (data: Omit<Vehiculo, 'id' | 'creadoPor' | 'creadoEn' | 'estado'>) => Promise<{ exito: boolean; vehiculoId?: string; errores?: string[] }>;
   actualizarVehiculo: (id: string, data: Partial<Vehiculo>) => Promise<CrudResult>;
   inactivarVehiculo: (id: string, motivo: string) => Promise<CrudResult>;
@@ -632,6 +633,7 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
   const value: VehiculosContextType = {
     vehiculos,
     loading,
+    recargar: fetchVehiculos,
     crearVehiculo,
     actualizarVehiculo,
     inactivarVehiculo,

@@ -19,6 +19,7 @@ import { useFlotas, fmtMoneda } from '../../../lib/flota/flotas-store';
 import { useVehiculos } from '../../../lib/flota/vehiculos-store';
 import { useProyectos } from '../../../lib/proyectos/proyectos-store';
 import { usePagination } from '../../../lib/shared/usePagination';
+import { FlotaCargas } from './FlotaCargas';
 
 interface Props {
   codigo: string; // código o UUID de la flota
@@ -26,8 +27,8 @@ interface Props {
 }
 
 export function FlotaDetalleView({ codigo, onNavigate }: Props) {
-  const { obtenerFlota, loading, consumoPorVehiculo, consumoPorFlota } = useFlotas();
-  const { vehiculos } = useVehiculos();
+  const { obtenerFlota, loading, consumoPorVehiculo, consumoPorFlota, refetch } = useFlotas();
+  const { vehiculos, recargar: recargarVehiculos } = useVehiculos();
   const { proyectos } = useProyectos();
   const [busqueda, setBusqueda] = useState('');
 
@@ -133,6 +134,7 @@ export function FlotaDetalleView({ codigo, onNavigate }: Props) {
         <TabsList>
           <TabsTrigger value="vehiculos">Vehículos ({c.unidades})</TabsTrigger>
           <TabsTrigger value="contrato">Contrato y tarifario</TabsTrigger>
+          <TabsTrigger value="cargas">Cargas (Excel)</TabsTrigger>
         </TabsList>
 
         {/* TAB: vehículos con consumo */}
@@ -290,6 +292,11 @@ export function FlotaDetalleView({ codigo, onNavigate }: Props) {
               </Card>
             </>
           )}
+        </TabsContent>
+
+        {/* TAB: cargas masivas por Excel */}
+        <TabsContent value="cargas">
+          <FlotaCargas flota={flota} contrato={contrato ?? null} onCambio={() => { refetch(); recargarVehiculos(); }} />
         </TabsContent>
       </Tabs>
     </div>
