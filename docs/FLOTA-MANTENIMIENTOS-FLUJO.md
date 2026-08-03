@@ -60,7 +60,8 @@ Al registrar, el sistema **automáticamente**:
 - Cambia la cita de `programado` → **`registrado_taller`** (esperando a Memphis; el camino de
   excepción queda en `pendiente_aprobación`).
 - **Calcula el costo desde el tarifario de la FLOTA** (`flota_contrato_tarifas`, que varía por
-  flota — decisión #9) según el `km_servicio`. **El taller NO modifica el costo.**
+  flota — decisión #9) según el `km_servicio`. **El taller NO modifica el costo y NO lo ve**
+  (el precio no se envía al portal del taller; el costeo ocurre solo en el backend/Memphis).
 - Setea `km_odometro`, guarda las fotos en storage, registra quién (taller) y cuándo.
 - Inserta una lectura en `vehiculo_km_lecturas` → recalcula la fecha del próximo servicio.
 "Automático" = el mantenimiento queda registrado y costeado sin que nadie digite el precio.
@@ -78,7 +79,7 @@ servicio **cuenta contra el consumo del contrato** (provisión vs real). Las exc
 | Taller registra un vehículo ajeno a la flota | Regla 1: vehículo sin `flota_id` → rechazo |
 | Taller registra sin que Memphis lo haya programado | Regla 2: sin cita `programado` → rechazo (la cita SIEMPRE nace en Memphis) |
 | Un taller registra un vehículo de otro taller | Regla 3: taller logueado ≠ taller de la cita → rechazo |
-| Taller infla el costo | Costo automático desde el tarifario; el taller no lo edita |
+| Taller infla el costo | Costo automático desde el tarifario; el taller no lo edita ni lo ve (el precio nunca se envía al portal del taller) |
 | Registro "de la nada" (sin QR) | La confirmación exige el token del QR del vehículo + cita |
 
 ## 4. Cambios necesarios (para el plan; no ejecutar aún)
@@ -88,7 +89,7 @@ servicio **cuenta contra el consumo del contrato** (provisión vs real). Las exc
   `confirmado_en`, `evidencia_url`/`os_taller`, `km_proyectado_siguiente`.
 - **Acceso del taller**: portal de talleres con login (reutiliza el patrón del portal de
   proveedores: cliente Supabase separado + RLS + alias por RUC del taller). El taller ve solo
-  SUS citas.
+  SUS citas, **sin costos ni tarifario** (el precio nunca se expone al taller — decisión 2026-08-03).
 - **Edge Function `manto-confirmar`**: valida las 3 reglas + calcula el costo del tarifario +
   cambia estado + registra lectura de km. Toda la lógica anti-fraude vive en el backend.
 - **QR rediseñado**: leído por un taller autenticado → abre la confirmación de la cita; leído
@@ -109,7 +110,10 @@ servicio **cuenta contra el consumo del contrato** (provisión vs real). Las exc
 6. **Odómetro**: lo **registra el taller** (obligatorio).
 7. **Evidencia**: **fotos obligatorias**.
 8. **Cierre**: el **taller registra**, **Memphis confirma y cierra**.
-9. **Costo**: **tarifario por flota**, fijo; **el taller no modifica nada**.
+9. **Costo**: **tarifario por flota**, fijo; **el taller no modifica nada**. **El taller NO ve el
+   costo** (decisión 2026-08-03): el precio/tarifario NO se muestra en el portal del taller ni en
+   su vista de la cita; solo Memphis (interno) lo ve. El taller solo ve vehículo, servicio del
+   plan (km), fecha/hora y registra odómetro + fotos.
 10. **Taller por vehículo/flota**: **uno solo** (consistente con #2).
 
 ## Estado de implementación
@@ -134,8 +138,13 @@ servicio **cuenta contra el consumo del contrato** (provisión vs real). Las exc
     (hoy + km_faltante/km_día). Trae `taller_id` (de la flota) y `contrato_id`.
   - Pantalla **Flota → Programación** (`/flota/programacion`): KPIs (con próximo servicio /
     vencidos / sin proyección), filtros (flota, ventana 7/15/30 días · vencidos · todos,
-    búsqueda), tabla seleccionable y **generación de citas en lote** (usa la fecha proyectada
-    de cada vehículo o una fecha única + hora; el taller y el costo salen automáticos).
+    búsqueda), tabla seleccionable y **generación de citas en lote** (usa la fecha de cada
+    vehículo o una fecha única + hora; el taller y el costo salen automáticos).
+  - **Fecha de proyección editable por fila** (2026-08-03): cada vehículo tiene un input de
+    fecha; la fecha editada se marca con badge "editada" y se usa al generar. **Programación
+    manual** (botón + diálogo): programa una cita para cualquier vehículo con flota sin depender
+    de la proyección — elige vehículo (buscable) → servicio del plan (tarifa) → fecha/hora; el
+    taller y el costo se derivan de la flota (`origen='manual'`).
   - Helper `dbProgramacionFlota` (proximos / generarCitas). Verificado end-to-end en preview:
     250 vehículos proyectados, generación de citas `programado` con taller (TALL-002 motos) y
     costo del tarifario (S/313.84) correctos; citas de prueba eliminadas; consola limpia.
@@ -163,9 +172,12 @@ servicio **cuenta contra el consumo del contrato** (provisión vs real). Las exc
 - Portal de talleres con login — **mismo esquema que el portal de proveedores** (cliente Supabase
   separado + RLS + credenciales que genera Memphis y contraseña que fija el taller), pero la
   **identidad de login es el `codigo` del taller** (alias `{codigo}@talleres.memphismaquinarias.com`),
-  NO el RUC — porque el taller puede no tener RUC (solo nombre + ubicación). El taller ve **solo sus citas**.
+  NO el RUC — porque el taller puede no tener RUC (solo nombre + ubicación). El taller ve **solo sus
+  citas, SIN costo ni tarifario** (decisión 2026-08-03): la vista/consulta del portal del taller
+  **no debe seleccionar la columna `costo`** ni ninguna del tarifario; el costeo es interno.
 - Edge Function `manto-confirmar`: valida las reglas anti-fraude (§3), exige odómetro + fotos,
-  costea desde el tarifario de la flota, setea estado (`registrado_taller` o `pendiente_aprobacion`).
+  costea desde el tarifario de la flota **en el backend (el taller nunca recibe el precio)**, setea
+  estado (`registrado_taller` o `pendiente_aprobacion`).
 
 **Fase D — Confirmación/cierre por Memphis**
 - Bandeja interna de `registrado_taller` + `pendiente_aprobacion`: Memphis revisa fotos/km/costo,

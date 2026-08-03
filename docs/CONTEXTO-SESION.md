@@ -187,10 +187,32 @@ backups/flota-2026-07-08.**
 - **Usuario demo para jefatura (2026-07-09)**: consultor@memphis.pe con rol Gerencia
   (12 permisos de vista), provisional — Kevin le asignará rol definitivo en Admin.
   Patrón: igual que usuario QA pero permanente (token cols '', tenant_id en app_metadata).
-- ⏳ Pendiente FASE 5: cargas masivas Excel (vehículos y mantenimientos), vehículos
-  administrativos (registro + alertas de vencimientos), QR público rediseñado (info
-  básica + cumplimiento + último manto fecha/km), rework de VehiculoDetalle (consumo +
-  historial nuevo); IA embebida (Kevin consigue API key de Claude en console.anthropic.com).
+- ⏳ Pendiente FASE 5: vehículos administrativos (registro + alertas de vencimientos),
+  QR público rediseñado (info básica + cumplimiento + último manto fecha/km), rework de
+  VehiculoDetalle (consumo + historial nuevo); IA embebida (Kevin consigue API key de Claude).
+
+**Avance 2026-08-03 (5 ajustes de flota pedidos por Kevin, N25) — código listo, SIN commitear aún:**
+- **(2)+(4) Cargas Excel por flota** · pestaña **"Cargas (Excel)"** en `FlotaDetalleView`
+  (`FlotaCargas.tsx`, SheetJS `xlsx@0.18.5` en chunk lazy 429 KB): plantilla + carga de
+  **vehículos** (alta/actualización por VIN, código estable `VEH-{FLOTA}-{últimos6 del VIN}`,
+  asigna flota/proyecto) y de **tarifario** (reemplaza tarifas del contrato y recalcula
+  cantidad_servicios + costo_total_por_vehiculo). Verificado: alta no destructiva por VIN OK
+  (vehículo de prueba creado y eliminado).
+- **(3) Programación manual + fecha editable** en `FlotaProgramacion`: input de fecha por fila
+  (override con badge "editada", usado al generar); botón/diálogo **"Programación manual"** para
+  cualquier vehículo con flota (SearchableSelect de vehículo → servicio del plan/tarifa →
+  fecha/hora; taller y costo derivados de la flota, `origen='manual'`). Nuevo `flotas.tallerId`
+  en el store. Verificado en preview (250 vehículos listables, deriva flota FL-ICA-MOT correcta).
+- **(5) Tab Contrato del vehículo dirigido por flota** (`vehiculo/ContratoTab.tsx`): reemplaza
+  el texto libre por un **desplegable de flota** → proyecto/contrato/proveedor/modalidad/moneda/
+  tarifario en **solo lectura** (nuevo método acotado `asignarFlota` en vehiculos-store; los
+  datos de contrato previos se conservan como "heredados"). Verificado con EX9613 → FL-ICA-MOT
+  (Gobierno Regional de Ica, PROMOTORA GENESIS, tarifario de 25 servicios, S/8,245.16).
+- **(1) Costo oculto al taller**: directiva registrada para Fase C (portal de talleres) en
+  FLOTA-MANTENIMIENTOS-FLUJO.md (decisión #9 reforzada) + INSTRUCCIONES N25 — el precio/tarifario
+  nunca se envía al portal del taller; el costeo es solo backend/Memphis. (No hay portal aún.)
+- Build limpio (index 458 KB sin crecer; xlsx en su chunk). Kevin eligió "solo terminar";
+  **falta commit** de este lote (autor Kevin) y luego deploy.
 
 ### FASE 6 — Módulos placeholder · pendiente
 Proyectos: Cronograma, Valorizaciones, Riesgos, Documentos. Proveedores: Evaluaciones,
