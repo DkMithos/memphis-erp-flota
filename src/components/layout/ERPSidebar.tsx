@@ -224,6 +224,11 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
           label: t('nav.sub.mantenimientos'),
           href: '/flota/mantenimientos',
           id: 'flota-mantenimientos',
+        },
+        {
+          label: 'Programación',
+          href: '/flota/programacion',
+          id: 'flota-programacion',
         }
       ]
     },

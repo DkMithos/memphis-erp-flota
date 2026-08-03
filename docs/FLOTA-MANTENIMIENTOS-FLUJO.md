@@ -126,7 +126,20 @@ servicio **cuenta contra el consumo del contrato** (provisión vs real). Las exc
   - Verificado: advisors sin hallazgos nuevos; taller derivable de la flota en toda la data.
   - Nota: los datos de ubicación/contacto de los talleres los completará Operaciones (Kevin
     consulta si le entregan los datos completos).
-- **Fases B–E — pendientes** (programación en lote, portal de talleres + QR, cierre Memphis, QR público).
+- **Fase B — Programación en lote · ✅ COMPLETADA (2026-08-03)**
+  - Motor de proyección: vista `v_flota_proximo_servicio` (security_invoker) — por vehículo de
+    flota calcula odómetro actual (última lectura o kilometraje), promedio km/día (de
+    `vehiculo_km_lecturas` si hay ≥2 lecturas), próximo km del plan (menor tarifa > odómetro y
+    sin cita/ejecución previa), km faltante, costo del tarifario y **fecha proyectada**
+    (hoy + km_faltante/km_día). Trae `taller_id` (de la flota) y `contrato_id`.
+  - Pantalla **Flota → Programación** (`/flota/programacion`): KPIs (con próximo servicio /
+    vencidos / sin proyección), filtros (flota, ventana 7/15/30 días · vencidos · todos,
+    búsqueda), tabla seleccionable y **generación de citas en lote** (usa la fecha proyectada
+    de cada vehículo o una fecha única + hora; el taller y el costo salen automáticos).
+  - Helper `dbProgramacionFlota` (proximos / generarCitas). Verificado end-to-end en preview:
+    250 vehículos proyectados, generación de citas `programado` con taller (TALL-002 motos) y
+    costo del tarifario (S/313.84) correctos; citas de prueba eliminadas; consola limpia.
+- **Fases C–E — pendientes** (portal de talleres + QR, cierre Memphis, QR público).
 
 ## 6. Plan de construcción por fases (para ejecutar tras el visto bueno)
 

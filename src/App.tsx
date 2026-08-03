@@ -34,6 +34,7 @@ const VehiculoForm = lazy(() => import('./components/modules/flota/VehiculoForm'
 const FlotasLista = lazy(() => import('./components/modules/flota/FlotasLista').then(m => ({ default: m.FlotasLista })));
 const FlotaDetalleView = lazy(() => import('./components/modules/flota/FlotaDetalleView').then(m => ({ default: m.FlotaDetalleView })));
 const FlotaMantenimientos = lazy(() => import('./components/modules/flota/FlotaMantenimientos').then(m => ({ default: m.FlotaMantenimientos })));
+const FlotaProgramacion = lazy(() => import('./components/modules/flota/FlotaProgramacion').then(m => ({ default: m.FlotaProgramacion })));
 
 // Flota - Hojas de Vida QR
 import { VehiclePublicView } from './components/modules/flota/VehiclePublicView';
@@ -840,6 +841,10 @@ export default function App() {
 
       if (submodulo === 'mantenimientos') {
         return <FlotaMantenimientos onNavigate={navigateTo} />;
+      }
+
+      if (submodulo === 'programacion') {
+        return <FlotaProgramacion onNavigate={navigateTo} />;
       }
 
       // GPS / análisis preventivo / reportes salieron del módulo (N17) → dashboard

@@ -117,6 +117,15 @@ export const dbVehiculoConsumo = {
   list: () => supabase.from("v_vehiculo_consumo").select("*"),
 };
 
+/** Programación de mantenimientos: proyección del próximo servicio + generación de citas */
+export const dbProgramacionFlota = {
+  /** Próximo servicio proyectado por vehículo de flota (vista) */
+  proximos: () => supabase.from("v_flota_proximo_servicio").select("*"),
+  /** Crea las citas 'programado' en lote (una fila por vehículo seleccionado) */
+  generarCitas: (citas: object[]) =>
+    supabase.from("vehiculo_mantenimientos").insert(citas).select("id"),
+};
+
 // =============================================================================
 // FLOTA — ÓRDENES DE TRABAJO
 // =============================================================================
