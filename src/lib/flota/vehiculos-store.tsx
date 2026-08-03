@@ -52,6 +52,7 @@ interface VehiculosContextType {
   obtenerVehiculosPorProyecto: (proyectoId: string) => Vehiculo[];
   buscarVehiculos: (query: string) => Vehiculo[];
   ensurePublicToken: (id: string) => void;
+  asignarFlota: (vehiculoId: string, flotaId: string | null, proyectoId?: string | null) => Promise<CrudResult>;
   actualizarVinculoContrato: (vehiculoId: string, vinculo: VehiculoVinculoContrato) => Promise<CrudResult>;
   actualizarPlanPreventivo: (vehiculoId: string, plan: PlanPreventivoContratado) => Promise<CrudResult>;
   agregarDocumentoVehiculo: (vehiculoId: string, documento: Omit<VehiculoDocumento, 'id' | 'creadoPor' | 'creadoEn'>) => Promise<{ exito: boolean; documentoId?: string; errores?: string[] }>;
@@ -433,6 +434,45 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
   // CONTRATO Y PLAN PREVENTIVO
   // ============================================================================
 
+  // Asigna la flota (grupo por proyecto) al vehículo. Update ACOTADO: solo
+  // flota_id + proyecto_id, para no tocar contrato/plan preventivo. El contrato,
+  // tarifario y costos se derivan de la flota (no se teclean por vehículo).
+  const asignarFlota = async (
+    vehiculoId: string,
+    flotaId: string | null,
+    proyectoId?: string | null
+  ): Promise<CrudResult> => {
+    if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+
+    const update: Record<string, any> = {
+      flota_id: flotaId,
+      modificado_por: user.id,
+      modificado_en: new Date().toISOString(),
+    };
+    // Si la flota trae proyecto, se hereda; si se quita la flota, no se toca el proyecto.
+    if (proyectoId !== undefined) update.proyecto_id = proyectoId;
+
+    const { error } = await supabase
+      .from('vehiculos')
+      .update(update)
+      .eq('codigo', vehiculoId);
+
+    if (error) return { exito: false, errores: [error.message] };
+
+    setVehiculos(prev =>
+      prev.map(v => v.id === vehiculoId
+        ? {
+            ...v,
+            flotaId,
+            proyectoId: proyectoId !== undefined ? (proyectoId ?? null) : v.proyectoId,
+            modificadoEn: new Date().toISOString(),
+          }
+        : v
+      )
+    );
+    return { exito: true };
+  };
+
   const actualizarVinculoContrato = async (
     vehiculoId: string,
     vinculo: VehiculoVinculoContrato
@@ -645,6 +685,7 @@ export function VehiculosStoreProvider({ children }: { children: ReactNode }) {
     obtenerVehiculosPorProyecto,
     buscarVehiculos,
     ensurePublicToken,
+    asignarFlota,
     actualizarVinculoContrato,
     actualizarPlanPreventivo,
     agregarDocumentoVehiculo,
