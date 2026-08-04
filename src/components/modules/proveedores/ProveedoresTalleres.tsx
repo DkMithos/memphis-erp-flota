@@ -3,7 +3,7 @@
  * Vista en cards, filtros, KPIs, creación y gestión
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Plus,
   Search,
@@ -18,7 +18,11 @@ import {
   Building2,
   List,
   Map,
+  KeyRound,
+  Copy,
+  ShieldCheck,
 } from 'lucide-react';
+import { supabase } from '../../../lib/supabase/client';
 import { MapaLeaflet, iconAzul, iconAmarillo, iconRojo, type MapaMarcador } from '../../ui/MapaLeaflet';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -229,6 +233,17 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
   const [guardando, setGuardando] = useState(false);
   const [vistaActiva, setVistaActiva] = useState<'lista' | 'mapa'>('lista');
 
+  // Portal del taller (habilitar acceso — Fase C)
+  const [portalEmail, setPortalEmail] = useState('');
+  const [portalBusy, setPortalBusy] = useState(false);
+  const [portalResult, setPortalResult] = useState<{ login: string; enlace: string; email: string } | null>(null);
+
+  // Al abrir el detalle: precargar email del portal y limpiar resultado previo
+  useEffect(() => {
+    setPortalEmail(dialogDetalle?.contactoEmail ?? '');
+    setPortalResult(null);
+  }, [dialogDetalle]);
+
   // ── Filtrado ────────────────────────────────────────────────────────────────
 
   const filtrados = useMemo(() => {
@@ -311,6 +326,39 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
     if (exito) toast.success('Taller eliminado');
     else toast.error(errores?.[0] ?? 'Error al eliminar');
     setDialogDetalle(null);
+  };
+
+  // ── Portal del taller (habilitar / reenviar / revocar acceso) ──
+  const gestionarPortal = async (taller: TallerFrontend, accion: 'alta' | 'revocar') => {
+    setPortalBusy(true);
+    setPortalResult(null);
+    const { data: s } = await supabase.auth.getSession();
+    const token = s.session?.access_token;
+    if (!token) { setPortalBusy(false); toast.error('Sesión expirada'); return; }
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/portal-taller-alta`, {
+        method: 'POST',
+        headers: {
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          taller_id: taller._dbId,
+          accion,
+          email: accion === 'alta' ? (portalEmail.trim() || undefined) : undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setPortalBusy(false);
+      if (!res.ok || !data.ok) { toast.error(data.error ?? `Error ${res.status}`); return; }
+      if (accion === 'revocar') { toast.success(data.mensaje ?? 'Acceso revocado'); return; }
+      setPortalResult({ login: data.login_codigo, enlace: data.enlace_contrasena ?? '', email: data.email_portal });
+      toast.success('Acceso generado. Envía el enlace al taller.');
+    } catch {
+      setPortalBusy(false);
+      toast.error('Error de red al gestionar el portal');
+    }
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -911,6 +959,50 @@ export function ProveedoresTalleres({ onNavigate: _onNavigate }: Props) {
                   <p className="text-sm mt-1">{dialogDetalle.observaciones}</p>
                 </div>
               )}
+
+              {/* Portal del taller — Fase C */}
+              <Separator />
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                  <ShieldCheck className="size-3.5" /> Portal del taller
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Genera el acceso para que el taller registre sus mantenimientos por QR. Ingresa
+                  con su código <span className="font-mono">{dialogDetalle.id}</span> y la contraseña
+                  que fije con el enlace. El taller <strong>no ve costos</strong>.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    type="email"
+                    placeholder="email real del taller"
+                    value={portalEmail}
+                    onChange={e => setPortalEmail(e.target.value)}
+                  />
+                  <Button size="sm" onClick={() => gestionarPortal(dialogDetalle, 'alta')} disabled={portalBusy}>
+                    <KeyRound className="size-4" /> {portalBusy ? 'Generando…' : 'Generar acceso'}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => gestionarPortal(dialogDetalle, 'revocar')} disabled={portalBusy}
+                    className="text-red-600 border-red-200 hover:!bg-red-600 hover:!text-white">
+                    Revocar
+                  </Button>
+                </div>
+                {portalResult && (
+                  <div className="rounded-md border border-green-300 bg-green-50 dark:bg-green-950/20 p-3 text-sm space-y-1.5">
+                    <p><span className="text-muted-foreground">Código de acceso:</span> <span className="font-mono font-medium">{portalResult.login}</span></p>
+                    <p className="text-xs text-muted-foreground">Enviar a: {portalResult.email}</p>
+                    {portalResult.enlace && (
+                      <div className="flex items-center gap-2">
+                        <Input readOnly value={portalResult.enlace} className="text-xs" onFocus={e => e.currentTarget.select()} />
+                        <Button size="icon" variant="outline" className="shrink-0"
+                          onClick={() => { navigator.clipboard?.writeText(portalResult.enlace); toast.success('Enlace copiado'); }}>
+                          <Copy className="size-4" />
+                        </Button>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">El enlace expira en 24h. Envíalo por tu canal (correo/WhatsApp) al taller.</p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <DialogFooter className="flex flex-wrap gap-2 mt-4">

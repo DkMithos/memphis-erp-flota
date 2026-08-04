@@ -35,6 +35,7 @@ const FlotasLista = lazy(() => import('./components/modules/flota/FlotasLista').
 const FlotaDetalleView = lazy(() => import('./components/modules/flota/FlotaDetalleView').then(m => ({ default: m.FlotaDetalleView })));
 const FlotaMantenimientos = lazy(() => import('./components/modules/flota/FlotaMantenimientos').then(m => ({ default: m.FlotaMantenimientos })));
 const FlotaProgramacion = lazy(() => import('./components/modules/flota/FlotaProgramacion').then(m => ({ default: m.FlotaProgramacion })));
+const FlotaConfirmaciones = lazy(() => import('./components/modules/flota/FlotaConfirmaciones').then(m => ({ default: m.FlotaConfirmaciones })));
 
 // Flota - Hojas de Vida QR
 import { VehiclePublicView } from './components/modules/flota/VehiclePublicView';
@@ -155,6 +156,8 @@ const UserProfile = lazy(() => import('./components/modules/perfil/UserProfile')
 
 // Portal de proveedores (ruta pública /portal, con su propio login por RUC)
 const PortalProveedores = lazy(() => import('./components/portal/PortalProveedores').then(m => ({ default: m.PortalProveedores })));
+// Portal de talleres (ruta pública /taller, login por código del taller)
+const PortalTalleres = lazy(() => import('./components/portal/PortalTalleres').then(m => ({ default: m.PortalTalleres })));
 
 // Stores
 import { OTStoreProvider } from './lib/flota/ot-store';
@@ -309,6 +312,7 @@ export default function App() {
     if (currentRoute.startsWith('/v/')) return true;
     if (currentRoute.startsWith('/e/')) return true; // QR público biomédico
     if (currentRoute.startsWith('/portal')) return true; // Portal de proveedores (N20)
+    if (currentRoute.startsWith('/taller')) return true; // Portal de talleres (N23/Fase C)
     if (currentRoute.startsWith('/flota/vehiculos/') && currentRoute.includes('/print-qr')) return true;
     if (ENABLE_PUBLIC_LEGACY_ROUTES && currentRoute.startsWith('/public/vehiculo/')) return true;
     return false;
@@ -321,6 +325,15 @@ export default function App() {
       return (
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-muted-foreground">Cargando portal…</div>}>
           <PortalProveedores route={currentRoute} onNavigate={navigateTo} />
+        </Suspense>
+      );
+    }
+
+    // /taller — Portal de talleres (login propio por código; aislado por RLS/Edge)
+    if (currentRoute.startsWith('/taller')) {
+      return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-muted-foreground">Cargando portal…</div>}>
+          <PortalTalleres route={currentRoute} onNavigate={navigateTo} />
         </Suspense>
       );
     }
@@ -387,6 +400,12 @@ export default function App() {
   if ((user as any)?.app_metadata?.tipo === 'proveedor') {
     window.location.replace('/portal');
     return <LoadingScreen message="Abriendo portal de proveedores..." />;
+  }
+
+  // 3.c) Cuenta de TALLER dentro del ERP → siempre al portal de talleres (/taller).
+  if ((user as any)?.app_metadata?.tipo === 'taller') {
+    window.location.replace('/taller');
+    return <LoadingScreen message="Abriendo portal de talleres..." />;
   }
 
   // 4) Gate de acceso: usuario autenticado y la consulta CONFIRMÓ cero roles.
@@ -845,6 +864,10 @@ export default function App() {
 
       if (submodulo === 'programacion') {
         return <FlotaProgramacion onNavigate={navigateTo} />;
+      }
+
+      if (submodulo === 'confirmaciones') {
+        return <FlotaConfirmaciones onNavigate={navigateTo} />;
       }
 
       // GPS / análisis preventivo / reportes salieron del módulo (N17) → dashboard

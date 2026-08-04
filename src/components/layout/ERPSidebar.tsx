@@ -229,6 +229,11 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
           label: 'Programación',
           href: '/flota/programacion',
           id: 'flota-programacion',
+        },
+        {
+          label: 'Confirmaciones',
+          href: '/flota/confirmaciones',
+          id: 'flota-confirmaciones',
         }
       ]
     },

@@ -126,6 +126,48 @@ export const dbProgramacionFlota = {
     supabase.from("vehiculo_mantenimientos").insert(citas).select("id"),
 };
 
+// FLOTA — Confirmación/cierre de mantenimientos (Fase D, interno/staff).
+// El taller registra (registrado_taller) o queda pendiente (pendiente_aprobacion);
+// Memphis revisa fotos/km/costo y confirma (confirmado, cuenta contra el contrato)
+// u observa (observado). El staff SÍ ve el costo (el costo solo se oculta al taller).
+export const dbConfirmacionesFlota = {
+  /** Bandeja: mantos registrados por el taller o pendientes de aprobación */
+  bandeja: () =>
+    supabase
+      .from("vehiculo_mantenimientos")
+      .select(
+        "id, vehiculo_id, estado, origen, km_servicio, km_odometro, fecha_programada, fecha_ejecucion, requiere_aprobacion, confirmado_taller_en, observaciones, fotos, costo, moneda, vehiculo:vehiculos(codigo, placa, vin, numero_padron, flota:flotas(nombre, codigo)), taller:talleres(nombre, codigo)"
+      )
+      .in("estado", ["registrado_taller", "pendiente_aprobacion"])
+      .order("confirmado_taller_en", { ascending: false, nullsFirst: false }),
+  /** Confirma y cierra el servicio → cuenta contra el contrato */
+  confirmar: (id: string, userId: string | null) =>
+    supabase
+      .from("vehiculo_mantenimientos")
+      .update({
+        estado: "confirmado",
+        aprobado_por: userId,
+        aprobado_en: new Date().toISOString(),
+        cerrado_por: userId,
+        cerrado_en: new Date().toISOString(),
+      })
+      .eq("id", id),
+  /** Observa (rechaza) el registro del taller con un motivo */
+  observar: (id: string, motivo: string, userId: string | null) =>
+    supabase
+      .from("vehiculo_mantenimientos")
+      .update({
+        estado: "observado",
+        observaciones: motivo,
+        cerrado_por: userId,
+        cerrado_en: new Date().toISOString(),
+      })
+      .eq("id", id),
+  /** URL firmada temporal para ver una foto de evidencia */
+  fotoUrl: (path: string) =>
+    supabase.storage.from("evidencias-mantenimiento").createSignedUrl(path, 3600),
+};
+
 // =============================================================================
 // FLOTA — ÓRDENES DE TRABAJO
 // =============================================================================
