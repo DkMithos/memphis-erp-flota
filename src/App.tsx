@@ -305,9 +305,10 @@ export default function App() {
   const isSpecialRoute = () => {
     return (
       currentRoute.startsWith('/v/') ||
-      // Impresión de QR (interna, sin sidebar): por vehículo o toda la flota
+      // Impresión de QR (interna, sin sidebar): por vehículo, por flota, o todas
       (currentRoute.startsWith('/flota/vehiculos/') && currentRoute.includes('/print-qr')) ||
-      (currentRoute.startsWith('/flota/flotas/') && currentRoute.endsWith('/qr'))
+      (currentRoute.startsWith('/flota/flotas/') && currentRoute.endsWith('/qr')) ||
+      currentRoute === '/flota/qr'
     );
   };
 
@@ -810,6 +811,11 @@ export default function App() {
       const submodulo = segments[1];
       const param = segments[2];
       const action = segments[3];
+
+      // Etiquetas QR de TODA la flota (todas las flotas), para imprimir en lote
+      if (submodulo === 'qr') {
+        return <FlotaQRPrint onNavigate={navigateTo} />;
+      }
 
       if (submodulo === 'vehiculos') {
         if (param === 'nuevo') {
