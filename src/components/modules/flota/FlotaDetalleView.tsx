@@ -4,7 +4,7 @@
  * (provisión vs gastado, en precio y en cantidad).
  */
 import { useState } from 'react';
-import { ArrowLeft, Truck, Bike, FileText, Search } from 'lucide-react';
+import { ArrowLeft, Truck, Bike, FileText, Search, QrCode } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
@@ -88,7 +88,12 @@ export function FlotaDetalleView({ codigo, onNavigate }: Props) {
             </p>
           </div>
         </div>
-        <Badge variant={flota.estado === 'activa' ? 'default' : 'secondary'} className="capitalize">{flota.estado}</Badge>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => onNavigate(`/flota/flotas/${flota.codigo}/qr`)}>
+            <QrCode className="size-4" /> Imprimir QRs
+          </Button>
+          <Badge variant={flota.estado === 'activa' ? 'default' : 'secondary'} className="capitalize">{flota.estado}</Badge>
+        </div>
       </div>
 
       {/* Resumen del consumo */}

@@ -36,6 +36,7 @@ const FlotaDetalleView = lazy(() => import('./components/modules/flota/FlotaDeta
 const FlotaMantenimientos = lazy(() => import('./components/modules/flota/FlotaMantenimientos').then(m => ({ default: m.FlotaMantenimientos })));
 const FlotaProgramacion = lazy(() => import('./components/modules/flota/FlotaProgramacion').then(m => ({ default: m.FlotaProgramacion })));
 const FlotaConfirmaciones = lazy(() => import('./components/modules/flota/FlotaConfirmaciones').then(m => ({ default: m.FlotaConfirmaciones })));
+const FlotaQRPrint = lazy(() => import('./components/modules/flota/FlotaQRPrint').then(m => ({ default: m.FlotaQRPrint })));
 
 // Flota - Hojas de Vida QR
 import { VehiclePublicView } from './components/modules/flota/VehiclePublicView';
@@ -304,7 +305,9 @@ export default function App() {
   const isSpecialRoute = () => {
     return (
       currentRoute.startsWith('/v/') ||
-      (currentRoute.startsWith('/flota/vehiculos/') && currentRoute.includes('/print-qr'))
+      // Impresión de QR (interna, sin sidebar): por vehículo o toda la flota
+      (currentRoute.startsWith('/flota/vehiculos/') && currentRoute.includes('/print-qr')) ||
+      (currentRoute.startsWith('/flota/flotas/') && currentRoute.endsWith('/qr'))
     );
   };
 
@@ -313,7 +316,8 @@ export default function App() {
     if (currentRoute.startsWith('/e/')) return true; // QR público biomédico
     if (currentRoute.startsWith('/portal')) return true; // Portal de proveedores (N20)
     if (currentRoute.startsWith('/taller')) return true; // Portal de talleres (N23/Fase C)
-    if (currentRoute.startsWith('/flota/vehiculos/') && currentRoute.includes('/print-qr')) return true;
+    // NOTA: la impresión de QR del vehículo NO es pública — usa el store de vehículos
+    // (requiere sesión + providers). Se maneja internamente en renderModule.
     if (ENABLE_PUBLIC_LEGACY_ROUTES && currentRoute.startsWith('/public/vehiculo/')) return true;
     return false;
   };
@@ -354,15 +358,6 @@ export default function App() {
       const token = segments[1];
       if (token) return <EquipoPublicView token={token} />;
       return <div className="p-6 text-sm text-muted-foreground">Token inválido.</div>;
-    }
-
-    // /flota/vehiculos/:id/print-qr
-    if (currentRoute.startsWith('/flota/vehiculos/') && currentRoute.includes('/print-qr')) {
-      const cleanPath = currentRoute.split('?')[0];
-      const segments = cleanPath.split('/').filter(Boolean);
-      const vehiculoId = segments[2];
-      if (vehiculoId) return <VehicleQRPrint vehiculoId={vehiculoId} onNavigate={publicNavigateTo} />;
-      return <div className="p-6 text-sm text-muted-foreground">Vehículo inválido.</div>;
     }
 
     // /public/vehiculo/:id (legacy)
@@ -838,6 +833,11 @@ export default function App() {
           );
         }
 
+        // Impresión de QR del vehículo (interna; requiere store → dentro de providers)
+        if (param && action === 'print-qr') {
+          return <VehicleQRPrint vehiculoId={param} onNavigate={navigateTo} />;
+        }
+
         if (param && param !== 'nuevo' && (!action || ['documentos', 'contrato', 'plan-preventivo'].includes(action))) {
           return (
             <VehiculoDetalle
@@ -854,6 +854,8 @@ export default function App() {
 
       // Rediseño 2026-07: flotas por proyecto + mantenimientos del plan
       if (submodulo === 'flotas') {
+        // Exportar/imprimir todos los QR de la flota (interna, sin sidebar)
+        if (param && action === 'qr') return <FlotaQRPrint codigo={param} onNavigate={navigateTo} />;
         if (param) return <FlotaDetalleView codigo={param} onNavigate={navigateTo} />;
         return <FlotasLista onNavigate={navigateTo} />;
       }
