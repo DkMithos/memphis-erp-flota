@@ -233,6 +233,21 @@ backups/flota-2026-07-08.**
   renderiza, consola limpia). **Pendiente**: E2E en vivo del ciclo taller→Memphis (requiere
   habilitar una cuenta de taller real — paso operativo, como el encendido del portal de proveedores).
 
+**Avance 2026-08-04 (Flota Fase E — QR público rediseñado) · backend en producción:**
+- **Seguridad (hueco cerrado)**: la política anon `"vehiculos: public_token acceso sin auth"`
+  aplicaba a todos los roles con `USING (public_view_enabled AND public_token IS NOT NULL)` — sin
+  filtrar por token → un anon podía **enumerar todos los vehículos públicos y todas sus columnas**
+  (cliente, contrato, documentos). Se **eliminó** esa política. El acceso público ahora es SOLO por
+  el RPC `vehiculo_public_by_token(text)` (SECURITY DEFINER, grant anon) que, dado el token exacto,
+  devuelve jsonb con datos **no sensibles** + cumplimiento + último manto + documentos (tipo+estado,
+  sin números). Verificado: SELECT anon directo a `vehiculos` → 0 filas; RPC por token → OK.
+- **Frontend**: `VehiclePublicView` reescrita (consume el RPC; diseño magro: identificación +
+  cumplimiento + último mantenimiento + estado de documentos; sin cliente/contrato/números). El
+  LifeSheet legacy sale de la ruta pública (index bajó ~10 KB). Verificado en preview: token válido
+  renderiza sin datos sensibles, token inválido → "no encontrado", consola limpia.
+- **Flujo del QR A-E completo.** Pendiente operativo: encender cuentas de taller reales. Mejora
+  futura opcional: historial de mantenimientos en el detalle interno del vehículo.
+
 ### FASE 6 — Módulos placeholder · pendiente
 Proyectos: Cronograma, Valorizaciones, Riesgos, Documentos. Proveedores: Evaluaciones,
 Contratos, Talleres (hoy básicos/placeholder).

@@ -172,7 +172,20 @@ servicio **cuenta contra el consumo del contrato** (provisión vs real). Las exc
     `observado`. Helper `dbConfirmacionesFlota` (bandeja / confirmar / observar / URL firmada de fotos).
   - Pendiente de validación E2E en vivo: requiere habilitar una cuenta de taller real (paso
     operativo, igual que el encendido del portal de proveedores).
-- **Fase E — QR público rediseñado · pendiente**.
+- **Fase E — QR público rediseñado · ✅ COMPLETADA (2026-08-04)**
+  - **Seguridad**: se eliminó la política anon abierta sobre `vehiculos` (permitía ENUMERAR
+    todos los vehículos públicos y filtraba cliente/contrato/documentos). El acceso público ahora
+    es SOLO por el RPC `vehiculo_public_by_token(text)` (SECURITY DEFINER, grant a anon): dado el
+    token EXACTO devuelve un jsonb con datos **no sensibles** — placa/tipo/marca/modelo/año/color/
+    estado/km, cumplimiento (servicios realizados vs contratados), último mantenimiento (fecha+km)
+    y documentos (solo tipo + estado vigente/próximo/vencido, sin números). Verificado: un SELECT
+    anon directo a `vehiculos` ya devuelve 0 filas.
+  - **Vista** `VehiclePublicView` reescrita para consumir el RPC y mostrar el diseño magro
+    (identificación + cumplimiento + último mantenimiento + estado de documentos). El LifeSheet
+    legacy (con OTs vacías y datos sensibles) queda fuera de esta ruta.
+  - Nota: el "rework del detalle interno del vehículo con historial nuevo" (mencionado en el plan
+    original de la Fase E) queda como mejora futura; el detalle interno ya usa el tab Contrato
+    dirigido por flota. **Flujo A-E del QR completo.**
 
 ## 6. Plan de construcción por fases (para ejecutar tras el visto bueno)
 
