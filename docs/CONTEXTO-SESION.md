@@ -214,6 +214,25 @@ backups/flota-2026-07-08.**
 - Build limpio (index 458 KB sin crecer; xlsx en su chunk). Kevin eligió "solo terminar";
   **falta commit** de este lote (autor Kevin) y luego deploy.
 
+**Avance 2026-08-04 (Flota Fase C+D — portal de talleres + QR + cierre Memphis) · desplegado backend:**
+- **Backend** (migración `flota_mantos_qr_fase_c_backend`): `auth_taller_id()`, `handle_new_user`
+  extendido (salta dominio talleres), `taller_mis_citas()` SECURITY DEFINER **sin costo** (N25 —
+  el taller no toca la tabla base), `v_vehiculo_consumo` cuenta `confirmado`. Advisor `anon` de la
+  función cerrado (revoke). Sin RLS nueva: el taller (sin tenant) queda bloqueado de
+  vehiculo_mantenimientos y solo opera vía RPC + Edge Function.
+- **Edge Functions** desplegados (v1, verify_jwt on): `manto-confirmar` (anti-fraude 3 reglas,
+  km+fotos obligatorios, costeo server-side sin devolver precio, fotos a storage con service role,
+  lectura de km, excepción sin cita si el km cuadra ±500 → `pendiente_aprobacion`) y
+  `portal-taller-alta` (crea `{codigo}@talleres.memphismaquinarias.com`, enlace de contraseña).
+- **Frontend**: portal `/taller` (`PortalTalleres.tsx` + `taller-client.ts` aislado; login por
+  código, citas sin costo, escaneo QR por cámara con fallback por placa, registro km+fotos);
+  bandeja interna **Flota → Confirmaciones** (`FlotaConfirmaciones.tsx`) para confirmar (→
+  `confirmado`) u observar; alta de accesos de taller en Proveedores → Talleres (detalle). Routing
+  `/taller` (público) y `/flota/confirmaciones` + ítem de sidebar; redirect de cuentas tipo='taller'.
+- Build limpio (PortalTalleres en chunk propio 16.8 KB). `/taller` verificado en preview (login
+  renderiza, consola limpia). **Pendiente**: E2E en vivo del ciclo taller→Memphis (requiere
+  habilitar una cuenta de taller real — paso operativo, como el encendido del portal de proveedores).
+
 ### FASE 6 — Módulos placeholder · pendiente
 Proyectos: Cronograma, Valorizaciones, Riesgos, Documentos. Proveedores: Evaluaciones,
 Contratos, Talleres (hoy básicos/placeholder).

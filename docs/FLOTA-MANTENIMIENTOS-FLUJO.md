@@ -148,7 +148,31 @@ servicio **cuenta contra el consumo del contrato** (provisión vs real). Las exc
   - Helper `dbProgramacionFlota` (proximos / generarCitas). Verificado end-to-end en preview:
     250 vehículos proyectados, generación de citas `programado` con taller (TALL-002 motos) y
     costo del tarifario (S/313.84) correctos; citas de prueba eliminadas; consola limpia.
-- **Fases C–E — pendientes** (portal de talleres + QR, cierre Memphis, QR público).
+- **Fase C — Portal de talleres + confirmación por QR · ✅ COMPLETADA (2026-08-04)**
+  - Backend (migración `flota_mantos_qr_fase_c_backend`): `auth_taller_id()` (JWT tipo='taller'
+    → taller_id, sin tenant); `handle_new_user` extendido para saltar el dominio de talleres;
+    `taller_mis_citas()` (SECURITY DEFINER, **sin costo/moneda** — el taller no toca la tabla
+    base, N25); `v_vehiculo_consumo` ahora cuenta `confirmado` además de `ejecutado`.
+  - Edge Function **`manto-confirmar`** (auth:'user' del taller): valida las 3 reglas anti-fraude
+    (vehículo con flota → taller de la flota == logueado → cita `programado` hoy, o excepción si
+    el km cuadra con un servicio pendiente ±500 km → `pendiente_aprobacion`), exige km + fotos,
+    costea desde el tarifario **sin devolver el precio**, sube fotos a `evidencias-mantenimiento`
+    (service role), registra lectura de km y proyecta el siguiente servicio.
+  - Edge Function **`portal-taller-alta`** (la corre el staff): crea la cuenta
+    `{codigo}@talleres.memphismaquinarias.com` (app_metadata tipo='taller'+taller_id, SIN tenant),
+    genera enlace de contraseña, marca `portal_habilitado`.
+  - Frontend: **Portal de talleres** `/taller` (`PortalTalleres.tsx` + `taller-client.ts`, cliente
+    Supabase aislado): login por código, lista de citas **sin costo**, escaneo QR por cámara
+    (BarcodeDetector) con fallback por placa, registro con km + fotos (comprimidas). Alta de
+    accesos desde el detalle del taller en **Proveedores → Talleres**.
+- **Fase D — Confirmación/cierre por Memphis · ✅ COMPLETADA (2026-08-04)**
+  - Pantalla interna **Flota → Confirmaciones** (`FlotaConfirmaciones.tsx`, `/flota/confirmaciones`):
+    bandeja de `registrado_taller` + `pendiente_aprobacion`, ve km/fotos/costo (el costo solo se
+    oculta al taller), **Confirmar** → `confirmado` (cuenta contra el contrato) u **Observar** →
+    `observado`. Helper `dbConfirmacionesFlota` (bandeja / confirmar / observar / URL firmada de fotos).
+  - Pendiente de validación E2E en vivo: requiere habilitar una cuenta de taller real (paso
+    operativo, igual que el encendido del portal de proveedores).
+- **Fase E — QR público rediseñado · pendiente**.
 
 ## 6. Plan de construcción por fases (para ejecutar tras el visto bueno)
 
