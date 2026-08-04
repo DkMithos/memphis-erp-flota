@@ -1,126 +1,100 @@
 /**
- * VEHICLE PUBLIC VIEW
- * Ruta: /v/:token  — completamente pública, sin auth
- * Consulta Supabase directamente (RLS permite SELECT público en vehiculos por public_token)
+ * VEHICLE PUBLIC VIEW — Ruta pública /v/:token (Fase E, rediseño)
+ * Consulta el RPC vehiculo_public_by_token (SECURITY DEFINER): dado el token
+ * EXACTO devuelve SOLO datos no sensibles (sin cliente/contrato ni números de
+ * documento) + cumplimiento + último mantenimiento. No permite enumerar.
  */
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, Lock, Loader2 } from 'lucide-react';
-import { Card, CardContent } from '../../ui/card';
+import { AlertCircle, Lock, Loader2, Car, Wrench, CalendarCheck, FileText, ShieldCheck } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Badge } from '../../ui/badge';
+import { Progress } from '../../ui/progress';
 import { supabase } from '../../../lib/supabase/client';
-import { VehiclePublicLifeSheet } from './VehiclePublicLifeSheet';
-import type { Vehiculo } from '../../../lib/flota/vehiculos-config';
 
 interface VehiclePublicViewProps {
   token: string;
   onNavigate?: (route: string) => void;
 }
 
+interface DocPublico { tipo: string; estado: 'vigente' | 'proximo' | 'vencido' }
+
+interface DatosPublicos {
+  publico: boolean;
+  placa?: string;
+  tipo?: string;
+  marca?: string;
+  modelo?: string;
+  anio?: number;
+  color?: string;
+  estado?: string;
+  kilometraje?: number;
+  en_flota?: boolean;
+  servicios_ejecutados?: number;
+  servicios_contratados?: number | null;
+  cumplimiento_pct?: number | null;
+  ultimo_mantenimiento?: { fecha: string; km: number | null; servicio_km: number | null } | null;
+  documentos?: DocPublico[];
+}
+
+type Estado = 'loading' | 'not_found' | 'disabled' | DatosPublicos;
+
+const fmtFecha = (iso: string) => {
+  try { return new Date(iso + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' }); }
+  catch { return iso; }
+};
+
+function estadoBadge(estado?: string) {
+  switch (estado) {
+    case 'activo': return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-300">Activo</Badge>;
+    case 'en_taller': return <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300">En taller</Badge>;
+    case 'inactivo': return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-300">Inactivo</Badge>;
+    default: return <Badge variant="outline">{estado ?? '—'}</Badge>;
+  }
+}
+
+function docBadge(estado: DocPublico['estado']) {
+  const map = {
+    vigente: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-300',
+    proximo: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300',
+    vencido: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-300',
+  };
+  const label = { vigente: 'Vigente', proximo: 'Próximo a vencer', vencido: 'Vencido' };
+  return <Badge className={map[estado]}>{label[estado]}</Badge>;
+}
+
 export function VehiclePublicView({ token }: VehiclePublicViewProps) {
-  const [vehiculo, setVehiculo] = useState<Vehiculo | null | 'not_found' | 'loading'>('loading');
+  const [estado, setEstado] = useState<Estado>('loading');
 
   useEffect(() => {
-    if (!token) { setVehiculo('not_found'); return; }
-
+    if (!token) { setEstado('not_found'); return; }
     (async () => {
-      const { data, error } = await supabase
-        .from('vehiculos')
-        .select('*, docs:vehiculo_documentos(*)')
-        .eq('public_token', token)
-        .maybeSingle();
-
-      if (error || !data) {
-        setVehiculo('not_found');
-        return;
-      }
-
-      // Map DB → frontend shape (minimal fields needed by VehiclePublicLifeSheet)
-      const mapped: Vehiculo = {
-        id: data.codigo,
-        placa: data.placa,
-        vin: data.vin ?? undefined,
-        tipo: data.tipo,
-        marca: data.marca,
-        modelo: data.modelo,
-        año: data.anio,
-        color: data.color,
-        motor: data.motor ?? undefined,
-        combustible: data.combustible,
-        capacidad: data.capacidad ?? undefined,
-        kilometraje: data.kilometraje,
-        ubicacionActual: data.ubicacion_actual,
-        estado: data.estado,
-        ultimoMantenimiento: data.ultimo_mantenimiento ?? undefined,
-        proximoMantenimiento: data.proximo_mantenimiento ?? undefined,
-        publicViewEnabled: data.public_view_enabled,
-        publicToken: data.public_token ?? undefined,
-        vinculoContrato: data.contrato_cliente_nombre ? {
-          clienteNombre: data.contrato_cliente_nombre,
-          proyectoNombre: data.contrato_proyecto_nombre ?? '',
-          contratoNombre: data.contrato_nombre ?? '',
-          tipoContrato: (data.contrato_tipo ?? 'otro') as Vehiculo['vinculoContrato'],
-          fechaInicio: data.contrato_fecha_inicio ?? '',
-          fechaFin: data.contrato_fecha_fin ?? '',
-        } as Vehiculo['vinculoContrato'] : undefined,
-        planPreventivoContratado: data.plan_preventivo_habilitado ? {
-          habilitado: data.plan_preventivo_habilitado,
-          tipoPlan: data.plan_preventivo_tipo ?? 'por_km',
-          totalPreventivosContratados: data.plan_preventivo_total_contratados ?? 0,
-          intervaloKm: data.plan_preventivo_intervalo_km ?? undefined,
-          intervaloMeses: data.plan_preventivo_intervalo_meses ?? undefined,
-        } as Vehiculo['planPreventivoContratado'] : undefined,
-        documentosVehiculo: (data.docs ?? []).map((d: any) => ({
-          id: d.codigo,
-          tipo: d.tipo,
-          nombre: d.nombre,
-          numero: d.numero ?? undefined,
-          fechaEmision: d.fecha_emision ?? undefined,
-          fechaVencimiento: d.fecha_vencimiento,
-          archivoNombre: d.archivo_nombre ?? undefined,
-          observaciones: d.observaciones ?? undefined,
-          creadoPor: d.creado_por ?? undefined,
-          creadoEn: d.creado_en,
-        })),
-        documentos: (data.docs ?? []).map((d: any) => ({
-          id: d.codigo,
-          tipo: d.tipo,
-          nombre: d.nombre,
-          numero: d.numero ?? undefined,
-          fechaEmision: d.fecha_emision ?? undefined,
-          fechaVencimiento: d.fecha_vencimiento,
-          archivoNombre: d.archivo_nombre ?? undefined,
-          observaciones: d.observaciones ?? undefined,
-          creadoPor: d.creado_por ?? undefined,
-          creadoEn: d.creado_en,
-        })),
-        creadoPor: data.creado_por ?? 'sistema',
-        creadoEn: data.creado_en,
-      };
-
-      setVehiculo(mapped);
+      // rpc casteado: la función es nueva y no está en los tipos generados de Database
+      const { data, error } = await (supabase.rpc as any)('vehiculo_public_by_token', { p_token: token });
+      if (error || data == null) { setEstado('not_found'); return; }
+      const d = data as DatosPublicos;
+      if (d.publico === false) { setEstado('disabled'); return; }
+      setEstado(d);
     })();
   }, [token]);
 
-  if (vehiculo === 'loading') {
+  if (estado === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-background">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
-  if (vehiculo === 'not_found') {
+  if (estado === 'not_found') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-100 dark:bg-background">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
             <AlertCircle className="size-16 mx-auto mb-4 text-red-500" />
             <h2 className="text-2xl font-semibold mb-2">Vehículo no encontrado</h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-muted-foreground">
               El código QR escaneado no corresponde a ningún vehículo registrado.
-            </p>
-            <p className="text-xs text-gray-500">
-              Token: <code className="bg-gray-200 dark:bg-gray-800 px-2 py-1 rounded">{token}</code>
             </p>
           </CardContent>
         </Card>
@@ -128,14 +102,14 @@ export function VehiclePublicView({ token }: VehiclePublicViewProps) {
     );
   }
 
-  if (vehiculo.publicViewEnabled === false) {
+  if (estado === 'disabled') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-100 dark:bg-background">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
             <Lock className="size-16 mx-auto mb-4 text-amber-500" />
             <h2 className="text-2xl font-semibold mb-2">Vista pública deshabilitada</h2>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground">
               El acceso público a este vehículo ha sido deshabilitado temporalmente.
             </p>
           </CardContent>
@@ -144,5 +118,127 @@ export function VehiclePublicView({ token }: VehiclePublicViewProps) {
     );
   }
 
-  return <VehiclePublicLifeSheet vehiculo={vehiculo} />;
+  const d = estado;
+  const pct = d.cumplimiento_pct ?? null;
+  const docs = d.documentos ?? [];
+
+  return (
+    <div className="min-h-screen bg-slate-100 dark:bg-background py-8 px-4">
+      <div className="max-w-2xl mx-auto space-y-5">
+        {/* Header */}
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center size-14 bg-primary/10 rounded-2xl mb-3">
+            <Car className="size-7 text-primary" />
+          </div>
+          <h1 className="text-2xl font-bold">Hoja pública del vehículo</h1>
+          <p className="text-sm text-muted-foreground">Memphis Maquinarias · información no sensible</p>
+        </div>
+
+        {/* Identificación */}
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Placa</p>
+                <p className="text-3xl font-bold text-primary">{d.placa}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground mb-1">Estado</p>
+                {estadoBadge(d.estado)}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t">
+              <div><p className="text-xs text-muted-foreground">Marca</p><p className="font-semibold">{d.marca}</p></div>
+              <div><p className="text-xs text-muted-foreground">Modelo</p><p className="font-semibold break-words">{d.modelo}</p></div>
+              <div><p className="text-xs text-muted-foreground">Año</p><p className="font-semibold">{d.anio}</p></div>
+              <div><p className="text-xs text-muted-foreground">Tipo</p><p className="font-semibold capitalize">{d.tipo}</p></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+              <div><p className="text-xs text-muted-foreground">Color</p><p className="font-semibold">{d.color || '—'}</p></div>
+              <div><p className="text-xs text-muted-foreground">Kilometraje</p><p className="font-semibold">{(d.kilometraje ?? 0).toLocaleString('es-PE')} km</p></div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Cumplimiento del plan */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><Wrench className="size-4" /> Cumplimiento del plan de mantenimiento</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {d.servicios_contratados != null ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {d.servicios_ejecutados ?? 0} de {d.servicios_contratados} servicios realizados
+                  </p>
+                  {pct != null && <p className="text-lg font-bold text-primary">{pct}%</p>}
+                </div>
+                <Progress value={pct ?? 0} className="h-2" />
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Sin plan de mantenimiento contratado.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Último mantenimiento */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><CalendarCheck className="size-4" /> Último mantenimiento</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {d.ultimo_mantenimiento ? (
+              <div className="flex items-center gap-6">
+                <div>
+                  <p className="text-xs text-muted-foreground">Fecha</p>
+                  <p className="font-semibold">{fmtFecha(d.ultimo_mantenimiento.fecha)}</p>
+                </div>
+                {d.ultimo_mantenimiento.km != null && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Odómetro</p>
+                    <p className="font-semibold">{Number(d.ultimo_mantenimiento.km).toLocaleString('es-PE')} km</p>
+                  </div>
+                )}
+                {d.ultimo_mantenimiento.servicio_km != null && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Servicio</p>
+                    <p className="font-semibold">{Number(d.ultimo_mantenimiento.servicio_km).toLocaleString('es-PE')} km</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Sin mantenimientos registrados.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Documentos (solo tipo + estado) */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><FileText className="size-4" /> Documentos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {docs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sin documentos registrados.</p>
+            ) : (
+              <div className="space-y-2">
+                {docs.map((doc, i) => (
+                  <div key={i} className="flex items-center justify-between rounded-md border p-2.5">
+                    <span className="font-medium text-sm">{doc.tipo}</span>
+                    {docBadge(doc.estado)}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Footer */}
+        <div className="text-center pt-4 pb-2 text-xs text-muted-foreground flex items-center justify-center gap-1.5">
+          <ShieldCheck className="size-3.5" /> Memphis ERP · Gestión de Flota
+        </div>
+      </div>
+    </div>
+  );
 }
