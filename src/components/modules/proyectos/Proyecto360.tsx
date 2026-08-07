@@ -16,11 +16,11 @@
  * v2.0.0 — Con paginación, agrupación por tipo de flota, contadores OT reales
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ArrowLeft, Car, Wrench, ShoppingCart, DollarSign,
   Users, Calendar, MapPin, FileText,
-  ChevronRight, ChevronLeft, AlertTriangle, Activity, Wallet,
+  ChevronRight, ChevronLeft, ChevronDown, AlertTriangle, Activity, Wallet,
   RefreshCw, Heart, Receipt, CheckCircle, Clock, XCircle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -34,6 +34,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../../ui/table';
 import { useProyectos } from '../../../lib/proyectos/proyectos-store';
+import { fasesAbiertasInicial } from '../../../lib/proyectos/fases-ui';
 import { useVehiculos } from '../../../lib/flota/vehiculos-store';
 import { useOTStore } from '../../../lib/flota/ot-store';
 import { useRequerimientosStore } from '../../../lib/compras/requerimientos-store';
@@ -314,6 +315,25 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
     })),
     [proyecto?.fases]
   );
+
+  // ── Etapas colapsables (N27): sin datos inician colapsadas; "Ejecución" desplegada ──
+  const [fasesAbiertas, setFasesAbiertas] = useState<Set<string>>(new Set());
+  const fasesInitRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!proyecto || fasesInitRef.current === proyecto._dbId) return;
+    fasesInitRef.current = proyecto._dbId;
+    setFasesAbiertas(
+      fasesAbiertasInicial(proyecto.fases ?? [], faseId =>
+        (proyecto.tareas ?? []).filter(t => t.faseDbId === faseId).length,
+      ),
+    );
+  }, [proyecto]);
+  const toggleFase = (dbId: string) =>
+    setFasesAbiertas(prev => {
+      const n = new Set(prev);
+      n.has(dbId) ? n.delete(dbId) : n.add(dbId);
+      return n;
+    });
 
   // ── Not found ──
   if (!proyecto) {
@@ -1079,15 +1099,28 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
                 completada: 'bg-green-100 text-green-700',
                 cancelada: 'bg-red-100 text-red-700',
               };
+              const abierta = fasesAbiertas.has(fase._dbId);
               return (
                 <Card key={fase._dbId}>
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
+                    {/* Cabecera: click = colapsar/desplegar la etapa (N27) */}
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => toggleFase(fase._dbId)}
+                        aria-expanded={abierta}
+                        className="flex items-center gap-2 text-left hover:opacity-80"
+                      >
+                        {abierta
+                          ? <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                          : <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
                         <span className="text-sm font-bold text-muted-foreground">Fase {idx + 1}</span>
                         <span className="font-semibold">{fase.nombre}</span>
                         <Badge className={`text-xs ${FASE_ESTADO[fase.estado] ?? ''}`}>{fase.estado.replace('_', ' ')}</Badge>
-                      </div>
+                        {!abierta && (
+                          <span className="text-xs text-muted-foreground">{fase.porcentajeAvance}%</span>
+                        )}
+                      </button>
                       {fase.fechaInicio && fase.fechaFin && (
                         <span className="text-xs text-muted-foreground">
                           {new Date(fase.fechaInicio).toLocaleDateString('es-PE')} — {new Date(fase.fechaFin).toLocaleDateString('es-PE')}
@@ -1095,29 +1128,33 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
                       )}
                     </div>
 
-                    {fase.descripcion && <p className="text-sm text-muted-foreground mb-3">{fase.descripcion}</p>}
+                    {abierta && (
+                      <div className="mt-3">
+                        {fase.descripcion && <p className="text-sm text-muted-foreground mb-3">{fase.descripcion}</p>}
 
-                    <div className="grid grid-cols-3 gap-4 mb-3">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Presupuesto</p>
-                        <p className="font-semibold text-sm">{fase.presupuesto ? fmt(fase.presupuesto) : '—'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Costo Real</p>
-                        <p className="font-semibold text-sm text-amber-600">{fase.costoReal ? fmt(fase.costoReal) : '—'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Avance</p>
-                        <p className="font-semibold text-sm">{fase.porcentajeAvance}%</p>
-                      </div>
-                    </div>
+                        <div className="grid grid-cols-3 gap-4 mb-3">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Presupuesto</p>
+                            <p className="font-semibold text-sm">{fase.presupuesto ? fmt(fase.presupuesto) : '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Costo Real</p>
+                            <p className="font-semibold text-sm text-amber-600">{fase.costoReal ? fmt(fase.costoReal) : '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Avance</p>
+                            <p className="font-semibold text-sm">{fase.porcentajeAvance}%</p>
+                          </div>
+                        </div>
 
-                    <Progress value={fase.porcentajeAvance} className="h-2" />
+                        <Progress value={fase.porcentajeAvance} className="h-2" />
 
-                    {fase.presupuesto && fase.presupuesto > 0 && fase.pctPresupuesto > 90 && (
-                      <div className="flex items-center gap-1 mt-2 text-xs text-red-600">
-                        <AlertTriangle className="size-3.5" />
-                        Costo real al {fase.pctPresupuesto}% del presupuesto
+                        {fase.presupuesto && fase.presupuesto > 0 && fase.pctPresupuesto > 90 && (
+                          <div className="flex items-center gap-1 mt-2 text-xs text-red-600">
+                            <AlertTriangle className="size-3.5" />
+                            Costo real al {fase.pctPresupuesto}% del presupuesto
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>

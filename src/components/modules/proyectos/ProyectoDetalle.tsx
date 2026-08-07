@@ -2,9 +2,9 @@
  * ProyectoDetalle — Tabs: Tareas (Kanban), Fases, Equipo, Resumen
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
-  ArrowLeft, FolderKanban, Plus, Pencil, Trash2, ChevronUp, ChevronDown,
+  ArrowLeft, FolderKanban, Plus, Pencil, Trash2, ChevronUp, ChevronDown, ChevronRight,
   Users, AlertTriangle, CheckCircle2, Clock, MoreVertical,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -27,6 +27,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '../../ui/dropdown-menu';
 import { useProyectos, type Proyecto, type Tarea, type Fase, type MiembroProyecto } from '../../../lib/proyectos/proyectos-store';
+import { fasesAbiertasInicial, esFaseEjecucion } from '../../../lib/proyectos/fases-ui';
 import { useAuth } from '../../../auth/AuthProvider';
 import { dbProyectos } from '../../../lib/supabase/helpers';
 import { toast } from 'sonner';
@@ -377,6 +378,26 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
   const [proyecto, setProyecto] = useState<Proyecto | null>(null);
   const [loadingDetalle, setLoadingDetalle] = useState(true);
   const [errorDetalle, setErrorDetalle] = useState<string | null>(null);
+
+  // Etapas (fases) colapsables — N27: sin datos inician colapsadas, "Ejecución"
+  // inicia desplegada. Se inicializa una sola vez por proyecto cargado.
+  const [fasesAbiertas, setFasesAbiertas] = useState<Set<string>>(new Set());
+  const fasesInitRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!proyecto || fasesInitRef.current === proyecto._dbId) return;
+    fasesInitRef.current = proyecto._dbId;
+    setFasesAbiertas(
+      fasesAbiertasInicial(proyecto.fases, faseId =>
+        proyecto.tareas.filter(t => t.faseDbId === faseId).length,
+      ),
+    );
+  }, [proyecto]);
+  const toggleFase = (dbId: string) =>
+    setFasesAbiertas(prev => {
+      const n = new Set(prev);
+      n.has(dbId) ? n.delete(dbId) : n.add(dbId);
+      return n;
+    });
 
   // Load full project details from DB (with fases, tareas, miembros)
   useEffect(() => {
@@ -745,12 +766,24 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
             </div>
           ) : (
             <div className="space-y-3">
-              {proyecto.fases.map(f => (
+              {proyecto.fases.map(f => {
+                const abierta = fasesAbiertas.has(f._dbId);
+                const nTareas = proyecto.tareas.filter(t => t.faseDbId === f._dbId).length;
+                return (
                 <Card key={f._dbId}>
                   <CardContent className="pt-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        {/* Cabecera: click = colapsar/desplegar la etapa */}
+                        <button
+                          type="button"
+                          onClick={() => toggleFase(f._dbId)}
+                          aria-expanded={abierta}
+                          className="flex items-center gap-2 flex-wrap text-left w-full hover:opacity-80"
+                        >
+                          {abierta
+                            ? <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                            : <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
                           <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5">
                             Fase {f.orden}
                           </span>
@@ -765,16 +798,28 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
                              f.estado === 'en_progreso' ? 'En Progreso' :
                              f.estado === 'cancelada' ? 'Cancelada' : 'Pendiente'}
                           </Badge>
-                        </div>
-                        {f.descripcion && <p className="text-sm text-muted-foreground mt-1">{f.descripcion}</p>}
-                        <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                          {f.fechaInicio && <span>Inicio: {f.fechaInicio}</span>}
-                          {f.fechaFin && <span>Fin: {f.fechaFin}</span>}
-                        </div>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Progress value={f.porcentajeAvance} className="h-1.5 flex-1 max-w-[200px]" />
-                          <span className="text-xs text-muted-foreground">{f.porcentajeAvance}%</span>
-                        </div>
+                          {/* Resumen cuando está colapsada */}
+                          {!abierta && (
+                            <span className="text-xs text-muted-foreground">
+                              {f.porcentajeAvance}%{nTareas > 0 ? ` · ${nTareas} tarea(s)` : ''}
+                            </span>
+                          )}
+                        </button>
+
+                        {abierta && (
+                          <>
+                            {f.descripcion && <p className="text-sm text-muted-foreground mt-1">{f.descripcion}</p>}
+                            <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                              {f.fechaInicio && <span>Inicio: {f.fechaInicio}</span>}
+                              {f.fechaFin && <span>Fin: {f.fechaFin}</span>}
+                              {nTareas > 0 && <span>{nTareas} tarea(s)</span>}
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Progress value={f.porcentajeAvance} className="h-1.5 flex-1 max-w-[200px]" />
+                              <span className="text-xs text-muted-foreground">{f.porcentajeAvance}%</span>
+                            </div>
+                          </>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <Button
@@ -807,7 +852,8 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </TabsContent>

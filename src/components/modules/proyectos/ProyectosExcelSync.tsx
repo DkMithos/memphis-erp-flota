@@ -2,9 +2,11 @@
  * ProyectosExcelSync — Espejo de RESUMEN.xlsx (canal OPERACIONES2)
  *
  * Fase A de coexistencia con Excel: el equipo sigue trabajando en su Excel
- * en SharePoint; esta vista refleja el estado en el ERP, sincronizado cada
- * 30 min vía pg_cron + Edge Function `excel-sync`. Botón "Sincronizar ahora"
- * para refresco manual.
+ * en SharePoint; esta vista refleja el estado en el ERP.
+ *
+ * SINCRONIZACIÓN MANUAL (pedido de Kevin, N27): el cron cada 30 min quedó
+ * DESACTIVADO (`cron.alter_job(2, active:=false)`) — el espejo se actualiza
+ * SOLO con el botón "Sincronizar ahora", para no pisar datos sin querer.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, ExternalLink, FileSpreadsheet, AlertCircle, Eye, X } from 'lucide-react';
@@ -133,7 +135,7 @@ export function ProyectosExcelSync() {
             <FileSpreadsheet className="size-6" /> Proyectos (espejo del Excel)
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Refleja en vivo el archivo del canal <strong>OPERACIONES2 → OPERACIONES TEAM</strong>. Sincronización automática cada 30 minutos.
+            Refleja el archivo del canal <strong>OPERACIONES2 → OPERACIONES TEAM</strong>. La actualización es <strong>manual</strong>: usa "Sincronizar ahora" cuando quieras traer los cambios del Excel.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -328,7 +330,7 @@ export function ProyectosExcelSync() {
       </Sheet>
 
       <p className="text-xs text-muted-foreground">
-        El equipo continúa trabajando en el Excel original. El ERP se sincroniza cada 30 min vía Microsoft Graph. Cuando el equipo migre a Planner y luego al ERP, esta vista quedará como respaldo y eventualmente se desactiva.
+        El equipo continúa trabajando en el Excel original. El ERP lo lee vía Microsoft Graph <strong>solo cuando pulsas "Sincronizar ahora"</strong> (la sincronización automática está desactivada). Cuando el equipo migre a Planner y luego al ERP, esta vista quedará como respaldo y eventualmente se desactiva.
       </p>
     </div>
   );
