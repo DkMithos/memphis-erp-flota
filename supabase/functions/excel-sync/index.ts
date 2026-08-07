@@ -155,6 +155,80 @@ const NUMERIC = new Set(['inversion_inicial', 'valor_modificado', 'monto_cobrado
 const INT_FIELDS = new Set(['items', 'plazo_dias_total'])
 const DATE_FIELDS = new Set(['acta_inicio', 'fecha_plazo', 'nuevo_plazo'])
 
+// ── Bloques ITEMS y VALORIZACIONES (N27 puntos 5/7/9) ───────────────────────
+// Ambos son bloques verticales: una celda de encabezado y debajo las filas.
+// ITEMS:          encabezado "ITEMS" y, en otra columna de la MISMA fila, "Estatus".
+// VALORIZACIONES: encabezados "N° Valorización" | "Fecha" | "Importe" (+ "Acumulado"/"Mes CIPRL").
+const ESTATUS_ENTREGADO = new Set(['ENTREGADO', 'RECEPCIONADO'])
+
+/** Busca la celda cuyo texto normalizado coincide; devuelve {r,c} o null */
+function buscarCelda(values: any[][], pred: (t: string) => boolean): { r: number; c: number } | null {
+  for (let r = 0; r < values.length; r++) {
+    const row = values[r] ?? []
+    for (let c = 0; c < row.length; c++) {
+      const t = norm(row[c])
+      if (t && pred(t)) return { r, c }
+    }
+  }
+  return null
+}
+
+function parseItems(values: any[][]): { detalle: Array<{ item: string; estatus: string | null }>; entregados: number } {
+  const head = buscarCelda(values, t => t === 'ITEMS')
+  const detalle: Array<{ item: string; estatus: string | null }> = []
+  if (!head) return { detalle, entregados: 0 }
+  // Columna de "Estatus": misma fila del encabezado ITEMS, a la derecha
+  const filaHead = values[head.r] ?? []
+  let colEstatus = -1
+  for (let c = head.c + 1; c < filaHead.length; c++) {
+    if (norm(filaHead[c]) === 'ESTATUS') { colEstatus = c; break }
+  }
+  // Filas debajo hasta 2 vacías seguidas
+  let vacias = 0
+  for (let r = head.r + 1; r < values.length && vacias < 2; r++) {
+    const row = values[r] ?? []
+    const nombre = row[head.c]
+    if (nombre === null || nombre === undefined || String(nombre).trim() === '') { vacias++; continue }
+    vacias = 0
+    const estatus = colEstatus >= 0 && row[colEstatus] ? String(row[colEstatus]).trim() : null
+    detalle.push({ item: String(nombre).trim(), estatus })
+  }
+  const entregados = detalle.filter(d => d.estatus && ESTATUS_ENTREGADO.has(d.estatus.toUpperCase())).length
+  return { detalle, entregados }
+}
+
+function parseValorizaciones(values: any[][]): {
+  detalle: Array<{ numero: string; fecha: string | null; fecha_texto: string | null; importe: number | null }>
+  monto: number
+  ultimaFecha: string | null
+} {
+  const head = buscarCelda(values, t => t.startsWith('N° VALORIZACIÓN') || t.startsWith('N VALORIZACION') || t.startsWith('N° VALORIZACION'))
+  const detalle: Array<{ numero: string; fecha: string | null; fecha_texto: string | null; importe: number | null }> = []
+  if (!head) return { detalle, monto: 0, ultimaFecha: null }
+  // Columnas relativas al encabezado: Fecha (+1), Importe (+2)
+  const colFecha = head.c + 1
+  const colImporte = head.c + 2
+  let vacias = 0
+  for (let r = head.r + 1; r < values.length && vacias < 3; r++) {
+    const row = values[r] ?? []
+    const numero = row[head.c]
+    if (numero === null || numero === undefined || String(numero).trim() === '') { vacias++; continue }
+    vacias = 0
+    const rawFecha = row[colFecha]
+    const importe = parseMonto(row[colImporte])
+    detalle.push({
+      numero: String(numero).trim(),
+      fecha: parseFecha(rawFecha),
+      // el Excel a veces trae el mes en texto ("Abril 205", "Febrero")
+      fecha_texto: rawFecha != null && String(rawFecha).trim() !== '' ? String(rawFecha).trim() : null,
+      importe,
+    })
+  }
+  const monto = detalle.reduce((s, v) => s + (v.importe ?? 0), 0)
+  const fechas = detalle.map(v => v.fecha).filter((f): f is string => !!f).sort()
+  return { detalle, monto, ultimaFecha: fechas.length ? fechas[fechas.length - 1] : null }
+}
+
 function parseSheet(values: any[][]): Record<string, any> | null {
   const out: Record<string, any> = {}
   for (let r = 0; r < values.length; r++) {
@@ -177,6 +251,18 @@ function parseSheet(values: any[][]): Record<string, any> | null {
   }
   // Sin 'proyecto' identificado → no es hoja de proyecto
   if (!out.proyecto) return null
+
+  // Bloques de detalle (N27): items con estatus y valorizaciones
+  const items = parseItems(values)
+  const valos = parseValorizaciones(values)
+  out.items_entregados = items.entregados
+  out.valorizaciones_cantidad = valos.detalle.length
+  out.valorizaciones_monto = valos.monto
+  out.valorizacion_ultima_fecha = valos.ultimaFecha
+  out.__detalle = { items_detalle: items.detalle, valorizaciones: valos.detalle }
+  // Si el Excel no trae ITEMS numérico, usar la cantidad de items del bloque
+  if (out.items == null && items.detalle.length > 0) out.items = items.detalle.length
+
   return out
 }
 
@@ -230,11 +316,17 @@ Deno.serve(async (req: Request) => {
             const parsed = parseSheet(values)
             if (!parsed) continue // No es hoja de proyecto (RESUMEN/RACI/etc.)
 
+            // __detalle no es columna: va dentro de datos_raw (items + valorizaciones)
+            const { __detalle, ...campos } = parsed as Record<string, any>
             const payload: Record<string, any> = {
               tenant_id: cfg.tenant_id,
               hoja: ws.name,
-              ...parsed,
-              datos_raw: { text: values }, // contenido completo de la hoja para la ficha
+              ...campos,
+              datos_raw: {
+                text: values,                            // hoja completa para la ficha
+                items_detalle: __detalle?.items_detalle ?? [],
+                valorizaciones: __detalle?.valorizaciones ?? [],
+              },
               excel_url: cfg.excel_url,
               sincronizado_en: new Date().toISOString(),
             }
