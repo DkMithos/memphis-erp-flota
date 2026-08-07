@@ -343,6 +343,22 @@ proveedores nuevos (PROV-0325 Juan Meléndez dom.; PROV-0326 OpenAI no dom.). Re
 mantenimientos ICA de Peruana de Motores). Rol temporal eliminado. **Repetible**: correr
 4-extract-fresh → 5-transform-fase2 (ajustar CORTE al último MM) → 6-load-fase2.
 
+## 6.b.2 FIX RAÍZ "módulos sin data" (2026-08-04) — antipatrón onAuthStateChange · ✅
+
+Kevin seguía viendo el problema (console: `[auth] getSession timeout` → `setSession
+intento 1..4/4 falló: setSession timeout` → `modo degradado`), incluso limpiando caché.
+**Causa raíz encontrada**: el callback de `onAuthStateChange` en AuthProvider.tsx era
+`async` y hacía `await loadProfile()` (consulta a DB) DENTRO del callback. Supabase
+ejecuta ese callback dentro de su maquinaria de auth y `setSession()`/`getSession()` NO
+resuelven hasta que el callback termina (`_notifyAllSubscribers` los espera) → se cuelgan
+→ timeout → modo degradado con el cliente **anónimo** → RLS devuelve listas vacías → "sin
+data". Es un antipatrón documentado por Supabase (no await de llamadas Supabase dentro de
+onAuthStateChange). **Fix**: el callback ahora es SÍNCRONO y la carga del perfil se DIFIERE
+con `setTimeout(…,0)`, fuera del ciclo de notificación de auth (mismo patrón que ya usan
+PortalProveedores/PortalTalleres sin problemas). Así setSession/getSession resuelven rápido,
+el cliente queda autenticado y la data carga. Verificado: init de auth limpio (sin `[auth]`
+en consola, sin safety timer). El fix previo (6.b) sigue vigente como backstop.
+
 ## 6.b FIX CRÍTICO PRODUCCIÓN (2026-07-08) — "módulos sin data" · ✅ desplegado
 
 Síntoma de Kevin en producción: al cambiar de módulo/recargar, dashboards y listas en 0;

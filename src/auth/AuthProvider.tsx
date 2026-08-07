@@ -346,36 +346,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener('storage', onStorage);
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    // CRÍTICO (Supabase best practice): el callback de onAuthStateChange corre
+    // DENTRO de la maquinaria interna de auth. Si aquí se hace `await` de otra
+    // llamada a Supabase (loadProfile → DB), setSession()/getSession() NO resuelven
+    // hasta que ese await termine → se cuelgan → timeout → "modo degradado" con el
+    // cliente anónimo → RLS devuelve listas vacías → módulos "sin data".
+    // Por eso el callback debe ser SÍNCRONO y la carga del perfil se DIFIERE con
+    // setTimeout(…,0), fuera del ciclo de notificación de auth. (Los portales ya
+    // usan este patrón sin problemas.)
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       if (!mounted) return;
       setSession(newSession);
-      try {
-        if (newSession?.user) {
-          await loadProfile(newSession.user.id);
+      if (newSession?.user) {
+        const uid = newSession.user.id;
+        const accessToken = newSession.access_token;
+        const providerToken = newSession.provider_token;
+        setTimeout(() => {
+          if (!mounted) return;
+          void loadProfile(uid);
           // Tras login con Microsoft, sincronizar grupos Entra ID → roles ERP.
           // provider_token solo está presente justo después del OAuth de Azure.
-          if (newSession.provider_token) {
-            void syncMicrosoftRoles(newSession.access_token, newSession.provider_token);
-          }
-        } else {
-          setProfile(null);
-          setTenantName(null);
-          profileLoadedRef.current = false;
-        }
-      } catch (err: any) {
-        // Ignorar errores de Lock en onAuthStateChange si el profile ya se cargó
-        if (err?.name === 'AbortError' || err?.message?.includes('Lock')) {
-          console.warn('[auth] Lock error en onAuthStateChange (ignorando, profile ya cargado)');
-        } else {
-          console.error('[auth] Error en onAuthStateChange:', err);
-          if (!profileLoadedRef.current) {
-            setProfile(null);
-            setTenantName(null);
-          }
-        }
-      } finally {
-        if (mounted) setLoading(false);
+          if (providerToken) void syncMicrosoftRoles(accessToken, providerToken);
+        }, 0);
+      } else {
+        setProfile(null);
+        setTenantName(null);
+        profileLoadedRef.current = false;
       }
+      if (mounted) setLoading(false);
     });
 
     return () => {
