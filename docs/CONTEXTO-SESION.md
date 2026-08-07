@@ -248,6 +248,45 @@ backups/flota-2026-07-08.**
 - **Flujo del QR A-E completo.** Pendiente operativo: encender cuentas de taller reales. Mejora
   futura opcional: historial de mantenimientos en el detalle interno del vehículo.
 
+## 6.d PROYECTOS — 10 cambios de Operaciones (N27) · EN CURSO (2026-08-07)
+
+**Fuentes**: `OPERACIONES - OPERACIONES TEAM/RESUMEN PROYECTOS.xlsx` (hoja por proyecto:
+datos generales, ITEMS+Estatus, Conceptos/Días/Plazos, BASE DOCUMENTARIA, VALORIZACIONES) y
+`General - PROYECTOS/.../INVENTARIO RICHARD/vehiculos_data.xlsx` (410 filas, col. PROYECTO).
+Para leer los .xlsx con Node: el build ESM de `xlsx` **requiere `XLSX.set_fs(fs)`** o falla con
+"Cannot access file".
+
+**Decisiones de Kevin (cerradas):** avance por *cantidad* = **ITEMS del Excel**
+(ENTREGADO/RECEPCIONADO ÷ total de ítems); el box de valorización del Panorama **lleva fechas**.
+
+**Hecho (commits `138f06d8`, `d1d13d30`):**
+- (1)(2)(3) **Etapas colapsables** en ProyectoDetalle (tab Fases) y Proyecto360: clic en la
+  cabecera colapsa/despliega; las etapas sin datos (sin descripción, fechas, avance, montos ni
+  tareas) inician colapsadas; **"Ejecución" siempre inicia desplegada**. Lógica compartida en
+  `src/lib/proyectos/fases-ui.ts` (`fasesAbiertasInicial`, `faseTieneDatos`, `esFaseEjecucion`).
+- (4)(8) **Sync del Excel SOLO manual**: se desactivó el cron `excel-sync-30min`
+  (`cron.alter_job(2, active := false)`; reactivable con `active := true`). Textos de
+  ProyectosExcelSync actualizados. El botón "Sincronizar ahora" es el único disparador.
+- (9, parcial) **Parser extendido** en `supabase/functions/excel-sync/index.ts`: nuevas funciones
+  `parseItems` (ITEMS + columna Estatus) y `parseValorizaciones` (N° Valorización / Fecha /
+  Importe; guarda también el mes en texto cuando el Excel no trae fecha real). Escribe
+  `items_entregados`, `valorizaciones_cantidad`, `valorizaciones_monto`,
+  `valorizacion_ultima_fecha` y el detalle en `datos_raw->items_detalle` / `->valorizaciones`.
+  Migración `proyectos_excel_items_valorizaciones` **ya aplicada** en producción.
+
+**PENDIENTE (orden sugerido para la próxima sesión):**
+1. **(9) Desplegar** la Edge Function `excel-sync` (391 líneas; el código ya está en el repo) y
+   correr "Sincronizar ahora" para verificar ítems y valorizaciones contra el Excel real.
+   Luego mostrar esas valorizaciones en el apartado de Valorizaciones (ValorizacionesTab /
+   ProyectosValorizaciones).
+2. **(5)** Dos líneas de avance en `ProyectosLista`: **Presupuesto** (monto cobrado ÷ contrato)
+   y **Cantidad** (items_entregados ÷ items).
+3. **(6)(7)** `ProyectosPanorama`: filtro por **rango de años** y **box de valorización**
+   (monto acumulado, cantidad y última fecha), respetando el filtro de periodo.
+4. **(10)** Actualizar los **410 vehículos por flota y proyecto** desde `vehiculos_data.xlsx`
+   (usar el método de cargas masivas del §5: rol temporal BYPASSRLS + pooler + Node pg atómico;
+   no perder información, casar por VIN).
+
 ### FASE 6 — Módulos placeholder · pendiente
 Proyectos: Cronograma, Valorizaciones, Riesgos, Documentos. Proveedores: Evaluaciones,
 Contratos, Talleres (hoy básicos/placeholder).
