@@ -2,7 +2,7 @@
  * ProyectosLista — Cards / tabla + dialog nuevo/editar
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Plus, Search, LayoutGrid, List, FolderKanban, Calendar,
   DollarSign, Users, AlertTriangle, ChevronRight, Pencil, Eye,
@@ -25,6 +25,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../../ui/table';
 import { useProyectos, type Proyecto } from '../../../lib/proyectos/proyectos-store';
+import { supabase } from '../../../lib/supabase/client';
 import { useAuth } from '../../../auth/AuthProvider';
 import { toast } from 'sonner';
 
@@ -438,6 +439,41 @@ interface Props {
 
 export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
   const { proyectos, loading } = useProyectos();
+
+  // N27 punto 5 — avance por CANTIDAD: items ENTREGADO/RECEPCIONADO sobre el
+  // total, tomados del Excel RESUMEN PROYECTOS (espejo). Se indexa por CIU.
+  const [itemsPorCiu, setItemsPorCiu] = useState<Record<string, { items: number; entregados: number }>>({});
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const { data } = await supabase
+        .from('proyectos_excel_sync')
+        .select('ciu, items, items_entregados')
+        .like('hoja', '#%');           // solo hojas de detalle oficiales
+      if (!vivo || !data) return;
+      const m: Record<string, { items: number; entregados: number }> = {};
+      for (const r of data as any[]) {
+        if (!r.ciu) continue;
+        m[String(r.ciu).trim()] = { items: r.items ?? 0, entregados: r.items_entregados ?? 0 };
+      }
+      setItemsPorCiu(m);
+    })();
+    return () => { vivo = false; };
+  }, []);
+
+  /** Dos líneas de avance del proyecto: presupuesto (cobrado/contrato) y cantidad (items). */
+  const avancesDe = (p: Proyecto) => {
+    const contrato = (p.montoContrato ?? 0) + (p.montoAdenda ?? 0);
+    const pctPresupuesto = contrato > 0
+      ? Math.min(100, Math.round(((p.montoCobrado ?? 0) / contrato) * 100))
+      : null;
+    const cant = p.codigoInversion ? itemsPorCiu[String(p.codigoInversion).trim()] : undefined;
+    const pctCantidad = cant && cant.items > 0
+      ? Math.min(100, Math.round((cant.entregados / cant.items) * 100))
+      : null;
+    return { pctPresupuesto, pctCantidad, cant };
+  };
+
   const [vista, setVista] = useState<'cards' | 'tabla'>('cards');
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
@@ -595,14 +631,28 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {/* Progreso */}
-                  <div>
-                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>Progreso</span>
-                      <span>{p.porcentajeAvance}%</span>
-                    </div>
-                    <Progress value={p.porcentajeAvance} className="h-1.5" />
-                  </div>
+                  {/* Avance: PRESUPUESTO y CANTIDAD (N27 punto 5) */}
+                  {(() => {
+                    const av = avancesDe(p);
+                    return (
+                      <div className="space-y-2">
+                        <div>
+                          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                            <span>Presupuesto</span>
+                            <span>{av.pctPresupuesto != null ? `${av.pctPresupuesto}%` : '—'}</span>
+                          </div>
+                          <Progress value={av.pctPresupuesto ?? 0} className="h-1.5 [&>div]:bg-blue-500" />
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                            <span>Cantidad{av.cant ? ` (${av.cant.entregados}/${av.cant.items})` : ''}</span>
+                            <span>{av.pctCantidad != null ? `${av.pctCantidad}%` : '—'}</span>
+                          </div>
+                          <Progress value={av.pctCantidad ?? 0} className="h-1.5 [&>div]:bg-green-500" />
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Detalles */}
                   <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
@@ -721,10 +771,27 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
                         <Badge className={`${priorCfg.color} border-0`}>{priorCfg.label}</Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2 min-w-[100px]">
-                          <Progress value={p.porcentajeAvance} className="h-1.5 flex-1" />
-                          <span className="text-xs text-muted-foreground w-8 text-right">{p.porcentajeAvance}%</span>
-                        </div>
+                        {(() => {
+                          const av = avancesDe(p);
+                          return (
+                            <div className="space-y-1.5 min-w-[130px]">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-muted-foreground w-14 shrink-0">Ppto.</span>
+                                <Progress value={av.pctPresupuesto ?? 0} className="h-1.5 flex-1 [&>div]:bg-blue-500" />
+                                <span className="text-xs text-muted-foreground w-8 text-right">
+                                  {av.pctPresupuesto != null ? `${av.pctPresupuesto}%` : '—'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-muted-foreground w-14 shrink-0">Cantidad</span>
+                                <Progress value={av.pctCantidad ?? 0} className="h-1.5 flex-1 [&>div]:bg-green-500" />
+                                <span className="text-xs text-muted-foreground w-8 text-right">
+                                  {av.pctCantidad != null ? `${av.pctCantidad}%` : '—'}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-sm">
                         {p.presupuesto

@@ -23,6 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../../ui/select';
 import { ValorizacionesTab } from './ValorizacionesTab';
+import { ValorizacionesExcel } from './ValorizacionesExcel';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '../../ui/dropdown-menu';
@@ -859,7 +860,7 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
         </TabsContent>
 
         {/* ── TAB VALORIZACIONES ── */}
-        <TabsContent value="valorizaciones" className="mt-4">
+        <TabsContent value="valorizaciones" className="mt-4 space-y-4">
           {tenantId && (
             <ValorizacionesTab
               proyectoDbId={proyecto._dbId}
@@ -868,6 +869,11 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
               monedaProyecto={proyecto.moneda}
             />
           )}
+          {/* N27 punto 9: las valorizaciones del Excel RESUMEN PROYECTOS */}
+          <ValorizacionesExcel
+            codigoInversion={proyecto.codigoInversion}
+            moneda={proyecto.moneda}
+          />
         </TabsContent>
 
         {/* ── TAB EQUIPO ── */}
