@@ -274,18 +274,28 @@ Para leer los .xlsx con Node: el build ESM de `xlsx` **requiere `XLSX.set_fs(fs)
   `valorizacion_ultima_fecha` y el detalle en `datos_raw->items_detalle` / `->valorizaciones`.
   Migración `proyectos_excel_items_valorizaciones` **ya aplicada** en producción.
 
-**PENDIENTE (orden sugerido para la próxima sesión):**
-1. **(9) Desplegar** la Edge Function `excel-sync` (391 líneas; el código ya está en el repo) y
-   correr "Sincronizar ahora" para verificar ítems y valorizaciones contra el Excel real.
-   Luego mostrar esas valorizaciones en el apartado de Valorizaciones (ValorizacionesTab /
-   ProyectosValorizaciones).
-2. **(5)** Dos líneas de avance en `ProyectosLista`: **Presupuesto** (monto cobrado ÷ contrato)
-   y **Cantidad** (items_entregados ÷ items).
-3. **(6)(7)** `ProyectosPanorama`: filtro por **rango de años** y **box de valorización**
-   (monto acumulado, cantidad y última fecha), respetando el filtro de periodo.
-4. **(10)** Actualizar los **410 vehículos por flota y proyecto** desde `vehiculos_data.xlsx`
-   (usar el método de cargas masivas del §5: rol temporal BYPASSRLS + pooler + Node pg atómico;
-   no perder información, casar por VIN).
+**COMPLETADO (2026-08-07, 2ª tanda) — los 10 puntos de N27 están cerrados:**
+- **(9) `excel-sync` desplegado** (v9) y verificado contra el Excel real: 7 hojas oficiales con
+  ítems y valorizaciones; montos cuadran (MP CUSCO S/7,547,696.56). **2 bugs corregidos** en el
+  parseo: (a) por Graph las fechas llegan como texto **mes-año** ("mar-25") y `new Date()` las
+  volvía 25/03/**2001** → ahora se reconoce MES-AÑO (primer día del mes) y el fallback estándar
+  solo corre si el texto trae un año de 4 dígitos; (b) el bloque capturaba filas que no son
+  valorización ("Liquidación") → ahora solo "Valo N" o filas con importe.
+  Nuevo panel **ValorizacionesExcel** (solo lectura) en el tab Valorizaciones del proyecto.
+- **(5)** `ProyectosLista` con **dos líneas de avance** (tarjetas y tabla): **Presupuesto**
+  (cobrado ÷ contrato+adenda) y **Cantidad** (items entregados ÷ total, del Excel).
+- **(6)(7)** `ProyectosPanorama`: filtro **Desde/Hasta** por año de convenio (acota todas las
+  vistas) y **box de Valorizaciones** (monto acumulado, cantidad y última fecha).
+- **(10) Vehículos por flota y proyecto — CUADRADO en 410.** Estado previo: 386 en DB (todos con
+  proyecto) y 136 sin flota; los 24 de Amazonas no existían (386+24=410). Se crearon **6 flotas**
+  con la convención `FL-{REGIÓN}-{TIPO}` (FL-CUS-AMB 59, FL-CUS-PNP 46, FL-HNC-PNP 23,
+  FL-LOR-BOM 8, FL-AMA-MOT 23, FL-AMA-BUS 1), se asignó flota a los 136 existentes y se dieron de
+  alta los 24 de Amazonas (23 motos Hero + 1 bus Mitsubishi Fuso — el Excel lo rotula "Patrullero"
+  pero es el bus del proyecto, 32+1 pasajeros). Migraciones
+  `flota_n27_flotas_faltantes_y_asignacion` y `flota_n27_alta_vehiculos_amazonas` (idempotentes
+  por código/VIN). **Verificado: 410 vehículos, 0 sin flota, 0 sin proyecto, 0 VINs duplicados.**
+  Nota: `vehiculos` no tiene columna de observaciones — el "placa en trámite" del Excel queda
+  implícito con `placa NULL`.
 
 ### FASE 6 — Módulos placeholder · pendiente
 Proyectos: Cronograma, Valorizaciones, Riesgos, Documentos. Proveedores: Evaluaciones,
