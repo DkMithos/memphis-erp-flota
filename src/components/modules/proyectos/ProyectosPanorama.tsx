@@ -14,7 +14,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Building2, DollarSign, TrendingUp, AlertTriangle,
   ChevronRight, Search, BarChart3, Wallet,
-  ArrowUpDown, RefreshCw, Layers, CalendarRange, Table2, HandCoins,
+  ArrowUpDown, RefreshCw, Layers, CalendarRange, Table2, HandCoins, FileSpreadsheet,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
@@ -113,6 +113,11 @@ export function ProyectosPanorama({ onNavigate }: Props) {
   // Filtros (aplican en todas las vistas)
   const [busqueda, setBusqueda] = useState('');
   const [filtroResponsable, setFiltroResponsable] = useState<string>('todos');
+  // N27 punto 6: filtro por periodo (rango de años de convenio)
+  const [anioDesde, setAnioDesde] = useState<string>('todos');
+  const [anioHasta, setAnioHasta] = useState<string>('todos');
+  // N27 punto 7: valorizaciones del Excel indexadas por CIU
+  const [valosPorCiu, setValosPorCiu] = useState<Record<string, { monto: number; cantidad: number; ultima: string | null }>>({});
   const [sortBy, setSortBy] = useState<'nombre' | 'margen' | 'ejecucion' | 'monto'>('monto');
 
   // Financieros por proyecto (1 sola consulta SQL — evita el N+1 que colgaba)
@@ -221,10 +226,54 @@ export function ProyectosPanorama({ onNavigate }: Props) {
     return () => { cancelled = true; };
   }, [tenantId, proyectos.length, intentoFinanciero]);
 
-  // Filtro de búsqueda/responsable (sin estado: la fase agrupa)
+  // Valorizaciones del Excel RESUMEN PROYECTOS (espejo), por CIU — N27 punto 7
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const { data } = await supabase
+        .from('proyectos_excel_sync')
+        .select('ciu, valorizaciones_monto, valorizaciones_cantidad, valorizacion_ultima_fecha')
+        .like('hoja', '#%');
+      if (!vivo || !data) return;
+      const m: Record<string, { monto: number; cantidad: number; ultima: string | null }> = {};
+      for (const r of data as any[]) {
+        if (!r.ciu) continue;
+        m[String(r.ciu).trim()] = {
+          monto: Number(r.valorizaciones_monto ?? 0),
+          cantidad: Number(r.valorizaciones_cantidad ?? 0),
+          ultima: r.valorizacion_ultima_fecha ?? null,
+        };
+      }
+      setValosPorCiu(m);
+    })();
+    return () => { vivo = false; };
+  }, []);
+
+  // Años disponibles (año de convenio) para el filtro por periodo — N27 punto 6
+  const aniosDisponibles = useMemo(() => {
+    const set = new Set<number>();
+    for (const p of proyectosRelevantes) {
+      const a = financieros[p._dbId]?.anioConvenio ?? p.anioConvenio;
+      if (a != null) set.add(Number(a));
+    }
+    return Array.from(set).sort((a, b) => a - b);
+  }, [proyectosRelevantes, financieros]);
+
+  // Filtro de búsqueda/responsable/periodo (sin estado: la fase agrupa)
   const proyectosFiltrados = useMemo(() => {
     let list = proyectosRelevantes;
     if (filtroResponsable !== 'todos') list = list.filter(p => p.gerenteProyecto === filtroResponsable);
+    // Periodo: rango de años de convenio (inclusive). Los proyectos sin año
+    // quedan fuera solo si se acotó el rango.
+    if (anioDesde !== 'todos' || anioHasta !== 'todos') {
+      const desde = anioDesde !== 'todos' ? Number(anioDesde) : -Infinity;
+      const hasta = anioHasta !== 'todos' ? Number(anioHasta) : Infinity;
+      list = list.filter(p => {
+        const a = financieros[p._dbId]?.anioConvenio ?? p.anioConvenio;
+        if (a == null) return false;
+        return Number(a) >= desde && Number(a) <= hasta;
+      });
+    }
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase();
       list = list.filter(p =>
@@ -245,7 +294,21 @@ export function ProyectosPanorama({ onNavigate }: Props) {
       }
     });
     return list;
-  }, [proyectosRelevantes, filtroResponsable, busqueda, sortBy, financieros]);
+  }, [proyectosRelevantes, filtroResponsable, busqueda, sortBy, financieros, anioDesde, anioHasta]);
+
+  // Valorizaciones del Excel (N27 punto 7): agregado de los proyectos visibles.
+  const valorizacionKpi = useMemo(() => {
+    let monto = 0, cantidad = 0;
+    let ultima: string | null = null;
+    for (const p of proyectosFiltrados) {
+      const v = p.codigoInversion ? valosPorCiu[String(p.codigoInversion).trim()] : undefined;
+      if (!v) continue;
+      monto += v.monto ?? 0;
+      cantidad += v.cantidad ?? 0;
+      if (v.ultima && (!ultima || v.ultima > ultima)) ultima = v.ultima;
+    }
+    return { monto, cantidad, ultima };
+  }, [proyectosFiltrados, valosPorCiu]);
 
   // Agrupar por fase (bucket)
   const porFase = useMemo(() => {
@@ -372,6 +435,22 @@ export function ProyectosPanorama({ onNavigate }: Props) {
             <p className="text-lg font-bold text-amber-600">{formatMonto(kpis.gastoTotal)}</p>
           </CardContent>
         </Card>
+        {/* Valorizaciones del Excel — monto, cantidad y última fecha (N27 punto 7) */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <FileSpreadsheet className="size-4 text-indigo-600" />
+              <span className="text-xs text-muted-foreground">Valorizaciones</span>
+            </div>
+            <p className="text-lg font-bold text-indigo-600">{formatMonto(valorizacionKpi.monto)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {valorizacionKpi.cantidad} valorización(es)
+              {valorizacionKpi.ultima
+                ? ` · última ${new Date(valorizacionKpi.ultima + 'T00:00:00').toLocaleDateString('es-PE', { month: 'short', year: 'numeric' })}`
+                : ''}
+            </p>
+          </CardContent>
+        </Card>
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
@@ -442,6 +521,33 @@ export function ProyectosPanorama({ onNavigate }: Props) {
                   {responsables.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                 </SelectContent>
               </Select>
+            )}
+            {/* Periodo: rango de años de convenio (N27 punto 6) */}
+            {aniosDisponibles.length > 0 && (
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground">Periodo</span>
+                <Select value={anioDesde} onValueChange={setAnioDesde}>
+                  <SelectTrigger className="w-[104px] h-9"><SelectValue placeholder="Desde" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Desde…</SelectItem>
+                    {aniosDisponibles.map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <span className="text-xs text-muted-foreground">a</span>
+                <Select value={anioHasta} onValueChange={setAnioHasta}>
+                  <SelectTrigger className="w-[104px] h-9"><SelectValue placeholder="Hasta" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Hasta…</SelectItem>
+                    {aniosDisponibles.map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {(anioDesde !== 'todos' || anioHasta !== 'todos') && (
+                  <Button variant="ghost" size="sm" className="h-9 px-2"
+                    onClick={() => { setAnioDesde('todos'); setAnioHasta('todos'); }}>
+                    Limpiar
+                  </Button>
+                )}
+              </div>
             )}
             <Select value={sortBy} onValueChange={(v: string) => setSortBy(v as typeof sortBy)}>
               <SelectTrigger className="w-[160px] h-9"><ArrowUpDown className="size-3.5 mr-1" /><SelectValue /></SelectTrigger>
