@@ -91,24 +91,39 @@ function parseFecha(v: any): string | null {
     if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10)
   }
   const s = String(v).trim()
+  const MESES: Record<string, number> = {
+    ENE: 0, JAN: 0, FEB: 1, MAR: 2, ABR: 3, APR: 3, MAY: 4, JUN: 5, JUL: 6,
+    AGO: 7, AUG: 7, SEP: 8, SET: 8, OCT: 9, NOV: 10, DIC: 11, DEC: 11,
+  }
   // "DD-Mmm-YY"
   const m = s.match(/^(\d{1,2})[-/](\w{3,})[-/](\d{2,4})$/)
   if (m) {
-    const months: Record<string, number> = {
-      ENE: 0, JAN: 0, FEB: 1, MAR: 2, ABR: 3, APR: 3, MAY: 4, JUN: 5, JUL: 6,
-      AGO: 7, AUG: 7, SEP: 8, SET: 8, OCT: 9, NOV: 10, DIC: 11, DEC: 11,
-    }
     const d = parseInt(m[1])
-    const mo = months[m[2].slice(0, 3).toUpperCase()]
+    const mo = MESES[m[2].slice(0, 3).toUpperCase()]
     let y = parseInt(m[3])
     if (y < 100) y += 2000
     if (mo !== undefined && !isNaN(d) && !isNaN(y)) {
       return `${y}-${String(mo + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
     }
   }
-  // Intento estándar
-  const d = new Date(s)
-  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10)
+  // "mar-25" / "abr-2026" → MES-AÑO (así llegan las fechas de VALORIZACIONES por
+  // Graph). OJO: new Date("mar-25") daría 25/03/2001 — hay que resolverlo antes
+  // del intento estándar. Se toma el primer día del mes.
+  const mMesAnio = s.match(/^(\w{3,})[-/](\d{2,4})$/)
+  if (mMesAnio) {
+    const mo = MESES[mMesAnio[1].slice(0, 3).toUpperCase()]
+    let y = parseInt(mMesAnio[2])
+    if (y < 100) y += 2000
+    if (mo !== undefined && !isNaN(y)) {
+      return `${y}-${String(mo + 1).padStart(2, '0')}-01`
+    }
+  }
+  // Intento estándar SOLO si el texto tiene un año de 4 dígitos: evita que
+  // etiquetas sueltas ("Febrero", "Si") se conviertan en fechas absurdas.
+  if (/\d{4}/.test(s)) {
+    const d = new Date(s)
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10)
+  }
   return null
 }
 
@@ -216,8 +231,12 @@ function parseValorizaciones(values: any[][]): {
     vacias = 0
     const rawFecha = row[colFecha]
     const importe = parseMonto(row[colImporte])
+    const num = String(numero).trim()
+    // El bloque termina con filas que NO son valorizaciones ("Liquidación",
+    // totales…): se aceptan solo las "Valo N" o las que traen importe.
+    if (!/^valo/i.test(num) && importe === null) continue
     detalle.push({
-      numero: String(numero).trim(),
+      numero: num,
       fecha: parseFecha(rawFecha),
       // el Excel a veces trae el mes en texto ("Abril 205", "Febrero")
       fecha_texto: rawFecha != null && String(rawFecha).trim() !== '' ? String(rawFecha).trim() : null,
