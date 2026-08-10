@@ -41,7 +41,10 @@ export const supabase = createClient<Database>(url, anon, {
     // En rutas /portal (proveedores) y /taller (talleres) el hash de la URL
     // (enlace de contraseña) pertenece al cliente de ese portal — este cliente
     // NO debe consumirlo, o pisaría la sesión del personal del ERP.
-    detectSessionInUrl: !(
+    // typeof window: este módulo también se importa fuera del navegador
+    // (tests en entorno node) — sin la guarda, cargarlo lanza "window is not
+    // defined" y tumba las suites que importan cualquier helper de datos.
+    detectSessionInUrl: typeof window === 'undefined' ? false : !(
       window.location.pathname.startsWith('/portal') ||
       window.location.pathname.startsWith('/taller')
     ),

@@ -15,10 +15,11 @@ describe('normalizeEmail', () => {
 });
 
 describe('generarIdRequerimiento', () => {
-  it('genera REQ-NNNN con padding a 4 dígitos', () => {
-    expect(generarIdRequerimiento(0)).toBe('REQ-0001');
-    expect(generarIdRequerimiento(41)).toBe('REQ-0042');
-    expect(generarIdRequerimiento(1233)).toBe('REQ-1234');
+  // N10: la numeración continúa la serie del legado → RQ-NNNNN (5 dígitos)
+  it('genera RQ-NNNNN con padding a 5 dígitos', () => {
+    expect(generarIdRequerimiento(0)).toBe('RQ-00001');
+    expect(generarIdRequerimiento(41)).toBe('RQ-00042');
+    expect(generarIdRequerimiento(1233)).toBe('RQ-01234');
   });
 });
 
