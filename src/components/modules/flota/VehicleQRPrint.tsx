@@ -77,6 +77,7 @@ export function VehicleQRPrint({ vehiculoId, onNavigate }: VehicleQRPrintProps) 
               value={publicUrl}
               size={320}
               level="H"
+              conLogo
             />
           </div>
         </div>

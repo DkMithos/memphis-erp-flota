@@ -27,7 +27,7 @@ function Sticker({ v }: { v: Vehiculo }) {
   const esMoto = v.tipo === 'moto' || v.tipo === 'motocicleta';
   return (
     <div className="qr-card w-[46mm] border border-gray-400 rounded-md p-2 flex flex-col items-center text-center bg-white">
-      <QRCodeWrapper value={generateVehicleQRUrl(v.publicToken!)} size={122} level="H" />
+      <QRCodeWrapper value={generateVehicleQRUrl(v.publicToken!)} size={122} level="H" conLogo />
       <p className="text-lg font-bold leading-none mt-1.5" style={{ color: '#111827' }}>
         {v.placa || v.numeroPadron || v.id}
       </p>
