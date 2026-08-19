@@ -44,7 +44,7 @@ export interface Flota {
   codigo: string;
   nombre: string;
   tipo: string;
-  proyectoId: string;
+  proyectoId: string | null;   // null = flota interna de Memphis
   tallerId: string | null; // taller fijo de la flota (para citas de mantenimiento)
   descripcion: string | null;
   estado: string;
@@ -63,11 +63,21 @@ export interface ConsumoVehiculo {
   saldoProvision: number | null;
 }
 
+export interface NuevaFlotaInput {
+  codigo: string;
+  nombre: string;
+  tipo: string;
+  /** null = flota interna de Memphis (vehículos propios) */
+  proyectoId: string | null;
+  descripcion?: string | null;
+}
+
 interface FlotasContextType {
   flotas: Flota[];
   consumo: ConsumoVehiculo[];
   loading: boolean;
   refetch: () => Promise<void>;
+  crearFlota: (input: NuevaFlotaInput) => Promise<{ exito: boolean; codigo?: string; error?: string }>;
   obtenerFlota: (codigoOrId: string) => Flota | undefined;
   consumoPorVehiculo: (vehiculoId: string) => ConsumoVehiculo | undefined;
   consumoPorFlota: (flotaId: string) => {
@@ -122,7 +132,7 @@ function mapFlota(f: any): Flota {
     codigo: f.codigo,
     nombre: f.nombre,
     tipo: f.tipo ?? 'otro',
-    proyectoId: f.proyecto_id,
+    proyectoId: f.proyecto_id ?? null,
     tallerId: f.taller_id ?? null,
     descripcion: f.descripcion ?? null,
     estado: f.estado ?? 'activa',
@@ -169,6 +179,28 @@ export function FlotasStoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { refetch(); }, [refetch]);
 
+  const crearFlota = useCallback(async (input: NuevaFlotaInput) => {
+    if (!tenantId) return { exito: false, error: 'Sin sesión activa' };
+    const codigo = input.codigo.trim().toUpperCase();
+    if (!codigo) return { exito: false, error: 'El código es obligatorio' };
+    if (!input.nombre.trim()) return { exito: false, error: 'El nombre es obligatorio' };
+    if (flotas.some(f => f.codigo.toUpperCase() === codigo)) {
+      return { exito: false, error: `Ya existe una flota con el código ${codigo}` };
+    }
+    const { error } = await dbFlotas.create({
+      tenant_id: tenantId,
+      codigo,
+      nombre: input.nombre.trim(),
+      tipo: input.tipo,
+      proyecto_id: input.proyectoId,          // null = flota interna
+      descripcion: input.descripcion?.trim() || null,
+      estado: 'activa',
+    });
+    if (error) return { exito: false, error: error.message };
+    await refetch();
+    return { exito: true, codigo };
+  }, [tenantId, flotas, refetch]);
+
   const obtenerFlota = useCallback(
     (codigoOrId: string) => flotas.find(f => f.codigo === codigoOrId || f.id === codigoOrId),
     [flotas],
@@ -195,7 +227,7 @@ export function FlotasStoreProvider({ children }: { children: ReactNode }) {
   }, [consumo, flotas]);
 
   return (
-    <FlotasContext.Provider value={{ flotas, consumo, loading, refetch, obtenerFlota, consumoPorVehiculo, consumoPorFlota }}>
+    <FlotasContext.Provider value={{ flotas, consumo, loading, refetch, crearFlota, obtenerFlota, consumoPorVehiculo, consumoPorFlota }}>
       {children}
     </FlotasContext.Provider>
   );

@@ -94,7 +94,10 @@ export function FlotaCargas({ flota, contrato, onCambio }: Props) {
 
       for (const r of registros) {
         const comun = {
-          flota_id: flota.id, proyecto_id: flota.proyectoId, es_administrativo: false,
+          flota_id: flota.id, proyecto_id: flota.proyectoId,
+          // Flota interna (sin proyecto) = vehículos propios de Memphis →
+          // se marcan como administrativos (seguimiento documentario, N17).
+          es_administrativo: flota.proyectoId == null,
           tipo: r.tipo, tipo_flota: flota.tipo, marca: r.marca, modelo: r.modelo, anio: r.anio,
           color: r.color, combustible: r.combustible, placa: r.placa, placa_interna: r.placa_interna,
           numero_padron: r.numero_padron, ubicacion_actual: r.ubicacion_actual, estado: 'activo',
