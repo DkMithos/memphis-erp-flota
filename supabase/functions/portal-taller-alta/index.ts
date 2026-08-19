@@ -53,11 +53,17 @@ export default {
     if (!body.taller_id) return Response.json({ error: 'Falta taller_id' }, { status: 400 });
 
     // 2. Taller válido, del mismo tenant
-    const { data: taller } = await ctx.supabaseAdmin
+    const { data: taller, error: tallerErr } = await ctx.supabaseAdmin
       .from('talleres')
-      .select('id, tenant_id, codigo, nombre, email, email_portal, portal_habilitado, portal_user_id')
+      .select('id, tenant_id, codigo, nombre, contacto_email, email_portal, portal_habilitado, portal_user_id')
       .eq('id', body.taller_id)
       .maybeSingle();
+    // Un fallo de consulta (p.ej. columna inexistente) NO es "no encontrado":
+    // se reporta tal cual para no esconder el problema real detras de un 404.
+    if (tallerErr) {
+      console.error('[taller-alta] consulta talleres:', tallerErr.message);
+      return Response.json({ error: `Error consultando el taller: ${tallerErr.message}` }, { status: 500 });
+    }
     if (!taller || taller.tenant_id !== callerTenant) {
       return Response.json({ error: 'Taller no encontrado' }, { status: 404 });
     }
@@ -78,7 +84,7 @@ export default {
     }
 
     // 4. Email real (para el enlace de contraseña)
-    const emailReal = (body.email ?? taller.email_portal ?? taller.email ?? '').trim();
+    const emailReal = (body.email ?? taller.email_portal ?? taller.contacto_email ?? '').trim();
     if (!emailReal || !emailReal.includes('@')) {
       return Response.json({ error: 'El taller no tiene email registrado. Indique el email real para enviarle el enlace de contraseña' }, { status: 422 });
     }
