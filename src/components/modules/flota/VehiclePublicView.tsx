@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, Lock, Loader2, Car, Wrench, CalendarCheck, FileText, ShieldCheck } from 'lucide-react';
+import { AlertCircle, Lock, Loader2, Car, Wrench, CalendarCheck, FileText, ShieldCheck, Info, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Progress } from '../../ui/progress';
@@ -65,6 +65,9 @@ function docBadge(estado: DocPublico['estado']) {
 
 export function VehiclePublicView({ token }: VehiclePublicViewProps) {
   const [estado, setEstado] = useState<Estado>('loading');
+  // Al escanear el QR se muestra primero un MENU con dos opciones:
+  //   1. Datos del vehiculo (publico)  2. Ingreso al portal de talleres
+  const [vista, setVista] = useState<'menu' | 'datos'>('menu');
 
   useEffect(() => {
     if (!token) { setEstado('not_found'); return; }
@@ -119,6 +122,63 @@ export function VehiclePublicView({ token }: VehiclePublicViewProps) {
   }
 
   const d = estado;
+
+  // ── Menú inicial del QR ──
+  if (vista === 'menu') {
+    return (
+      <div className="min-h-screen bg-slate-100 dark:bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-sm space-y-5">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center size-14 bg-primary/10 rounded-2xl mb-3">
+              <Car className="size-7 text-primary" />
+            </div>
+            <h1 className="text-xl font-bold">{d.placa}</h1>
+            <p className="text-sm text-muted-foreground">
+              {[d.marca, d.modelo].filter(Boolean).join(' ')}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Memphis Maquinarias</p>
+          </div>
+
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <p className="text-sm text-center text-muted-foreground">¿Qué deseas hacer?</p>
+
+              <button
+                type="button"
+                onClick={() => setVista('datos')}
+                className="w-full rounded-lg border p-4 text-left hover:bg-accent transition-colors flex items-start gap-3"
+              >
+                <Info className="size-5 text-primary shrink-0 mt-0.5" />
+                <span>
+                  <span className="block font-semibold">1. Datos del vehículo</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">
+                    Información general, cumplimiento y último mantenimiento
+                  </span>
+                </span>
+              </button>
+
+              <a
+                href={`/taller?v=${encodeURIComponent(token)}`}
+                className="w-full rounded-lg border p-4 text-left hover:bg-accent transition-colors flex items-start gap-3"
+              >
+                <Wrench className="size-5 text-primary shrink-0 mt-0.5" />
+                <span>
+                  <span className="block font-semibold">2. Ingreso a Portal</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">
+                    Solo talleres autorizados — requiere usuario y contraseña
+                  </span>
+                </span>
+              </a>
+            </CardContent>
+          </Card>
+
+          <p className="text-center text-xs text-muted-foreground flex items-center justify-center gap-1.5">
+            <ShieldCheck className="size-3.5" /> Memphis ERP · Gestión de Flota
+          </p>
+        </div>
+      </div>
+    );
+  }
   const pct = d.cumplimiento_pct ?? null;
   const docs = d.documentos ?? [];
 
@@ -132,6 +192,13 @@ export function VehiclePublicView({ token }: VehiclePublicViewProps) {
           </div>
           <h1 className="text-2xl font-bold">Hoja pública del vehículo</h1>
           <p className="text-sm text-muted-foreground">Memphis Maquinarias · información no sensible</p>
+          <button
+            type="button"
+            onClick={() => setVista('menu')}
+            className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <ArrowLeft className="size-3.5" /> Volver
+          </button>
         </div>
 
         {/* Identificación */}

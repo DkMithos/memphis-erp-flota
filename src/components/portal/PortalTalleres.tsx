@@ -138,6 +138,16 @@ export function PortalTalleres({ route, onNavigate }: Props) {
   const codigoTaller = (session?.user?.app_metadata?.codigo as string) ?? '';
   const esTaller = session?.user?.app_metadata?.tipo === 'taller';
   const enClave = route.startsWith('/taller/clave');
+  // Token del vehiculo cuando se llega desde el QR (/taller?v=TOKEN): tras el
+  // login se abre directamente el registro de ESE vehiculo. El token no es un
+  // secreto (va impreso en el QR); quien decide si el taller puede registrar es
+  // el Edge Function manto-confirmar, que valida flota y taller.
+  // OJO: `route` viene de window.location.pathname (sin query), asi que el
+  // token se lee de location.search.
+  const tokenQR = (() => {
+    if (typeof window === 'undefined') return null;
+    try { return new URLSearchParams(window.location.search).get('v'); } catch { return null; }
+  })();
 
   // ── Sesión ──
   useEffect(() => {
@@ -272,6 +282,14 @@ export function PortalTalleres({ route, onNavigate }: Props) {
     setRegResultado(null);
     setRegOpen(true);
   };
+
+  // Llegada desde el QR: una vez autenticado, abrir el registro de ese vehiculo
+  const autoAbiertoRef = useRef(false);
+  useEffect(() => {
+    if (vista !== 'dashboard' || !tokenQR || autoAbiertoRef.current) return;
+    autoAbiertoRef.current = true;
+    abrirRegistro({ token: tokenQR });
+  }, [vista, tokenQR]);
 
   const agregarFotos = async (files: FileList | null) => {
     if (!files) return;
