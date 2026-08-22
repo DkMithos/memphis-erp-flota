@@ -7,11 +7,15 @@
  * Cada etiqueta mide exactamente 100x100 mm con borde de corte; en A4 entran
  * 4 por página (2x2). Al escanear se abre el menú del vehículo (datos / portal).
  */
-import { QrCode, Printer, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { QrCode, Printer, AlertTriangle, Layers } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
 import { QRCodeWrapper } from '../../shared/QRCodeWrapper';
 import { PrintPageShell } from '../../layout/PrintPageShell';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '../../ui/select';
 import { useVehiculos } from '../../../lib/flota/vehiculos-store';
 import { useFlotas } from '../../../lib/flota/flotas-store';
 import { generateVehicleQRUrl } from '../../../lib/flota/vehicle-public';
@@ -51,13 +55,24 @@ export function FlotaQRPrint({ codigo, onNavigate }: Props) {
     vehiculos.filter(v => v.flotaId === flotaId && v.estado !== 'inactivo' && v.publicToken);
 
   const flotaUnica = codigo ? obtenerFlota(codigo) : null;
-  const grupos = (codigo ? (flotaUnica ? [flotaUnica] : []) : flotas)
+
+  // Selector de flota en la propia pantalla: si se entró por /flota/flotas/X/qr
+  // arranca en esa flota; si se entró por /flota/qr, en "todas".
+  const [filtro, setFiltro] = useState<string>(codigo ?? 'todas');
+
+  // Flotas con al menos un QR imprimible (para el selector y para el listado)
+  const conteoPorFlota = flotas
     .map(f => ({ flota: f, veh: conQRDe(f.id) }))
     .filter(g => g.veh.length > 0);
 
+  const grupos = filtro === 'todas'
+    ? conteoPorFlota
+    : conteoPorFlota.filter(g => g.flota.codigo === filtro);
+
   const totalQR = grupos.reduce((s, g) => s + g.veh.length, 0);
-  const universo = codigo && flotaUnica
-    ? vehiculos.filter(v => v.flotaId === flotaUnica.id && v.estado !== 'inactivo')
+  const flotaSel = filtro === 'todas' ? null : flotas.find(f => f.codigo === filtro);
+  const universo = flotaSel
+    ? vehiculos.filter(v => v.flotaId === flotaSel.id && v.estado !== 'inactivo')
     : vehiculos.filter(v => v.flotaId && v.estado !== 'inactivo');
   const totalSinQR = universo.length - totalQR;
 
@@ -77,7 +92,7 @@ export function FlotaQRPrint({ codigo, onNavigate }: Props) {
     );
   }
 
-  const titulo = codigo && flotaUnica ? flotaUnica.nombre : 'Todas las flotas';
+  const titulo = flotaSel ? flotaSel.nombre : 'Todas las flotas';
 
   return (
     <PrintPageShell
@@ -86,6 +101,22 @@ export function FlotaQRPrint({ codigo, onNavigate }: Props) {
         <>
           <PageNav />
           <div className="flex items-center gap-3">
+            <Select value={filtro} onValueChange={setFiltro}>
+              <SelectTrigger className="w-[260px] h-9">
+                <Layers className="size-4 mr-1 shrink-0" />
+                <SelectValue placeholder="Flota" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">
+                  Todas las flotas ({conteoPorFlota.reduce((n, g) => n + g.veh.length, 0)})
+                </SelectItem>
+                {conteoPorFlota.map(g => (
+                  <SelectItem key={g.flota.id} value={g.flota.codigo}>
+                    {g.flota.codigo} — {g.flota.nombre} ({g.veh.length})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <span className="text-sm text-muted-foreground hidden sm:inline">
               {totalQR} etiqueta(s) de 10×10 cm
             </span>
@@ -147,7 +178,7 @@ export function FlotaQRPrint({ codigo, onNavigate }: Props) {
         ) : (
           grupos.map(g => (
             <div key={g.flota.id} className="mb-4">
-              {!codigo && (
+              {filtro === 'todas' && (
                 <p className="qr-fleet-title text-sm font-semibold text-gray-700 border-b pb-1 mb-2">
                   {g.flota.codigo} · {g.flota.nombre}{' '}
                   <span className="text-gray-400 font-normal">({g.veh.length})</span>
