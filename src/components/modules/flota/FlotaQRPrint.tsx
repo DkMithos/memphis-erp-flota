@@ -1,13 +1,13 @@
 /**
- * FLOTA QR PRINT — Hoja de STICKERS QR para pegar en los vehículos.
+ * FLOTA QR PRINT — Hoja de STICKERS QR de 10x10 cm para pegar en el parabrisas.
  * Ruta interna (con providers), renderizada "bare" (sin sidebar) vía isSpecialRoute:
  *   /flota/flotas/:codigo/qr  → los QR de UNA flota
  *   /flota/qr                 → TODOS los QR, agrupados por flota
- * Cada QR es una etiqueta de tamaño uniforme con borde de corte, lista para
- * imprimir en papel adhesivo, recortar y pegar (puerta lateral derecha en autos,
- * tanque en motos). Escanear el QR abre la hoja pública del vehículo.
+ *
+ * Cada etiqueta mide exactamente 100x100 mm con borde de corte; en A4 entran
+ * 4 por página (2x2). Al escanear se abre el menú del vehículo (datos / portal).
  */
-import { QrCode, Printer, AlertTriangle, Bike, Car } from 'lucide-react';
+import { QrCode, Printer, AlertTriangle } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
 import { QRCodeWrapper } from '../../shared/QRCodeWrapper';
@@ -23,18 +23,16 @@ interface Props {
   onNavigate: (route: string) => void;
 }
 
+/** Etiqueta de 100x100 mm: logo + QR + placa. */
 function Sticker({ v }: { v: Vehiculo }) {
-  const esMoto = v.tipo === 'moto' || v.tipo === 'motocicleta';
   return (
-    <div className="qr-card w-[46mm] border border-gray-400 rounded-md p-2 flex flex-col items-center text-center bg-white">
-      <QRCodeWrapper value={generateVehicleQRUrl(v.publicToken!)} size={122} level="H" conLogo />
-      <p className="text-lg font-bold leading-none mt-1.5" style={{ color: '#111827' }}>
-        {v.placa || v.numeroPadron || v.id}
-      </p>
-      <div className="flex items-center justify-center gap-1 text-[10px] text-gray-500 mt-0.5">
-        {esMoto ? <Bike className="size-3" /> : <Car className="size-3" />}
-        {v.numeroPadron ? <span>Padrón {v.numeroPadron}</span> : <span className="font-mono">{v.id}</span>}
+    <div className="qr-card">
+      <img src="/logo-memphis.svg" alt="Memphis Maquinarias" className="qr-logo" />
+      <div className="qr-code">
+        <QRCodeWrapper value={generateVehicleQRUrl(v.publicToken!)} size={230} level="H" conLogo />
       </div>
+      <p className="qr-placa">{v.placa || v.numeroPadron || v.id}</p>
+      {v.numeroPadron && v.placa && <p className="qr-padron">Padrón {v.numeroPadron}</p>}
     </div>
   );
 }
@@ -46,14 +44,16 @@ export function FlotaQRPrint({ codigo, onNavigate }: Props) {
   const conQRDe = (flotaId: string) =>
     vehiculos.filter(v => v.flotaId === flotaId && v.estado !== 'inactivo' && v.publicToken);
 
-  // Flotas a imprimir: una sola (si viene codigo) o todas las que tengan QR
   const flotaUnica = codigo ? obtenerFlota(codigo) : null;
   const grupos = (codigo ? (flotaUnica ? [flotaUnica] : []) : flotas)
     .map(f => ({ flota: f, veh: conQRDe(f.id) }))
     .filter(g => g.veh.length > 0);
 
   const totalQR = grupos.reduce((s, g) => s + g.veh.length, 0);
-  const totalSinQR = (codigo && flotaUnica ? vehiculos.filter(v => v.flotaId === flotaUnica.id && v.estado !== 'inactivo') : vehiculos.filter(v => v.flotaId && v.estado !== 'inactivo')).length - totalQR;
+  const universo = codigo && flotaUnica
+    ? vehiculos.filter(v => v.flotaId === flotaUnica.id && v.estado !== 'inactivo')
+    : vehiculos.filter(v => v.flotaId && v.estado !== 'inactivo');
+  const totalSinQR = universo.length - totalQR;
 
   if (loading || loadingVeh) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Cargando…</div>;
@@ -80,7 +80,9 @@ export function FlotaQRPrint({ codigo, onNavigate }: Props) {
         <>
           <PageNav />
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground hidden sm:inline">{totalQR} etiqueta(s)</span>
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              {totalQR} etiqueta(s) de 10×10 cm
+            </span>
             <Button onClick={() => window.print()}>
               <Printer className="size-4" /> Imprimir / Exportar PDF
             </Button>
@@ -88,18 +90,41 @@ export function FlotaQRPrint({ codigo, onNavigate }: Props) {
         </>
       }
     >
+      {/* Etiqueta de 100x100 mm exactos: en A4 entran 4 por página (2x2). */}
       <style>{`
+        .qr-card {
+          width: 100mm; height: 100mm;
+          border: 1px dashed #9ca3af;   /* guía de corte */
+          box-sizing: border-box;
+          padding: 4mm;
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          background: #fff; color: #111827;
+          break-inside: avoid; page-break-inside: avoid;
+        }
+        .qr-logo { height: 9mm; width: auto; margin-bottom: 2mm; }
+        .qr-code { line-height: 0; }
+        .qr-placa {
+          margin-top: 3mm; font-size: 30pt; font-weight: 800;
+          letter-spacing: .02em; line-height: 1;
+        }
+        .qr-padron { font-size: 9pt; color: #6b7280; margin-top: 1mm; }
+        .qr-grid { display: flex; flex-wrap: wrap; gap: 0; }
+
         @media print {
-          .qr-grid { page-break-inside: auto !important; }
-          .qr-card { page-break-inside: avoid !important; break-inside: avoid !important; }
+          @page { size: A4; margin: 4mm; }
           .qr-fleet-title { break-after: avoid; }
+          /* imprime bordes y fondos tal cual */
+          .qr-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
 
-      <div className="max-w-5xl mx-auto p-6">
-        <div className="text-center mb-5">
-          <h1 className="text-xl font-bold" style={{ color: '#0A66C2' }}>Memphis Maquinarias · Etiquetas QR</h1>
-          <p className="text-sm text-gray-500">{titulo} · {totalQR} vehículo(s)</p>
+      <div className="mx-auto p-4" style={{ maxWidth: '215mm' }}>
+        <div className="text-center mb-4 print:hidden">
+          <img src="/logo-memphis.svg" alt="Memphis Maquinarias" className="mx-auto mb-2" style={{ height: 48 }} />
+          <p className="text-sm text-gray-500">
+            {titulo} · {totalQR} etiqueta(s) de 10×10 cm — 4 por hoja A4
+          </p>
         </div>
 
         {totalSinQR > 0 && (
@@ -113,22 +138,22 @@ export function FlotaQRPrint({ codigo, onNavigate }: Props) {
           <p className="text-center py-12 text-gray-500">No hay vehículos con QR para imprimir.</p>
         ) : (
           grupos.map(g => (
-            <div key={g.flota.id} className="mb-6">
-              {/* Título de flota solo cuando se imprimen varias */}
+            <div key={g.flota.id} className="mb-4">
               {!codigo && (
-                <p className="qr-fleet-title text-sm font-semibold text-gray-700 border-b pb-1 mb-3">
-                  {g.flota.codigo} · {g.flota.nombre} <span className="text-gray-400 font-normal">({g.veh.length})</span>
+                <p className="qr-fleet-title text-sm font-semibold text-gray-700 border-b pb-1 mb-2">
+                  {g.flota.codigo} · {g.flota.nombre}{' '}
+                  <span className="text-gray-400 font-normal">({g.veh.length})</span>
                 </p>
               )}
-              <div className="qr-grid flex flex-wrap gap-2 justify-start">
+              <div className="qr-grid">
                 {g.veh.map(v => <Sticker key={v.id} v={v} />)}
               </div>
             </div>
           ))
         )}
 
-        <div className="text-center mt-6 pt-3 border-t text-xs text-gray-400">
-          Recorta por el borde y pega el sticker · autos: puerta lateral derecha (interior) · motos: tanque · Memphis ERP
+        <div className="text-center mt-6 pt-3 border-t text-xs text-gray-400 print:hidden">
+          Recorta por la línea punteada y pega el sticker en el parabrisas · Memphis ERP
         </div>
       </div>
     </PrintPageShell>
