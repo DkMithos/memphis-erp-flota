@@ -21,7 +21,8 @@ interface DocPublico { tipo: string; estado: 'vigente' | 'proximo' | 'vencido' }
 
 interface DatosPublicos {
   publico: boolean;
-  placa?: string;
+  placa?: string | null;
+  vin?: string | null;
   tipo?: string;
   marca?: string;
   modelo?: string;
@@ -132,7 +133,7 @@ export function VehiclePublicView({ token }: VehiclePublicViewProps) {
             <div className="inline-flex items-center justify-center size-14 bg-primary/10 rounded-2xl mb-3">
               <Car className="size-7 text-primary" />
             </div>
-            <h1 className="text-xl font-bold">{d.placa}</h1>
+            <h1 className="text-xl font-bold break-all">{d.placa || d.vin}</h1>
             <p className="text-sm text-muted-foreground">
               {[d.marca, d.modelo].filter(Boolean).join(' ')}
             </p>
@@ -205,9 +206,12 @@ export function VehiclePublicView({ token }: VehiclePublicViewProps) {
         <Card>
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs text-muted-foreground">Placa</p>
-                <p className="text-3xl font-bold text-primary">{d.placa}</p>
+              <div className="min-w-0">
+                {/* Placa en trámite → se identifica por VIN */}
+                <p className="text-xs text-muted-foreground">{d.placa ? 'Placa' : 'VIN'}</p>
+                <p className={`font-bold text-primary ${d.placa ? 'text-3xl' : 'text-lg break-all'}`}>
+                  {d.placa || d.vin || '—'}
+                </p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-muted-foreground mb-1">Estado</p>

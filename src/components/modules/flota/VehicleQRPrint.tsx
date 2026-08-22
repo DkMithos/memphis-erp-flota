@@ -88,9 +88,15 @@ export function VehicleQRPrint({ vehiculoId, onNavigate }: VehicleQRPrintProps) 
         {/* Información del vehículo */}
         <div className="mb-8 space-y-4">
           <div>
-            <p className="text-sm text-gray-500 mb-1">PLACA DEL VEHÍCULO</p>
-            <p className="text-6xl font-bold tracking-wide" style={{ color: '#111827' }}>
-              {vehiculo.placa}
+            {/* Placa en trámite → se identifica por VIN */}
+            <p className="text-sm text-gray-500 mb-1">
+              {vehiculo.placa ? 'PLACA DEL VEHÍCULO' : 'VIN'}
+            </p>
+            <p
+              className={`font-bold tracking-wide ${vehiculo.placa ? 'text-6xl' : 'text-3xl break-all'}`}
+              style={{ color: '#111827' }}
+            >
+              {vehiculo.placa || vehiculo.vin || vehiculo.id}
             </p>
           </div>
 

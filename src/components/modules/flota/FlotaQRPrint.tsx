@@ -31,8 +31,14 @@ function Sticker({ v }: { v: Vehiculo }) {
       <div className="qr-code">
         <QRCodeWrapper value={generateVehicleQRUrl(v.publicToken!)} size={230} level="H" conLogo />
       </div>
-      <p className="qr-placa">{v.placa || v.numeroPadron || v.id}</p>
-      {v.numeroPadron && v.placa && <p className="qr-padron">Padrón {v.numeroPadron}</p>}
+      {/* Si la placa está en trámite se muestra el VIN (letra más chica: es largo) */}
+      {v.placa
+        ? <p className="qr-placa">{v.placa}</p>
+        : <>
+            <p className="qr-etiqueta">VIN</p>
+            <p className="qr-vin">{v.vin || v.numeroPadron || v.id}</p>
+          </>}
+      {v.numeroPadron && <p className="qr-padron">Padrón {v.numeroPadron}</p>}
     </div>
   );
 }
@@ -109,6 +115,8 @@ export function FlotaQRPrint({ codigo, onNavigate }: Props) {
           letter-spacing: .02em; line-height: 1;
         }
         .qr-padron { font-size: 9pt; color: #6b7280; margin-top: 1mm; }
+        .qr-etiqueta { margin-top: 3mm; font-size: 8pt; color: #6b7280; letter-spacing: .08em; }
+        .qr-vin { font-size: 15pt; font-weight: 700; line-height: 1.1; word-break: break-all; }
         .qr-grid { display: flex; flex-wrap: wrap; gap: 0; }
 
         @media print {

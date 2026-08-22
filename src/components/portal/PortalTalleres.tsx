@@ -125,6 +125,8 @@ export function PortalTalleres({ route, onNavigate }: Props) {
   const [regObs, setRegObs] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [regResultado, setRegResultado] = useState<{ ok: boolean; mensaje: string } | null>(null);
+  // Datos del vehiculo leido por QR (para que el taller confirme cual es)
+  const [regVehiculo, setRegVehiculo] = useState<{ placa: string | null; vin: string | null; marca?: string; modelo?: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Escáner QR
@@ -280,7 +282,18 @@ export function PortalTalleres({ route, onNavigate }: Props) {
     setRegFotos([]);
     setRegObs('');
     setRegResultado(null);
+    setRegVehiculo(null);
     setRegOpen(true);
+    // Si viene por QR (sin cita), traer los datos publicos para mostrarlos
+    const tk = args.token ?? args.cita?.public_token ?? null;
+    if (tk && !args.cita) {
+      void (async () => {
+        const { data } = await (supabase.rpc as any)('vehiculo_public_by_token', { p_token: tk });
+        if (data && data.publico !== false) {
+          setRegVehiculo({ placa: data.placa ?? null, vin: data.vin ?? null, marca: data.marca, modelo: data.modelo });
+        }
+      })();
+    }
   };
 
   // Llegada desde el QR: una vez autenticado, abrir el registro de ese vehiculo
@@ -585,8 +598,23 @@ export function PortalTalleres({ route, onNavigate }: Props) {
                   </p>
                 </div>
               ) : regToken ? (
-                <div className="rounded-md border bg-green-50 dark:bg-green-950/20 border-green-300 p-3 text-sm flex items-center gap-2">
-                  <QrCode className="size-4 text-green-600" /> QR leído. Confirma el kilometraje y las fotos.
+                <div className="rounded-md border bg-green-50 dark:bg-green-950/20 border-green-300 p-3 text-sm">
+                  <p className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                    <QrCode className="size-4" /> QR leído
+                  </p>
+                  {regVehiculo && (
+                    <div className="mt-2">
+                      {/* Placa en trámite → se identifica por VIN */}
+                      <p className="text-xs text-muted-foreground">{regVehiculo.placa ? 'Placa' : 'VIN'}</p>
+                      <p className="font-semibold break-all">{regVehiculo.placa || regVehiculo.vin || '—'}</p>
+                      {(regVehiculo.marca || regVehiculo.modelo) && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {[regVehiculo.marca, regVehiculo.modelo].filter(Boolean).join(' ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-2">Confirma el kilometraje y las fotos.</p>
                 </div>
               ) : (
                 <div>
