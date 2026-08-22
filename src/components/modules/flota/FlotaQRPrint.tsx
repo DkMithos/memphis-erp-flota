@@ -16,6 +16,8 @@ import { PrintPageShell } from '../../layout/PrintPageShell';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../../ui/select';
+import { Checkbox } from '../../ui/checkbox';
+import { Label } from '../../ui/label';
 import { useVehiculos } from '../../../lib/flota/vehiculos-store';
 import { useFlotas } from '../../../lib/flota/flotas-store';
 import { generateVehicleQRUrl } from '../../../lib/flota/vehicle-public';
@@ -51,8 +53,13 @@ export function FlotaQRPrint({ codigo, onNavigate }: Props) {
   const { flotas, obtenerFlota, loading } = useFlotas();
   const { vehiculos, loading: loadingVeh } = useVehiculos();
 
+  // "inactivo" aquí suele significar unidad aún no puesta en servicio (placa en
+  // trámite), no dada de baja: por eso se puede optar por incluirlas.
+  const [incluirInactivos, setIncluirInactivos] = useState(false);
+  const visible = (v: Vehiculo) => incluirInactivos || v.estado !== 'inactivo';
+
   const conQRDe = (flotaId: string) =>
-    vehiculos.filter(v => v.flotaId === flotaId && v.estado !== 'inactivo' && v.publicToken);
+    vehiculos.filter(v => v.flotaId === flotaId && v.publicToken && visible(v));
 
   const flotaUnica = codigo ? obtenerFlota(codigo) : null;
 
@@ -72,8 +79,12 @@ export function FlotaQRPrint({ codigo, onNavigate }: Props) {
   const totalQR = grupos.reduce((s, g) => s + g.veh.length, 0);
   const flotaSel = filtro === 'todas' ? null : flotas.find(f => f.codigo === filtro);
   const universo = flotaSel
-    ? vehiculos.filter(v => v.flotaId === flotaSel.id && v.estado !== 'inactivo')
-    : vehiculos.filter(v => v.flotaId && v.estado !== 'inactivo');
+    ? vehiculos.filter(v => v.flotaId === flotaSel.id && visible(v))
+    : vehiculos.filter(v => v.flotaId && visible(v));
+  const inactivosOcultos = incluirInactivos
+    ? 0
+    : vehiculos.filter(v => v.publicToken && v.estado === 'inactivo'
+        && (flotaSel ? v.flotaId === flotaSel.id : !!v.flotaId)).length;
   const totalSinQR = universo.length - totalQR;
 
   if (loading || loadingVeh) {
@@ -117,6 +128,16 @@ export function FlotaQRPrint({ codigo, onNavigate }: Props) {
                 ))}
               </SelectContent>
             </Select>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="incluir-inactivos"
+                checked={incluirInactivos}
+                onCheckedChange={v => setIncluirInactivos(!!v)}
+              />
+              <Label htmlFor="incluir-inactivos" className="cursor-pointer text-sm font-normal whitespace-nowrap">
+                Incluir inactivos
+              </Label>
+            </div>
             <span className="text-sm text-muted-foreground hidden sm:inline">
               {totalQR} etiqueta(s) de 10×10 cm
             </span>
@@ -166,10 +187,21 @@ export function FlotaQRPrint({ codigo, onNavigate }: Props) {
           </p>
         </div>
 
-        {totalSinQR > 0 && (
-          <div className="print:hidden mb-4 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-            <AlertTriangle className="size-4 shrink-0" />
-            {totalSinQR} vehículo(s) sin QR generado no se incluyen.
+        {(totalSinQR > 0 || inactivosOcultos > 0) && (
+          <div className="print:hidden mb-4 space-y-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+            {totalSinQR > 0 && (
+              <p className="flex items-center gap-2">
+                <AlertTriangle className="size-4 shrink-0" />
+                {totalSinQR} vehículo(s) sin QR generado no se incluyen.
+              </p>
+            )}
+            {inactivosOcultos > 0 && (
+              <p className="flex items-center gap-2">
+                <AlertTriangle className="size-4 shrink-0" />
+                {inactivosOcultos} vehículo(s) inactivo(s) quedan fuera — marca
+                "Incluir inactivos" para imprimirlos.
+              </p>
+            )}
           </div>
         )}
 
