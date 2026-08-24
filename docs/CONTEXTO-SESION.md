@@ -248,6 +248,32 @@ backups/flota-2026-07-08.**
 - **Flujo del QR A-E completo.** Pendiente operativo: encender cuentas de taller reales. Mejora
   futura opcional: historial de mantenimientos en el detalle interno del vehículo.
 
+## 6.e CAJA CHICA — delta post-corte cargado (2026-08-22) · GO-LIVE
+
+El equipo empieza HOY a operar compras y caja chica en el sistema. Se cargó el delta que
+quedaba en el Excel de Administración ("Modelo caja chica 20251.xlsx") desde el corte del
+02/07/2026 hasta el 21/08/2026.
+
+**Antes**: 30 cajas, 779 gastos, último 02/07/2026. **Ahora**: 38 cajas, 962 gastos, 136
+ingresos, último 21/08/2026. Sin migrado_id duplicados.
+
+- **8 cajas nuevas**: ADMI013/014/015/016-DOLARES y ADMI020/021/022/023-SOLES.
+- **ADMI019-SOLES completada**: tenía 17 gastos (cortada en el 02/07), ahora 47.
+- **Quedan ABIERTAS solo las vigentes**: ADMI023-SOLES (saldo S/257.42) y ADMI016-DOLARES
+  (saldo US$1,477.32). El resto cerradas.
+- Totales acumulados: egresos S/270,030.62 y US$43,094.54.
+
+**Gotchas encontrados (anotar para futuras cargas):**
+1. Hay un **trigger que impide registrar movimientos en una caja CERRADA**: al migrar hay que
+   crear/abrir la caja como `activo`, cargar los movimientos y recién entonces cerrarla.
+2. La detección de moneda por nombre de hoja debe contemplar la **tilde**: "DÓLARES" no
+   matchea con `/DOLAR/i` — usar `/D[OÓ]LAR/i`. Con el bug, 4 cajas USD entraban como PEN.
+3. Idempotencia por `migrado_id = '{HOJA}#{item}'`; se respetó y no hubo duplicados.
+4. **Una fila fue editada en el Excel después del corte**: `CAJA 19 SOLES#5` pasó de S/110.00
+   a S/297.50 (PAGO DE CTS DE ADRIAN CASTILLO + COMISION). Como la carga es insert-only, no la
+   habría detectado: se comparó monto a monto **las 962** ya migradas y esa fue la ÚNICA
+   diferencia; se corrigió a mano. Para próximas cargas conviene repetir ese diff.
+
 ## 6.d PROYECTOS — 10 cambios de Operaciones (N27) · EN CURSO (2026-08-07)
 
 **Fuentes**: `OPERACIONES - OPERACIONES TEAM/RESUMEN PROYECTOS.xlsx` (hoja por proyecto:
