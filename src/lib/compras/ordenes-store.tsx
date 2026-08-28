@@ -36,6 +36,9 @@ export interface ItemOrden {
   cantidad: number;
   unidad: string;
   precioUnitario: number;
+  /** Descuento del item en MONTO (no porcentaje). Lo imprime el PDF. */
+  descuento: number;
+  /** Neto: cantidad * precioUnitario - descuento */
   subtotal: number;
 }
 
@@ -105,7 +108,7 @@ export interface NuevaOrdenInput {
   requerimientoId?: string | null;
   proveedorNombre: string;
   moneda: MonedaOrden;
-  items: Omit<ItemOrden, 'id' | '_dbId' | 'subtotal'>[];
+  items: (Omit<ItemOrden, 'id' | '_dbId' | 'subtotal' | 'descuento'> & { descuento?: number })[];
   fechaEntregaEstimada?: string;
   condiciones?: string;
   // DB FK: proveedor UUID and cotizacion UUID must be provided from calling context
@@ -161,6 +164,7 @@ function mapFromDB(row: OrdenWithRelations): Orden {
     cantidad: item.cantidad,
     unidad: item.unidad,
     precioUnitario: item.precio_unitario,
+    descuento: (item as any).descuento ?? 0,
     subtotal: item.precio_total,
   }));
 
@@ -367,6 +371,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         unidad: item.unidad,
         cantidad: item.cantidad,
         precio_unitario: item.precioUnitario,
+        descuento: (item as any).descuento ?? 0,
       }));
       const { data: itemsData, error: errItems } = await supabase
         .from('orden_items')
@@ -442,6 +447,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
           unidad: item.unidad,
           cantidad: item.cantidad,
           precio_unitario: item.precioUnitario,
+          descuento: (item as any).descuento ?? 0,
         }));
         const { data: newItemsData } = await supabase
           .from('orden_items')
@@ -459,6 +465,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
               cantidad: dbItem.cantidad,
               unidad: dbItem.unidad,
               precioUnitario: dbItem.precio_unitario,
+              descuento: (dbItem as any).descuento ?? 0,
               subtotal: dbItem.precio_total,
             }));
             const { subtotal, impuestos, total } = calcularTotales(newItems);
