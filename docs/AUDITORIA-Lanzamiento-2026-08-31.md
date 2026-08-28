@@ -111,10 +111,13 @@ de cuota de Microsoft Graph y sobrescritura del espejo de proyectos a demanda.
 programar el cron con el header** `x-cron-secret`, o el trabajo diario empezará a fallar con 403.
 Nota: el cron `excel-sync-30min` (jobid 2) está **inactivo**, consistente con N27.
 
-### I4 · `ms-debug` está desplegada y no tiene código en el repo
+### I4 · `ms-debug` — sin riesgo (corrección)
 
-Función de depuración **ACTIVA** en producción, sin fuente en `supabase/functions/`. Debe
-eliminarse antes del lunes.
+Lo marqué como función de depuración viva. Al leer su código desplegado resultó que **ya estaba
+neutralizada desde el 28/05**: devuelve 410 y no ejecuta nada, y tiene `verify_jwt: true`.
+No es un riesgo, solo queda como resto. Borrarla requiere el dashboard o la CLI (el MCP no
+expone borrado de funciones), así que queda como limpieza opcional, no como pendiente de
+lanzamiento.
 
 ### I5 · `sunat-proxy` no tiene ninguna autenticación
 
@@ -168,11 +171,26 @@ Si alguien entra a estos, no verá nada. Conviene decidir si se ocultan del men�
 
 ## Plan sugerido para los 2 días
 
-**Jueves (hoy)**
-1. Desplegar lo que ya está hecho (B2) — resuelve el PDF de la orden.
-2. Construir la Edge Function de alta de usuarios (B1). Sin esto no hay lanzamiento.
-3. Recuperar los descuentos de las 23 OCs antes del corte (I1).
-4. Setear `CRON_SECRET` + reprogramar el cron con el header, y borrar `ms-debug` (I3, I4).
+**Jueves (hoy) — ✅ ejecutado**
+1. ✅ Desplegado (commits `4467e842`, `336d0718`, `78d2b5ad`) — PDF de la orden resuelto.
+2. ✅ Edge Function `usuarios-alta` v3 + pantalla `FijarClave` + pantalla de Administración
+   reconectada. Probado contra el proyecto: alta con rol, dominio ajeno 422, sin sesión 401,
+   sin permiso 403, no puede autodesactivarse, idempotente y conserva el cargo.
+3. ✅ Descuentos rescatados antes del corte: 118 ítems de orden (S/3,025.53) y 91 de cotización
+   (S/3,217.64). Las órdenes descuadradas de oc-system pasaron de 24 a 3 (por centavos).
+4. ⏳ **`CRON_SECRET` sigue pendiente — requiere a Kevin** (ver receta abajo). `ms-debug` no era
+   riesgo (I4).
+
+### Receta para cerrar I3 (2 minutos, la hace Kevin)
+
+El orden importa: si se setea el secreto sin tocar el cron, el trabajo diario empieza a fallar
+con 403.
+
+1. Dashboard → Project Settings → Edge Functions → Secrets → añadir `CRON_SECRET` con un valor
+   aleatorio largo.
+2. Pasarme ese valor y reprogramo el cron para que envíe el header `x-cron-secret`
+   (guardándolo en Vault, no en texto plano dentro de `cron.job`).
+3. Con eso, `excel-sync` y `notif-scheduler` dejan de estar abiertas.
 
 **Viernes**
 5. Corte de oc-system y backup de Firebase (N34 + Fase 7).
