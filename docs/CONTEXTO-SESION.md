@@ -294,6 +294,68 @@ Ver [CxP-CDC-CATEGORIAS.md](CxP-CDC-CATEGORIAS.md) §4. Resumen:
 
 ---
 
+## 6.i PREPARACIÓN DEL LANZAMIENTO — jueves 27/08/2026
+
+Auditoría completa en [AUDITORIA-Lanzamiento-2026-08-31.md](AUDITORIA-Lanzamiento-2026-08-31.md).
+Lo ejecutado hoy, en orden:
+
+### 1. Producción al día (bloqueante B2) · ✅
+Estaba 3 días atrasada. Desplegado el arreglo del PDF de la orden y el mapeo de `contacto`.
+`erp.memphismaquinarias.com` responde 200.
+
+### 2. Alta de usuarios (bloqueante B1) · ✅
+**El problema:** `GestionUsuarios.tsx` creaba usuarios con `supabase.auth.signUp()` desde el
+navegador. Eso reemplaza la sesión del administrador por la del usuario recién creado, obliga a
+teclear contraseñas ajenas y depende de un correo de confirmación que no existe (sin SMTP).
+
+**La solución:** Edge Function `usuarios-alta` (v3, `verify_jwt: true`) con la Admin API.
+- Exige el permiso `admin.gestionar_usuarios`.
+- Valida el dominio contra `tenant_email_domains` (N21 → solo `memphis.pe`).
+- Devuelve un **enlace de un solo uso**; la persona fija su propia contraseña. Memphis nunca la ve.
+- Acciones: `alta`, `reenviar`, `desactivar`, `reactivar`. Idempotente.
+- Al abrir el enlace, `AuthProvider` detecta `PASSWORD_RECOVERY` y App muestra `FijarClave`
+  antes de dejar entrar.
+
+**Probado contra el proyecto (9 casos):** alta con rol OK · dominio ajeno 422 · sin sesión 401 ·
+sin permiso 403 · idempotente · conserva el cargo · desactivar/reactivar OK · no puede
+autodesactivarse. Cuentas QA creadas y eliminadas.
+
+**Trampa encontrada:** la primera versión verificaba el permiso con un embed anidado de PostgREST
+(`roles!inner(roles_permisos!inner(permisos!inner(...)))`) y comparaba por string. Devolvía una
+forma que no matcheaba y rechazaba a un administrador legítimo. Se reemplazó por dos consultas
+simples. Además el tenant ahora cae a `usuarios_tenant` si el JWT no trae el metadato.
+
+### 3. Descuentos rescatados antes del corte (I1) · ✅
+`orden_items` y `cotizacion_items` no tenían dónde guardar el descuento por ítem, que en el
+legado es un **MONTO** (no un porcentaje — verificado: en MM-000590 la suma de
+`cantidad*PU − descuento` da 5714.32, el subtotal que reporta el portal).
+
+- Columna `descuento` en ambas tablas; `precio_total` pasa a ser **neto**.
+- Rellenados **118 ítems de orden (S/3,025.53)** y **91 de cotización (S/3,217.64)**.
+- Órdenes de oc-system descuadradas: **24 → 3** (diferencias de céntimos). Las 37 del Excel 2024
+  no son recuperables: ese origen nunca tuvo detalle por ítem.
+- **Bonus:** el transform de cotizaciones trataba el descuento como porcentaje. Se recalcularon
+  los totales de las **217 cotizaciones** desde sus ítems. 0 descuadradas, 0 con IGV mal.
+- **Caso raro:** en `LORE-PERUMOTOR 01` el precio unitario está en 0 y el importe se digitó en la
+  columna de descuento. Aplicarlo daba subtotal negativo, así que se revirtió a 0 y **queda para
+  que Operaciones corrija el dato de origen**. No se inventó un precio.
+
+### 4. Correcciones a mi propia auditoría
+- **`ms-debug` no era un riesgo**: ya estaba neutralizada desde el 28/05 (devuelve 410,
+  `verify_jwt: true`). Lo había marcado como función de depuración viva.
+- **El monto de descuentos era S/3,025.53**, no los ~S/30,511 que estimé asumiendo porcentaje.
+
+### Lo que queda para el viernes
+| Qué | Quién |
+|---|---|
+| **`CRON_SECRET`** — `excel-sync` y `notif-scheduler` siguen abiertas | **Kevin** (dashboard) y luego yo reprogramo el cron con el header |
+| **Archivo de usuarios y accesos** → cargar el equipo | **Kevin**, luego yo |
+| **Permisos por rol** (N19, bloqueante B3) | tras el archivo |
+| Corte de oc-system + backup de Firebase | N34 + Fase 7 |
+| Decidir qué módulos vacíos se ocultan del menú | Kevin |
+
+---
+
 ## 6.f COMPRAS + CAJA CHICA — segundo delta (2026-08-27)
 
 ### Caja chica · ✅ CARGADO
