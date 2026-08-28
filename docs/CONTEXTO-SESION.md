@@ -248,6 +248,133 @@ backups/flota-2026-07-08.**
 - **Flujo del QR A-E completo.** Pendiente operativo: encender cuentas de taller reales. Mejora
   futura opcional: historial de mantenimientos en el detalle interno del vehículo.
 
+## 6.g FIX — el PDF de la orden salía sin datos del proveedor (2026-08-27)
+
+**Reporte de Kevin:** al exportar una OC del ERP, la sección PROVEEDOR salía vacía; descargando
+la misma orden desde oc-system sí aparecían datos y cuentas bancarias.
+
+**Causa raíz:** `OrdenDetalle` busca el proveedor con
+`proveedores.find(p => p._dbId === orden.proveedorDbId)`, pero **`mapFromDB` de
+`ordenes-store.tsx` nunca exponía `proveedorDbId`** — la fila de BD trae `proveedor_id`, el mapper
+lo descartaba. El resultado era `undefined === undefined` fallido, `proveedorOC` siempre
+`undefined`, y el bloque entero en blanco. La plantilla del PDF (`export-utils.ts`) estaba bien:
+ya leía `cuentasBancarias ?? cuentas_bancarias` y normalizaba `nombre|banco` y
+`cuenta|numeroCuenta`.
+
+**Arreglos:**
+1. `Orden` gana `proveedorDbId: string | null` y `mapFromDB` lo llena con `row.proveedor_id`.
+2. `OrdenDetalle` busca por UUID y **cae al nombre** si la orden no lo trajera.
+3. **Faltaba la columna `contacto`** en `proveedores`: el PDF imprime "Contacto:" y el ERP no
+   guardaba ese dato aunque el legado sí. Se agregó la columna y se rellenó con los contactos del
+   portal → **113 de 135 proveedores** ya lo tienen. También se mapeó en `proveedores-store`.
+
+**Verificado en preview** con usuario QA temporal (creado y eliminado): se interceptó
+`window.open` para capturar el HTML del PDF de MM-000666 y el bloque sale completo —
+EMERGENCY PERU S.A.C · RUC 20606600985 · dirección · contacto Maria Del Pilar Derteano ·
+teléfono · correo · BCP · cuenta 1947227826041 · CCI 00219400722782604198. Idéntico al legado.
+
+**Nota de dato (no es bug nuestro):** EMERGENCY PERU tiene en el legado el teléfono y correo de
+otra empresa (`Mderteano@ventycpap.com`, 985487195, los mismos de VENTYHOME). Viene así desde
+Firestore y el PDF legado muestra lo mismo. Si hay que corregirlo, es dato, no código.
+
+---
+
+## 6.h CDC — decisiones aplicadas (2026-08-27)
+
+Ver [CxP-CDC-CATEGORIAS.md](CxP-CDC-CATEGORIAS.md) §4. Resumen:
+- **4 CDC creados**: `REFINANCIAMIENTO - IGV MARZO 2024`, `REFINANCIAMIENTO - RENTA 2024`,
+  `MARKETING Y DESARROLLO`, `TERRENOS EEUU`.
+- **2 duplicados consolidados**: se conservó `OFCENTRAL` (renombrado "Gastos Oficina Central",
+  tenía 29 OCs) y `LICENCIAS`; se eliminaron `GASTOS OFICINA CENTRAL` y `LIC-TI`, ambos con
+  **0 referencias** verificadas contra las 5 FK a `centros_costo` y los campos de texto.
+- **5 equivalencias aprobadas** para el transform de la Fase B (no crean filas):
+  `GCUZCOAMBU`→`GCUSCOAMBU`, `MPCUSCOPNP`→`MPCUSCOSERENAZGO`, `MSS`→`MSS-30`,
+  `DATABASE`→`BASE DE DATOS`, `GASTOS OFICINA CENTRAL`→`OFCENTRAL`.
+- `centros_costo` queda en **79** códigos.
+
+---
+
+## 6.f COMPRAS + CAJA CHICA — segundo delta (2026-08-27)
+
+### Caja chica · ✅ CARGADO
+Segundo delta desde el Excel de Administración (mtime 26/08 09:45). Comparadas las 39 cajas
+contra la base: **36 idénticas**, 3 con novedades.
+
+- **ADMI024-SOLES** — caja nueva (7 movimientos del 25/08): apertura por arrastre S/257.42 +
+  depósito S/5,000; egresos S/1,376.05.
+- **ADMI016-DOLARES** — 1 egreso nuevo US$392.63 (pasaje Lima–Chachapoyas, CC AM-AMAZONAS).
+- **ADMI012-DOLARES** — 2 movimientos del 03/07 (ingreso y egreso de US$24.78 por cambio de pasaje).
+- **ADMI023-SOLES** cerrada (su saldo pasó como apertura de ADMI024).
+
+**Estado final: 39 cajas, 969 gastos, 139 ingresos, último movimiento 25/08/2026, 0 duplicados.**
+Cuadra exacto contra el Excel (139 ingresos / 969 egresos). Abiertas: ADMI016-DOLARES (USD) y
+ADMI024-SOLES (PEN).
+
+**Trampas encontradas (para el próximo delta):**
+1. La fila de **totales de cada hoja lleva número de ítem** y un parser ingenuo la cuenta como
+   movimiento, duplicando la caja entera. Se salta cuando no hay centro de costo ni descripción
+   pero sí ingreso *y* egreso a la vez.
+2. **`/DOLAR/i` no matchea "DÓLARES"** (ni "Dólares"): hay que usar `/D[OÓ]LAR/i` o las líneas
+   se cargan en PEN. Es el mismo error de la carga anterior — quedó en el generador y volvió a
+   aparecer; ya corregido en `gen-delta2.mjs`.
+3. Administración puede **borrar y reponer numeración**: el ítem 50 de CAJA 4 SOLES (S/16.70)
+   desapareció y volvió al día siguiente. No borrar registros por ausencia — preguntar.
+
+### Compras (oc-system) · ✅ CARGADO
+Extracción fresca read-only de Firestore (`4-extract-fresh.cjs`): 781 órdenes, 235
+requerimientos, 217 cotizaciones, 143 proveedores.
+
+| Hallazgo | Detalle |
+|---|---|
+| **64 OCs nuevas** | MM-001159 → MM-001222, del 31/07 al 25/08/2026, 66 ítems. 62 aprobadas, 1 rechazada (MM-001210), 1 pendiente de Gerencia General (MM-001222). US$22,179.33 + S/152,669.03 |
+| Concentración | 54 de 64 son de **PERUANA DE MOTORES HG S.A.C**; CCs GOREICAPNP (35) y GICAPATRUL (19) |
+| **1 cambio de estado** | **MM-001117**: aprobada en el portal, el ERP sigue en `enviada` |
+| Estados correctos | MM-000998 y MM-001027 siguen genuinamente pendientes en el portal → `enviada` es fiel |
+| **5 proveedores nuevos** | EFAPP, SGP Training, VENTYHOME, Santa María & Nudelman, y **GEREMIE KEVIN CALLUCO QUISPE con RUC de 12 dígitos (107345501536)** — malformado, resuelve el "RUC pendiente" de N22 pero hay que corregirlo |
+| Requerimientos / cotizaciones | 26 req y 32 cot creados desde el 03/07 (no cargados; ver N24) |
+| Huecos del legado | 25 números (MM-000465, MM-000485→000507, MM-000604) no existen ni en el portal ni en el ERP |
+| Residuo de pruebas | **MM-TESTPT1** sigue en `ordenes_compra`; quitarla antes del go-live |
+
+Sin divergencias de anulación: las 25 `anulada` del ERP que no están en Firestore vienen de la
+migración del Excel 2024, y ninguna orden anulada en el ERP figura viva en el portal.
+
+**Carga ejecutada (2026-08-27)** — scripts `8-transform-fase3.py` + `9-load-fase3.mjs`, rol
+temporal `mig_f3_tmp` por el pooler (creado y eliminado en la misma sesión), transacción única:
+
+| | Antes | Ahora |
+|---|---|---|
+| Órdenes | 1,223 | **1,286** (+64 nuevas, −1 de prueba) |
+| Ítems de orden | 2,406 | **2,472** |
+| Requerimientos | 222 | **236** (+ítems: 704) |
+| Cotizaciones | 197 | **217** (+ítems: 723) |
+| Proveedores | 131 | **135** |
+
+- **Geremie (PROV-0324)**: RUC corregido `EXT-0324` → **10734501536** y `migrado_id` apuntado al
+  doc del portal para que resuelva la cadena.
+- **4 proveedores nuevos**: PROV-0327 EFAPP, PROV-0328 SGP Training, PROV-0329 VENTYHOME,
+  PROV-0330 Santa María & Nudelman.
+- **MM-001117** sincronizada a `aprobada`. Quedan 3 en `enviada` y las 3 son fieles al portal:
+  MM-000998 y MM-001027 (Pendiente de Comprador) y MM-001222 (Pendiente de Gerencia General).
+- **MM-TESTPT1 eliminada** junto con sus 2 comprobantes ficticios de "PORTAL TEST S.A.C."
+  (F001-00000777 y F001-00000779, del 10/07) — eran una sola fixture de las pruebas del portal.
+  `comprobantes_pago` queda en 0.
+- Integridad: 0 órdenes sin proveedor, 0 sin ítems, 0 números duplicados en órdenes/req/cot.
+- Totales de las 64 nuevas: **S/152,669.03 + US$22,179.33**, idénticos a Firestore.
+
+**Colisión de numeración resuelta**: el ERP numera con `último + 1`; antes de la carga el máximo
+era MM-001158 y habría generado MM-001159, que ya existía en el portal. Ahora el próximo es
+**MM-001223**, libre.
+
+**Trampa encontrada:** el transform descarta en silencio la cotización cuyo proveedor no resuelve
+(`WHERE prov_sel IS NOT NULL`). El portal guarda a veces el doc-id de Firestore o un RUC ficticio
+(20000000001, 20011911111, 20912345671) en `proveedorId`. Se agregó `ALIAS_PROV` en
+`8-transform-fase3.py` con los 7 casos; sin eso faltaban 8 cotizaciones.
+
+**Pendiente menor:** queda `PROV-TEST1` ("PORTAL TEST S.A.C.") en proveedores — mismo residuo de
+pruebas, no se borró por no estar autorizado explícitamente.
+
+---
+
 ## 6.e CAJA CHICA — delta post-corte cargado (2026-08-22) · GO-LIVE
 
 El equipo empieza HOY a operar compras y caja chica en el sistema. Se cargó el delta que
