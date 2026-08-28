@@ -4,6 +4,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth } from './auth/AuthProvider';
 import { Login } from './components/auth/Login';
 import { PendingAccess } from './components/auth/PendingAccess';
+import { FijarClave } from './components/auth/FijarClave';
 import { usePermissions } from './lib/rbac/usePermissions';
 
 // Layout
@@ -212,7 +213,7 @@ function applyTheme(mode: 'light' | 'dark' | 'system'): boolean {
 // ────────────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const { user, profile, tenantName, loading, signOut } = useAuth();
+  const { user, profile, tenantName, loading, signOut, recuperandoClave } = useAuth();
   const { isAdmin, sinRolConfirmado, loading: permsLoading } = usePermissions();
 
   const [currentModule, setCurrentModule] = useState(() => {
@@ -389,6 +390,12 @@ export default function App() {
   // 3) Si NO hay user: Login
   if (!user) {
     return <Login />;
+  }
+
+  // 3.a) Llegó por el enlace de alta (PASSWORD_RECOVERY): antes de dejarlo entrar,
+  //      tiene que definir su propia contraseña. El alta nunca la fija por él.
+  if (recuperandoClave) {
+    return <FijarClave />;
   }
 
   // 3.b) Cuenta de PROVEEDOR dentro del ERP → siempre al portal (/portal).

@@ -366,34 +366,36 @@ interface NuevoUsuarioDialogProps {
 function NuevoUsuarioDialog({ tenantId, onClose, onSuccess }: NuevoUsuarioDialogProps) {
   const [email, setEmail] = useState('');
   const [nombre, setNombre] = useState('');
-  const [password, setPassword] = useState('');
   const [cargo, setCargo] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [enlace, setEnlace] = useState<string | null>(null);
 
+  // El alta la hace la Edge Function `usuarios-alta` con la Admin API.
+  // NO se usa supabase.auth.signUp() desde aquí: reemplazaría la sesión del
+  // administrador por la del usuario recién creado. Y nadie teclea contraseñas
+  // ajenas: la función devuelve un enlace para que la persona fije la suya.
   const handleCreate = async () => {
-    if (!tenantId || !email || !nombre || !password) {
-      setError('Email, nombre y contraseña son obligatorios.');
+    if (!tenantId || !email || !nombre) {
+      setError('El nombre y el email son obligatorios.');
       return;
     }
     setSaving(true);
     setError(null);
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
-      if (signUpError) throw signUpError;
-      const userId = data.user?.id;
-      if (!userId) throw new Error('No se pudo obtener el ID del nuevo usuario.');
-      // Insertar perfil en usuarios_tenant
-      const { error: profileError } = await supabase.from('usuarios_tenant').insert({
-        tenant_id: tenantId,
-        user_id: userId,
-        nombre,
-        email,
-        cargo: cargo || null,
-        estado: 'activo',
+      const { data, error: fnError } = await supabase.functions.invoke('usuarios-alta', {
+        body: { accion: 'alta', email: email.trim(), nombre: nombre.trim(), cargo: cargo || undefined },
       });
-      if (profileError) throw profileError;
-      toast.success('Usuario creado', { description: `Se envió un email de confirmación a ${email}` });
+      if (fnError) {
+        // El cuerpo del error trae el mensaje real de la función
+        const detalle = await (fnError as { context?: Response }).context?.json?.().catch(() => null);
+        throw new Error(detalle?.error ?? fnError.message);
+      }
+      if (data?.error) throw new Error(data.error);
+      setEnlace(data?.enlace_clave ?? null);
+      toast.success('Usuario creado', {
+        description: `Copia el enlace y envíaselo a ${email} para que defina su contraseña.`,
+      });
       onSuccess();
     } catch (err: any) {
       setError(err?.message ?? 'Error al crear el usuario.');
@@ -421,20 +423,44 @@ function NuevoUsuarioDialog({ tenantId, onClose, onSuccess }: NuevoUsuarioDialog
             <Input id="nu-email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="usuario@empresa.com" />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="nu-password">Contraseña temporal *</Label>
-            <Input id="nu-password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" />
-          </div>
-          <div className="space-y-1">
             <Label htmlFor="nu-cargo">Cargo</Label>
             <Input id="nu-cargo" value={cargo} onChange={e => setCargo(e.target.value)} placeholder="Ej: Técnico, Supervisor..." />
           </div>
+          <p className="text-xs text-muted-foreground">
+            No definas tú la contraseña: al crear la cuenta se genera un enlace para que la
+            persona ponga la suya. El rol se asigna después, desde la lista de usuarios.
+          </p>
+          {enlace && (
+            <div className="space-y-1 rounded-md border border-emerald-300 bg-emerald-50 p-3 dark:bg-emerald-950/30">
+              <Label className="text-emerald-800 dark:text-emerald-300">
+                Enlace para definir la contraseña (expira en 24 h)
+              </Label>
+              <div className="flex gap-2">
+                <Input readOnly value={enlace} className="text-xs" onFocus={e => e.currentTarget.select()} />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(enlace);
+                    toast.success('Enlace copiado');
+                  }}
+                >
+                  Copiar
+                </Button>
+              </div>
+            </div>
+          )}
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
-          <Button onClick={handleCreate} disabled={saving}>
-            {saving ? 'Creando...' : 'Crear Usuario'}
+          <Button variant="outline" onClick={onClose} disabled={saving} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
+            {enlace ? 'Cerrar' : 'Cancelar'}
           </Button>
+          {!enlace && (
+            <Button onClick={handleCreate} disabled={saving}>
+              {saving ? 'Creando...' : 'Crear Usuario'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

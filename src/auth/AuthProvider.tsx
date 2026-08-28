@@ -12,6 +12,10 @@ type AuthContextValue = {
   tenantLogoUrl: string | null;
   tenantColor: string | null;
   loading: boolean;
+  /** true cuando la sesión viene de un enlace de recuperación: hay que fijar contraseña. */
+  recuperandoClave: boolean;
+  /** Fija la contraseña del usuario que llegó por el enlace y cierra el modo recuperación. */
+  fijarClave: (nueva: string) => Promise<void>;
 
   signInWithPassword: (email: string, password: string) => Promise<void>;
   signInWithAzure: () => Promise<void>;
@@ -27,6 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [tenantLogoUrl, setTenantLogoUrl] = useState<string | null>(null);
   const [tenantColor, setTenantColor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recuperandoClave, setRecuperandoClave] = useState(false);
   const profileLoadedRef = useRef(false);
 
   // Carga de perfil usando el cliente Supabase (funciona cuando auth está sano)
@@ -356,6 +361,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // usan este patrón sin problemas.)
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       if (!mounted) return;
+      // El enlace de alta/recuperación entra como PASSWORD_RECOVERY: la sesión es
+      // válida pero la persona todavía no tiene contraseña propia. Se marca aquí
+      // (sincrónico, sin await) y App muestra la pantalla para fijarla.
+      if (_event === 'PASSWORD_RECOVERY') setRecuperandoClave(true);
       setSession(newSession);
       if (newSession?.user) {
         const uid = newSession.user.id;
@@ -393,6 +402,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     tenantLogoUrl,
     tenantColor,
     loading,
+    recuperandoClave,
+    fijarClave: async (nueva: string) => {
+      const { error } = await supabase.auth.updateUser({ password: nueva });
+      if (error) throw error;
+      setRecuperandoClave(false);
+    },
 
     signInWithPassword: async (email, password) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -444,7 +459,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         window.location.href = '/';
       }
     },
-  }), [session, profile, tenantName, tenantLogoUrl, tenantColor, loading]);
+  }), [session, profile, tenantName, tenantLogoUrl, tenantColor, loading, recuperandoClave]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
