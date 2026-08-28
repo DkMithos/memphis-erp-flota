@@ -68,7 +68,9 @@ completo y datos financieros reales, no.
 
 `orden_items` no tiene columna `descuento`. El legado sí lo guarda por ítem.
 
-- **23 OCs** con **118 ítems** descontados, ~**S/30,511** de descuento.
+- **23 OCs** con **118 ítems** descontados, **S/3,025.53** de descuento.
+  *(Al escribir esto estimé ~S/30,511 asumiendo que el descuento era un porcentaje. Al resolverlo
+  se comprobó que es un MONTO: la cifra real es S/3,025.53.)*
 - El PDF imprime la columna "Dscto" siempre en **S/0.00**, y el detalle **no cuadra con el
   subtotal**: diferencias de 14% a 25% (ej. MM-000590: ítems S/6,638.68 vs subtotal S/5,714.32).
 - Afecta también a órdenes recién cargadas (MM-001159 tiene 25% de descuento).
@@ -77,7 +79,11 @@ El dato vive en oc-system, que se apaga el viernes. **Sí lo tengo en el volcado
 (`ordenesCompra_full.json`), así que es recuperable, pero conviene hacerlo antes de que ese
 volcado sea la única copia.
 
-**Arreglo:** agregar `descuento` a `orden_items`, rellenar desde el volcado, mapearlo en el store.
+**Resuelto el 27/08** (commit `ec8e8d05`): columna `descuento` en `orden_items` y
+`cotizacion_items`, `precio_total` pasa a neto, y 118 + 91 ítems rellenados desde el volcado.
+Las órdenes descuadradas de oc-system bajaron de 24 a 3 (diferencias de céntimos).
+De paso salió que el transform de cotizaciones trataba el descuento como porcentaje: se
+recalcularon los totales de las 217 cotizaciones desde sus ítems.
 
 ### I2 · `audit_logs` no registra nada
 
@@ -131,7 +137,7 @@ abierta a abuso desde fuera.
 | # | Hallazgo | Nota |
 |---|---|---|
 | M1 | **343 OCs sin proyecto** | Ya conocido. Son CCs internos o compras sin imputar |
-| M2 | 61 OCs con subtotal ≠ suma de ítems | 37 del Excel 2024 (histórico agregado) + 24 por I1 |
+| M2 | ~~61~~ **40** OCs con subtotal ≠ suma de ítems | 37 del Excel 2024 (histórico agregado) + 3 por céntimos. Las 24 de I1 quedaron resueltas |
 | M3 | 2 OCs con total 0 (MM-000057, MM-000061) y 2 sin CC (MM-000787, MM-000635) | Del legado |
 | M4 | **7 de 9 flotas sin contrato** | El flujo de mantenimiento por QR no puede derivar tarifario sin contrato |
 | M5 | 98 cuentas de portal de proveedores creadas, **solo 6 ingresos en total** al sistema | Los proveedores no se han onboardeado |
