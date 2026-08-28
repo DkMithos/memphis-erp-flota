@@ -41,6 +41,8 @@ export interface Proveedor {
   condicion: CondicionProveedor;
 
   // Contacto
+  /** Persona de contacto. Se imprime en el PDF de la orden de compra. */
+  contacto: string | null;
   email: string | null;
   telefono: string | null;
   telefonoAlternativo: string | null;
@@ -187,6 +189,7 @@ function mapFromDB(row: ProveedorDB): Proveedor {
       : ['otros' as CategoriaProveedor],
     estado: row.estado as EstadoProveedor,
     condicion: row.condicion as CondicionProveedor,
+    contacto: (row as any).contacto ?? null,
     email: row.email,
     telefono: row.telefono,
     telefonoAlternativo: row.celular,

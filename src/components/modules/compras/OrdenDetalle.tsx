@@ -47,8 +47,13 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
   
   const orden = obtenerOrdenPorId(ordenId);
   const { proveedores } = useProveedorStore();
+  // El PDF necesita el registro completo del proveedor (RUC, dirección, cuentas).
+  // Se busca por el UUID de BD; si por algún motivo la orden no lo trae, se cae
+  // al nombre para no dejar la sección del proveedor en blanco.
   const proveedorOC = useMemo(
-    () => proveedores.find(p => p._dbId === (orden as any)?.proveedorDbId),
+    () =>
+      proveedores.find(p => orden?.proveedorDbId && p._dbId === orden.proveedorDbId) ??
+      proveedores.find(p => p.razonSocial === orden?.proveedorNombre),
     [proveedores, orden]
   );
   // Cotización de origen: la orden guarda el UUID; mostrar el número legible

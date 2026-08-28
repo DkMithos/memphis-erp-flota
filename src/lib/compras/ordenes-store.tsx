@@ -52,6 +52,8 @@ export interface Orden {
 
   // Proveedor
   proveedorNombre: string;
+  /** UUID del proveedor en BD. Lo necesita el PDF para traer RUC, dirección y cuentas. */
+  proveedorDbId: string | null;
 
   // Clasificación
   moneda: MonedaOrden;
@@ -188,6 +190,7 @@ function mapFromDB(row: OrdenWithRelations): Orden {
     cotizacionId: row.cotizacion_id ?? '',
     requerimientoId: null, // Not stored directly on orden; derive from cotizacion if needed
     proveedorNombre: row.proveedor?.razon_social ?? '',
+    proveedorDbId: row.proveedor_id ?? null,
     moneda: row.moneda as MonedaOrden,
     fechaEmision: row.fecha_emision,
     fechaEntregaEstimada: row.fecha_entrega_esperada,
