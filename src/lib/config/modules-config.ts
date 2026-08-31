@@ -14,13 +14,14 @@ export interface ModuleConfig {
 export const MODULES_DEFAULT: ModuleConfig[] = [
   { id: 'dashboard',   label: 'Dashboard',      descripcion: 'Panel principal con KPIs globales',      enabled: true },
   { id: 'flota',       label: 'Flota',           descripcion: 'Gestión de vehículos y mantenimientos',  enabled: true },
-  { id: 'biomedico',   label: 'Biomédico',       descripcion: 'Gestión de equipos biomédicos',          enabled: true },
+  { id: 'biomedico',   label: 'Biomédico',       descripcion: 'Gestión de equipos biomédicos',          enabled: false },
   { id: 'compras',     label: 'Compras',         descripcion: 'Requerimientos, cotizaciones y órdenes', enabled: true },
   { id: 'proveedores', label: 'Proveedores',     descripcion: 'Directorio, contratos y evaluaciones',   enabled: true },
-  { id: 'inventario',  label: 'Inventario',      descripcion: 'Artículos, almacenes y movimientos',     enabled: true },
+  { id: 'inventario',  label: 'Inventario',      descripcion: 'Artículos, almacenes y movimientos',     enabled: false },
+  { id: 'contabilidad',label: 'Contabilidad',    descripcion: 'Asientos, comprobantes y libros',        enabled: true },
   { id: 'finanzas',    label: 'Finanzas',        descripcion: 'Transacciones, presupuestos y reportes', enabled: true },
   { id: 'proyectos',   label: 'Proyectos',       descripcion: 'Gestión de proyectos y tareas',          enabled: true },
-  { id: 'crm',         label: 'CRM',             descripcion: 'Clientes, oportunidades y actividades',  enabled: true },
+  { id: 'crm',         label: 'CRM',             descripcion: 'Clientes, oportunidades y actividades',  enabled: false },
   { id: 'bi',          label: 'BI & Reportería', descripcion: 'Dashboard cruzado de inteligencia',      enabled: true },
 ];
 

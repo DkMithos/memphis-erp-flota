@@ -57,6 +57,8 @@ import { Button } from '../ui/button';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../auth/AuthProvider';
 import { loadModulesConfig, type ModuleConfig } from '../../lib/config/modules-config';
+import { usePermissions } from '../../lib/rbac/usePermissions';
+import { puedeVerRuta } from '../../lib/rbac/rutas';
 import { useTranslation } from 'react-i18next';
 import { MemphisIconSVG, PLATFORM } from '../../lib/config/branding';
 
@@ -88,6 +90,8 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
   // Todos los módulos comienzan contraídos — se expande el activo al navegar
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [modulesConfig, setModulesConfig] = useState<ModuleConfig[]>(loadModulesConfig);
+  // El menú solo muestra lo que el usuario puede abrir de verdad (RBAC).
+  const { can, loading: permisosLoading } = usePermissions();
 
   // Re-leer config cuando GestionModulos guarda cambios
   useEffect(() => {
@@ -424,9 +428,19 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       <nav className="flex-1 overflow-y-auto py-4">
         <div className="px-3 space-y-1">
           {navItems.filter(item => {
-          if (item.id === 'admin' || item.id === 'home') return true; // siempre visible
-          const cfg = modulesConfig.find(m => m.id === item.id);
-          return cfg?.enabled ?? item.id === 'dashboard';
+          if (item.id === 'home') return true; // siempre visible
+          // 1) interruptor del tenant (módulo apagado para todos)
+          if (item.id !== 'admin') {
+            const cfg = modulesConfig.find(m => m.id === item.id);
+            const habilitado = cfg?.enabled ?? item.id === 'dashboard';
+            if (!habilitado) return false;
+          }
+          // 2) permiso del usuario. Mientras cargan los permisos no se oculta
+          //    nada, para no hacer parpadear el menú en cada refresco.
+          if (permisosLoading) return true;
+          const rutas = [item.href, ...(item.subItems ?? []).map(si => si.href)]
+            .filter(Boolean) as string[];
+          return rutas.some(r => puedeVerRuta(r, can));
         }).map((item) => (
             <div key={item.id}>
               {item.id === 'admin' && (
@@ -471,7 +485,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
 
               {item.subItems && expandedItems.includes(item.id) && (
                 <div className="ml-4 mt-1 space-y-1">
-                  {item.subItems.map((subItem) => (
+                  {item.subItems.filter(si => permisosLoading || puedeVerRuta(si.href ?? '', can)).map((subItem) => (
                     <Button
                       key={subItem.href}
                       variant="ghost"

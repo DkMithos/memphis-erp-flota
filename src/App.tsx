@@ -5,6 +5,8 @@ import { useAuth } from './auth/AuthProvider';
 import { Login } from './components/auth/Login';
 import { PendingAccess } from './components/auth/PendingAccess';
 import { FijarClave } from './components/auth/FijarClave';
+import { SinAcceso } from './components/auth/SinAcceso';
+import { puedeVerRuta } from './lib/rbac/rutas';
 import { usePermissions } from './lib/rbac/usePermissions';
 
 // Layout
@@ -214,7 +216,7 @@ function applyTheme(mode: 'light' | 'dark' | 'system'): boolean {
 
 export default function App() {
   const { user, profile, tenantName, loading, signOut, recuperandoClave } = useAuth();
-  const { isAdmin, sinRolConfirmado, loading: permsLoading } = usePermissions();
+  const { can, isAdmin, sinRolConfirmado, loading: permsLoading } = usePermissions();
 
   const [currentModule, setCurrentModule] = useState(() => {
     const path = window.location.pathname || '/home';
@@ -429,6 +431,13 @@ export default function App() {
     // RUTAS INTERNAS (CON AUTH)
     // =========================
     if (!user) return <Login />;
+
+    // RBAC: bloqueo real por ruta. El menú ya oculta lo que no corresponde, pero
+    // esto es lo que impide entrar tecleando la URL. Mientras los permisos cargan
+    // no se bloquea nada, para no expulsar a nadie en un refresco.
+    if (!permsLoading && !puedeVerRuta(currentRoute, can)) {
+      return <SinAcceso ruta={currentRoute} onVolver={() => navigateTo('/home')} />;
+    }
 
     // Home de bienvenida — ruta raíz y /home
     if (currentRoute === '/home' || currentRoute === '/' || currentRoute === '') {
