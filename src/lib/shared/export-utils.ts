@@ -118,24 +118,114 @@ export function exportToCSV<T extends Record<string, any>>(
 // ============================================================================
 
 /**
- * Exporta datos a "Excel" (CSV con BOM UTF-8)
- * 
- * NOTA: Exporta CSV con BOM para que Excel lo abra correctamente.
- * Si en el futuro se agrega librería xlsx, esta función puede actualizarse.
- * 
- * @param filename Nombre del archivo (sin extensión, se agregará .csv)
+ * Exporta datos a un archivo **.xlsx real** (no CSV disfrazado).
+ *
+ * Antes esto generaba un CSV con separador de coma y extensión .csv aunque el
+ * botón dijera "Excel". En un Excel configurado en español (separador de listas
+ * `;` y decimal `,`) ese archivo se abre con TODO en una sola columna, y los
+ * importes llegan como texto, así que no se pueden sumar. Con .xlsx nativo el
+ * problema desaparece: no hay separadores que negociar y los números viajan
+ * como números.
+ *
+ * - Los valores numéricos se escriben como número (sumables en Excel).
+ * - Las fechas ISO (`YYYY-MM-DD`) se escriben como fecha real.
+ * - El ancho de cada columna se calcula según su contenido.
+ *
+ * SheetJS se importa de forma diferida para no engordar el bundle principal.
+ *
+ * @param filename Nombre del archivo (sin extensión; se agrega .xlsx)
  * @param data Array de objetos
  * @param headersMap Mapeo de keys a nombres de columna
+ * @param hoja Nombre de la pestaña (por defecto "Datos")
  */
-export function exportToExcel<T extends Record<string, any>>(
+/**
+ * ¿Este texto es una cantidad que Excel debe poder sumar, o un código?
+ *
+ * Un RUC (20604953236), un DNI o un número de cuenta son dígitos, pero NO son
+ * cantidades: convertirlos a número les quita los ceros iniciales y Excel los
+ * puede mostrar en notación científica. La regla: es número solo si trae
+ * decimales o si es un entero corto (hasta 8 dígitos).
+ */
+export function esNumeroReal(s: string): boolean {
+  if (!/^-?\d+(\.\d+)?$/.test(s)) return false;
+  if (/^0\d/.test(s)) return false;              // ceros a la izquierda → código
+  if (s.includes('.')) return true;               // con decimales → importe
+  return s.replace('-', '').length <= 8;          // entero corto → cantidad
+}
+
+export async function exportToExcel<T extends Record<string, any>>(
   filename: string,
   data: T[],
-  headersMap: Record<keyof T, string>
-): void {
-  // Por ahora, Excel = CSV con BOM
-  // En el futuro, si se agrega librería xlsx, implementar aquí
-  const csv = arrayToCSV(data, headersMap);
-  downloadCSV(filename, csv, true); // BOM = true para Excel
+  headersMap: Record<keyof T, string>,
+  hoja: string = 'Datos'
+): Promise<void> {
+  const XLSX = await import('xlsx');
+  const keys = Object.keys(headersMap) as Array<keyof T>;
+  const cabeceras = keys.map(k => headersMap[k]);
+
+  // Un valor que "parece número" se escribe como número; una fecha ISO, como fecha.
+  const convertir = (v: unknown): string | number | Date | null => {
+    if (v === null || v === undefined || v === '') return null;
+    if (v instanceof Date) return v;
+    if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+    const s = String(v).trim();
+    if (esNumeroReal(s)) return Number(s);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const d = new Date(s + 'T00:00:00');
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+    return s;
+  };
+
+  const filas = data.map(row => keys.map(k => convertir(row[k])));
+  const ws = XLSX.utils.aoa_to_sheet([cabeceras, ...filas], { cellDates: true });
+
+  // Ancho por contenido, con tope para que no queden columnas absurdas
+  ws['!cols'] = keys.map((k, i) => {
+    const largos = data.map(r => String(r[k] ?? '').length);
+    const max = Math.max(cabeceras[i].length, ...(largos.length ? largos : [0]));
+    return { wch: Math.min(Math.max(max + 2, 10), 55) };
+  });
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({
+    s: { c: 0, r: 0 }, e: { c: Math.max(keys.length - 1, 0), r: filas.length },
+  }) };
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, hoja.slice(0, 31));
+  XLSX.writeFile(wb, `${filename}.xlsx`);
+}
+
+/**
+ * Exporta varias tablas al MISMO archivo, una por pestaña.
+ * Sirve para lo que hoy obliga a bajar dos archivos y cruzarlos a mano:
+ * una orden con sus ítems, una caja con sus gastos e ingresos, etc.
+ */
+export async function exportToExcelMultiHoja(
+  filename: string,
+  hojas: { nombre: string; data: Record<string, any>[]; headersMap: Record<string, string> }[]
+): Promise<void> {
+  const XLSX = await import('xlsx');
+  const wb = XLSX.utils.book_new();
+  for (const h of hojas) {
+    const keys = Object.keys(h.headersMap);
+    const cabeceras = keys.map(k => h.headersMap[k]);
+    const filas = h.data.map(row => keys.map(k => {
+      const v = row[k];
+      if (v === null || v === undefined || v === '') return null;
+      if (typeof v === 'number') return v;
+      const s = String(v).trim();
+      if (esNumeroReal(s)) return Number(s);
+      return s;
+    }));
+    const ws = XLSX.utils.aoa_to_sheet([cabeceras, ...filas], { cellDates: true });
+    ws['!cols'] = keys.map((k, i) => {
+      const largos = h.data.map(r => String(r[k] ?? '').length);
+      const max = Math.max(cabeceras[i].length, ...(largos.length ? largos : [0]));
+      return { wch: Math.min(Math.max(max + 2, 10), 55) };
+    });
+    XLSX.utils.book_append_sheet(wb, ws, h.nombre.slice(0, 31));
+  }
+  XLSX.writeFile(wb, `${filename}.xlsx`);
 }
 
 // ============================================================================
