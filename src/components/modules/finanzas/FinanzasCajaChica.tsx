@@ -134,7 +134,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
         if (!isNaN(na) && !isNaN(nb)) return na - nb;
         return String(a.fecha ?? '').localeCompare(String(b.fecha ?? ''));
       });
-      exportCajaModeloExcel(
+      await exportCajaModeloExcel(
         { nombre: caja.nombre, codigo: caja.id, responsable: caja.responsable, moneda: caja.moneda },
         movs,
       );

@@ -486,80 +486,97 @@ export interface MovimientoCajaModelo {
  * INGRESO/EGRESO/FECHA DE PAGO + fila Total + bloque de firma.
  * Se descarga como .xls (HTML compatible con Excel, conserva el layout).
  */
-export function exportCajaModeloExcel(
+export async function exportCajaModeloExcel(
   caja: { nombre: string; codigo: string; responsable: string; moneda: string },
   movimientos: MovimientoCajaModelo[],
-): void {
-  const sym = caja.moneda === 'USD' ? '$' : 'S/';
-  const money = (n?: number | null) =>
-    n === null || n === undefined ? '' : `${sym} ${Number(n).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const dmy = (iso?: string | null) => {
-    if (!iso) return '';
-    const [y, m, d] = String(iso).slice(0, 10).split('-');
-    return `${d}/${m}/${y}`;
+): Promise<void> {
+  const XLSX = await import('xlsx');
+
+  const fmtMoneda = caja.moneda === 'USD' ? '"$" #,##0.00' : '"S/" #,##0.00';
+  const fmtFecha = 'dd/mm/yyyy';
+  const enLetras = caja.moneda === 'USD' ? 'Dólares' : 'Soles';
+
+  const num = (n?: number | null) => (n === null || n === undefined ? null : Number(n));
+  const fecha = (iso?: string | null) => {
+    if (!iso) return null;
+    const d = new Date(String(iso).slice(0, 10) + 'T00:00:00');
+    return Number.isNaN(d.getTime()) ? null : d;
   };
-  const totIng = movimientos.reduce((s, m) => s + (m.ingreso ?? 0), 0);
-  const totEgr = movimientos.reduce((s, m) => s + (m.egreso ?? 0), 0);
+
+  const totIng = movimientos.reduce((t, m) => t + (m.ingreso ?? 0), 0);
+  const totEgr = movimientos.reduce((t, m) => t + (m.egreso ?? 0), 0);
   const saldo = Math.round((totIng - totEgr) * 100) / 100;
 
-  const filas = movimientos.map(m => `
-    <tr>
-      <td style="text-align:center">${esc(m.item)}</td>
-      <td>${esc(m.centroCosto)}</td>
-      <td>${esc(m.tipoDoc)}</td>
-      <td>${esc(m.comprobante)}</td>
-      <td>${esc(m.razonSocial)}</td>
-      <td>${esc(m.descripcion)}</td>
-      <td style="text-align:right">${money(m.ingreso)}</td>
-      <td style="text-align:right">${money(m.egreso)}</td>
-      <td style="text-align:center">${dmy(m.fecha)}</td>
-    </tr>`).join('');
+  // Diseño del Excel de Administración: cabecera + recuadro de saldos a la
+  // derecha, la tabla de 9 columnas, la fila de totales y el pie de firma.
+  const aoa: (string | number | Date | null)[][] = [
+    ['MEMPHIS MAQUINARIAS SAC', null, null, null, null, null, null, null, null],
+    ['DETALLE DE CAJA CHICA', null, null, null, null, null, 'Saldo Inicial', null, null],
+    [`(Expresado en ${enLetras})`, null, null, null, null, null, 'Ingresos', totIng, null],
+    [`N° DE CAJA: ${caja.codigo}`, null, null, null, null, null, 'Gastos', totEgr, null],
+    [`RESPONSABLE: ${caja.responsable}`, null, null, null, null, null, 'Saldo Final', saldo, null],
+    [null, null, null, null, null, null, null, null, null],
+    ['ITEM', 'CENTRO DE COSTO', 'TIPO DOC', 'COMPROBANTE', 'RAZÓN SOCIAL',
+     'DESCRIPCIÓN', `INGRESO ${caja.moneda}`, `EGRESO ${caja.moneda}`, 'FECHA DE PAGO'],
+  ];
 
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
-<head><meta charset="UTF-8">
-<style>
-  table { border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
-  .titulo { font-weight: bold; font-size: 13pt; }
-  .sub { font-weight: bold; }
-  .resumenlbl { font-weight: bold; background: #f2f2f2; border: 1px solid #999; }
-  .resumenval { border: 1px solid #999; text-align: right; }
-  th { background: #d9d9d9; border: 1px solid #666; font-weight: bold; padding: 3px 6px; }
-  td { border: 1px solid #bbb; padding: 2px 6px; vertical-align: top; }
-  .nb td { border: none; }
-  .totrow td { font-weight: bold; background: #f2f2f2; border: 1px solid #666; }
-</style></head>
-<body>
-<table>
-  <tr class="nb"><td colspan="6" class="titulo">MEMPHIS MAQUINARIAS SAC</td><td></td><td></td><td></td></tr>
-  <tr class="nb"><td colspan="6" class="sub">DETALLE DE CAJA CHICA</td><td class="resumenlbl">Saldo Inicial</td><td class="resumenval"></td><td></td></tr>
-  <tr class="nb"><td colspan="6">(Expresado en ${caja.moneda === 'USD' ? 'Dólares' : 'Soles'})</td><td class="resumenlbl">Ingresos</td><td class="resumenval">${money(totIng)}</td><td></td></tr>
-  <tr class="nb"><td colspan="6" class="sub">N° DE CAJA: ${esc(caja.codigo)}</td><td class="resumenlbl">Gastos</td><td class="resumenval">${money(totEgr)}</td><td></td></tr>
-  <tr class="nb"><td colspan="6" class="sub">RESPONSABLE: ${esc(caja.responsable)}</td><td class="resumenlbl">Saldo Final</td><td class="resumenval">${money(saldo)}</td><td></td></tr>
-  <tr class="nb"><td colspan="9"></td></tr>
-  <tr>
-    <th>ITEM</th><th>CENTRO DE COSTO</th><th>TIPO DOC</th><th>COMPROBANTE</th>
-    <th>RAZÓN SOCIAL</th><th>DESCRIPCIÓN</th><th>INGRESO ${caja.moneda}</th><th>EGRESO ${caja.moneda}</th><th>FECHA DE PAGO</th>
-  </tr>
-  ${filas}
-  <tr class="totrow">
-    <td>Total</td><td></td><td></td><td></td><td></td><td></td>
-    <td style="text-align:right">${money(totIng)}</td>
-    <td style="text-align:right">${money(totEgr)}</td><td></td>
-  </tr>
-  <tr class="nb"><td colspan="9"></td></tr>
-  <tr class="nb"><td></td><td colspan="2">______________________________</td></tr>
-  <tr class="nb"><td></td><td colspan="2">FIRMA DEL RESPONSABLE</td></tr>
-  <tr class="nb"><td></td><td colspan="2">NOMBRE: ${esc(caja.responsable)}</td></tr>
-</table>
-</body></html>`;
+  const FILA_CABECERA = aoa.length - 1;      // 0-based, la fila de títulos
+  const PRIMERA_FILA = aoa.length;           // donde arrancan los movimientos
 
-  const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${caja.nombre.replace(/\s+/g, '_')}_${caja.codigo}.xls`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  for (const m of movimientos) {
+    aoa.push([
+      // El ITEM y el comprobante son códigos: van como texto para no perder
+      // ceros a la izquierda ni acabar en notación científica.
+      m.item === null || m.item === undefined ? null : String(m.item),
+      m.centroCosto ?? null,
+      m.tipoDoc ?? null,
+      m.comprobante ? String(m.comprobante) : null,
+      m.razonSocial ?? null,
+      m.descripcion ?? null,
+      num(m.ingreso),
+      num(m.egreso),
+      fecha(m.fecha),
+    ]);
+  }
+
+  const FILA_TOTAL = aoa.length;
+  aoa.push(['Total', null, null, null, null, null, totIng, totEgr, null]);
+  aoa.push([null, null, null, null, null, null, null, null, null]);
+  aoa.push([null, '______________________________', null, null, null, null, null, null, null]);
+  aoa.push([null, 'FIRMA DEL RESPONSABLE', null, null, null, null, null, null, null]);
+  aoa.push([null, `NOMBRE: ${caja.responsable}`, null, null, null, null, null, null, null]);
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: true });
+
+  // Formato de importes y fechas. Se aplica a la celda, no al texto, así que
+  // el valor sigue siendo un número que Excel puede sumar.
+  const marca = (fila: number, col: number, z: string) => {
+    const ref = XLSX.utils.encode_cell({ r: fila, c: col });
+    const celda = (ws as Record<string, any>)[ref];
+    if (celda && celda.v !== null && celda.v !== undefined) celda.z = z;
+  };
+  for (let r = PRIMERA_FILA; r < FILA_TOTAL; r++) {
+    marca(r, 6, fmtMoneda);
+    marca(r, 7, fmtMoneda);
+    marca(r, 8, fmtFecha);
+  }
+  for (const r of [2, 3, 4]) marca(r, 7, fmtMoneda);   // recuadro de saldos
+  marca(FILA_TOTAL, 6, fmtMoneda);
+  marca(FILA_TOTAL, 7, fmtMoneda);
+
+  ws['!cols'] = [
+    { wch: 6 }, { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 34 },
+    { wch: 46 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+  ];
+  ws['!autofilter'] = {
+    ref: XLSX.utils.encode_range({
+      s: { c: 0, r: FILA_CABECERA }, e: { c: 8, r: FILA_TOTAL - 1 },
+    }),
+  };
+  // La cabecera queda fija al desplazarse: son cajas de cientos de movimientos.
+  (ws as Record<string, any>)['!freeze'] = { xSplit: 0, ySplit: PRIMERA_FILA };
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Caja Chica');
+  XLSX.writeFile(wb, `${caja.nombre.replace(/\s+/g, '_')}_${caja.codigo}.xlsx`);
 }
