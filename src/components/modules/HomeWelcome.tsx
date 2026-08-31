@@ -15,6 +15,11 @@ import { Badge } from '../ui/badge';
 import { useAuth } from '../../auth/AuthProvider';
 import { MemphisIconSVG, PLATFORM } from '../../lib/config/branding';
 import { useDarkMode } from '../../hooks/useDarkMode';
+import { usePermissions } from '../../lib/rbac/usePermissions';
+import { puedeVerRuta } from '../../lib/rbac/rutas';
+import { isModuleEnabled } from '../../lib/config/modules-config';
+import { useResumenHome } from '../../lib/shared/useResumenHome';
+import { useNotifications } from '../../lib/shared/useNotifications';
 
 interface HomeWelcomeProps {
   onNavigate: (route: string) => void;
@@ -87,14 +92,18 @@ const QUICK_ACCESS = [
   },
 ];
 
-// Actividad reciente estática (se reemplazará con datos reales en Sprint futuro)
-const ACTIVIDAD_RECIENTE = [
-  { tipo: 'success', texto: 'Mantenimiento completado — VEH-2024-001', tiempo: 'Hace 2h' },
-  { tipo: 'warning', texto: 'Stock crítico — Filtro de aceite (3 unidades)', tiempo: 'Hace 4h' },
-  { tipo: 'info',    texto: 'Proveedor PROV-0012 en evaluación', tiempo: 'Hace 5h' },
-  { tipo: 'success', texto: 'OC-2024-089 recibida completa', tiempo: 'Ayer' },
-  { tipo: 'warning', texto: 'SOAT vence en 15 días — VEH-2024-007', tiempo: 'Ayer' },
-];
+
+/** "Hace 2 h", "Ayer", "12 ago" — sin librerías extra. */
+function tiempoRelativo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const min = Math.round(ms / 60000);
+  if (min < 1) return 'Recién';
+  if (min < 60) return `Hace ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `Hace ${h} h`;
+  if (h < 48) return 'Ayer';
+  return new Date(iso).toLocaleDateString('es-PE', { day: 'numeric', month: 'short' });
+}
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -107,6 +116,15 @@ export function HomeWelcome({ onNavigate }: HomeWelcomeProps) {
   const { profile, tenantName } = useAuth();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const isDark = useDarkMode();
+  const { can, loading: permisosLoading } = usePermissions();
+  const { indicadores } = useResumenHome();
+  const { notificaciones, noLeidas } = useNotifications();
+
+  // Solo los accesos que el usuario puede abrir y cuyo módulo está encendido.
+  const accesos = useMemo(
+    () => QUICK_ACCESS.filter(a => isModuleEnabled(a.id) && puedeVerRuta(a.route, can)),
+    [can],
+  );
 
   const firstName = useMemo(() => {
     const nombre = profile?.nombre ?? '';
@@ -144,14 +162,20 @@ export function HomeWelcome({ onNavigate }: HomeWelcomeProps) {
         {/* Stats rápidos */}
         <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Módulos activos', value: '10', icon: Activity, color: 'text-white', bg: 'bg-blue-500', accent: 'border-l-blue-500' },
-            { label: 'Alertas pendientes', value: '3', icon: Bell, color: 'text-white', bg: 'bg-red-500', accent: 'border-l-red-500' },
-            { label: 'Tareas del día', value: '5', icon: CheckCircle2, color: 'text-white', bg: 'bg-green-500', accent: 'border-l-green-500' },
-            { label: 'Tendencia', value: '+12%', icon: TrendingUp, color: 'text-white', bg: 'bg-emerald-500', accent: 'border-l-emerald-500' },
-          ].map((stat) => (
-            <div
+            ...indicadores.map(i => ({
+              label: i.label, value: i.valor, icon: Activity,
+              color: 'text-white', bg: 'bg-blue-500', ruta: i.ruta,
+            })),
+            {
+              label: 'Notificaciones sin leer', value: String(noLeidas),
+              icon: Bell, color: 'text-white',
+              bg: noLeidas > 0 ? 'bg-red-500' : 'bg-slate-400', ruta: '/notificaciones',
+            },
+          ].slice(0, 4).map((stat) => (
+            <button
               key={stat.label}
-              className="bg-card rounded-xl p-4 shadow-sm flex items-center gap-3"
+              onClick={() => stat.ruta && onNavigate(stat.ruta)}
+              className="bg-card rounded-xl p-4 shadow-sm flex items-center gap-3 text-left hover:shadow-md transition-shadow"
               style={{ border: '1px solid #64748B' }}
             >
               <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${stat.bg}`}>
@@ -161,7 +185,7 @@ export function HomeWelcome({ onNavigate }: HomeWelcomeProps) {
                 <p className="text-2xl font-bold leading-none">{stat.value}</p>
                 <p className="text-xs text-muted-foreground mt-1 truncate">{stat.label}</p>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -175,7 +199,7 @@ export function HomeWelcome({ onNavigate }: HomeWelcomeProps) {
           </Button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {QUICK_ACCESS.map((item) => {
+          {accesos.map((item) => {
             const accentColor = isDark ? '#f0c000' : '#000000';
             const isHovered = hoveredId === item.id;
             const bgColor = isDark
@@ -228,16 +252,23 @@ export function HomeWelcome({ onNavigate }: HomeWelcomeProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {ACTIVIDAD_RECIENTE.map((item, i) => (
-              <div key={i} className="flex items-start gap-3 text-sm">
+            {notificaciones.length === 0 && (
+              <p className="text-sm text-muted-foreground py-2">
+                No tienes actividad reciente.
+              </p>
+            )}
+            {notificaciones.slice(0, 5).map((n) => (
+              <div key={n.id} className="flex items-start gap-3 text-sm">
                 <div className="mt-0.5 shrink-0">
-                  {item.tipo === 'success' && <CheckCircle2 className="size-4 text-green-500" />}
-                  {item.tipo === 'warning' && <AlertTriangle className="size-4 text-amber-500" />}
-                  {item.tipo === 'info'    && <Bell className="size-4 text-blue-500" />}
+                  {n.tipo === 'success' && <CheckCircle2 className="size-4 text-green-500" />}
+                  {(n.tipo === 'warning' || n.tipo === 'error') && <AlertTriangle className="size-4 text-amber-500" />}
+                  {n.tipo === 'info' && <Bell className="size-4 text-blue-500" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-foreground leading-snug">{item.texto}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{item.tiempo}</p>
+                  <p className={`leading-snug ${n.leida ? 'text-muted-foreground' : 'text-foreground font-medium'}`}>
+                    {n.titulo}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{tiempoRelativo(n.creadoEn)}</p>
                 </div>
               </div>
             ))}
@@ -248,24 +279,27 @@ export function HomeWelcome({ onNavigate }: HomeWelcomeProps) {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <TrendingUp className="size-4 text-primary" />
-              Estado del Sistema
+              Tu acceso
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {[
-              { label: 'Base de datos', estado: 'Operativo', ok: true },
-              { label: 'Sincronización GPS', estado: 'Activo', ok: true },
-              { label: 'API SUNAT', estado: 'Disponible', ok: true },
-              { label: 'Notificaciones', estado: 'En configuración', ok: false },
-              { label: 'Backup automático', estado: 'Programado', ok: true },
-            ].map((s) => (
-              <div key={s.label} className="grid grid-cols-[1fr_160px] gap-3 items-center text-sm">
-                <span className="text-foreground">{s.label}</span>
-                <div className="flex items-center gap-2">
-                  <span className={`inline-block size-2 rounded-full shrink-0 ${s.ok ? 'bg-green-500' : 'bg-amber-500'}`}></span>
-                  <span className="text-foreground font-medium">{s.estado}</span>
-                </div>
-              </div>
+            {permisosLoading && (
+              <p className="text-sm text-muted-foreground">Cargando…</p>
+            )}
+            {!permisosLoading && accesos.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Tu rol todavía no tiene módulos asignados. Escríbele al administrador.
+              </p>
+            )}
+            {!permisosLoading && accesos.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => onNavigate(a.route)}
+                className="grid w-full grid-cols-[1fr_auto] items-center gap-3 text-left text-sm hover:text-primary"
+              >
+                <span className="text-foreground">{a.label}</span>
+                <ChevronRight className="size-4 text-muted-foreground" />
+              </button>
             ))}
           </CardContent>
         </Card>

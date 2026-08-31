@@ -160,9 +160,16 @@ Deno.serve(async (req: Request) => {
 
     // 5. Calcular diffs (solo sobre roles GESTIONADOS por el mapeo)
     const toAdd = [...desiredRolIds].filter((id) => !currentRolIds.has(id))
-    const toRemove = [...currentRolIds].filter(
-      (id) => managedRolIds.has(id) && !desiredRolIds.has(id),
-    )
+    // SEGURIDAD: si Entra no devolvió NINGÚN App Role, no se toca nada.
+    // Sin esta guarda, un usuario al que todavía no le asignaron App Roles en
+    // Entra perdía en su primer login con Microsoft todos los roles que le
+    // habían puesto a mano en el ERP, y quedaba en "cuenta pendiente".
+    // Solo se retiran roles cuando Azure sí respondió con al menos uno, que es
+    // cuando la lista de Entra es realmente la fuente de verdad.
+    const azureRespondioRoles = valoresAzure.length > 0
+    const toRemove = azureRespondioRoles
+      ? [...currentRolIds].filter((id) => managedRolIds.has(id) && !desiredRolIds.has(id))
+      : []
 
     if (toAdd.length > 0) {
       const rows = toAdd.map((rol_id) => ({ user_id: userId, tenant_id: tenantId, rol_id }))
@@ -188,6 +195,7 @@ Deno.serve(async (req: Request) => {
       appRolesAzure: valoresAzure,
       rolesAsignados: desiredRolIds.size,
       agregados: toAdd.length,
+      sinAppRolesEnAzure: !azureRespondioRoles,
       removidos: toRemove.length,
     })
   } catch (err) {
