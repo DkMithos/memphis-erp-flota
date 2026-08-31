@@ -718,3 +718,78 @@ Lote previo (mismo día): crashes de Lista de Proyectos / detalle de proveedor /
 CORS excel-sync; datos ICA cobrado + consolidación de 9 proveedores duplicados + GICAPATRUL;
 UX de paginaciones, export Excel de caja, comboboxes con búsqueda, dashboard de Proveedores,
 buscador global sanitizado, notificaciones navegables y logo en PDF de orden.
+
+---
+
+## §6.k · RBAC en los botones, permiso `exportar` y modelo de caja (31/08/2026)
+
+**Qué pidió Kevin (5 puntos):** verificar el permiso RBAC de los 9 módulos y qué botones lo
+comprueban ("no puede haber decisiones tomadas por omisión"); confirmar el orden de fases de
+exportación; agregar el permiso `exportar`; la caja chica con el modelo de Carolina; y llevar
+las métricas del Flujo GM a un dashboard para Gerencia.
+
+### Lo que apareció al revisar (punto 1)
+
+La UI tenía **un solo** `can()` real en todo el sistema (`GestionUsuarios.tsx`, alta de usuarios).
+`<PermissionGuard>` no se usaba en ninguna parte. En su lugar convivían **cinco tablas de
+permisos escritas a mano** (órdenes, cotizaciones, requerimientos, recepciones, proveedores), y
+las cinco terminaban en la misma línea:
+
+```ts
+const permisos = PERMISOS_POR_ROL[rol] ?? PERMISOS_POR_ROL.admin_sistemas;
+```
+
+El rol venía de `profiles.rol`, que vale `sin_rol` para 8 de los 9 usuarios. `sin_rol` no está en
+ninguna de las tablas, así que **el fallback se disparaba siempre**: cualquiera que abriera
+Compras o Proveedores recibía permisos totales, aprobar y anular incluidos. Walter (Contabilidad,
+solo lectura por diseño) podía aprobar y anular órdenes de compra.
+
+De ~81 pantallas con botones de acción, solo 28 llamadas en 9 archivos consultaban algo.
+
+**Corregido:** las 5 tablas y sus `tienePermiso` eliminadas; las 28 llamadas migradas a
+`can(modulo, accion)`; registrar recepción exige `compras.recepcionar` (no `compras.ver`); y el
+fallback de rol en los stores deja de afirmar `admin_sistemas`.
+
+### Permiso `exportar` (punto 3)
+
+Existía para 8 módulos pero **casi sin asignar**: el rol Compras no podía exportar compras, y
+Técnico Flota no podía exportar flota. Gatear los botones sin arreglar eso habría dejado al
+equipo sin descargas el día del lanzamiento.
+
+Regla adoptada, explícita: **"exporta lo que ve"**. Se creó `admin.exportar` (único módulo que
+no lo tenía) y se concedió `<modulo>.exportar` a cada rol por cada `<modulo>.ver` que ya tenía.
+Los 9 roles quedan con `ver == exportar`. El permiso se conserva como interruptor propio para
+poder quitar la descarga a un rol sin quitarle la lectura.
+
+La guarda va en el **manejador**, no solo en el botón: `if (!puedeExportar) return;`.
+
+### Modelo de caja chica (punto 4)
+
+El export "modelo Carolina" generaba **HTML renombrado a `.xls`**. Excel lo abre avisando que el
+formato no coincide con la extensión, y los importes llegaban como texto `"S/ 1,234.56"` — el
+mismo problema que se acababa de corregir en el resto. Rehecho como `.xlsx` real con SheetJS,
+conservando el diseño (cabecera Memphis, recuadro de saldos, 9 columnas, totales, firma) pero con
+importes numéricos, fechas reales y códigos como texto. 3 pruebas nuevas sobre el libro generado.
+
+### Dashboard de Gerencia (punto 5) — plan, no ejecutado
+
+→ [PLAN-Dashboard-Gerencia.md](PLAN-Dashboard-Gerencia.md).
+
+**El hallazgo que manda:** la mitad de los indicadores del Flujo GM sale de facturas, y las tablas
+que las guardarían están **vacías** — `comprobantes_pago` 0, `comprobantes_detalle` 0,
+`transacciones` 0, `registro_ventas` 0, `presupuestos` 0, `asientos_contables` 0. Construirlo hoy
+mostraría **S/0 de deuda donde hay S/92M**. El dashboard es, en la práctica, la pantalla final del
+módulo CxP.
+
+Sí se puede la mitad de compromiso: 1,297 OCs con fecha y centro de costo, 978 gastos de caja,
+7 proyectos con presupuesto. Propuesta: vista **"Flujo Gerencia" dentro de BI** (no un módulo
+nuevo, para no partir el dato en dos sitios), Fase 1 ya y Fase 2 atada a CxP.
+
+**Pendiente de decisión de Kevin:** opción B confirmada o no; arrancar Fase 1 con el hueco de
+deuda rotulado; tipo de cambio (hoy 3.75 fijo, ningún total mixto es defendible sin tabla por
+fecha); y si bancos e ingresos entran al ERP.
+
+### Verificación
+
+Build limpio · 43/43 tests · 0 errores de tipos nuevos (995 antes y 995 después; las diferencias
+del diff eran desplazamientos de línea, confirmado ignorando línea y columna).
