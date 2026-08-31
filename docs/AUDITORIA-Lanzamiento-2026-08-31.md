@@ -1,8 +1,8 @@
 # Auditoría de lanzamiento — Memphis ERP
 
-> Fecha: **jueves 27/08/2026**. Objetivo: lanzamiento el **lunes 31/08/2026**.
+> Fecha: **viernes 28/08/2026**. Objetivo: lanzamiento el **lunes 31/08/2026**.
 > Corte de oc-system: **viernes 28/08** (N34).
-> Días hábiles disponibles: **2** (jueves y viernes).
+> Días hábiles disponibles: **1** (viernes) más el lunes por la mañana.
 
 ---
 
@@ -105,7 +105,7 @@ if (cronSecret) { ...valida el header... }   // si NO está seteada, no valida n
 1. El cron `notif-scheduler-diario` **no envía** el header `x-cron-secret`
    (`supabase/migrations/20260529000000_cron_notif_scheduler.sql`; el comentario dice que
    puede endurecerse "si se desea").
-2. Esa llamada diaria devolvió **HTTP 200** hoy 27/08 a las 13:00 UTC
+2. Esa llamada diaria devolvió **HTTP 200** el 27/08 a las 13:00 UTC
    (`net._http_response`). Si el secreto estuviera configurado habría devuelto 403.
 
 **Impacto real:** cualquiera que conozca la URL puede disparar la sincronización de proyectos
@@ -177,7 +177,7 @@ Si alguien entra a estos, no verá nada. Conviene decidir si se ocultan del men�
 
 ## Plan sugerido para los 2 días
 
-**Jueves (hoy) — ✅ ejecutado**
+**Viernes 28/08 — ✅ ejecutado**
 1. ✅ Desplegado (commits `4467e842`, `336d0718`, `78d2b5ad`) — PDF de la orden resuelto.
 2. ✅ Edge Function `usuarios-alta` v3 + pantalla `FijarClave` + pantalla de Administración
    reconectada. Probado contra el proyecto: alta con rol, dominio ajeno 422, sin sesión 401,
@@ -198,7 +198,7 @@ con 403.
    (guardándolo en Vault, no en texto plano dentro de `cron.job`).
 3. Con eso, `excel-sync` y `notif-scheduler` dejan de estar abiertas.
 
-**Viernes**
+**Lunes 31/08**
 5. Corte de oc-system y backup de Firebase (N34 + Fase 7).
 6. Cargar los usuarios del equipo en cuanto llegue el archivo, y afinar permisos por rol (B3).
 7. Decidir qué módulos vacíos se ocultan del menú.

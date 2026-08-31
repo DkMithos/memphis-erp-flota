@@ -294,6 +294,70 @@ Ver [CxP-CDC-CATEGORIAS.md](CxP-CDC-CATEGORIAS.md) §4. Resumen:
 
 ---
 
+## 6.j MIGRACIÓN FINAL — lunes 31/08/2026, día del lanzamiento
+
+Revisión completa de caja chica y órdenes al día de hoy, pedida por Kevin antes de desplegar.
+
+### Caja chica · ✅ al día
+Fuente: Excel de Administración (mtime 28/08 15:42). **Se comparó por huella digital de cada
+hoja, no solo por totales**, porque un cambio de texto que conserva el importe no aparece en los
+agregados.
+
+**Estado final: 978 egresos y 139 ingresos — idéntico al Excel.** 0 duplicados. Último
+movimiento 28/08.
+
+Se cargaron 9 egresos nuevos (4 en ADMI016-DOLARES, 5 en ADMI024-SOLES) y 2 correcciones de
+texto que hizo Administración.
+
+**Tres trampas que costó encontrar y que hay que recordar:**
+1. **La fila #21 de CAJA 1 DÓLARES fue renumerada a #27** en el Excel, con el mismo contenido e
+   importe (S/331.82, reserva EENMOM). Cargarla habría **duplicado** el gasto. Se omitió.
+2. **El migrado_id no puede compararse crudo**: el nombre de varias hojas lleva un espacio final
+   (`"CAJA 8 DÓLARES "`) que el loader original recorta.
+3. **La migración normaliza los centros de costo** (`GOREC-AMB` → `GCUSCOAMBU`), así que el CC
+   del Excel nunca coincide con el de la base. Compararlo produce 32 falsos positivos.
+   La reconciliación debe hacerse **sin** el centro de costo y con el ítem, no el migrado_id completo.
+
+**Pendiente para Administración:** los ítems 13, 14 y 15 de CAJA 16 DÓLARES (US$384.50, US$176.93
+y US$187.55) vienen en el Excel **solo con importe y fecha**, sin centro de costo, proveedor ni
+descripción. Se cargaron para no perder el dinero, marcados como
+`(pendiente de detalle en el Excel de Administración)`.
+
+También: en CAJA 1 SOLES#92 el Excel **borró** la descripción que tenía ("GASTO"). La base la
+conserva; no se sobrescribió con vacío.
+
+### Compras · ✅ al día
+Extracción fresca de Firestore: **792 órdenes vivas**, 238 requerimientos, 221 cotizaciones.
+
+| | Antes | Ahora |
+|---|---|---|
+| Órdenes | 1,286 | **1,297** |
+| Ítems de orden | 2,472 | **2,485** |
+| Requerimientos | 236 | **239** |
+| Cotizaciones | 217 | **221** |
+
+- **11 OCs nuevas** MM-001223 → MM-001233 (26–27/08): S/37,151.74 + US$241.30.
+- **MM-001222** pasó de `enviada` a `aprobada` (Gerencia la aprobó).
+- El descuento por ítem de la nueva MM-001226 (S/30.81) también se rescató.
+- **Las 792 del portal están en el ERP.** Los 25 huecos de numeración (MM-000465,
+  MM-000485→000507, MM-000604) tampoco existen en el portal.
+- Integridad: 0 sin proveedor, 0 sin ítems, 0 números duplicados.
+- Quedan 3 en `enviada` y las 3 son fieles al portal: MM-000998 y MM-001027 (pendientes de
+  comprador) y MM-001233 (pendiente de Gerencia General).
+- Descuadres: 3 por céntimos + 37 del Excel 2024, que nunca tuvo detalle por ítem.
+
+**Próximo número que emitirá el ERP: MM-001234**, sin colisión con el portal.
+
+### Otros cierres de hoy
+- **`CRON_SECRET`**: Kevin lo creó. Guardado en Vault y los dos cron reprogramados para enviarlo.
+  Verificado: sin header o con header incorrecto → **403**. La corrida real de hoy 13:00 UTC
+  devolvió **200**, confirmando el circuito completo.
+- **Roles gestionados solo desde el ERP** (decisión de Kevin): se desactivaron las 8 filas de
+  `ms_approle_role_map`. El login con Microsoft sigue autenticando, pero Entra ya no puede
+  agregar ni retirar roles. Para devolverle el gobierno a Entra basta con `activo = true`.
+
+---
+
 ## 6.i PREPARACIÓN DEL LANZAMIENTO — jueves 27/08/2026
 
 Auditoría completa en [AUDITORIA-Lanzamiento-2026-08-31.md](AUDITORIA-Lanzamiento-2026-08-31.md).
