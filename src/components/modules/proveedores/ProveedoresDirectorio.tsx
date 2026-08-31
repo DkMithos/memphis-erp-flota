@@ -22,6 +22,7 @@ import {
 } from '../../ui/select';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
+import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useAuth } from '../../../auth/AuthProvider';
 import { usePagination } from '../../../lib/shared/usePagination';
 import { exportToCSV } from '../../../lib/shared/export-utils';
@@ -30,7 +31,6 @@ import {
   PROVEEDOR_CONDICION_CONFIG,
   PROVEEDOR_TIPO_CONFIG,
   PROVEEDOR_CATEGORIA_LABELS,
-  tienePermiso,
   type EstadoProveedor,
   type TipoProveedor,
   type RolUsuario
@@ -43,6 +43,10 @@ interface ProveedoresDirectorioProps {
 
 export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps) {
   const { proveedores, aprobarProveedor, rechazarProveedor } = useProveedorStore();
+  // Permisos reales del usuario (RBAC), no el rol suelto de profiles
+  const { can } = usePermissions();
+  // Cada usuario descarga su propia data: se exige <modulo>.exportar
+  const puedeExportar = can('proveedores', 'exportar');
   const categorias = Object.entries(PROVEEDOR_CATEGORIA_LABELS).map(([key, label]) => ({ key, label }));
   const { profile, user } = useAuth();
   const jwtRole = user?.app_metadata?.role as string | undefined;
@@ -91,11 +95,13 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
     enEvaluacion: proveedores.filter(p => p.estado === 'en_evaluacion').length,
   }), [proveedores]);
 
-  const puedeAprobar = tienePermiso(rolActual, 'aprobar');
+  const puedeAprobar = can('proveedores', 'aprobar');
 
-  const puedeCrear = tienePermiso(rolActual, 'crear');
+  const puedeCrear = can('proveedores', 'crear');
 
   const handleExportar = () => {
+
+    if (!puedeExportar) return;
     exportToCSV(`proveedores-${new Date().toISOString().slice(0, 10)}`, proveedoresFiltrados, {
       id: 'Código',
       razonSocial: 'Razón Social',
@@ -305,7 +311,7 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
                   const estadoConfig = PROVEEDOR_ESTADO_CONFIG[proveedor.estado] ?? PROVEEDOR_ESTADO_CONFIG.observado;
                   const condicionConfig = PROVEEDOR_CONDICION_CONFIG[proveedor.condicion] ?? PROVEEDOR_CONDICION_CONFIG.sin_evaluar;
                   const tipoConfig = PROVEEDOR_TIPO_CONFIG[proveedor.tipo] ?? PROVEEDOR_TIPO_CONFIG.bienes;
-                  const puedeEditar = tienePermiso(rolActual, 'editar');
+                  const puedeEditar = can('proveedores', 'editar');
 
                   return (
                     <TableRow key={proveedor.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onNavigate?.(`/proveedores/directorio/${proveedor.id}`)}>

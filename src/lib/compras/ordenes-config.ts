@@ -220,60 +220,6 @@ export function calcularTotales(
 // RBAC - Control de Acceso
 // ============================================================================
 
-interface PermisosOrden {
-  crear: boolean;
-  editar: boolean;
-  anular: boolean;
-  aprobar: boolean;
-  rechazar: boolean;
-  marcarEnEjecucion: boolean;
-  ver: boolean;
-}
-
-export const PERMISOS_POR_ROL: Record<RolUsuario, PermisosOrden> = {
-  admin_sistemas: {
-    crear: true,
-    editar: true,
-    anular: true,
-    aprobar: true,
-    rechazar: true,
-    marcarEnEjecucion: true,
-    ver: true
-  },
-  compras: {
-    crear: true,
-    editar: true,
-    anular: false,
-    aprobar: false,
-    rechazar: false,
-    marcarEnEjecucion: true,
-    ver: true
-  },
-  gerencia_aprobaciones: {
-    crear: false,
-    editar: false,
-    anular: false,
-    aprobar: true,
-    rechazar: true,
-    marcarEnEjecucion: false,
-    ver: true
-  },
-  operaciones: {
-    crear: false,
-    editar: false,
-    anular: false,
-    aprobar: false,
-    rechazar: false,
-    marcarEnEjecucion: false,
-    ver: true
-  }
-};
-
-export function tienePermiso(rol: RolUsuario, accion: keyof PermisosOrden): boolean {
-  const permisos = PERMISOS_POR_ROL[rol] ?? PERMISOS_POR_ROL.admin_sistemas;
-  return permisos[accion];
-}
-
 /**
  * Verifica si una orden puede editarse según su estado
  */
@@ -308,3 +254,16 @@ export function puedeMarcarEnEjecucion(estado: EstadoOrden): boolean {
 export function puedeRecibirOrden(estado: EstadoOrden): boolean {
   return estado === 'aprobada' || estado === 'en_ejecucion' || estado === 'recepcion_parcial';
 }
+
+/**
+ * Los permisos de este módulo NO se definen aquí.
+ *
+ * Viven en la base de datos (tablas `roles`, `permisos`, `roles_permisos`) y se
+ * consultan desde la UI con `usePermissions()` → `can(modulo, accion)`.
+ *
+ * Hasta el 31/08/2026 existía aquí una tabla `PERMISOS_POR_ROL` con los permisos
+ * escritos a mano por rol. Se eliminó porque su fallback (`?? PERMISOS_POR_ROL.
+ * admin_sistemas`) concedía permisos totales a cualquier rol no listado, y
+ * `profiles.rol` vale `sin_rol` para casi todo el equipo: el fallback se
+ * disparaba siempre. Ver git para el detalle.
+ */

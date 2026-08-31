@@ -213,45 +213,6 @@ export type RolUsuario =
   | 'gerencia_aprobaciones'
   | 'operaciones';
 
-interface PermisosRecepcion {
-  crear: boolean;
-  editar: boolean;
-  anular: boolean;
-  ver: boolean;
-}
-
-export const PERMISOS_RECEPCION_POR_ROL: Record<RolUsuario, PermisosRecepcion> = {
-  admin_sistemas: {
-    crear: true,
-    editar: true,
-    anular: true,
-    ver: true
-  },
-  compras: {
-    crear: true,
-    editar: true,
-    anular: false,
-    ver: true
-  },
-  gerencia_aprobaciones: {
-    crear: false,
-    editar: false,
-    anular: false,
-    ver: true
-  },
-  operaciones: {
-    crear: true, // Operaciones puede registrar recepciones
-    editar: true,
-    anular: false,
-    ver: true
-  }
-};
-
-export function tienePermisoRecepcion(rol: RolUsuario, accion: keyof PermisosRecepcion): boolean {
-  const permisos = PERMISOS_RECEPCION_POR_ROL[rol] ?? PERMISOS_RECEPCION_POR_ROL.admin_sistemas;
-  return permisos[accion];
-}
-
 /**
  * Verifica si una recepción puede editarse según su estado
  */
@@ -265,3 +226,16 @@ export function puedeEditarRecepcion(estado: EstadoRecepcion): boolean {
 export function puedeAnularRecepcion(estado: EstadoRecepcion): boolean {
   return estado !== 'anulada';
 }
+
+/**
+ * Los permisos de este módulo NO se definen aquí.
+ *
+ * Viven en la base de datos (tablas `roles`, `permisos`, `roles_permisos`) y se
+ * consultan desde la UI con `usePermissions()` → `can(modulo, accion)`.
+ *
+ * Hasta el 31/08/2026 existía aquí una tabla `PERMISOS_POR_ROL` con los permisos
+ * escritos a mano por rol. Se eliminó porque su fallback (`?? PERMISOS_POR_ROL.
+ * admin_sistemas`) concedía permisos totales a cualquier rol no listado, y
+ * `profiles.rol` vale `sin_rol` para casi todo el equipo: el fallback se
+ * disparaba siempre. Ver git para el detalle.
+ */

@@ -216,7 +216,8 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
   const usuarioActual = {
     email: user?.email ?? profile?.email ?? 'admin@kesa.com',
     nombre: profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Usuario',
-    rol: (profile?.rol as RolUsuario) ?? ('admin_empresa' as RolUsuario),
+    // Solo alimenta textos informativos; los permisos reales los da usePermissions().
+    rol: (profile?.rol as RolUsuario) ?? ('operaciones' as RolUsuario),
   };
 
   const fetchCotizaciones = useCallback(async () => {

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { usePagination } from '../../../lib/shared/usePagination';
+import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { exportToExcel, exportToPDF } from '../../../lib/shared/export-utils';
 import { Plus, Search, Filter, Download, Eye, Edit, ShoppingCart, ClipboardList, Clock, CheckCircle, DollarSign, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -29,7 +30,6 @@ import {
   REQUERIMIENTO_ESTADO_CONFIG, 
   REQUERIMIENTO_PRIORIDAD_CONFIG,
   CENTRO_COSTO_LABELS,
-  tienePermiso,
   formatearMonto,
   formatearFecha,
   type EstadoRequerimiento,
@@ -43,6 +43,10 @@ interface RequerimientosListaProps {
 
 export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
   const { requerimientos, usuarioActual } = useRequerimientosStore();
+  // Permisos reales del usuario (RBAC), no el rol suelto de profiles
+  const { can } = usePermissions();
+  // Cada usuario descarga su propia data: se exige <modulo>.exportar
+  const puedeExportar = can('compras', 'exportar');
   
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,7 +117,7 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
       .reduce((sum, r) => sum + r.totalEstimado, 0)
   }), [requerimientos]);
 
-  const puedeCrear = tienePermiso(usuarioActual.rol, 'crear');
+  const puedeCrear = can('compras', 'crear');
 
   return (
     <div className="space-y-6">
@@ -140,12 +144,12 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
               Nuevo Requerimiento
             </Button>
           )}
-          <Button variant="outline" disabled={reqExport.length === 0}
+          <Button variant="outline" disabled={!puedeExportar || reqExport.length === 0}
             onClick={() => exportToExcel(`requerimientos-${new Date().toISOString().slice(0,10)}`, reqExport, reqExportHeaders)}>
             <Download className="size-4" />
             Excel
           </Button>
-          <Button variant="outline" disabled={reqExport.length === 0}
+          <Button variant="outline" disabled={!puedeExportar || reqExport.length === 0}
             onClick={() => exportToPDF(`requerimientos-${new Date().toISOString().slice(0,10)}`, 'Requerimientos de Compra', reqExport, reqExportHeaders)}>
             <FileText className="size-4" />
             PDF
@@ -349,7 +353,7 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
                     {requerimientosPaged.map((req) => {
                       const estadoConfig = REQUERIMIENTO_ESTADO_CONFIG[req.estado];
                       const prioridadConfig = REQUERIMIENTO_PRIORIDAD_CONFIG[req.prioridad];
-                      const puedeEditar = tienePermiso(usuarioActual.rol, 'editar');
+                      const puedeEditar = can('compras', 'editar');
 
                       return (
                         <TableRow 

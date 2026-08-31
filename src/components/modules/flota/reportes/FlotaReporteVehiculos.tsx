@@ -4,6 +4,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { usePagination } from '../../../../lib/shared/usePagination';
+import { usePermissions } from '../../../../lib/rbac/usePermissions';
 import {
   Car,
   Download,
@@ -53,6 +54,9 @@ interface FlotaReporteVehiculosProps {
 
 export function FlotaReporteVehiculos({ onNavigate }: FlotaReporteVehiculosProps) {
   const { vehiculos } = useVehiculos();
+  const { can } = usePermissions();
+  // Cada usuario descarga su propia data: se exige <modulo>.exportar
+  const puedeExportar = can('flota', 'exportar');
 
   const [filters, setFilters] = useState<VehiculosReportFilters>({});
 
@@ -78,6 +82,8 @@ export function FlotaReporteVehiculos({ onNavigate }: FlotaReporteVehiculosProps
   };
 
   const handleExportCSV = () => {
+
+    if (!puedeExportar) return;
     if (rows.length === 0) {
       toast.error('No hay datos para exportar', {
         description: 'Ajusta los filtros para obtener resultados'
@@ -118,6 +124,8 @@ export function FlotaReporteVehiculos({ onNavigate }: FlotaReporteVehiculosProps
   };
 
   const handleExportExcel = () => {
+
+    if (!puedeExportar) return;
     if (rows.length === 0) {
       toast.error('No hay datos para exportar');
       return;
@@ -155,6 +163,8 @@ export function FlotaReporteVehiculos({ onNavigate }: FlotaReporteVehiculosProps
   };
 
   const handleExportPDF = () => {
+
+    if (!puedeExportar) return;
     if (rows.length === 0) { toast.error('No hay datos para exportar'); return; }
     const headersMap = {
       placa: 'Placa', marca: 'Marca', modelo: 'Modelo', año: 'Año', tipo: 'Tipo',

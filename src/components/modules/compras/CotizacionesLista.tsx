@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { usePagination } from '../../../lib/shared/usePagination';
+import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { exportToExcel, exportToPDF } from '../../../lib/shared/export-utils';
 import { Plus, Search, Filter, Download, Eye, Edit, FileText, Clock, CheckCircle, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -29,7 +30,6 @@ import {
   COTIZACION_ESTADO_CONFIG, 
   COTIZACION_TIPO_LABELS,
   COTIZACION_MONEDA_LABELS,
-  tienePermiso,
   formatearMonto,
   formatearFecha,
   type EstadoCotizacion,
@@ -43,6 +43,10 @@ interface CotizacionesListaProps {
 
 export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
   const { cotizaciones, usuarioActual } = useCotizacionesStore();
+  // Permisos reales del usuario (RBAC), no el rol suelto de profiles
+  const { can } = usePermissions();
+  // Cada usuario descarga su propia data: se exige <modulo>.exportar
+  const puedeExportar = can('compras', 'exportar');
   
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -118,7 +122,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
       .reduce((sum, c) => sum + c.total, 0)
   }), [cotizaciones]);
 
-  const puedeCrear = tienePermiso(usuarioActual.rol, 'crear');
+  const puedeCrear = can('compras', 'crear');
 
   return (
     <div className="space-y-6">
@@ -145,12 +149,12 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
               Nueva Cotización
             </Button>
           )}
-          <Button variant="outline" disabled={cotExport.length === 0}
+          <Button variant="outline" disabled={!puedeExportar || cotExport.length === 0}
             onClick={() => exportToExcel(`cotizaciones-${new Date().toISOString().slice(0,10)}`, cotExport, cotExportHeaders)}>
             <Download className="size-4" />
             Excel
           </Button>
-          <Button variant="outline" disabled={cotExport.length === 0}
+          <Button variant="outline" disabled={!puedeExportar || cotExport.length === 0}
             onClick={() => exportToPDF(`cotizaciones-${new Date().toISOString().slice(0,10)}`, 'Cotizaciones', cotExport, cotExportHeaders)}>
             <FileText className="size-4" />
             PDF
@@ -359,7 +363,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
                       // Defensivo: un estado fuera del catálogo nunca debe tumbar el módulo
                       const estadoConfig = COTIZACION_ESTADO_CONFIG[cot.estado]
                         ?? { label: cot.estado, icon: FileText, className: 'bg-gray-100 text-gray-600' };
-                      const puedeEditar = tienePermiso(usuarioActual.rol, 'editar');
+                      const puedeEditar = can('compras', 'editar');
 
                       return (
                         <TableRow 

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Plus, Wallet, Check, X, AlertCircle, Download, FileText } from 'lucide-react';
 import { PageNav } from '@/components/shared/PageNav';
+import { usePermissions } from '@/lib/rbac/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -80,6 +81,9 @@ const defaultGastoForm: NuevoGastoForm = {
 
 export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
   const { cajasChicas, gastos, addCajaChica, addGasto, updateGasto, updateCajaChica, loading } = useFinanzas();
+  const { can } = usePermissions();
+  // Cada usuario descarga su propia data: se exige <modulo>.exportar
+  const puedeExportar = can('finanzas', 'exportar');
   const { tenantId, user } = useAuth();
   const { proyectos } = useProyectos();
 
@@ -100,6 +104,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
 
   /** Exporta la caja seleccionada en el MISMO formato del Excel de Administración (modelo). */
   const exportarModeloCaja = async (caja: CajaChica) => {
+    if (!puedeExportar) return;
     try {
       const [egr, ing] = await Promise.all([
         supabase.from('gastos_caja_chica')
@@ -139,6 +144,8 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
   };
 
   const exportarGastosProyecto = (formato: 'excel' | 'pdf') => {
+
+    if (!puedeExportar) return;
     const datos = gastosDelProyecto.map(g => ({
       fecha: g.fecha ? new Date(g.fecha).toLocaleDateString('es-PE') : '',
       caja: g.cajaNombre,
@@ -291,6 +298,8 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
   };
 
   const handleRechazarGasto = async (g: GastoCajaChica) => {
+
+    if (!puedeExportar) return;
     try {
       await updateGasto(g._dbId, { estado: 'rechazado' });
       toast.success('Gasto rechazado');

@@ -37,6 +37,7 @@ import {
   TableRow,
 } from '../../ui/table';
 import { useEquiposStore } from '../../../lib/biomedico/equipos-store';
+import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { exportToPDF } from '../../../lib/shared/export-utils';
 import { usePagination } from '../../../lib/shared/usePagination';
 import { 
@@ -55,6 +56,9 @@ interface BiomedicoEquiposProps {
 
 export function BiomedicoEquipos({ onNavigateToNuevo, onNavigateToDetalle }: BiomedicoEquiposProps) {
   const { equipos } = useEquiposStore();
+  const { can } = usePermissions();
+  // Cada usuario descarga su propia data: se exige <modulo>.exportar
+  const puedeExportar = can('biomedico', 'exportar');
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<EstadoEquipoBiomedico | 'todos'>('todos');
@@ -62,6 +66,8 @@ export function BiomedicoEquipos({ onNavigateToNuevo, onNavigateToDetalle }: Bio
   const [filtroRiesgo, setFiltroRiesgo] = useState<RiesgoBiomedico | 'todos'>('todos');
 
   const handleExportPDF = () => {
+
+    if (!puedeExportar) return;
     exportToPDF(
       `equipos-biomedicos-${new Date().toISOString().slice(0, 10)}`,
       'Reporte de Equipos Biomédicos',

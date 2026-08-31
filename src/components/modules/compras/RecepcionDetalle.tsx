@@ -16,9 +16,9 @@ import {
   DialogTitle,
 } from '../../ui/dialog';
 import { useRecepcionesStore } from '../../../lib/compras/recepciones-store';
+import { usePermissions } from '../../../lib/rbac/usePermissions';
 import {
   RECEPCION_ESTADO_CONFIG,
-  tienePermisoRecepcion,
   puedeAnularRecepcion,
   formatearFecha,
   validarMotivoAnulacion
@@ -31,6 +31,8 @@ interface RecepcionDetalleProps {
 
 export function RecepcionDetalle({ recepcionId, onNavigate }: RecepcionDetalleProps) {
   const { obtenerRecepcionPorId, anularRecepcion, usuarioActual } = useRecepcionesStore();
+  // Permisos reales del usuario (RBAC), no el rol suelto de profiles
+  const { can } = usePermissions();
   
   const recepcion = obtenerRecepcionPorId(recepcionId);
 
@@ -49,7 +51,7 @@ export function RecepcionDetalle({ recepcionId, onNavigate }: RecepcionDetallePr
   }
 
   const estadoConfig = RECEPCION_ESTADO_CONFIG[recepcion.estado];
-  const puedeAnular = tienePermisoRecepcion(usuarioActual.rol, 'anular') && puedeAnularRecepcion(recepcion.estado);
+  const puedeAnular = can('compras', 'eliminar') && puedeAnularRecepcion(recepcion.estado);
 
   const handleAnular = async () => {
     const validacion = validarMotivoAnulacion(motivoAnulacion);

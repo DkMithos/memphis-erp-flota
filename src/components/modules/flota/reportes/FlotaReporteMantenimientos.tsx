@@ -4,6 +4,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { usePagination } from '../../../../lib/shared/usePagination';
+import { usePermissions } from '../../../../lib/rbac/usePermissions';
 import {
   Wrench,
   Download,
@@ -53,6 +54,9 @@ interface FlotaReporteMantenimientosProps {
 
 export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimientosProps) {
   const { ordenes } = useOTStore();
+  const { can } = usePermissions();
+  // Cada usuario descarga su propia data: se exige <modulo>.exportar
+  const puedeExportar = can('flota', 'exportar');
   const { vehiculos } = useVehiculos();
 
   const [filters, setFilters] = useState<OTsReportFilters>({});
@@ -86,6 +90,8 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
   };
 
   const handleExportCSV = () => {
+
+    if (!puedeExportar) return;
     if (rows.length === 0) {
       toast.error('No hay datos para exportar');
       return;
@@ -128,6 +134,8 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
   };
 
   const handleExportExcel = () => {
+
+    if (!puedeExportar) return;
     if (rows.length === 0) {
       toast.error('No hay datos para exportar');
       return;
@@ -170,6 +178,8 @@ export function FlotaReporteMantenimientos({ onNavigate }: FlotaReporteMantenimi
   };
 
   const handleExportPDF = () => {
+
+    if (!puedeExportar) return;
     if (rows.length === 0) { toast.error('No hay datos para exportar'); return; }
     const headersMap = {
       numeroOT: 'N° OT', placa: 'Placa', tipo: 'Tipo', criticidad: 'Criticidad',

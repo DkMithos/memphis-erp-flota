@@ -23,12 +23,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { useOrdenesStore } from '../../../lib/compras/ordenes-store';
+import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { usePagination } from '../../../lib/shared/usePagination';
 import { 
   ORDEN_ESTADO_CONFIG, 
   ORDEN_TIPO_LABELS,
   ORDEN_MONEDA_LABELS,
-  tienePermiso,
   formatearMonto,
   formatearFecha,
   type EstadoOrden,
@@ -45,6 +45,10 @@ interface OrdenesListaProps {
 
 export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
   const { ordenes, usuarioActual } = useOrdenesStore();
+  // Permisos reales del usuario (RBAC), no el rol suelto de profiles
+  const { can } = usePermissions();
+  // Cada usuario descarga su propia data: se exige <modulo>.exportar
+  const puedeExportar = can('compras', 'exportar');
   const { proyectos } = useProyectos();
 
   // Filtros
@@ -121,6 +125,7 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
 
   // Click en header: alterna asc/desc o cambia de columna
   const toggleSort = (campo: typeof sortBy) => {
+    if (!puedeExportar) return;
     if (sortBy === campo) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortBy(campo); setSortDir(campo === 'numero' || campo === 'total' ? 'desc' : 'asc'); }
   };
@@ -152,7 +157,7 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
       .reduce((sum, o) => sum + convertirAMonedaBase(o.total, o.moneda), 0)
   }), [ordenes]);
 
-  const puedeCrear = tienePermiso(usuarioActual.rol, 'crear');
+  const puedeCrear = can('compras', 'crear');
 
   const { paged: ordenesPaged, page, totalPages, setPage } = usePagination(ordenesOrdenadas);
   // Reset page on filter change
@@ -179,7 +184,7 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
-            disabled={ordenesOrdenadas.length === 0}
+            disabled={!puedeExportar || ordenesOrdenadas.length === 0}
             onClick={() => exportToExcel(`ordenes-compra-${new Date().toISOString().slice(0,10)}`, ordenesExport, ordenesExportHeaders)}
           >
             <Download className="size-4" />
@@ -187,7 +192,7 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
           </Button>
           <Button
             variant="outline"
-            disabled={ordenesOrdenadas.length === 0}
+            disabled={!puedeExportar || ordenesOrdenadas.length === 0}
             onClick={() => exportToPDF(`ordenes-compra-${new Date().toISOString().slice(0,10)}`, 'Órdenes de Compra y Servicio', ordenesExport, ordenesExportHeaders)}
           >
             <FileText className="size-4" />
@@ -407,7 +412,7 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
                   <TableBody>
                     {ordenesPaged.map((orden) => {
                       const estadoConfig = ORDEN_ESTADO_CONFIG[orden.estado];
-                      const puedeEditar = tienePermiso(usuarioActual.rol, 'editar');
+                      const puedeEditar = can('compras', 'editar');
 
                       return (
                         <TableRow 

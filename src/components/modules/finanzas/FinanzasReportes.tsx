@@ -4,6 +4,7 @@
  */
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { usePermissions } from '@/lib/rbac/usePermissions';
 import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
@@ -57,6 +58,9 @@ function formatMoney(n: number) {
 
 export function FinanzasReportes({ onNavigate }: ReportesProps) {
   const { tenantId } = useAuth();
+  const { can } = usePermissions();
+  // Cada usuario descarga su propia data: se exige <modulo>.exportar
+  const puedeExportar = can('finanzas', 'exportar');
   const [loading, setLoading] = useState(true);
   const [resumen, setResumen] = useState<ResumenFinanciero>({
     totalIngresos: 0, totalEgresos: 0, utilidad: 0, margenUtilidad: 0,
@@ -139,6 +143,8 @@ export function FinanzasReportes({ onNavigate }: ReportesProps) {
   }));
 
   const exportPDF = () => {
+
+    if (!puedeExportar) return;
     exportToPDF(
       `reporte-financiero-${anio}`,
       `Reporte Financiero ${anio}`,

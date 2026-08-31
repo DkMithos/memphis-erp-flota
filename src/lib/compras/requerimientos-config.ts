@@ -230,55 +230,6 @@ export function formatearMonto(monto: number): string {
 // RBAC - Control de Acceso
 // ============================================================================
 
-interface PermisosRequerimiento {
-  crear: boolean;
-  editar: boolean;
-  anular: boolean;
-  aprobar: boolean;
-  rechazar: boolean;
-  ver: boolean;
-}
-
-export const PERMISOS_POR_ROL: Record<RolUsuario, PermisosRequerimiento> = {
-  admin_empresa: {
-    crear: true,
-    editar: true,
-    anular: true,
-    aprobar: true,
-    rechazar: true,
-    ver: true
-  },
-  compras: {
-    crear: true,
-    editar: true,
-    anular: false,
-    aprobar: false,
-    rechazar: false,
-    ver: true
-  },
-  operaciones: {
-    crear: false,
-    editar: false,
-    anular: false,
-    aprobar: false,
-    rechazar: false,
-    ver: true
-  },
-  gerencia: {
-    crear: false,
-    editar: false,
-    anular: false,
-    aprobar: true,
-    rechazar: true,
-    ver: true
-  }
-};
-
-export function tienePermiso(rol: RolUsuario, accion: keyof PermisosRequerimiento): boolean {
-  const permisos = PERMISOS_POR_ROL[rol] ?? PERMISOS_POR_ROL.admin_empresa;
-  return permisos[accion];
-}
-
 /**
  * Verifica si un requerimiento puede editarse según su estado
  */
@@ -299,3 +250,16 @@ export function puedeAnularRequerimiento(estado: EstadoRequerimiento): boolean {
 export function puedeRevisarRequerimiento(estado: EstadoRequerimiento): boolean {
   return estado === 'enviado';
 }
+
+/**
+ * Los permisos de este módulo NO se definen aquí.
+ *
+ * Viven en la base de datos (tablas `roles`, `permisos`, `roles_permisos`) y se
+ * consultan desde la UI con `usePermissions()` → `can(modulo, accion)`.
+ *
+ * Hasta el 31/08/2026 existía aquí una tabla `PERMISOS_POR_ROL` con los permisos
+ * escritos a mano por rol. Se eliminó porque su fallback (`?? PERMISOS_POR_ROL.
+ * admin_sistemas`) concedía permisos totales a cualquier rol no listado, y
+ * `profiles.rol` vale `sin_rol` para casi todo el equipo: el fallback se
+ * disparaba siempre. Ver git para el detalle.
+ */

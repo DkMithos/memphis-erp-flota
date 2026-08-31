@@ -27,6 +27,7 @@ import {
   TableRow,
 } from '../../ui/table';
 import { useRequerimientosStore } from '../../../lib/compras/requerimientos-store';
+import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
 import { useCentrosCosto } from '../../../lib/centros-costo/centros-costo-store';
 import { COTIZACION_ESTADO_CONFIG, formatearMonto as formatearMontoCotizacion } from '../../../lib/compras/cotizaciones-config';
@@ -34,7 +35,6 @@ import {
   REQUERIMIENTO_ESTADO_CONFIG,
   REQUERIMIENTO_PRIORIDAD_CONFIG,
   CENTRO_COSTO_LABELS,
-  tienePermiso,
   puedeEditarRequerimiento,
   puedeAnularRequerimiento,
   puedeRevisarRequerimiento,
@@ -57,6 +57,8 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
     rechazarRequerimiento,
     usuarioActual 
   } = useRequerimientosStore();
+  // Permisos reales del usuario (RBAC), no el rol suelto de profiles
+  const { can } = usePermissions();
   
   const { obtenerCotizacionesPorRequerimiento } = useCotizacionesStore();
   const { centrosCosto } = useCentrosCosto();
@@ -107,10 +109,10 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
   const estadoConfig = REQUERIMIENTO_ESTADO_CONFIG[requerimiento.estado];
   const prioridadConfig = REQUERIMIENTO_PRIORIDAD_CONFIG[requerimiento.prioridad];
 
-  const puedeEditar = tienePermiso(usuarioActual.rol, 'editar') && puedeEditarRequerimiento(requerimiento.estado);
-  const puedeAnular = tienePermiso(usuarioActual.rol, 'anular') && puedeAnularRequerimiento(requerimiento.estado);
-  const puedeAprobar = tienePermiso(usuarioActual.rol, 'aprobar') && puedeRevisarRequerimiento(requerimiento.estado);
-  const puedeRechazar = tienePermiso(usuarioActual.rol, 'rechazar') && puedeRevisarRequerimiento(requerimiento.estado);
+  const puedeEditar = can('compras', 'editar') && puedeEditarRequerimiento(requerimiento.estado);
+  const puedeAnular = can('compras', 'eliminar') && puedeAnularRequerimiento(requerimiento.estado);
+  const puedeAprobar = can('compras', 'aprobar') && puedeRevisarRequerimiento(requerimiento.estado);
+  const puedeRechazar = can('compras', 'aprobar') && puedeRevisarRequerimiento(requerimiento.estado);
 
   const handleAnular = async () => {
     const validacion = validarMotivoAnulacion(motivoAnulacion);

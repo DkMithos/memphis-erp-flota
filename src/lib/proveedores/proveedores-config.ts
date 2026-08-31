@@ -278,46 +278,15 @@ export function extraerNumeroSecuencial(proveedorId: string): number | null {
 
 export type RolUsuario = 'admin' | 'gerencia' | 'compras' | 'operaciones';
 
-interface PermisosProveedor {
-  crear: boolean;
-  editar: boolean;
-  inactivar: boolean;
-  aprobar: boolean;   // Aprobar/rechazar proveedores en evaluación
-  ver: boolean;
-}
-
-export const PERMISOS_POR_ROL: Record<RolUsuario, PermisosProveedor> = {
-  admin: {
-    crear: true,
-    editar: true,
-    inactivar: true,
-    aprobar: true,
-    ver: true
-  },
-  gerencia: {
-    crear: false,
-    editar: false,
-    inactivar: false,
-    aprobar: true,
-    ver: true
-  },
-  compras: {
-    crear: true,
-    editar: true,
-    inactivar: false,
-    aprobar: false,
-    ver: true
-  },
-  operaciones: {
-    crear: false,
-    editar: false,
-    inactivar: false,
-    aprobar: false,
-    ver: true
-  }
-};
-
-export function tienePermiso(rol: RolUsuario, accion: keyof PermisosProveedor): boolean {
-  const permisos = PERMISOS_POR_ROL[rol] ?? PERMISOS_POR_ROL.admin;
-  return permisos[accion];
-}
+/**
+ * Los permisos de este módulo NO se definen aquí.
+ *
+ * Viven en la base de datos (tablas `roles`, `permisos`, `roles_permisos`) y se
+ * consultan desde la UI con `usePermissions()` → `can(modulo, accion)`.
+ *
+ * Hasta el 31/08/2026 existía aquí una tabla `PERMISOS_POR_ROL` con los permisos
+ * escritos a mano por rol. Se eliminó porque su fallback (`?? PERMISOS_POR_ROL.
+ * admin_sistemas`) concedía permisos totales a cualquier rol no listado, y
+ * `profiles.rol` vale `sin_rol` para casi todo el equipo: el fallback se
+ * disparaba siempre. Ver git para el detalle.
+ */

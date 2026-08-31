@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { ArrowLeft, Edit, CheckCircle, XCircle, Ban, Truck, Package, FileText, Calendar, DollarSign, ShieldAlert, ShieldCheck, Users, ShoppingBag } from 'lucide-react';
 import { loadFlujoAprobacion, determinarNivelAprobacion, nivelAprobacionColor } from '../../../lib/compras/approval-flow';
+import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
@@ -25,7 +26,6 @@ import { useRecepcionesStore } from '../../../lib/compras/recepciones-store';
 import {
   ORDEN_ESTADO_CONFIG,
   ORDEN_TIPO_LABELS,
-  tienePermiso,
   puedeEditarOrden,
   puedeAnularOrden,
   puedeRevisarOrden,
@@ -43,6 +43,8 @@ interface OrdenDetalleProps {
 
 export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
   const { obtenerOrdenPorId, aprobarOrden, rechazarOrden, marcarEnEjecucion, anularOrden, usuarioActual } = useOrdenesStore();
+  // Permisos reales del usuario (RBAC), no el rol suelto de profiles
+  const { can } = usePermissions();
   const { obtenerRecepcionesPorOrden } = useRecepcionesStore();
   
   const orden = obtenerOrdenPorId(ordenId);
@@ -96,13 +98,14 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
   const rolActualPuedeAprobarEsteNivel = nivelAprobacion.roles.includes(usuarioActual.nombre) ||
     nivelAprobacion.roles.some(r => r.toLowerCase() === usuarioActual.rol.toLowerCase().replace(/_/g, ' '));
 
-  const puedeAprobar = tienePermiso(usuarioActual.rol, 'aprobar') && puedeRevisarOrden(orden.estado);
-  const puedeRechazar = tienePermiso(usuarioActual.rol, 'rechazar') && puedeRevisarOrden(orden.estado);
-  const puedeEditar = tienePermiso(usuarioActual.rol, 'editar') && puedeEditarOrden(orden.estado);
-  const puedeAnular = tienePermiso(usuarioActual.rol, 'anular') && puedeAnularOrden(orden.estado);
-  const puedeIniciarEjecucion = tienePermiso(usuarioActual.rol, 'marcarEnEjecucion') && puedeMarcarEnEjecucion(orden.estado);
-  const puedeCrearRecepcion = (tienePermiso(usuarioActual.rol, 'ver') || usuarioActual.rol === 'operaciones') 
-    && puedeRecibirOrden(orden.estado);
+  const puedeAprobar = can('compras', 'aprobar') && puedeRevisarOrden(orden.estado);
+  const puedeRechazar = can('compras', 'aprobar') && puedeRevisarOrden(orden.estado);
+  const puedeEditar = can('compras', 'editar') && puedeEditarOrden(orden.estado);
+  const puedeAnular = can('compras', 'eliminar') && puedeAnularOrden(orden.estado);
+  const puedeIniciarEjecucion = can('compras', 'editar') && puedeMarcarEnEjecucion(orden.estado);
+  // Registrar una recepción es una acción, no una lectura: exige el permiso propio
+  // `compras.recepcionar` (el que tienen Compras, Flota y Operaciones), no `ver`.
+  const puedeCrearRecepcion = can('compras', 'recepcionar') && puedeRecibirOrden(orden.estado);
 
   // Handlers
   const handleAprobar = async () => {

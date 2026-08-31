@@ -4,6 +4,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { usePagination } from '../../../../lib/shared/usePagination';
+import { usePermissions } from '../../../../lib/rbac/usePermissions';
 import {
   FileText,
   Download,
@@ -52,6 +53,9 @@ interface FlotaReporteDocumentosProps {
 
 export function FlotaReporteDocumentos({ onNavigate }: FlotaReporteDocumentosProps) {
   const { vehiculos } = useVehiculos();
+  const { can } = usePermissions();
+  // Cada usuario descarga su propia data: se exige <modulo>.exportar
+  const puedeExportar = can('flota', 'exportar');
 
   const [filters, setFilters] = useState<DocumentosReportFilters>({});
 
@@ -77,6 +81,8 @@ export function FlotaReporteDocumentos({ onNavigate }: FlotaReporteDocumentosPro
   };
 
   const handleExportCSV = () => {
+
+    if (!puedeExportar) return;
     if (rows.length === 0) {
       toast.error('No hay datos para exportar');
       return;
@@ -107,6 +113,8 @@ export function FlotaReporteDocumentos({ onNavigate }: FlotaReporteDocumentosPro
   };
 
   const handleExportExcel = () => {
+
+    if (!puedeExportar) return;
     if (rows.length === 0) {
       toast.error('No hay datos para exportar');
       return;

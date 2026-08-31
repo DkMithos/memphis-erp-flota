@@ -26,12 +26,12 @@ import {
   TableRow,
 } from '../../ui/table';
 import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
+import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useRequerimientosStore } from '../../../lib/compras/requerimientos-store';
 import { useOrdenesStore } from '../../../lib/compras/ordenes-store';
 import {
   COTIZACION_ESTADO_CONFIG,
   COTIZACION_TIPO_LABELS,
-  tienePermiso,
   puedeEditarCotizacion,
   puedeAnularCotizacion,
   puedeRevisarCotizacion,
@@ -55,6 +55,8 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
     rechazarCotizacion,
     usuarioActual 
   } = useCotizacionesStore();
+  // Permisos reales del usuario (RBAC), no el rol suelto de profiles
+  const { can } = usePermissions();
   
   const { obtenerRequerimientoPorId } = useRequerimientosStore();
   const { obtenerOrdenesPorCotizacion } = useOrdenesStore();
@@ -89,10 +91,10 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
   const estadoConfig = COTIZACION_ESTADO_CONFIG[cotizacion.estado]
     ?? { label: cotizacion.estado, icon: FileText, className: 'bg-gray-100 text-gray-600' };
 
-  const puedeEditar = tienePermiso(usuarioActual.rol, 'editar') && puedeEditarCotizacion(cotizacion.estado);
-  const puedeAnular = tienePermiso(usuarioActual.rol, 'anular') && puedeAnularCotizacion(cotizacion.estado);
-  const puedeAprobar = tienePermiso(usuarioActual.rol, 'aprobar') && puedeRevisarCotizacion(cotizacion.estado);
-  const puedeRechazar = tienePermiso(usuarioActual.rol, 'rechazar') && puedeRevisarCotizacion(cotizacion.estado);
+  const puedeEditar = can('compras', 'editar') && puedeEditarCotizacion(cotizacion.estado);
+  const puedeAnular = can('compras', 'eliminar') && puedeAnularCotizacion(cotizacion.estado);
+  const puedeAprobar = can('compras', 'aprobar') && puedeRevisarCotizacion(cotizacion.estado);
+  const puedeRechazar = can('compras', 'aprobar') && puedeRevisarCotizacion(cotizacion.estado);
 
   const handleAnular = async () => {
     const validacion = validarMotivo(motivoAnulacion, 'anulación');

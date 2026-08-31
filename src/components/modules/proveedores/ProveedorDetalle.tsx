@@ -19,6 +19,7 @@ import { Textarea } from '../../ui/textarea';
 import { Label } from '../../ui/label';
 import { Separator } from '../../ui/separator';
 import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
+import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useAuth } from '../../../auth/AuthProvider';
 import { PortalProveedorCard } from './PortalProveedorCard';
 import {
@@ -26,7 +27,6 @@ import {
   PROVEEDOR_CONDICION_CONFIG,
   PROVEEDOR_TIPO_CONFIG,
   PROVEEDOR_CATEGORIA_LABELS,
-  tienePermiso,
   validarMotivoInactivacion,
   type RolUsuario
 } from '../../../lib/proveedores/proveedores-config';
@@ -39,6 +39,8 @@ interface ProveedorDetalleProps {
 
 export function ProveedorDetalle({ proveedorId, onNavigate }: ProveedorDetalleProps) {
   const { obtenerProveedorPorId, inactivarProveedor, activarProveedor } = useProveedorStore();
+  // Permisos reales del usuario (RBAC), no el rol suelto de profiles
+  const { can } = usePermissions();
   const { profile } = useAuth();
   const rolActual = (profile?.rol ?? 'operaciones') as RolUsuario;
   const proveedor = obtenerProveedorPorId(proveedorId);
@@ -72,9 +74,9 @@ export function ProveedorDetalle({ proveedorId, onNavigate }: ProveedorDetallePr
     ...(proveedor.cuentasBancarias ?? []),
   ];
 
-  const puedeEditar = tienePermiso(rolActual, 'editar') && proveedor.estado !== 'inactivo';
-  const puedeInactivar = tienePermiso(rolActual, 'inactivar') && proveedor.estado === 'activo';
-  const puedeActivar = tienePermiso(rolActual, 'inactivar') && proveedor.estado === 'inactivo';
+  const puedeEditar = can('proveedores', 'editar') && proveedor.estado !== 'inactivo';
+  const puedeInactivar = can('proveedores', 'eliminar') && proveedor.estado === 'activo';
+  const puedeActivar = can('proveedores', 'eliminar') && proveedor.estado === 'inactivo';
 
   const handleInactivar = async () => {
     const validacion = validarMotivoInactivacion(motivoInactivacion);

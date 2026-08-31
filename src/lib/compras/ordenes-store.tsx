@@ -251,7 +251,8 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
   const usuarioActual = {
     email: user?.email ?? profile?.email ?? 'admin@kesa.com',
     nombre: profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Usuario',
-    rol: (profile?.rol as RolUsuario) ?? ('admin_sistemas' as RolUsuario),
+    // Solo alimenta textos informativos; los permisos reales los da usePermissions().
+    rol: (profile?.rol as RolUsuario) ?? ('operaciones' as RolUsuario),
   };
 
   const fetchOrdenes = useCallback(async () => {

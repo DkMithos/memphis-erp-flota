@@ -43,6 +43,7 @@ import {
   type CrossReportKPIs,
 } from '../../../lib/bi/cross-report';
 import { exportToCSV } from '../../../lib/shared/export-utils';
+import { usePermissions } from '../../../lib/rbac/usePermissions';
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(amount);
@@ -69,6 +70,14 @@ function getDefaultDates() {
 
 export function ReporteCruzado() {
   const { tenantId } = useAuth();
+  const { can } = usePermissions();
+  // BI cruza varios módulos y no es un módulo RBAC propio: igual que la ruta
+  // /bi, basta con poder exportar alguno de los módulos que alimenta el reporte.
+  const puedeExportar =
+    can('compras', 'exportar') ||
+    can('finanzas', 'exportar') ||
+    can('proyectos', 'exportar') ||
+    can('flota', 'exportar');
   const defaults = getDefaultDates();
 
   // Filters state
@@ -117,6 +126,8 @@ export function ReporteCruzado() {
   }, [tenantId, dateFrom, dateTo, proyectoId, centroCostoId, modulosSeleccionados]);
 
   const handleExportCSV = () => {
+
+    if (!puedeExportar) return;
     if (rows.length === 0) return;
     exportToCSV('reporte-cruzado', rows, {
       fecha: 'Fecha',
