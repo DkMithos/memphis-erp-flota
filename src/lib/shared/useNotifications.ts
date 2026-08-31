@@ -1,8 +1,23 @@
 /**
- * useNotifications — Notificaciones en tiempo real via Supabase Realtime
- * Suscribe a cambios en ordenes_trabajo, tareas_proyecto y articulos (stock bajo)
+ * useNotifications — Notificaciones en tiempo real vía Supabase Realtime.
+ *
+ * El canal es UNO SOLO por tenant y por pestaña, compartido entre todos los
+ * componentes que usen el hook.
+ *
+ * Antes cada componente abría `supabase.channel('notif-<tenant>')` por su
+ * cuenta. Con un único consumidor (la barra superior) funcionaba; en cuanto el
+ * Home empezó a usar el hook, el segundo montaje añadía callbacks sobre el
+ * canal que el primero ya había suscrito y supabase-js lanzaba:
+ *
+ *   cannot add `postgres_changes` callbacks for realtime:notif-<tenant>
+ *   after `subscribe()`
+ *
+ * La excepción subía hasta el ErrorBoundary y tumbaba la aplicación entera.
+ * Darle un nombre distinto a cada canal lo habría callado, pero duplicaría las
+ * notificaciones que se insertan desde los handlers. Se comparte una sola
+ * suscripción con conteo de referencias.
  */
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase/client';
 import { useAuth } from '../../auth/AuthProvider';
 
@@ -30,30 +45,140 @@ function mapRow(r: Record<string, unknown>): Notificacion {
   };
 }
 
+// ── Estado compartido por tenant ────────────────────────────────────────────
+
+type Oyente = (n: Notificacion[]) => void;
+
+interface Compartido {
+  canal: ReturnType<typeof supabase.channel> | null;
+  oyentes: Set<Oyente>;
+  datos: Notificacion[];
+}
+
+const compartidos = new Map<string, Compartido>();
+
+function estado(tenantId: string): Compartido {
+  let c = compartidos.get(tenantId);
+  if (!c) {
+    c = { canal: null, oyentes: new Set(), datos: [] };
+    compartidos.set(tenantId, c);
+  }
+  return c;
+}
+
+/** Publica una nueva lista a todos los componentes montados. */
+function emitir(tenantId: string, cambio: (prev: Notificacion[]) => Notificacion[]): void {
+  const c = estado(tenantId);
+  c.datos = cambio(c.datos);
+  for (const oyente of c.oyentes) oyente(c.datos);
+}
+
+async function cargar(tenantId: string): Promise<void> {
+  const { data } = await supabase
+    .from('notificaciones')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .order('creado_en', { ascending: false })
+    .limit(50);
+  if (data) emitir(tenantId, () => (data as Record<string, unknown>[]).map(mapRow));
+}
+
+function abrirCanal(tenantId: string): ReturnType<typeof supabase.channel> {
+  return supabase.channel(`notif-${tenantId}`)
+    // Notificaciones propias (otras sesiones o usuarios del mismo tenant)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'notificaciones', filter: `tenant_id=eq.${tenantId}` },
+      (payload) => {
+        const nueva = mapRow(payload.new as Record<string, unknown>);
+        emitir(tenantId, prev =>
+          prev.some(n => n.id === nueva.id) ? prev : [nueva, ...prev].slice(0, 50));
+      },
+    )
+    // Nuevas OTs
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'ordenes_trabajo', filter: `tenant_id=eq.${tenantId}` },
+      async (payload) => {
+        const ot = payload.new as Record<string, unknown>;
+        await supabase.from('notificaciones').insert({
+          tenant_id: tenantId,
+          tipo: 'info',
+          titulo: `Nueva OT: ${ot.numero_ot}`,
+          mensaje: `${ot.titulo} — ${ot.taller_nombre}`,
+          entidad_tipo: 'orden_trabajo',
+          entidad_id: ot.numero_ot as string,
+        });
+      },
+    )
+    // Tareas vencidas (detectadas al cambiar fecha_vencimiento)
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'tareas_proyecto', filter: `tenant_id=eq.${tenantId}` },
+      async (payload) => {
+        const t = payload.new as Record<string, unknown>;
+        const hoy = new Date().toISOString().split('T')[0];
+        if (
+          t.estado !== 'completada' && t.estado !== 'cancelada' &&
+          t.fecha_vencimiento && (t.fecha_vencimiento as string) < hoy
+        ) {
+          await supabase.from('notificaciones').insert({
+            tenant_id: tenantId,
+            tipo: 'warning',
+            titulo: `Tarea vencida: ${t.titulo}`,
+            mensaje: `Venció el ${t.fecha_vencimiento}`,
+            entidad_tipo: 'tarea',
+            entidad_id: t.id as string,
+          });
+        }
+      },
+    )
+    .subscribe();
+}
+
+/** Registra un componente. Devuelve la función para darlo de baja. */
+function suscribir(tenantId: string, oyente: Oyente): () => void {
+  const c = estado(tenantId);
+  const primero = c.oyentes.size === 0;
+  c.oyentes.add(oyente);
+
+  if (primero) {
+    c.canal = abrirCanal(tenantId);
+    void cargar(tenantId);
+  } else {
+    // Ya hay datos cargados: el que llega tarde los recibe de inmediato.
+    oyente(c.datos);
+  }
+
+  return () => {
+    c.oyentes.delete(oyente);
+    if (c.oyentes.size === 0 && c.canal) {
+      void supabase.removeChannel(c.canal);
+      c.canal = null;
+    }
+  };
+}
+
+// ── Hook ────────────────────────────────────────────────────────────────────
+
 export function useNotifications() {
   const { tenantId } = useAuth();
-  const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const [notificaciones, setNotificaciones] = useState<Notificacion[]>(
+    () => (tenantId ? estado(tenantId).datos : []),
+  );
+
+  useEffect(() => {
+    if (!tenantId) {
+      setNotificaciones([]);
+      return;
+    }
+    return suscribir(tenantId, setNotificaciones);
+  }, [tenantId]);
 
   const noLeidas = notificaciones.filter(n => !n.leida).length;
 
-  // ── Carga inicial ──────────────────────────────────────────────────────────
-
-  const fetchNotificaciones = useCallback(async () => {
-    if (!tenantId) return;
-    const { data } = await supabase
-      .from('notificaciones')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .order('creado_en', { ascending: false })
-      .limit(50);
-    if (data) setNotificaciones((data as Record<string, unknown>[]).map(mapRow));
-  }, [tenantId]);
-
-  // ── Insertar notificación ─────────────────────────────────────────────────
-
   const pushNotificacion = useCallback(async (
-    notif: Omit<Notificacion, 'id' | 'leida' | 'creadoEn'>
+    notif: Omit<Notificacion, 'id' | 'leida' | 'creadoEn'>,
   ) => {
     if (!tenantId) return;
     const { data } = await supabase.from('notificaciones').insert({
@@ -65,105 +190,23 @@ export function useNotifications() {
       entidad_id: notif.entidadId ?? null,
     }).select().single();
     if (data) {
-      setNotificaciones(prev => [mapRow(data as Record<string, unknown>), ...prev].slice(0, 50));
+      const nueva = mapRow(data as Record<string, unknown>);
+      emitir(tenantId, prev =>
+        prev.some(n => n.id === nueva.id) ? prev : [nueva, ...prev].slice(0, 50));
     }
   }, [tenantId]);
 
-  // ── Marcar como leída ─────────────────────────────────────────────────────
-
   const marcarLeida = useCallback(async (id: string) => {
     await supabase.from('notificaciones').update({ leida: true }).eq('id', id);
-    setNotificaciones(prev => prev.map(n => n.id === id ? { ...n, leida: true } : n));
-  }, []);
+    if (tenantId) emitir(tenantId, prev => prev.map(n => n.id === id ? { ...n, leida: true } : n));
+  }, [tenantId]);
 
   const marcarTodasLeidas = useCallback(async () => {
     if (!tenantId) return;
     await supabase.from('notificaciones').update({ leida: true })
       .eq('tenant_id', tenantId).eq('leida', false);
-    setNotificaciones(prev => prev.map(n => ({ ...n, leida: true })));
+    emitir(tenantId, prev => prev.map(n => ({ ...n, leida: true })));
   }, [tenantId]);
-
-  // ── Realtime subscriptions ────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!tenantId) return;
-
-    fetchNotificaciones();
-
-    // Canal para notificaciones propias (otras sesiones/usuarios del mismo tenant)
-    const channel = supabase.channel(`notif-${tenantId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notificaciones',
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        (payload) => {
-          const nueva = mapRow(payload.new as Record<string, unknown>);
-          setNotificaciones(prev => {
-            if (prev.some(n => n.id === nueva.id)) return prev;
-            return [nueva, ...prev].slice(0, 50);
-          });
-        }
-      )
-      // Nuevas OTs
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'ordenes_trabajo',
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        async (payload) => {
-          const ot = payload.new as Record<string, unknown>;
-          await supabase.from('notificaciones').insert({
-            tenant_id: tenantId,
-            tipo: 'info',
-            titulo: `Nueva OT: ${ot.numero_ot}`,
-            mensaje: `${ot.titulo} — ${ot.taller_nombre}`,
-            entidad_tipo: 'orden_trabajo',
-            entidad_id: ot.numero_ot as string,
-          });
-        }
-      )
-      // Tareas vencidas (detectadas al cambiar fecha_vencimiento)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'tareas_proyecto',
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        async (payload) => {
-          const t = payload.new as Record<string, unknown>;
-          const hoy = new Date().toISOString().split('T')[0];
-          if (
-            t.estado !== 'completada' && t.estado !== 'cancelada' &&
-            t.fecha_vencimiento && (t.fecha_vencimiento as string) < hoy
-          ) {
-            await supabase.from('notificaciones').insert({
-              tenant_id: tenantId,
-              tipo: 'warning',
-              titulo: `Tarea vencida: ${t.titulo}`,
-              mensaje: `Venció el ${t.fecha_vencimiento}`,
-              entidad_tipo: 'tarea',
-              entidad_id: t.id as string,
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [tenantId, fetchNotificaciones]);
 
   return { notificaciones, noLeidas, marcarLeida, marcarTodasLeidas, pushNotificacion };
 }
