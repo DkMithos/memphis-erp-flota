@@ -118,12 +118,64 @@ cuánto falta por pagar, cuánto y cuándo"*. **No se pueden hacer antes.**
    pendiente: ¿se cargan los bancos al ERP o se deja fuera?
 9. **Ingresos reales / OXI 10%** — necesita `registro_ventas`. Hoy la única fuente es el Excel.
 
-## 5. Lo que necesito de Kevin
+## 5. Decisiones de Kevin (31/08/2026)
 
-1. **¿Confirmas la opción B** (vista "Flujo Gerencia" dentro de BI con entrada propia)?
-2. **¿Arranco la Fase 1 ya**, aunque la deuda quede en blanco hasta que entre CxP? Mi
-   recomendación es sí: le da a Gerencia el lado de compromiso y proyectos desde el día uno, y
-   deja el hueco de deuda **rotulado como "pendiente de carga"** en vez de mostrando S/0.
-3. **Tipo de cambio**: ¿fijamos uno mensual en una tabla, o mostramos siempre PEN y USD por
-   separado sin consolidar? Sin esto, ningún total mixto es defendible.
-4. **Bancos e ingresos** (Fase 3): ¿entran al ERP o se quedan en el Excel de Gerencia?
+1. ✅ **Opción B confirmada**: vista "Flujo Gerencia" dentro de BI.
+2. ✅ **Fase 1 arranca ya**, con el hueco de deuda rotulado como pendiente de carga.
+3. ✅ **Tipo de cambio por tabla de fechas** (camino 2): se valoriza por la **fecha de emisión de
+   la factura** tomando el **TC más alto del día**. Ver §6.
+4. ✅ **Tesorería entra al ERP** (saldos y movimientos bancarios). **Ingresos = valorizaciones de
+   proyectos**, no `registro_ventas`.
+
+## 6. Tipo de cambio — diseño acordado
+
+Por qué importa tanto: **902 OCs en USD por $22,250,846** frente a **395 en PEN por
+S/20,200,547**. La mayor parte del gasto de Memphis está en dólares, así que consolidar con una
+constante en el código movía la cifra de Gerencia en millones según qué número se eligiera.
+
+Tabla `tipos_cambio`, una fila por fecha y fuente:
+
+| Campo | Para qué |
+|---|---|
+| `fecha` | día de la cotización |
+| `compra` / `venta` | el par que publica SUNAT |
+| `fuente` | `SUNAT` o `MANUAL`, para saber de dónde salió cada fila |
+
+**Regla de valorización**: se usa la fecha de emisión del documento y el **TC más alto del día**,
+que en la práctica es el de **venta**. Un documento en soles no se toca nunca.
+
+Mientras la tabla no tenga la fecha de un documento, ese documento **no se consolida**: aparece
+en su moneda y sumado aparte. Es preferible a inventarle un tipo de cambio.
+
+**Pendiente**: de dónde sale el histórico desde 2022-06. Lo natural es `apis.net.pe` (ya se usa
+para RUC/DNI en `sunat-proxy`), pero son ~1,100 días y el plan gratuito limita llamadas. La
+alternativa es cargar el archivo de TC que ya use Contabilidad.
+
+## 7. Imputación de las 353 órdenes sin proyecto
+
+El cruce área ↔ proyecto **sí funciona**: el puente es `centros_costo.proyecto_id`. La
+correlación es exacta — **toda** OC cuyo centro de costo está puenteado tiene proyecto, y
+**ninguna** de las demás lo tiene. No hay un problema de mecanismo, hay 69 centros de costo sin
+puentear, y solo **12 de ellos tienen órdenes**.
+
+Esos 12 se dividen en dos grupos, y ahí está la decisión:
+
+**Parecen proyectos que no existen en el ERP** (hoy solo hay 11 proyectos):
+
+| Centro de costo | OCs | PEN | USD |
+|---|---|---|---|
+| MSS-30 | 118 | 409,248 | 1,717,913 |
+| MDI | 85 | 115,630 | 368,456 |
+| LORETOAMB | 29 | 543,315 | 3,013,310 |
+| MUNSMSERENAZGO (Municipalidad San Miguel – Serenazgo) | 7 | 7,859 | 141,006 |
+| INMPAN | 12 | 10,341 | 27,395 |
+| GLORETOHOSP | 3 | 1,100 | 0 |
+| ISLASEGURA | 2 | 3,122 | 0 |
+| PDD | 2 | 1,040,772 | 0 |
+| C-OXI | 1 | 0 | 63,370 |
+
+**Parecen áreas internas** (gasto de estructura, correctamente sin proyecto):
+SISTEMAS (40 OCs), OFCENTRAL – Gastos Oficina Central (28 OCs), MANTENIMIENTO (0 OCs).
+
+Con **12 decisiones** quedan imputadas las 353 órdenes. Entregado a Kevin el archivo
+`OCs-sin-proyecto-2026-08-31.xlsx` con el resumen por centro de costo y el detalle.
