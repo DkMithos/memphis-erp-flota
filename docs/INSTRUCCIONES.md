@@ -60,6 +60,9 @@
 
 | N34 | **Corte de oc-system: viernes 28/08/2026.** Desde esa fecha toda orden, requerimiento y cotización se genera SOLO en el ERP; el portal legado deja de usarse. Antes de apagar Firebase: backup completo (Fase 7). Próximo número que emitirá el ERP: **MM-001223** | 2026-08-27 | fecha fijada por Kevin |
 
+| N35 | **Equipo y roles (Kevin, 27/08/2026)**: Carolina Okamura `cokamura@` (caja chica + BD admin) y su asistente Shirley Bujaico `sbujaico@` → rol **Administración**; Miguelangel Castañeda `mcastaneda@` (proyectos, presupuestos, flota) → **Proyectos + Técnico Flota**; Richard Navarro `rnavarro@` (requerimientos, cotizaciones, órdenes + revisión de facturas y pagos) → **Compras + Administración**; José Humberto Ramirez `jramirez@` (flota) → **Técnico Flota**. Directiva: *"lo mínimo necesario para que no interrumpa su trabajo"* | 2026-08-27 | **5 cuentas creadas 27/08**. OJO: los permisos **no se aplican en la UI todavía** (ver N36) |
+| N36 | **El RBAC es solo dato: la UI no lo aplica.** `<PermissionGuard>` no se usa en ninguna pantalla y `usePermissions().can()` no gatea nada; `App.tsx` solo mira `isAdmin` y "sin rol", y el menú se filtra por un interruptor global de módulos, no por usuario. Consecuencia: **cualquier usuario con cualquier rol ve y puede usar todos los módulos**. Asignar roles hoy no restringe nada. Es el bloqueante B3 de la auditoría, y hace que la directiva de N35 no se pueda cumplir sin construir la aplicación de permisos | 2026-08-27 | **pendiente — decisión de Kevin sobre si entra antes del lunes** |
+
 ## Flujo de trabajo acordado (sesiones)
 
 1. Kevin navega el sistema y reporta bugs/problemas → se corrigen por lotes.
