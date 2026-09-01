@@ -12,6 +12,24 @@ html {
   overflow-y: scroll;
 }
 
+/* Radix (react-remove-scroll) bloquea el scroll al abrir un desplegable, un
+   diálogo o un popover, y compensa la desaparición del scrollbar inyectando:
+
+     body[data-scroll-locked] { padding-right: <ancho>px !important }
+
+   Pero aquí el scrollbar vive en <html> con el gutter ya reservado arriba, así
+   que nunca desaparece: esa compensación no recupera nada y solo empuja el
+   contenido. Era el salto lateral al abrir cualquier desplegable, en todos los
+   módulos.
+
+   Se anula sin tocar el bloqueo de scroll. Hace falta MÁS especificidad que la
+   suya (`html body[...]` gana a `body[...]`) porque su <style> se inyecta en
+   tiempo de ejecución, después de esta hoja. */
+html body[data-scroll-locked] {
+  padding-right: 0 !important;
+  margin-right: 0 !important;
+}
+
 @layer properties {
   @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
     *, :before, :after, ::backdrop {

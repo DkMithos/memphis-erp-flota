@@ -1,7 +1,55 @@
 # Memphis ERP — Pendientes acumulados
 
 > Registro vivo de lo que queda por hacer. Se actualiza conforme avanzamos o se priorizan cosas nuevas.
-> Última actualización: 2026-06-02
+> Última actualización: **2026-08-31**
+
+---
+
+## ⏸️ En pausa por decisión de Kevin (31/08/2026)
+
+### Dashboard de Gerencia / Flujo GM
+→ [PLAN-Dashboard-Gerencia.md](PLAN-Dashboard-Gerencia.md). **Pausado el 31/08** para priorizar la
+usabilidad de los módulos que el equipo ya está usando.
+
+Queda decidido y listo para retomar:
+- Vive como vista **"Flujo Gerencia" dentro de BI** (opción B confirmada).
+- **Fase 1** (compromiso mensual, por proyecto, por centro de costo, concentración de proveedores)
+  se puede construir con lo que ya hay migrado.
+- **Fase 2** (deuda, vencido, calendario de pagos) **depende de CxP**: `comprobantes_pago`,
+  `transacciones`, `registro_ventas`, `presupuestos` y `asientos_contables` están en 0 filas.
+- **Tipo de cambio**: tabla por fecha, valorizando por fecha de emisión de la factura con el TC más
+  alto del día. Falta la fuente del histórico desde 2022-06.
+- **Tesorería entra al ERP** (saldos y movimientos bancarios). Ingresos = valorizaciones.
+
+Bloqueado por datos que debe traer el equipo:
+- Presupuesto de **4 proyectos**.
+- Imputación de las **353 OCs sin proyecto** — entregado `OCs-sin-proyecto-2026-08-31.xlsx`; son
+  solo **12 centros de costo**, así que son 12 decisiones. Varios de esos CDC (MSS-30, LORETOAMB,
+  MDI, PDD, MUNSMSERENAZGO…) parecen proyectos que aún no existen en el ERP.
+
+---
+
+## 🔵 P0 — Usabilidad de los módulos en uso (prioridad actual)
+
+### Caja Chica — resto del rediseño
+Hecho el 31/08: orden con abiertas primero y orden natural, totales por moneda en la cabecera,
+menú único de exportación (resumen · cajas+movimientos · consolidado por moneda · por proyecto),
+"Volver" que regresa a la lista y no al módulo anterior.
+
+Pendiente de revisar con Kevin:
+- Si el detalle de una caja necesita su propio rediseño (hoy reemplaza la lista).
+- Si hacen falta más cortes de exportación además de los cuatro actuales.
+
+### Exportaciones — Fase 1
+→ [PLAN-Exportaciones-Excel.md](PLAN-Exportaciones-Excel.md). **10 pantallas siguen sin exportar
+nada**: Contabilidad (comprobantes, registro de compras y ventas, asientos), Proyectos (lista,
+valorizaciones), Flota (vehículos, mantenimientos), Compras (recepciones, facturas), Finanzas
+(transacciones, flujo de caja). Es lo que desbloquea a Walter y a Miguelangel.
+
+### Revisar el resto de módulos con el mismo criterio
+Kevin reportó en Caja Chica cuatro cosas que probablemente se repiten en otros submódulos:
+listados sin orden útil, falta de exportaciones, "Volver" que salta de módulo y desplazamiento al
+abrir desplegables (este último ya corregido de forma global).
 
 ---
 

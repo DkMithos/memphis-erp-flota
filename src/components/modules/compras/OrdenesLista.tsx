@@ -125,7 +125,6 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
 
   // Click en header: alterna asc/desc o cambia de columna
   const toggleSort = (campo: typeof sortBy) => {
-    if (!puedeExportar) return;
     if (sortBy === campo) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortBy(campo); setSortDir(campo === 'numero' || campo === 'total' ? 'desc' : 'asc'); }
   };

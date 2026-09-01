@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Wallet, Check, X, AlertCircle, Download, FileText } from 'lucide-react';
+import { Plus, Wallet, Check, X, AlertCircle, Download, FileText, ChevronDown, Coins, FolderOpen, Layers } from 'lucide-react';
 import { PageNav } from '@/components/shared/PageNav';
 import { usePermissions } from '@/lib/rbac/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,9 +25,14 @@ import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
 import { SearchableSelect } from '../../shared/SearchableSelect';
 import { useAuth } from '@/auth/AuthProvider';
 import { useProyectos } from '@/lib/proyectos/proyectos-store';
-import { exportToExcel, exportToPDF, exportCajaModeloExcel, type MovimientoCajaModelo } from '@/lib/shared/export-utils';
+import { exportToExcel, exportToExcelMultiHoja, exportToPDF, exportCajaModeloExcel, type MovimientoCajaModelo } from '@/lib/shared/export-utils';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { supabase } from '@/lib/supabase/client';
 import { usePagination } from '@/lib/shared/usePagination';
+import { cajasParaMostrar } from '@/lib/finanzas/cajas-orden';
 
 interface Props {
   onNavigate: (route: string) => void;
@@ -101,6 +106,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
   }, [gastos, filtroProyecto]);
 
   const proyectoNombre = (id: string) => proyectos.find(p => p._dbId === id)?.nombre ?? id;
+
 
   /** Exporta la caja seleccionada en el MISMO formato del Excel de Administración (modelo). */
   const exportarModeloCaja = async (caja: CajaChica) => {
@@ -178,17 +184,137 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
 
   const selectedCaja = cajasChicas.find(c => c._dbId === selectedCajaId) ?? null;
 
-  const cajasFiltradas = useMemo(() => {
-    const q = cajaSearch.trim().toLowerCase();
-    return cajasChicas.filter(c =>
-      (cajaMoneda === 'todos' || c.moneda === cajaMoneda) &&
-      (cajaEstado === 'todos' || c.estado === cajaEstado) &&
-      (!q ||
-        c.nombre.toLowerCase().includes(q) ||
-        (c.id ?? '').toLowerCase().includes(q) ||
-        (c.responsable ?? '').toLowerCase().includes(q))
-    );
-  }, [cajasChicas, cajaSearch, cajaMoneda, cajaEstado]);
+  // Filtrado y orden viven en cajas-orden.ts para poder probarlos: abiertas
+  // primero y orden natural, para que CAJA 2 no quede detrás de CAJA 10.
+  const cajasFiltradas = useMemo(
+    () => cajasParaMostrar(cajasChicas, {
+      busqueda: cajaSearch, moneda: cajaMoneda, estado: cajaEstado,
+    }),
+    [cajasChicas, cajaSearch, cajaMoneda, cajaEstado],
+  );
+
+  /**
+   * Totales de lo que está en pantalla, SIEMPRE separados por moneda.
+   * Sumar PEN y USD sin tipo de cambio por fecha daría una cifra que no se
+   * puede defender (ver PLAN-Dashboard-Gerencia.md §6).
+   */
+  const totalesPorMoneda = useMemo(() => {
+    const acc: Record<string, { cajas: number; abiertas: number; asignado: number; disponible: number }> = {};
+    for (const c of cajasFiltradas) {
+      const m = c.moneda ?? 'PEN';
+      acc[m] ??= { cajas: 0, abiertas: 0, asignado: 0, disponible: 0 };
+      acc[m].cajas++;
+      if (c.estado !== 'cerrada') acc[m].abiertas++;
+      acc[m].asignado += Number(c.montoAsignado ?? 0);
+      acc[m].disponible += Number(c.montoDisponible ?? 0);
+    }
+    return acc;
+  }, [cajasFiltradas]);
+
+  /** Descripción de los filtros activos, para nombrar el archivo y avisar qué salió. */
+  const alcanceActual = useMemo(() => {
+    const partes: string[] = [];
+    if (cajaMoneda !== 'todos') partes.push(cajaMoneda);
+    if (cajaEstado !== 'todos') partes.push(cajaEstado.replace('_', ' '));
+    if (cajaSearch.trim()) partes.push(`"${cajaSearch.trim()}"`);
+    return partes.length ? partes.join(' · ') : 'todas las cajas';
+  }, [cajaMoneda, cajaEstado, cajaSearch]);
+
+  const CAB_CAJAS = {
+    codigo: 'Código', nombre: 'Caja', responsable: 'Responsable', moneda: 'Moneda',
+    asignado: 'Monto asignado', gastado: 'Gastado', disponible: 'Disponible',
+    usado: '% usado', estado: 'Estado',
+  };
+  const filasCajas = () => cajasFiltradas.map(c => ({
+    codigo: c.id, nombre: c.nombre, responsable: c.responsable, moneda: c.moneda,
+    asignado: Number(c.montoAsignado ?? 0),
+    gastado: Number(c.montoAsignado ?? 0) - Number(c.montoDisponible ?? 0),
+    disponible: Number(c.montoDisponible ?? 0),
+    usado: Number(c.porcentajeUsado ?? 0),
+    estado: c.estado.replace('_', ' '),
+  }));
+
+  /** Trae los movimientos (gastos + ingresos) de las cajas que están en pantalla. */
+  const movimientosDeLasCajas = async () => {
+    const ids = cajasFiltradas.map(c => c._dbId);
+    if (ids.length === 0) return [];
+    const nombrePorId = new Map(cajasFiltradas.map(c => [c._dbId, `${c.nombre} (${c.moneda})`]));
+    const [egr, ing] = await Promise.all([
+      supabase.from('gastos_caja_chica')
+        .select('caja_id, numero, fecha, centro_costo, categoria, comprobante_numero, beneficiario, descripcion, monto, moneda, estado')
+        .in('caja_id', ids),
+      supabase.from('ingresos_caja_chica')
+        .select('caja_id, numero, fecha, concepto, monto, moneda')
+        .in('caja_id', ids),
+    ]);
+    const filas = [
+      ...(ing.data ?? []).map((r: any) => ({
+        caja: nombrePorId.get(r.caja_id) ?? '', fecha: r.fecha, item: r.numero,
+        centroCosto: '', tipoDoc: 'INGRESO', comprobante: '', razonSocial: '',
+        descripcion: r.concepto, ingreso: Number(r.monto), egreso: null,
+        moneda: r.moneda, estado: '',
+      })),
+      ...(egr.data ?? []).map((r: any) => ({
+        caja: nombrePorId.get(r.caja_id) ?? '', fecha: r.fecha, item: r.numero,
+        centroCosto: r.centro_costo, tipoDoc: r.categoria, comprobante: r.comprobante_numero,
+        razonSocial: r.beneficiario, descripcion: r.descripcion,
+        ingreso: null, egreso: Number(r.monto), moneda: r.moneda, estado: r.estado,
+      })),
+    ];
+    return filas.sort((a, b) =>
+      String(a.caja).localeCompare(String(b.caja)) ||
+      String(a.fecha ?? '').localeCompare(String(b.fecha ?? '')));
+  };
+
+  const CAB_MOVS = {
+    caja: 'Caja', fecha: 'Fecha', item: 'Item', centroCosto: 'Centro de costo',
+    tipoDoc: 'Tipo doc', comprobante: 'Comprobante', razonSocial: 'Razón social',
+    descripcion: 'Descripción', ingreso: 'Ingreso', egreso: 'Egreso',
+    moneda: 'Moneda', estado: 'Estado',
+  };
+
+  const fechaHoy = () => new Date().toISOString().slice(0, 10);
+
+  /** 1 · Resumen: una fila por caja, tal como se ve en pantalla. */
+  const exportarResumenCajas = async () => {
+    if (!puedeExportar) return;
+    await exportToExcel(`cajas-chicas-resumen-${fechaHoy()}`, filasCajas(), CAB_CAJAS, 'Cajas');
+    toast.success(`${cajasFiltradas.length} caja(s) exportadas — ${alcanceActual}`);
+  };
+
+  /** 2 · Resumen + todos los movimientos, en un solo archivo de dos hojas. */
+  const exportarConMovimientos = async () => {
+    if (!puedeExportar) return;
+    try {
+      const movs = await movimientosDeLasCajas();
+      await exportToExcelMultiHoja(`cajas-chicas-detalle-${fechaHoy()}`, [
+        { nombre: 'Cajas', data: filasCajas(), headersMap: CAB_CAJAS },
+        { nombre: 'Movimientos', data: movs, headersMap: CAB_MOVS },
+      ]);
+      toast.success(`${cajasFiltradas.length} caja(s) y ${movs.length} movimiento(s) — ${alcanceActual}`);
+    } catch (e) {
+      toast.error('No se pudieron exportar los movimientos: ' + (e instanceof Error ? e.message : 'error'));
+    }
+  };
+
+  /** 3 · Consolidado por moneda: una fila por moneda. */
+  const exportarPorMoneda = async () => {
+    if (!puedeExportar) return;
+    const filas = Object.entries(totalesPorMoneda).map(([moneda, t]) => ({
+      moneda,
+      cajas: t.cajas,
+      abiertas: t.abiertas,
+      cerradas: t.cajas - t.abiertas,
+      asignado: Math.round(t.asignado * 100) / 100,
+      gastado: Math.round((t.asignado - t.disponible) * 100) / 100,
+      disponible: Math.round(t.disponible * 100) / 100,
+    }));
+    await exportToExcel(`cajas-chicas-por-moneda-${fechaHoy()}`, filas, {
+      moneda: 'Moneda', cajas: 'Cajas', abiertas: 'Abiertas', cerradas: 'Cerradas',
+      asignado: 'Asignado', gastado: 'Gastado', disponible: 'Disponible',
+    }, 'Por moneda');
+    toast.success(`Consolidado por moneda — ${alcanceActual}`);
+  };
 
   // Gastos de la caja: del más reciente al más antiguo (fecha desc, luego creación desc)
   const gastosDeCaja = useMemo(() =>
@@ -298,8 +424,6 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
   };
 
   const handleRechazarGasto = async (g: GastoCajaChica) => {
-
-    if (!puedeExportar) return;
     try {
       await updateGasto(g._dbId, { estado: 'rechazado' });
       toast.success('Gasto rechazado');
@@ -308,7 +432,10 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
 
   return (
     <div className="space-y-6">
-      <PageNav />
+      {/* Abrir una caja no cambia la URL: es estado interno. Sin este override,
+          "Volver" hacía history.back() y saltaba al módulo anterior en vez de
+          regresar a la lista de cajas. */}
+      <PageNav onBack={selectedCajaId ? () => setSelectedCajaId(null) : undefined} />
 
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -321,11 +448,90 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
             <p className="text-muted-foreground mt-1">Gestión de fondos y gastos de caja chica</p>
           </div>
         </div>
-        <Button onClick={() => setShowNuevaCaja(true)}>
-          <Plus className="size-4" />
-          Nueva Caja Chica
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Un solo menú con todo lo descargable: qué sale depende de los
+              filtros de abajo, así que "exporto lo que veo". */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={!puedeExportar || cajasChicas.length === 0}>
+                <Download className="size-4" />
+                Exportar
+                <ChevronDown className="size-4 opacity-60" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">
+                Alcance actual: {alcanceActual} ({cajasFiltradas.length} de {cajasChicas.length})
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={exportarResumenCajas}>
+                <Wallet className="size-4" />
+                <div>
+                  <div>Resumen de cajas</div>
+                  <div className="text-xs text-muted-foreground">Una fila por caja</div>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportarConMovimientos}>
+                <Layers className="size-4" />
+                <div>
+                  <div>Cajas + movimientos</div>
+                  <div className="text-xs text-muted-foreground">Dos hojas: cajas y todo el detalle</div>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportarPorMoneda}>
+                <Coins className="size-4" />
+                <div>
+                  <div>Consolidado por moneda</div>
+                  <div className="text-xs text-muted-foreground">Totales de soles y dólares por separado</div>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={filtroProyecto === 'todos' || gastosDelProyecto.length === 0}
+                onClick={() => exportarGastosProyecto('excel')}
+              >
+                <FolderOpen className="size-4" />
+                <div>
+                  <div>Gastos del proyecto</div>
+                  <div className="text-xs text-muted-foreground">
+                    {filtroProyecto === 'todos'
+                      ? 'Elige un proyecto abajo'
+                      : `${gastosDelProyecto.length} gasto(s) de ${proyectoNombre(filtroProyecto)}`}
+                  </div>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={() => setShowNuevaCaja(true)}>
+            <Plus className="size-4" />
+            Nueva Caja Chica
+          </Button>
+        </div>
       </div>
+
+      {/* Totales de lo filtrado, separados por moneda */}
+      {!loading && cajasFiltradas.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {Object.entries(totalesPorMoneda).map(([moneda, t]) => (
+            <Card key={moneda} className="border-l-4 border-l-primary">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                    {moneda === 'USD' ? 'Dólares' : 'Soles'}
+                  </p>
+                  <Badge variant="secondary" className="text-xs">
+                    {t.abiertas} abierta{t.abiertas === 1 ? '' : 's'} de {t.cajas}
+                  </Badge>
+                </div>
+                <p className="text-2xl font-semibold mt-2 tabular-nums">{fmt(t.disponible, moneda)}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  disponible de {fmt(t.asignado, moneda)} asignado
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Vista por Proyecto — datos de caja chica filtrados/exportables por proyecto */}
       <Card>
