@@ -363,13 +363,32 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
     .join(' — ') || orden.centroCostoTexto || orden.centroCosto || '';
 
   const aud = orden.auditoria || {};
-  const firma = (rol: string, nombre?: string | null, fecha?: string | null) => `
+
+  /**
+   * Las aprobaciones que REALMENTE ocurrieron, con la firma tal como estaba ese
+   * día. Vienen de `orden_aprobaciones`: las del ERP y las rescatadas de
+   * oc-system. Si una etapa no tiene aprobación, la línea va en blanco para
+   * firma manuscrita: no se estampa la firma de nadie sobre algo que no consta.
+   */
+  const aprobaciones: Record<string, any> = {};
+  for (const a of (orden.aprobaciones ?? [])) aprobaciones[a.etapa] = a;
+
+  const firma = (rol: string, etapa?: string, nombreFallback?: string | null, fechaFallback?: string | null) => {
+    const ap = etapa ? aprobaciones[etapa] : null;
+    const nombre = ap?.aprobadoPorNombre || ap?.aprobadoPorEmail || nombreFallback || '';
+    const fecha = ap?.aprobadoEn || fechaFallback || null;
+    const img = ap?.firma;
+    return `
     <div class="firma">
+      ${img
+        ? `<img class="rubrica" src="${esc(img)}" alt="">`
+        : '<div class="rubrica"></div>'}
       <div class="linea"></div>
       <div class="rol">${esc(rol)}</div>
-      <div class="quien">${esc(nombre || '')}</div>
+      <div class="quien">${esc(nombre)}</div>
       <div class="cuando">${fecha ? esc(fmtFecha(fecha)) : ''}</div>
     </div>`;
+  };
   // Cuenta bancaria: la que coincida con la moneda de la orden, o la primera
   const cuentas: any[] = proveedor?.cuentasBancarias ?? proveedor?.cuentas_bancarias ?? [];
   const cta = cuentas.find((c: any) => /d[oó]lar|usd/i.test(c?.moneda || '') === (orden.moneda === 'USD')) ?? cuentas[0] ?? {};
@@ -408,7 +427,8 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
   /* Firmas: cuatro columnas que no se parten entre páginas al imprimir. */
   .firmas{display:flex;gap:16px;margin-top:34px;page-break-inside:avoid}
   .firma{flex:1;text-align:center}
-  .firma .linea{border-top:1px solid #333;margin-bottom:4px;height:34px}
+  .firma .rubrica{display:block;height:34px;margin:0 auto;max-width:100%;object-fit:contain}
+  .firma .linea{border-top:1px solid #333;margin-bottom:4px}
   .firma .rol{font-size:9px;font-weight:bold;text-transform:uppercase;color:#333}
   .firma .quien{font-size:9px;color:#444;min-height:11px}
   .firma .cuando{font-size:8px;color:#777;min-height:10px}
@@ -473,10 +493,11 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
   </div>
 
   <div class="sec firmas">
-    ${firma('Elaborado por', aud.creadoPor, aud.creadoEn)}
-    ${firma('Revisado por', orden.revisadoPor, orden.revisadoEn)}
-    ${firma('Aprobado por', orden.aprobadoPor, orden.aprobadoEn)}
-    ${firma('Recibí conforme (proveedor)', '', null)}
+    ${firma('Elaborado por', 'comprador', aud.creadoPor, aud.creadoEn)}
+    ${firma('Revisado por', 'operaciones', null, null)}
+    ${firma('Gerencia Operaciones', 'gerenciaOperaciones', null, null)}
+    ${firma('Aprobado por', 'gerenciaGeneral', orden.aprobadoPor, orden.aprobadoEn)}
+    ${firma('Finanzas', 'finanzas', null, null)}
   </div>
 
   <div class="foot">

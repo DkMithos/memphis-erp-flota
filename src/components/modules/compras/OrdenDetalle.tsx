@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { ArrowLeft, Edit, CheckCircle, XCircle, Ban, Truck, Package, FileText, Calendar, DollarSign, ShieldAlert, ShieldCheck, Users, ShoppingBag } from 'lucide-react';
 import { loadFlujoAprobacion, determinarNivelAprobacion, nivelAprobacionColor } from '../../../lib/compras/approval-flow';
@@ -58,6 +59,32 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
       proveedores.find(p => p.razonSocial === orden?.proveedorNombre),
     [proveedores, orden]
   );
+  /**
+   * Aprobaciones firmadas de esta orden. Se cargan aparte porque cada firma es
+   * una imagen de ~12 KB: traerlas en el listado de órdenes lo haría inusable.
+   */
+  const [aprobaciones, setAprobaciones] = useState<any[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    if (!orden?._dbId) { setAprobaciones([]); return; }
+    supabase
+      .from('orden_aprobaciones')
+      .select('etapa, aprobado_por_email, aprobado_por_nombre, aprobado_en, firma, origen')
+      .eq('orden_id', orden._dbId)
+      .then(({ data }) => {
+        if (!vivo) return;
+        setAprobaciones((data ?? []).map((a: any) => ({
+          etapa: a.etapa,
+          aprobadoPorEmail: a.aprobado_por_email,
+          aprobadoPorNombre: a.aprobado_por_nombre,
+          aprobadoEn: a.aprobado_en,
+          firma: a.firma,
+          origen: a.origen,
+        })));
+      });
+    return () => { vivo = false; };
+  }, [orden?._dbId]);
+
   // Cotización de origen: la orden guarda el UUID; mostrar el número legible
   const { cotizaciones } = useCotizacionesStore();
   const cotizacionOrigen = useMemo(
@@ -188,7 +215,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
 
         {/* Acciones */}
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" onClick={() => exportOrdenPDF({ ...orden, cotizacionId: cotizacionOrigen?.id ?? orden.cotizacionId }, proveedorOC)}>
+          <Button variant="outline" onClick={() => exportOrdenPDF({ ...orden, cotizacionId: cotizacionOrigen?.id ?? orden.cotizacionId, aprobaciones }, proveedorOC)}>
             <FileText className="size-4" />
             Exportar PDF
           </Button>
