@@ -389,6 +389,53 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
       <div class="cuando">${fecha ? esc(fmtFecha(fecha)) : ''}</div>
     </div>`;
   };
+
+  /**
+   * El bloque de firmas se arma con lo que consta, no con una lista fija.
+   *
+   * - Órdenes del Excel 2024: se imprimían y firmaban en físico, y de esas no
+   *   hay firma digital que rescatar. En vez de dejar columnas vacías sin
+   *   explicación, se imprime una constancia de que así se aprobaron.
+   * - Órdenes de oc-system: llevan las etapas de aquel flujo (comprador,
+   *   operaciones, gerencia de operaciones, gerencia general, finanzas).
+   * - Órdenes nacidas en el ERP: el flujo es por umbrales de monto, así que se
+   *   imprime una columna por aprobación registrada, en el orden en que ocurrió.
+   */
+  const ETIQUETA_ETAPA: Record<string, string> = {
+    comprador: 'Elaborado por',
+    operaciones: 'Revisado por',
+    gerenciaOperaciones: 'Gerencia Operaciones',
+    gerenciaGeneral: 'Gerencia General',
+    gerencia: 'Gerencia',
+    finanzas: 'Finanzas',
+  };
+  const ORDEN_ETAPAS = ['comprador', 'operaciones', 'gerenciaOperaciones', 'gerenciaGeneral', 'gerencia', 'finanzas'];
+
+  const etapasConstan = Object.keys(aprobaciones).sort(
+    (a, b) => (ORDEN_ETAPAS.indexOf(a) + 1 || 99) - (ORDEN_ETAPAS.indexOf(b) + 1 || 99),
+  );
+
+  let bloqueFirmas: string;
+  if (etapasConstan.length > 0) {
+    const columnas = etapasConstan
+      .map(e => firma(ETIQUETA_ETAPA[e] ?? e, e, null, null))
+      .join('');
+    bloqueFirmas = `<div class="sec firmas">${columnas}</div>`;
+  } else if (orden.migradoDe === 'oc-excel-2024') {
+    bloqueFirmas = `
+  <div class="sec constancia">
+    <b>DOCUMENTO HISTÓRICO</b><br>
+    Orden emitida con anterioridad al sistema actual. Se imprimió y firmó en
+    físico en su momento; el original firmado obra en el archivo de la empresa.
+    Migrada al ERP el 22/06/2026 desde el registro de compras 2024.
+  </div>`;
+  } else {
+    bloqueFirmas = `
+  <div class="sec firmas">
+    ${firma('Elaborado por', undefined, aud.creadoPor, aud.creadoEn)}
+    ${firma('Aprobado por', undefined, orden.aprobadoPor, orden.aprobadoEn)}
+  </div>`;
+  }
   // Cuenta bancaria: la que coincida con la moneda de la orden, o la primera
   const cuentas: any[] = proveedor?.cuentasBancarias ?? proveedor?.cuentas_bancarias ?? [];
   const cta = cuentas.find((c: any) => /d[oó]lar|usd/i.test(c?.moneda || '') === (orden.moneda === 'USD')) ?? cuentas[0] ?? {};
@@ -426,6 +473,8 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
   .foot{margin-top:18px;font-size:9px;color:#555;border-top:1px solid #e5e7eb;padding-top:8px}
   /* Firmas: cuatro columnas que no se parten entre páginas al imprimir. */
   .firmas{display:flex;gap:16px;margin-top:34px;page-break-inside:avoid}
+  .constancia{margin-top:30px;padding:10px 12px;border:1px dashed #9aa3ad;background:#f8fafc;
+              font-size:9px;color:#444;line-height:1.5;page-break-inside:avoid}
   .firma{flex:1;text-align:center}
   .firma .rubrica{display:block;height:34px;margin:0 auto;max-width:100%;object-fit:contain}
   .firma .linea{border-top:1px solid #333;margin-bottom:4px}
@@ -492,13 +541,7 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
     </div>
   </div>
 
-  <div class="sec firmas">
-    ${firma('Elaborado por', 'comprador', aud.creadoPor, aud.creadoEn)}
-    ${firma('Revisado por', 'operaciones', null, null)}
-    ${firma('Gerencia Operaciones', 'gerenciaOperaciones', null, null)}
-    ${firma('Aprobado por', 'gerenciaGeneral', orden.aprobadoPor, orden.aprobadoEn)}
-    ${firma('Finanzas', 'finanzas', null, null)}
-  </div>
+  ${bloqueFirmas}
 
   <div class="foot">
     <b>ENVÍO DE SU FACTURA — PORTAL DE PROVEEDORES:</b><br>

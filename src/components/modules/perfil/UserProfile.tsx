@@ -10,6 +10,7 @@ import { Separator } from '../../ui/separator';
 import { useAuth } from '../../../auth/AuthProvider';
 import { supabase } from '../../../lib/supabase/client';
 import { toast } from 'sonner';
+import { MiFirma } from './MiFirma';
 
 export function UserProfile() {
   const { user, profile, tenantName } = useAuth();
@@ -111,6 +112,8 @@ export function UserProfile() {
           </div>
         </CardContent>
       </Card>
+
+      <MiFirma />
 
       {/* Cambiar Contraseña */}
       <Card>

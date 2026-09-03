@@ -80,6 +80,8 @@ export interface Orden {
   condiciones: string | null;
   lugarEntrega: string | null;
   observaciones: string | null;
+  /** Origen de la migración; null si la orden se creó en el ERP. */
+  migradoDe: string | null;
 
   // Centro de costo — el código es lo que se imprime, el id lo que se guarda
   centroCostoCodigo: string | null;
@@ -166,6 +168,8 @@ type OrdenWithRelations = OrdenCompraDB & {
   centro_costo?: { codigo: string; nombre: string } | null;
   /** El requerimiento no cuelga de la orden: se llega por la cotización. */
   cotizacion?: { numero: string; requerimiento?: { numero: string } | null } | null;
+  /** Marca de la migración: 'oc-system', 'oc-excel-2024' o ausente. */
+  migrado_de?: string | null;
 };
 
 function mapFromDB(row: OrdenWithRelations): Orden {
@@ -213,6 +217,8 @@ function mapFromDB(row: OrdenWithRelations): Orden {
     centroCostoNombre: row.centro_costo?.nombre ?? null,
     lugarEntrega: row.lugar_entrega ?? null,
     observaciones: row.observaciones ?? null,
+    /** De dónde vino: 'oc-system', 'oc-excel-2024' o null si nació en el ERP. */
+    migradoDe: row.migrado_de ?? null,
     proveedorNombre: row.proveedor?.razon_social ?? '',
     proveedorDbId: row.proveedor_id ?? null,
     moneda: row.moneda as MonedaOrden,
@@ -599,6 +605,33 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         return { exito: false, errores: [error.message] };
       }
 
+      // Deja constancia de la aprobación con una COPIA de la firma registrada.
+      // Se guarda la copia y no una referencia para que, si esa persona cambia
+      // su firma más adelante, este documento siga mostrando lo que se firmó hoy.
+      // Que falte la firma no invalida la aprobación: la orden queda aprobada
+      // igual y la línea sale en blanco para firma manuscrita.
+      try {
+        // Tabla nueva, todavía fuera de los tipos generados.
+        const { data: miFirma } = await (supabase.from('firmas_usuario') as any)
+          .select('imagen, nombre')
+          .eq('user_id', user.id)
+          .maybeSingle() as { data: { imagen: string; nombre: string | null } | null };
+
+        // La tabla es nueva: aún no está en los tipos generados de Supabase.
+        await (supabase.from('orden_aprobaciones') as any).upsert({
+          tenant_id: tenantId,
+          orden_id: dbId,
+          etapa: 'gerenciaGeneral',
+          aprobado_por_email: aprobadoPor,
+          aprobado_por_nombre: miFirma?.nombre ?? profile?.nombre ?? null,
+          aprobado_en: ahora,
+          firma: miFirma?.imagen ?? null,
+          origen: 'erp',
+        }, { onConflict: 'orden_id,etapa' });
+      } catch (e) {
+        console.error('[ORDENES] No se pudo registrar la firma de la aprobación:', e);
+      }
+
       setOrdenes(prev =>
         prev.map(o =>
           o.id === id
@@ -619,7 +652,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
 
       return { exito: true };
     },
-    [user]
+    [user, tenantId, profile]
   );
 
   const rechazarOrden = useCallback(
