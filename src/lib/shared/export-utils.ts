@@ -411,14 +411,18 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
   };
   const ORDEN_ETAPAS = ['comprador', 'operaciones', 'gerenciaOperaciones', 'gerenciaGeneral', 'gerencia', 'finanzas'];
 
-  const etapasConstan = Object.keys(aprobaciones).sort(
-    (a, b) => (ORDEN_ETAPAS.indexOf(a) + 1 || 99) - (ORDEN_ETAPAS.indexOf(b) + 1 || 99),
-  );
+  // Las etapas del legado van en su orden; las del ERP (`aprobador:<correo>`)
+  // van después, por fecha de aprobación.
+  const etapasConstan = Object.keys(aprobaciones).sort((a, b) => {
+    const ia = ORDEN_ETAPAS.indexOf(a), ib = ORDEN_ETAPAS.indexOf(b);
+    if (ia >= 0 || ib >= 0) return (ia + 1 || 99) - (ib + 1 || 99);
+    return String(aprobaciones[a]?.aprobadoEn ?? '').localeCompare(String(aprobaciones[b]?.aprobadoEn ?? ''));
+  });
 
   let bloqueFirmas: string;
   if (etapasConstan.length > 0) {
     const columnas = etapasConstan
-      .map(e => firma(ETIQUETA_ETAPA[e] ?? e, e, null, null))
+      .map(e => firma(ETIQUETA_ETAPA[e] ?? (e.startsWith('aprobador:') ? 'Aprobado por' : e), e, null, null))
       .join('');
     bloqueFirmas = `<div class="sec firmas">${columnas}</div>`;
   } else if (orden.migradoDe === 'oc-excel-2024') {

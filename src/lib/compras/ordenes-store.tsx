@@ -621,7 +621,10 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         await (supabase.from('orden_aprobaciones') as any).upsert({
           tenant_id: tenantId,
           orden_id: dbId,
-          etapa: 'gerenciaGeneral',
+          // El ERP aprueba por umbrales de monto y los niveles 2 y 3 piden varios
+          // aprobadores. Si la etapa fuera fija, el segundo sobrescribiría al
+          // primero por la unicidad (orden_id, etapa): se identifica por persona.
+          etapa: `aprobador:${aprobadoPor}`,
           aprobado_por_email: aprobadoPor,
           aprobado_por_nombre: miFirma?.nombre ?? profile?.nombre ?? null,
           aprobado_en: ahora,
