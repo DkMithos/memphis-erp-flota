@@ -19,6 +19,7 @@ export type TipoCatalogo =
   | 'forma_pago'
   | 'tipo_comprobante'
   | 'tipo_doc_caja'
+  | 'lugar_entrega'
   | 'zona_igv'
   | 'banco'
   | 'moneda'
@@ -48,6 +49,7 @@ export const TIPO_CATALOGO_LABELS: Record<TipoCatalogo, string> = {
   forma_pago:          'Formas de Pago',
   tipo_comprobante:    'Tipos de Comprobante',
   tipo_doc_caja:       'Tipos de Doc. Caja Chica',
+  lugar_entrega:       'Lugares de Entrega',
   zona_igv:            'Zonas / IGV',
   banco:               'Bancos',
   moneda:              'Monedas',

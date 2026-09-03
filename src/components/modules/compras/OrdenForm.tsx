@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Save, X, Plus, Trash2, AlertTriangle, FileText, ChevronDown, ShoppingBag } from 'lucide-react';
 import { PageNav } from '../../shared/PageNav';
 import { useCatalogos } from '../../../lib/shared/catalogos-store';
+import { SelectCatalogo } from '../../shared/SelectCatalogo';
 import { loadFlujoAprobacion, determinarNivelAprobacion, nivelAprobacionColor } from '../../../lib/compras/approval-flow';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -87,6 +88,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
   const [condiciones, setCondiciones] = useState(
     ordenExistente?.condiciones || cotizacionPrefill?.condiciones || ''
   );
+  const [lugarEntrega, setLugarEntrega] = useState(ordenExistente?.lugarEntrega || '');
   const [items, setItems] = useState<ItemForm[]>(
     ordenExistente?.items || cotizacionPrefill?.items || [
       { descripcion: '', cantidad: 1, unidad: '', precioUnitario: 0 }
@@ -178,6 +180,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
           moneda,
           fechaEntregaEstimada: fechaEntregaEstimada || undefined,
           condiciones: condiciones.trim() || undefined,
+          lugarEntrega: lugarEntrega.trim() || undefined,
           items: items.map(item => ({
             descripcion: item.descripcion.trim(),
             cantidad: item.cantidad,
@@ -203,7 +206,8 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
             precioUnitario: item.precioUnitario
           })),
           fechaEntregaEstimada: fechaEntregaEstimada || undefined,
-          condiciones: condiciones.trim() || undefined
+          condiciones: condiciones.trim() || undefined,
+          lugarEntrega: lugarEntrega.trim() || undefined
         };
 
         const res = await crearOrdenDesdeCotizacion(nuevaOrdenInput);
@@ -350,33 +354,38 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
             />
           </div>
 
-          {/* Condiciones */}
+          {/* Condiciones de pago — catálogo, no texto libre.
+              Antes había desplegable Y un cuadro de texto siempre visible: la
+              gente escribía en vez de elegir, y así "30 días" acabó con seis
+              grafías distintas en 776 órdenes. Ahora el texto solo aparece si
+              se elige "Otro". */}
           <div className="space-y-2">
             <Label>Condiciones de Pago</Label>
-            <Select
-              value={condicionesPago.some(c => c.label === condiciones) ? condiciones : '__custom__'}
-              onValueChange={(v) => { if (v !== '__custom__') setCondiciones(v); }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccione condición..." />
-              </SelectTrigger>
-              <SelectContent>
-                {condicionesPago.map(c => (
-                  <SelectItem key={c.key} value={c.label}>{c.label}</SelectItem>
-                ))}
-                <SelectItem value="__custom__">Personalizado...</SelectItem>
-              </SelectContent>
-            </Select>
-            <Textarea
-              id="condiciones"
+            <SelectCatalogo
+              tipo="condicion_pago"
               value={condiciones}
-              onChange={(e) => setCondiciones(e.target.value)}
-              placeholder="O escribe condiciones personalizadas..."
-              rows={2}
+              onChange={(v) => setCondiciones(v ?? '')}
+              placeholder="Seleccione condición..."
+              permitirOtro
+              otroPlaceholder="Escribe la condición acordada"
             />
             {errors.condiciones && (
               <p className="text-sm text-red-600 mt-1">{errors.condiciones}</p>
             )}
+          </div>
+
+          {/* Lugar de entrega — mixto: destinos frecuentes del catálogo, y
+              "Otro" para la dirección concreta de una obra. */}
+          <div className="space-y-2">
+            <Label>Lugar de Entrega</Label>
+            <SelectCatalogo
+              tipo="lugar_entrega"
+              value={lugarEntrega}
+              onChange={(v) => setLugarEntrega(v ?? '')}
+              placeholder="Seleccione lugar..."
+              permitirOtro
+              otroPlaceholder="Dirección o referencia de entrega"
+            />
           </div>
         </CardContent>
       </Card>

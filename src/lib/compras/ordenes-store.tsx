@@ -122,6 +122,7 @@ export interface NuevaOrdenInput {
   items: (Omit<ItemOrden, 'id' | '_dbId' | 'subtotal' | 'descuento'> & { descuento?: number })[];
   fechaEntregaEstimada?: string;
   condiciones?: string;
+  lugarEntrega?: string;
   // DB FK: proveedor UUID and cotizacion UUID must be provided from calling context
   proveedorDbId?: string;
   cotizacionDbId?: string;
@@ -373,7 +374,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         igv: impuestos,
         total,
         condiciones_pago: input.condiciones?.trim() ?? null,
-        lugar_entrega: null,
+        lugar_entrega: input.lugarEntrega?.trim() ?? null,
         observaciones: null,
         aprobado_por: null,
         aprobado_en: null,
@@ -442,6 +443,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
 
       if (input.moneda !== undefined) updatePayload.moneda = input.moneda;
       if (input.condiciones !== undefined) updatePayload.condiciones_pago = input.condiciones?.trim() ?? null;
+      if (input.lugarEntrega !== undefined) updatePayload.lugar_entrega = input.lugarEntrega?.trim() ?? null;
       if (input.fechaEntregaEstimada !== undefined) updatePayload.fecha_entrega_esperada = input.fechaEntregaEstimada ?? null;
 
       if (input.items !== undefined) {
