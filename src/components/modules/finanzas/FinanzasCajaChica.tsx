@@ -25,6 +25,7 @@ import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
 import { SearchableSelect } from '../../shared/SearchableSelect';
 import { useAuth } from '@/auth/AuthProvider';
 import { useProyectos } from '@/lib/proyectos/proyectos-store';
+import { useCatalogos } from '@/lib/shared/catalogos-store';
 import { exportToExcel, exportToExcelMultiHoja, exportToPDF, exportCajaModeloExcel, type MovimientoCajaModelo } from '@/lib/shared/export-utils';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -91,6 +92,8 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
   const puedeExportar = can('finanzas', 'exportar');
   const { tenantId, user } = useAuth();
   const { proyectos } = useProyectos();
+  const { getByTipo } = useCatalogos();
+  const tiposDocCaja = getByTipo('tipo_doc_caja');
 
   const [selectedCajaId, setSelectedCajaId] = useState<string | null>(null);
   // Filtros de navegación de cajas (para no scrollear entre muchas)
@@ -990,13 +993,20 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Categoría *</Label>
-                <Input
-                  placeholder="Ej: Limpieza, Útiles..."
-                  value={gastoForm.categoria}
-                  onChange={e => setGastoForm(f => ({ ...f, categoria: e.target.value }))}
-                  className="mt-1"
-                />
+                <Label>Tipo de documento *</Label>
+                {/* Antes era texto libre: cada quien escribía "Factura",
+                    "FACTURA" o "factura " y el dato se fragmentaba. Ahora sale
+                    del catálogo `tipo_doc_caja`, editable en Administración. */}
+                <div className="mt-1">
+                  <SearchableSelect
+                    value={gastoForm.categoria || null}
+                    onChange={(v) => setGastoForm(f => ({ ...f, categoria: v ?? '' }))}
+                    options={tiposDocCaja.map(t => ({ value: t.label, label: t.label }))}
+                    placeholder="Seleccionar tipo de documento…"
+                    searchPlaceholder="Buscar tipo…"
+                    emptyText="Sin tipos configurados"
+                  />
+                </div>
               </div>
               <div>
                 <Label>Fecha *</Label>

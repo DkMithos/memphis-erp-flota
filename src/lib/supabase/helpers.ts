@@ -442,7 +442,13 @@ export const dbOrdenesCompra = {
     for (let from = 0; ; from += PAGE) {
       const { data, error } = await supabase
         .from("ordenes_compra")
-        .select("*, proveedor:proveedores(razon_social, ruc), items:orden_items(*)")
+        .select(
+          "*, proveedor:proveedores(razon_social, ruc), items:orden_items(*), " +
+          // El PDF de la orden imprime el centro de costo y el requerimiento;
+          // el requerimiento no cuelga de la orden, se llega por la cotización.
+          "centro_costo:centros_costo(codigo, nombre), " +
+          "cotizacion:cotizaciones(numero, requerimiento:requerimientos_compra(numero))"
+        )
         .order("creado_en", { ascending: false })
         .range(from, from + PAGE - 1);
       if (error) return { data: all.length ? all : null, error };

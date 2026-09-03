@@ -51,6 +51,9 @@ export interface Orden {
 
   // Relaciones
   cotizacionId: string;
+  /** Número legible de la cotización (la orden guarda el UUID). */
+  cotizacionNumero: string | null;
+  /** Número del requerimiento, derivado por la cotización. */
   requerimientoId: string | null;
 
   // Proveedor
@@ -75,6 +78,12 @@ export interface Orden {
 
   // Condiciones
   condiciones: string | null;
+  lugarEntrega: string | null;
+  observaciones: string | null;
+
+  // Centro de costo — el código es lo que se imprime, el id lo que se guarda
+  centroCostoCodigo: string | null;
+  centroCostoNombre: string | null;
 
   // Aprobación
   aprobadoPor: string | null;
@@ -154,6 +163,9 @@ const OrdenContext = createContext<OrdenStoreContext | undefined>(undefined);
 type OrdenWithRelations = OrdenCompraDB & {
   items: OrdenItemDB[];
   proveedor?: { razon_social: string; ruc: string } | null;
+  centro_costo?: { codigo: string; nombre: string } | null;
+  /** El requerimiento no cuelga de la orden: se llega por la cotización. */
+  cotizacion?: { numero: string; requerimiento?: { numero: string } | null } | null;
 };
 
 function mapFromDB(row: OrdenWithRelations): Orden {
@@ -192,7 +204,15 @@ function mapFromDB(row: OrdenWithRelations): Orden {
     tipo: row.tipo as TipoOrden,
     estado: estadoFrontend,
     cotizacionId: row.cotizacion_id ?? '',
-    requerimientoId: null, // Not stored directly on orden; derive from cotizacion if needed
+    // Códigos legibles para el PDF y las listas. La orden guarda UUIDs; el
+    // número de cotización y el del requerimiento llegan por los joins.
+    cotizacionNumero: row.cotizacion?.numero ?? null,
+    // El requerimiento no cuelga de la orden: se llega por la cotización.
+    requerimientoId: row.cotizacion?.requerimiento?.numero ?? null,
+    centroCostoCodigo: row.centro_costo?.codigo ?? null,
+    centroCostoNombre: row.centro_costo?.nombre ?? null,
+    lugarEntrega: row.lugar_entrega ?? null,
+    observaciones: row.observaciones ?? null,
     proveedorNombre: row.proveedor?.razon_social ?? '',
     proveedorDbId: row.proveedor_id ?? null,
     moneda: row.moneda as MonedaOrden,

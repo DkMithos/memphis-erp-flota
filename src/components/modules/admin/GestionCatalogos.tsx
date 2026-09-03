@@ -26,7 +26,7 @@ import { useConfirmAction } from '@/components/shared/ConfirmDialogProvider';
 
 const TIPOS: TipoCatalogo[] = [
   'unidad_medida', 'condicion_pago', 'forma_pago',
-  'tipo_comprobante', 'zona_igv', 'banco', 'moneda',
+  'tipo_comprobante', 'tipo_doc_caja', 'zona_igv', 'banco', 'moneda',
   'tipo_vehiculo', 'tipo_flota', 'tipo_contrato_flota',
   'tipo_doc_vehiculo', 'categoria_proveedor', 'categoria_equipo_bio',
   'modalidad_proyecto',

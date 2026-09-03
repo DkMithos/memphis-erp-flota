@@ -50,7 +50,11 @@ export function SearchableSelect({
   const selected = options.find(o => o.value === value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    /* modal: dentro de un Dialog, el react-remove-scroll del diálogo bloquea la
+       rueda del ratón sobre el popover porque vive en otro portal. Con modal el
+       popover monta su propio bloqueo y la lista vuelve a scrollear.
+       Era el "no funciona el scroll" del selector de centro de costo. */
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <Button
           variant="outline"

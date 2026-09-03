@@ -348,7 +348,28 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
   if (!orden) return;
   const money = (n: any) => `${orden.moneda === 'USD' ? 'USD' : 'S/'} ${Number(n ?? 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const titulo = orden.tipo === 'os' ? 'ORDEN DE SERVICIO' : 'ORDEN DE COMPRA';
-  const cond = orden.condiciones || {};
+  /**
+   * `condiciones` es un texto plano en la base (columna `condiciones_pago`),
+   * pero versiones anteriores lo guardaban como objeto. Se acepta lo que venga
+   * para que las órdenes viejas no pierdan el dato.
+   */
+  const cond = (orden.condiciones && typeof orden.condiciones === 'object') ? orden.condiciones : {};
+  const condicionPago = typeof orden.condiciones === 'string'
+    ? orden.condiciones
+    : (cond.formaPago || cond.condicionPago || '');
+  const centroCosto = [orden.centroCostoCodigo, orden.centroCostoNombre]
+    .filter(Boolean)
+    .filter((v: string, i: number, a: string[]) => a.indexOf(v) === i)
+    .join(' — ') || orden.centroCostoTexto || orden.centroCosto || '';
+
+  const aud = orden.auditoria || {};
+  const firma = (rol: string, nombre?: string | null, fecha?: string | null) => `
+    <div class="firma">
+      <div class="linea"></div>
+      <div class="rol">${esc(rol)}</div>
+      <div class="quien">${esc(nombre || '')}</div>
+      <div class="cuando">${fecha ? esc(fmtFecha(fecha)) : ''}</div>
+    </div>`;
   // Cuenta bancaria: la que coincida con la moneda de la orden, o la primera
   const cuentas: any[] = proveedor?.cuentasBancarias ?? proveedor?.cuentas_bancarias ?? [];
   const cta = cuentas.find((c: any) => /d[oó]lar|usd/i.test(c?.moneda || '') === (orden.moneda === 'USD')) ?? cuentas[0] ?? {};
@@ -384,6 +405,13 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
   .res div{display:flex;justify-content:space-between;padding:2px 4px}
   .res .tot{font-weight:bold;border-top:1px solid #ccc;color:#0A66C2}
   .foot{margin-top:18px;font-size:9px;color:#555;border-top:1px solid #e5e7eb;padding-top:8px}
+  /* Firmas: cuatro columnas que no se parten entre páginas al imprimir. */
+  .firmas{display:flex;gap:16px;margin-top:34px;page-break-inside:avoid}
+  .firma{flex:1;text-align:center}
+  .firma .linea{border-top:1px solid #333;margin-bottom:4px;height:34px}
+  .firma .rol{font-size:9px;font-weight:bold;text-transform:uppercase;color:#333}
+  .firma .quien{font-size:9px;color:#444;min-height:11px}
+  .firma .cuando{font-size:8px;color:#777;min-height:10px}
   @media print{ body{padding:0} @page{margin:14mm;size:A4} }
 </style></head><body>
   <div class="head">
@@ -403,8 +431,8 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
     <div class="grid">
       <div><b>Fecha de Emisión:</b> ${fmtFecha(orden.fechaEmision)}</div>
       <div><b>N° Requerimiento:</b> ${esc(orden.requerimientoId)}</div>
-      <div><b>N° Cotización:</b> ${esc(orden.cotizacionId)}</div>
-      <div><b>Centro de Costo:</b> ${esc(orden.centroCostoTexto || orden.centroCosto)}</div>
+      <div><b>N° Cotización:</b> ${esc(orden.cotizacionNumero || orden.cotizacionId)}</div>
+      <div><b>Centro de Costo:</b> ${esc(centroCosto)}</div>
     </div>
   </div>
 
@@ -437,11 +465,18 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
 
   <div class="sec"><h2>CONDICIONES</h2>
     <div class="grid">
-      <div><b>Lugar de Entrega:</b> ${esc(cond.lugarEntrega || orden.lugarEntrega)}</div>
+      <div><b>Lugar de Entrega:</b> ${esc(orden.lugarEntrega || cond.lugarEntrega)}</div>
       <div><b>Fecha máx. de Entrega:</b> ${esc(cond.fechaEntrega || fmtFecha(orden.fechaEntregaEstimada))}</div>
-      <div><b>Condición de Pago:</b> ${esc(cond.formaPago || cond.condicionPago)}</div>
-      <div><b>Observaciones:</b> ${esc(cond.observaciones || orden.observaciones)}</div>
+      <div><b>Condición de Pago:</b> ${esc(condicionPago)}</div>
+      <div><b>Observaciones:</b> ${esc(orden.observaciones || cond.observaciones)}</div>
     </div>
+  </div>
+
+  <div class="sec firmas">
+    ${firma('Elaborado por', aud.creadoPor, aud.creadoEn)}
+    ${firma('Revisado por', orden.revisadoPor, orden.revisadoEn)}
+    ${firma('Aprobado por', orden.aprobadoPor, orden.aprobadoEn)}
+    ${firma('Recibí conforme (proveedor)', '', null)}
   </div>
 
   <div class="foot">

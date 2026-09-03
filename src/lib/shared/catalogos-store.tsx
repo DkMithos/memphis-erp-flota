@@ -18,6 +18,7 @@ export type TipoCatalogo =
   | 'condicion_pago'
   | 'forma_pago'
   | 'tipo_comprobante'
+  | 'tipo_doc_caja'
   | 'zona_igv'
   | 'banco'
   | 'moneda'
@@ -46,6 +47,7 @@ export const TIPO_CATALOGO_LABELS: Record<TipoCatalogo, string> = {
   condicion_pago:      'Condiciones de Pago',
   forma_pago:          'Formas de Pago',
   tipo_comprobante:    'Tipos de Comprobante',
+  tipo_doc_caja:       'Tipos de Doc. Caja Chica',
   zona_igv:            'Zonas / IGV',
   banco:               'Bancos',
   moneda:              'Monedas',
@@ -63,6 +65,16 @@ export const TIPO_CATALOGO_LABELS: Record<TipoCatalogo, string> = {
 // ============================================================================
 
 const CATALOGOS_DEFAULT: ItemCatalogo[] = [
+  // Tipos de documento de caja chica — los que ya usa Administración
+  { id: 'tdc1', tipo: 'tipo_doc_caja', key: 'factura', label: 'FACTURA', activo: true, orden: 1, esSistema: false },
+  { id: 'tdc2', tipo: 'tipo_doc_caja', key: 'boleta', label: 'BOLETA', activo: true, orden: 2, esSistema: false },
+  { id: 'tdc3', tipo: 'tipo_doc_caja', key: 'recibo', label: 'RECIBO', activo: true, orden: 3, esSistema: false },
+  { id: 'tdc4', tipo: 'tipo_doc_caja', key: 'recibo_honorarios', label: 'RECIBO POR HONORARIO', activo: true, orden: 4, esSistema: false },
+  { id: 'tdc5', tipo: 'tipo_doc_caja', key: 'planilla_movilidad', label: 'PLANILLA DE MOVILIDAD', activo: true, orden: 5, esSistema: false },
+  { id: 'tdc6', tipo: 'tipo_doc_caja', key: 'autorizacion_viaje', label: 'AUTORIZACIÓN DE VIAJE', activo: true, orden: 6, esSistema: false },
+  { id: 'tdc7', tipo: 'tipo_doc_caja', key: 'rendicion_viaticos', label: 'RENDICIÓN DE VIÁTICOS', activo: true, orden: 7, esSistema: false },
+  { id: 'tdc8', tipo: 'tipo_doc_caja', key: 'documento_sin_numero', label: 'DOCUMENTO SIN NUMERO', activo: true, orden: 8, esSistema: false },
+  { id: 'tdc9', tipo: 'tipo_doc_caja', key: 'sin_documento', label: 'SIN DOCUMENTO', activo: true, orden: 9, esSistema: false },
   // Unidades de medida
   { id: 'u1', tipo: 'unidad_medida', key: 'und', label: 'Unidad', activo: true, orden: 1, esSistema: true },
   { id: 'u2', tipo: 'unidad_medida', key: 'kg', label: 'Kilogramo (kg)', activo: true, orden: 2, esSistema: true },
