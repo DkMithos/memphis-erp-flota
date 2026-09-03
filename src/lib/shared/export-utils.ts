@@ -348,6 +348,9 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
   if (!orden) return;
   const money = (n: any) => `${orden.moneda === 'USD' ? 'USD' : 'S/'} ${Number(n ?? 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const titulo = orden.tipo === 'os' ? 'ORDEN DE SERVICIO' : 'ORDEN DE COMPRA';
+  // Declarada aquí arriba a propósito: el bloque de firmas se construye antes
+  // que la plantilla y ya la necesita. Si queda más abajo, es un TDZ.
+  const fmtFecha = (f: any) => f ? new Date(f).toLocaleDateString('es-PE') : '—';
   /**
    * `condiciones` es un texto plano en la base (columna `condiciones_pago`),
    * pero versiones anteriores lo guardaban como objeto. Se acepta lo que venga
@@ -455,7 +458,6 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
       <td style="text-align:right">${money(it.subtotal ?? it.total)}</td>
     </tr>`).join('');
 
-  const fmtFecha = (f: any) => f ? new Date(f).toLocaleDateString('es-PE') : '—';
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>OC ${esc(orden.id)}</title>
 <style>
