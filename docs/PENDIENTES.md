@@ -1,55 +1,111 @@
 # Memphis ERP — Pendientes acumulados
 
 > Registro vivo de lo que queda por hacer. Se actualiza conforme avanzamos o se priorizan cosas nuevas.
-> Última actualización: **2026-08-31**
+> Última actualización: **viernes 04/09/2026**
 
 ---
 
-## ⏸️ En pausa por decisión de Kevin (31/08/2026)
+## 🔴 Lo primero: el equipo todavía no está usando el sistema
 
-### Dashboard de Gerencia / Flujo GM
-→ [PLAN-Dashboard-Gerencia.md](PLAN-Dashboard-Gerencia.md). **Pausado el 31/08** para priorizar la
-usabilidad de los módulos que el equipo ya está usando.
+De las **12 cuentas**, **8 nunca han iniciado sesión**:
 
-Queda decidido y listo para retomar:
-- Vive como vista **"Flujo Gerencia" dentro de BI** (opción B confirmada).
-- **Fase 1** (compromiso mensual, por proyecto, por centro de costo, concentración de proveedores)
-  se puede construir con lo que ya hay migrado.
-- **Fase 2** (deuda, vencido, calendario de pagos) **depende de CxP**: `comprobantes_pago`,
-  `transacciones`, `registro_ventas`, `presupuestos` y `asientos_contables` están en 0 filas.
-- **Tipo de cambio**: tabla por fecha, valorizando por fecha de emisión de la factura con el TC más
-  alto del día. Falta la fuente del histórico desde 2022-06.
-- **Tesorería entra al ERP** (saldos y movimientos bancarios). Ingresos = valorizaciones.
+| Ha entrado | Nunca ha entrado |
+|---|---|
+| Kevin (04/09) · **Shirley (03/09)** · Consultor (30/07) · Adrian (29/05) | Carolina · Richard · Walter · Miguelangel · José · Guillermo · Miguel Zegarra · Lisbet |
 
-Bloqueado por datos que debe traer el equipo:
-- Presupuesto de **4 proyectos**.
-- Imputación de las **353 OCs sin proyecto** — entregado `OCs-sin-proyecto-2026-08-31.xlsx`; son
-  solo **12 centros de costo**, así que son 12 decisiones. Varios de esos CDC (MSS-30, LORETOAMB,
-  MDI, PDD, MUNSMSERENAZGO…) parecen proyectos que aún no existen en el ERP.
+**El SSO con Microsoft ya está probado en la práctica**: Shirley entró con Microsoft el 03/09 y su
+identidad `azure` quedó enlazada sola, igual que la de Kevin. No hacen falta enlaces de contraseña.
+
+Lo único que puede estar bloqueándolos es la **Enterprise App en Entra**: si tiene
+*"Se requiere asignación de usuario = Sí"*, hay que agregar a los 8. Pendiente de verificar.
+
+Todo lo demás de esta lista vale menos que esto: el sistema está construido y desplegado, pero
+si el equipo no entra, no sirve.
 
 ---
 
-## 🔵 P0 — Usabilidad de los módulos en uso (prioridad actual)
+## ⛔ Bloqueado por permisos de Entra (solo lo puede levantar Kevin)
 
-### Caja Chica — resto del rediseño
-Hecho el 31/08: orden con abiertas primero y orden natural, totales por moneda en la cabecera,
-menú único de exportación (resumen · cajas+movimientos · consolidado por moneda · por proyecto),
-"Volver" que regresa a la lista y no al módulo anterior.
+**`Files.ReadWrite.All` (Application) con consentimiento de administrador.**
+Lo necesita el botón **"Actualizar Excel de SharePoint"** de Fianzas. Hoy la app tiene
+`Files.Read.All`, que sirve para leer —por eso la importación de cargos sí funcionó— pero no para
+escribir. Mientras tanto el botón responde con ese mensaje exacto en vez de fallar en silencio.
 
-Pendiente de revisar con Kevin:
-- Si el detalle de una caja necesita su propio rediseño (hoy reemplaza la lista).
-- Si hacen falta más cortes de exportación además de los cuatro actuales.
+---
+
+## 🔵 Decisiones que esperan al equipo, no código
+
+| Quién | Qué se necesita | Impacto |
+|---|---|---|
+| **Richard** | Las **12 órdenes** cuyo campo de condición de pago no lleva una condición: `SUBTOTAL` (4), `Tarjeta de crédito` (4), `MENSUAL` (2), `Cuenta recaudadora` (1), `Recibo por honorarios` (1) | Cierra la consolidación de condiciones |
+| **Operaciones** | Imputar las **353 OCs sin proyecto** — son solo **12 centros de costo**; entregado `OCs-sin-proyecto-2026-08-31.xlsx` | Desbloquea el corte por proyecto del tablero de Gerencia |
+| **Proyectos** | Presupuesto de **4 proyectos** | Presupuesto vs comprometido |
+| **Shirley y Carolina** | **25 cargos** en carpetas que no corresponden a ninguna de las 10 fianzas: BOMBEROS MOYOBAMBA (8), Independencia (5), Gore Loreto Ambulancias (4), Comisarias (3), Serenazgo (3), Surco (2). ¿Se crean como fianzas históricas? | En cuanto existan, el botón de importar los trae solo |
+| **Contabilidad / Walter** | ¿Hay un archivo de **tipos de cambio** que ya usen? | Sin él no hay histórico desde 2022-06 y ningún total mixto PEN/USD es defendible |
+| **Kevin** | ¿Bancos entran al ERP? (tesorería ya está confirmada, falta el alcance) | Indicador de liquidez |
+
+---
+
+## 🟠 Trabajo listo para hacer, sin bloqueos
 
 ### Exportaciones — Fase 1
-→ [PLAN-Exportaciones-Excel.md](PLAN-Exportaciones-Excel.md). **10 pantallas siguen sin exportar
-nada**: Contabilidad (comprobantes, registro de compras y ventas, asientos), Proyectos (lista,
-valorizaciones), Flota (vehículos, mantenimientos), Compras (recepciones, facturas), Finanzas
-(transacciones, flujo de caja). Es lo que desbloquea a Walter y a Miguelangel.
+→ [PLAN-Exportaciones-Excel.md](PLAN-Exportaciones-Excel.md). Hay **12 pantallas** con exportación;
+faltan **10**: Contabilidad (comprobantes, registro de compras y ventas, asientos), Proyectos
+(lista, valorizaciones), Flota (vehículos, mantenimientos), Compras (recepciones, facturas),
+Finanzas (transacciones, flujo de caja). Es lo que desbloquea a Walter y a Miguelangel.
 
-### Revisar el resto de módulos con el mismo criterio
-Kevin reportó en Caja Chica cuatro cosas que probablemente se repiten en otros submódulos:
-listados sin orden útil, falta de exportaciones, "Volver" que salta de módulo y desplazamiento al
-abrir desplegables (este último ya corregido de forma global).
+### Cerrar el resto del texto libre
+Hecho: condiciones de pago (108 → 13) y lugar de entrega, ambos por catálogo con opción «Otro».
+**Falta**: `requerimiento_items.unidad` tiene **40 variantes** y `cotizacion_items.unidad` **19**,
+contra 13 unidades en el catálogo. Mismo patrón, trabajo mecánico.
+
+### Dashboard de Gerencia — Fase 1
+→ [PLAN-Dashboard-Gerencia.md](PLAN-Dashboard-Gerencia.md). Sigue **en pausa** desde el 31/08, pero
+con todo decidido: vive dentro de BI, y la Fase 1 (compromiso mensual, por proyecto, por centro de
+costo, concentración de proveedores) **se puede construir con lo que ya está migrado**.
+La Fase 2 (deuda, vencido, calendario de pagos) depende de CxP.
+
+Ahora hay una razón nueva para retomarlo: **Guillermo Macher y Miguel Zegarra** ya tienen cuenta
+con rol Gerencia y es exactamente lo que pidieron ver.
+
+### Alertas (N28)
+Las fianzas ya muestran el semáforo en pantalla, pero **no avisan solas**. Cuando GORE Huánuco
+entró a 4 días de renovar, lo vi yo por consulta, no el sistema. Falta el aviso en la campanita y
+en Teams. Es el caso de uso que más justifica las alertas.
+
+### Auditoría (`audit_logs`)
+La tabla existe, la pantalla existe, y sigue en **0 filas y 0 triggers**. Con datos financieros
+reales y varios usuarios, no tener rastro de quién aprobó, modificó o anuló es una carencia de
+control. Recomendado justo después de que el equipo empiece a operar.
+
+### RLS por rol — Fase 2
+→ [PLAN-RBAC-RLS.md](PLAN-RBAC-RLS.md). Hoy RLS separa empresas pero **no roles**: con un JWT
+válido del tenant, la API devuelve datos de módulos que la UI oculta. Ya existe
+`auth_tiene_permiso(modulo, accion)`, creada para las políticas de Storage de fianzas, que es la
+pieza que faltaba para esta fase.
+
+---
+
+## 🟣 Fianzas — lo que quedó abierto
+
+- **`fianzas.eliminar` no tiene UI**: el permiso existe y las políticas lo respetan, pero no hay
+  botón para dar de baja una fianza o una carta.
+- **Cargos**: se suben, ven y descargan. Falta decidir si se sigue escribiendo también en
+  SharePoint o el ERP pasa a ser el único sitio.
+- **MAS SEGURIDAD BOMBEROS** es la única fianza sin cargos (0 de 62) y sin proyecto enlazado: es
+  una carta suelta del convenio de Loreto, ya devuelta. Confirmar si se archiva.
+
+---
+
+## 📄 Órdenes de compra — lo que quedó abierto
+
+- **561 órdenes sin firma digital** (505 del Excel 2024 + 56 de oc-system que nunca se firmaron).
+  Las del Excel llevan la constancia de documento histórico, según lo decidido. Las **56 de
+  oc-system salen con la línea en blanco** y no tienen leyenda propia: falta decidir cuál poner.
+- **Nadie ha registrado su firma todavía** (`firmas_usuario` en 0). La pantalla está en el perfil;
+  hasta que la usen, las órdenes nuevas se aprueban sin rúbrica.
+- **Solicitudes de edición**: la tabla y las 53 históricas están migradas, pero **falta la UI**
+  para que el comprador pida editar y el aprobador siguiente autorice.
 
 ---
 
