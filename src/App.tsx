@@ -109,6 +109,8 @@ const FinanzasDashboard = lazy(() => import('./components/modules/finanzas/Finan
 const FinanzasTransacciones = lazy(() => import('./components/modules/finanzas/FinanzasTransacciones').then(m => ({ default: m.FinanzasTransacciones })));
 const FinanzasPresupuestosModule = lazy(() => import('./components/modules/finanzas/FinanzasPresupuestosModule').then(m => ({ default: m.FinanzasPresupuestosModule })));
 const FinanzasCajaChica = lazy(() => import('./components/modules/finanzas/FinanzasCajaChica').then(m => ({ default: m.FinanzasCajaChica })));
+const FianzasModule = lazy(() => import('./components/modules/fianzas/FianzasModule').then(m => ({ default: m.FianzasModule })));
+const FianzasCargos = lazy(() => import('./components/modules/fianzas/FianzasCargos').then(m => ({ default: m.FianzasCargos })));
 import { FinanzasProvider } from './lib/finanzas/finanzas-store';
 
 // CRM
@@ -169,6 +171,7 @@ import { VehiculosStoreProvider } from './lib/flota/vehiculos-store';
 import { FlotasStoreProvider } from './lib/flota/flotas-store';
 import { ProveedorStoreProvider } from './lib/proveedores/proveedores-store';
 import { CatalogosProvider } from './lib/shared/catalogos-store';
+import { FianzasProvider } from './lib/fianzas/fianzas-store';
 import { TipoCambioProvider } from './lib/shared/tipo-cambio-store';
 import { RequerimientoStoreProvider } from './lib/compras/requerimientos-store';
 import { CotizacionStoreProvider } from './lib/compras/cotizaciones-store';
@@ -624,6 +627,12 @@ export default function App() {
       return <ContabilidadDashboard onNavigate={navigateTo} />;
     }
 
+    // Fianzas — ojo: va antes de Finanzas porque los nombres se parecen.
+    if (currentRoute.startsWith('/fianzas')) {
+      if (currentRoute === '/fianzas/cargos') return <FianzasCargos />;
+      return <FianzasModule />;
+    }
+
     // Finanzas
     if (currentRoute.startsWith('/finanzas')) {
       if (currentRoute === '/finanzas/transacciones') return <FinanzasTransacciones onNavigate={navigateTo} />;
@@ -934,6 +943,7 @@ export default function App() {
     <CRMProvider>
     <TipoCambioProvider>
     <CatalogosProvider>
+    <FianzasProvider>
     <RolesProvider>
     <InventarioProvider>
     <OTStoreProvider>
@@ -1061,6 +1071,7 @@ export default function App() {
     </OTStoreProvider>
     </InventarioProvider>
     </RolesProvider>
+    </FianzasProvider>
     </CatalogosProvider>
     </TipoCambioProvider>
     </CRMProvider>

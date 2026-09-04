@@ -19,6 +19,7 @@ export const MODULES_DEFAULT: ModuleConfig[] = [
   { id: 'proveedores', label: 'Proveedores',     descripcion: 'Directorio, contratos y evaluaciones',   enabled: true },
   { id: 'inventario',  label: 'Inventario',      descripcion: 'Artículos, almacenes y movimientos',     enabled: false },
   { id: 'contabilidad',label: 'Contabilidad',    descripcion: 'Asientos, comprobantes y libros',        enabled: true },
+  { id: 'fianzas',     label: 'Fianzas',         descripcion: 'Cartas fianza y sus renovaciones',      enabled: true },
   { id: 'finanzas',    label: 'Finanzas',        descripcion: 'Transacciones, presupuestos y reportes', enabled: true },
   { id: 'proyectos',   label: 'Proyectos',       descripcion: 'Gestión de proyectos y tareas',          enabled: true },
   { id: 'crm',         label: 'CRM',             descripcion: 'Clientes, oportunidades y actividades',  enabled: false },

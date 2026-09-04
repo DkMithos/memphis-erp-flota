@@ -12,6 +12,7 @@ export type Modulo =
   | 'crm'
   | 'proyectos'
   | 'contabilidad'
+  | 'fianzas'
   | 'admin';
 
 export type Accion =
@@ -22,6 +23,7 @@ export type Accion =
   | 'aprobar'
   | 'exportar'
   | 'recepcionar'
+  | 'cargos'
   | 'gestionar_usuarios'
   | 'gestionar_roles';
 

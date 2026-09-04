@@ -34,6 +34,16 @@ const EXCEPCIONES: { prefijo: string; requisitos: RequisitoRuta[] }[] = [
       { modulo: 'compras', accion: 'recepcionar' },
     ],
   },
+  // Cargos de fianzas: Lisbet Monteza entra aquí con `fianzas.cargos` y sin
+  // `fianzas.ver`, así que no ve montos ni el tablero. Mismo criterio que
+  // Recepciones para Flota.
+  {
+    prefijo: '/fianzas/cargos',
+    requisitos: [
+      { modulo: 'fianzas', accion: 'cargos' },
+      { modulo: 'fianzas', accion: 'ver' },
+    ],
+  },
   // Admin: cada pantalla pide su permiso fino
   { prefijo: '/admin/usuarios', requisitos: [{ modulo: 'admin', accion: 'gestionar_usuarios' }] },
   { prefijo: '/admin/roles', requisitos: [{ modulo: 'admin', accion: 'gestionar_roles' }] },
@@ -59,6 +69,7 @@ const MODULO_POR_PREFIJO: { prefijo: string; modulo: Modulo }[] = [
   { prefijo: '/inventario', modulo: 'inventario' },
   { prefijo: '/contabilidad', modulo: 'contabilidad' },
   { prefijo: '/finanzas', modulo: 'finanzas' },
+  { prefijo: '/fianzas', modulo: 'fianzas' },
   { prefijo: '/proyectos', modulo: 'proyectos' },
   { prefijo: '/flota', modulo: 'flota' },
   { prefijo: '/biomedico', modulo: 'biomedico' },

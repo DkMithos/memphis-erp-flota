@@ -51,7 +51,8 @@ import {
   Archive,
   BookOpenCheck,
   Hash,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ShieldCheck
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useState, useEffect } from 'react';
@@ -155,6 +156,16 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         { label: t('nav.sub.almacenes'), href: '/inventario/almacenes' },
         { label: t('nav.sub.movimientos'), href: '/inventario/movimientos' },
         { label: t('nav.sub.stock_critico'), href: '/inventario/stock-critico' }
+      ]
+    },
+    {
+      id: 'fianzas',
+      label: t('nav.fianzas', 'Fianzas'),
+      icon: <ShieldCheck className="size-5" />,
+      href: '/fianzas',
+      subItems: [
+        { label: t('nav.sub.fianzas_tablero', 'Tablero'), href: '/fianzas' },
+        { label: t('nav.sub.fianzas_cargos', 'Cargos'), href: '/fianzas/cargos' },
       ]
     },
     {
