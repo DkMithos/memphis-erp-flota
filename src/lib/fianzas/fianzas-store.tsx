@@ -56,7 +56,11 @@ export interface CargoFianza {
   sharepointUrl: string | null;
   subidoPor: string | null;
   subidoEn: string;
+  tamanoBytes: number | null;
+  mime: string | null;
 }
+
+export const BUCKET_CARGOS = 'cargos-fianzas';
 
 /** Días que faltan para renovar. Negativo = ya pasó la fecha. */
 export function diasParaRenovar(carta: CartaFianza): number {
@@ -90,6 +94,12 @@ interface FianzasContext {
   actualizarCarta: (id: string, cambios: Partial<CartaFianza>) => Promise<string | null>;
   guardarFianza: (f: Partial<Fianza> & { nombreProyecto: string; entidad: string }) => Promise<string | null>;
   registrarCargo: (c: { fianzaId: string; cartaId?: string | null; nombre: string; sharepointUrl?: string | null }) => Promise<string | null>;
+  /** Sube el archivo al bucket y deja el registro del cargo. */
+  subirCargo: (c: { fianzaId: string; cartaId?: string | null; archivo: File }) => Promise<string | null>;
+  /** URL firmada y temporal para ver o descargar un cargo guardado. */
+  urlDeCargo: (cargo: CargoFianza, descargar?: boolean) => Promise<string | null>;
+  eliminarCargo: (cargo: CargoFianza) => Promise<string | null>;
+  eliminarCarta: (id: string) => Promise<string | null>;
 }
 
 const Ctx = createContext<FianzasContext | undefined>(undefined);
@@ -162,6 +172,8 @@ export function FianzasProvider({ children }: { children: React.ReactNode }) {
       sharepointUrl: r.sharepoint_url,
       subidoPor: r.subido_por,
       subidoEn: r.subido_en,
+      tamanoBytes: r.tamano_bytes === null ? null : Number(r.tamano_bytes),
+      mime: r.mime,
     })));
     setLoading(false);
   }, [tenantId]);
@@ -253,8 +265,65 @@ export function FianzasProvider({ children }: { children: React.ReactNode }) {
     return null;
   }, [tenantId, user, recargar]);
 
+  const subirCargo = useCallback(async (c: { fianzaId: string; cartaId?: string | null; archivo: File }) => {
+    if (!tenantId) return 'Sin sesión activa';
+    // La ruta empieza por el tenant: es lo que compara la política de storage.
+    const limpio = c.archivo.name.replace(/[^\w.\- ]+/g, '_');
+    const ruta = `${tenantId}/${c.fianzaId}/${Date.now()}-${limpio}`;
+
+    const { error: errSubida } = await supabase.storage
+      .from(BUCKET_CARGOS)
+      .upload(ruta, c.archivo, { contentType: c.archivo.type || undefined, upsert: false });
+    if (errSubida) return errSubida.message;
+
+    const { error } = await tabla('fianza_cargos').insert({
+      tenant_id: tenantId,
+      fianza_id: c.fianzaId,
+      carta_id: c.cartaId ?? null,
+      nombre: c.archivo.name,
+      storage_path: ruta,
+      subido_por: user?.email ?? null,
+      tamano_bytes: c.archivo.size,
+      mime: c.archivo.type || null,
+    });
+    if (error) {
+      // Si no se pudo registrar, no dejar el archivo suelto en el bucket.
+      await supabase.storage.from(BUCKET_CARGOS).remove([ruta]);
+      return error.message;
+    }
+    await recargar();
+    return null;
+  }, [tenantId, user, recargar]);
+
+  const urlDeCargo = useCallback(async (cargo: CargoFianza, descargar = false) => {
+    if (!cargo.storagePath) return cargo.sharepointUrl;
+    const { data, error } = await supabase.storage
+      .from(BUCKET_CARGOS)
+      .createSignedUrl(cargo.storagePath, 300, descargar ? { download: cargo.nombre } : undefined);
+    if (error) return null;
+    return data?.signedUrl ?? null;
+  }, []);
+
+  const eliminarCargo = useCallback(async (cargo: CargoFianza) => {
+    if (cargo.storagePath) {
+      const { error } = await supabase.storage.from(BUCKET_CARGOS).remove([cargo.storagePath]);
+      if (error) return error.message;
+    }
+    const { error } = await tabla('fianza_cargos').delete().eq('id', cargo.id);
+    if (error) return error.message;
+    await recargar();
+    return null;
+  }, [recargar]);
+
+  const eliminarCarta = useCallback(async (id: string) => {
+    const { error } = await tabla('fianza_cartas').delete().eq('id', id);
+    if (error) return error.message;
+    await recargar();
+    return null;
+  }, [recargar]);
+
   return (
-    <Ctx.Provider value={{ fianzas, cargos, loading, recargar, guardarFianza, guardarCarta, actualizarCarta, registrarCargo }}>
+    <Ctx.Provider value={{ fianzas, cargos, loading, recargar, guardarFianza, guardarCarta, actualizarCarta, registrarCargo, subirCargo, urlDeCargo, eliminarCargo, eliminarCarta }}>
       {children}
     </Ctx.Provider>
   );

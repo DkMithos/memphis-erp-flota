@@ -7,7 +7,7 @@
 import { useMemo, useState } from 'react';
 import {
   ShieldCheck, AlertTriangle, CalendarClock, Download, ChevronDown,
-  Plus, FileText, Landmark, ArrowLeft, Coins,
+  Plus, FileText, Landmark, ArrowLeft, Coins, Pencil, RefreshCw,
 } from 'lucide-react';
 import { PageNav } from '../../shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -29,6 +29,9 @@ import {
   type Fianza, type CartaFianza, type Urgencia,
 } from '../../../lib/fianzas/fianzas-store';
 import { exportToExcel, exportToExcelMultiHoja } from '../../../lib/shared/export-utils';
+import { FianzaForm, CartaForm } from './FianzaFormularios';
+import { CargosDeFianza } from './CargosDeFianza';
+import { supabase } from '../../../lib/supabase/client';
 
 const soles = (n: number | null | undefined) =>
   n === null || n === undefined
@@ -64,8 +67,33 @@ export function FianzasModule() {
   const puedeExportar = can('fianzas', 'exportar');
   const puedeCrear = can('fianzas', 'crear');
 
+  const puedeEditar = can('fianzas', 'editar');
   const [seleccionada, setSeleccionada] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  const [formFianza, setFormFianza] = useState<{ abierto: boolean; fianza: Fianza | null }>({ abierto: false, fianza: null });
+  const [formCarta, setFormCarta] = useState<{ abierto: boolean; carta: CartaFianza | null }>({ abierto: false, carta: null });
+  const [actualizandoExcel, setActualizandoExcel] = useState(false);
+
+  /**
+   * Regenera la hoja de SharePoint con lo que hay en el ERP.
+   * El ERP manda (decisión de Kevin): el Excel es una copia de lectura.
+   */
+  const actualizarExcel = async () => {
+    if (!puedeExportar) return;
+    setActualizandoExcel(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fianzas-excel', { body: {} });
+      if (error) throw error;
+      const r = data as { ok?: boolean; error?: string; fianzas?: number; cartas?: number };
+      if (!r?.ok) throw new Error(r?.error ?? 'Respuesta inesperada');
+      toast.success(`Excel actualizado: ${r.fianzas} fianzas y ${r.cartas} cartas`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error desconocido';
+      toast.error('No se pudo actualizar el Excel. ' + msg, { duration: 10000 });
+    } finally {
+      setActualizandoExcel(false);
+    }
+  };
 
   const fianza = fianzas.find(f => f.id === seleccionada) ?? null;
 
@@ -184,7 +212,15 @@ export function FianzasModule() {
               onClick={() => setSeleccionada(null)}>
               <ArrowLeft className="size-4" /> Volver a las fianzas
             </Button>
-            <h2 className="text-2xl font-semibold">{fianza.nombreProyecto}</h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-2xl font-semibold">{fianza.nombreProyecto}</h2>
+              {puedeEditar && (
+                <Button variant="outline" size="sm"
+                  onClick={() => setFormFianza({ abierto: true, fianza })}>
+                  <Pencil className="size-4" /> Editar
+                </Button>
+              )}
+            </div>
             <p className="text-muted-foreground mt-1">{fianza.entidad}</p>
             {fianza.concurso && (
               <p className="text-xs text-muted-foreground mt-1">{fianza.concurso}</p>
@@ -207,10 +243,15 @@ export function FianzasModule() {
         </div>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">
               Cadena de cartas ({fianza.cartas.length})
             </CardTitle>
+            {puedeCrear && (
+              <Button size="sm" onClick={() => setFormCarta({ abierto: true, carta: null })}>
+                <RefreshCw className="size-4" /> Registrar renovación
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
             <Table>
@@ -226,6 +267,7 @@ export function FianzasModule() {
                   <TableHead className="text-right">Costo renov.</TableHead>
                   <TableHead className="text-right">Encaje</TableHead>
                   <TableHead>Estado</TableHead>
+                  {puedeEditar && <TableHead className="w-10"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -252,6 +294,14 @@ export function FianzasModule() {
                         {ETIQUETA_ESTADO[c.estado] ?? c.estado}
                       </Badge>
                     </TableCell>
+                    {puedeEditar && (
+                      <TableCell>
+                        <Button variant="ghost" size="sm" aria-label="Editar carta"
+                          onClick={() => setFormCarta({ abierto: true, carta: c })}>
+                          <Pencil className="size-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -259,35 +309,19 @@ export function FianzasModule() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="size-4" /> Cargos ({cargosDeFianza.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {cargosDeFianza.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Sin cargos registrados. Los archivos siguen en SharePoint, en
-                <span className="font-mono text-xs"> Administración / Fianzas / Cargos Fianzas / {fianza.entidad}</span>.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {cargosDeFianza.map(g => (
-                  <li key={g.id} className="text-sm flex items-center gap-2">
-                    <FileText className="size-4 text-muted-foreground shrink-0" />
-                    {g.sharepointUrl
-                      ? <a href={g.sharepointUrl} target="_blank" rel="noreferrer" className="underline">{g.nombre}</a>
-                      : <span>{g.nombre}</span>}
-                    <span className="text-xs text-muted-foreground">
-                      {g.subidoPor ? `· ${g.subidoPor}` : ''} · {fecha(g.subidoEn)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+        <CargosDeFianza fianzaId={fianza.id} entidad={fianza.entidad} />
+
+        <FianzaForm
+          abierto={formFianza.abierto}
+          onOpenChange={v => setFormFianza(f => ({ ...f, abierto: v }))}
+          fianza={formFianza.fianza}
+        />
+        <CartaForm
+          abierto={formCarta.abierto}
+          onOpenChange={v => setFormCarta(f => ({ ...f, abierto: v }))}
+          fianzaId={fianza.id}
+          carta={formCarta.carta}
+        />
       </div>
     );
   }
@@ -343,10 +377,20 @@ export function FianzasModule() {
                   <div className="text-xs text-muted-foreground">Dos hojas con todo el detalle</div>
                 </div>
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={actualizarExcel} disabled={actualizandoExcel}>
+                <RefreshCw className={`size-4 ${actualizandoExcel ? 'animate-spin' : ''}`} />
+                <div>
+                  <div>{actualizandoExcel ? 'Actualizando…' : 'Actualizar Excel de SharePoint'}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Reescribe la hoja de Administración con lo que hay aquí
+                  </div>
+                </div>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           {puedeCrear && (
-            <Button disabled title="Próximamente">
+            <Button onClick={() => setFormFianza({ abierto: true, fianza: null })}>
               <Plus className="size-4" /> Nueva Fianza
             </Button>
           )}
@@ -517,6 +561,12 @@ export function FianzasModule() {
           </div>
         </>
       )}
+
+      <FianzaForm
+        abierto={formFianza.abierto}
+        onOpenChange={v => setFormFianza(f => ({ ...f, abierto: v }))}
+        fianza={formFianza.fianza}
+      />
     </div>
   );
 }
