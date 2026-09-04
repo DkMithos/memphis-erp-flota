@@ -3,6 +3,9 @@
 > Registro vivo de lo que queda por hacer. Se actualiza conforme avanzamos o se priorizan cosas nuevas.
 > Última actualización: **viernes 04/09/2026**
 
+> **El orden de trabajo vive ahora en [PLAN-ACCION.md](PLAN-ACCION.md)**, que define qué
+> significa "al 100%" y en qué orden llegar. Este documento queda como inventario.
+
 ---
 
 ## ℹ️ El equipo entra cuando el sistema esté al 100%
