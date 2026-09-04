@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { BotonExportar } from '../../shared/BotonExportar';
 import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
 import { Progress } from '../../ui/progress';
@@ -83,9 +84,29 @@ export function ProyectosValorizaciones({ onNavigate }: ValorizacionesProps) {
             <p className="text-sm text-muted-foreground">Control de avance financiero por proyecto</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => onNavigate?.('/proyectos/lista')} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
-          Ver proyectos
-        </Button>
+        <div className="flex items-center gap-2">
+          <BotonExportar
+            modulo="proyectos" nombre="valorizaciones" hoja="Valorizaciones"
+            datos={proyectos.map(p => ({
+              codigo: p.codigo ?? '', proyecto: p.nombre, estado: p.estado,
+              presupuesto: Number(p.presupuesto ?? 0),
+              costoReal: Number(p.costoReal ?? 0),
+              porValorizar: Math.round((Number(p.presupuesto ?? 0) - Number(p.costoReal ?? 0)) * 100) / 100,
+              avance: Number(p.avancePct ?? 0),
+              fechaInicio: p.fechaInicio ?? '', fechaFin: p.fechaFin ?? '',
+            }))}
+            headers={{
+              codigo: 'Código', proyecto: 'Proyecto', estado: 'Estado',
+              presupuesto: 'Presupuesto', costoReal: 'Valorizado',
+              porValorizar: 'Por valorizar', avance: '% avance',
+              fechaInicio: 'Inicio', fechaFin: 'Fin estimado',
+            }}
+            size="sm"
+          />
+          <Button variant="outline" size="sm" onClick={() => onNavigate?.('/proyectos/lista')} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
+            Ver proyectos
+          </Button>
+        </div>
       </div>
 
       {/* KPIs — patrón Home */}

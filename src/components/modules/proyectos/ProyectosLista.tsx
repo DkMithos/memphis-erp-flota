@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader } from '../../ui/card';
 import { PageNav } from '../../shared/PageNav';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
+import { BotonExportar } from '../../shared/BotonExportar';
 import { Input } from '../../ui/input';
 import { Progress } from '../../ui/progress';
 import {
@@ -514,10 +515,39 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
             <p className="text-muted-foreground mt-1 text-sm">{proyectos.length} proyecto(s) registrados</p>
           </div>
         </div>
-        <Button onClick={abrirNuevo}>
-          <Plus className="size-4" />
-          Nuevo Proyecto
-        </Button>
+        <div className="flex items-center gap-2">
+          <BotonExportar
+            modulo="proyectos" nombre="proyectos" hoja="Proyectos"
+            datos={filtrados.map(p => ({
+              codigo: p.id,
+              nombre: p.nombre,
+              entidad: p.entidadCliente ?? '',
+              modalidad: p.modalidad ?? '',
+              tipo: p.tipo,
+              estado: p.estado,
+              prioridad: p.prioridad,
+              gerente: p.gerenteProyecto ?? '',
+              moneda: p.moneda,
+              presupuesto: Number(p.presupuesto ?? 0),
+              costoReal: Number(p.costoReal ?? 0),
+              avance: Number(p.porcentajeAvance ?? 0),
+              fechaInicio: p.fechaInicio ?? '',
+              fechaFinEstimada: p.fechaFinEstimada ?? '',
+              fechaFinReal: p.fechaFinReal ?? '',
+            }))}
+            headers={{
+              codigo: 'Código', nombre: 'Proyecto', entidad: 'Entidad / cliente',
+              modalidad: 'Modalidad', tipo: 'Tipo', estado: 'Estado',
+              prioridad: 'Prioridad', gerente: 'Gerente', moneda: 'Moneda',
+              presupuesto: 'Presupuesto', costoReal: 'Costo real', avance: '% avance',
+              fechaInicio: 'Inicio', fechaFinEstimada: 'Fin estimado', fechaFinReal: 'Fin real',
+            }}
+          />
+          <Button onClick={abrirNuevo}>
+            <Plus className="size-4" />
+            Nuevo Proyecto
+          </Button>
+        </div>
       </div>
 
       {/* Filtros */}

@@ -5,31 +5,24 @@
 
 ---
 
-## 🔴 Lo primero: el equipo todavía no está usando el sistema
+## ℹ️ El equipo entra cuando el sistema esté al 100%
 
-De las **12 cuentas**, **8 nunca han iniciado sesión**:
+Decisión de Kevin (04/09): **el equipo no ingresa todavía**, a propósito, hasta que el sistema esté
+completo. Que 8 de 12 cuentas no registren ingreso **no es un problema a resolver**, es lo esperado.
 
-| Ha entrado | Nunca ha entrado |
-|---|---|
-| Kevin (04/09) · **Shirley (03/09)** · Consultor (30/07) · Adrian (29/05) | Carolina · Richard · Walter · Miguelangel · José · Guillermo · Miguel Zegarra · Lisbet |
-
-**El SSO con Microsoft ya está probado en la práctica**: Shirley entró con Microsoft el 03/09 y su
-identidad `azure` quedó enlazada sola, igual que la de Kevin. No hacen falta enlaces de contraseña.
-
-Lo único que puede estar bloqueándolos es la **Enterprise App en Entra**: si tiene
-*"Se requiere asignación de usuario = Sí"*, hay que agregar a los 8. Pendiente de verificar.
-
-Todo lo demás de esta lista vale menos que esto: el sistema está construido y desplegado, pero
-si el equipo no entra, no sirve.
+El acceso ya está probado: **Shirley entró con Microsoft el 03/09** y su identidad `azure` se enlazó
+sola, igual que la de Kevin. No hacen falta enlaces de contraseña cuando llegue el momento.
 
 ---
 
-## ⛔ Bloqueado por permisos de Entra (solo lo puede levantar Kevin)
+## ✅ Permiso de Entra concedido (04/09)
 
-**`Files.ReadWrite.All` (Application) con consentimiento de administrador.**
-Lo necesita el botón **"Actualizar Excel de SharePoint"** de Fianzas. Hoy la app tiene
-`Files.Read.All`, que sirve para leer —por eso la importación de cargos sí funcionó— pero no para
-escribir. Mientras tanto el botón responde con ese mensaje exacto en vez de fallar en silencio.
+**`Files.ReadWrite.All`** ya está otorgado, así que el botón **"Actualizar Excel de SharePoint"**
+de Fianzas tiene lo que necesitaba.
+
+**Falta la primera corrida, y conviene decidirla a propósito**: reescribe la hoja entera y
+reemplaza sus fórmulas por valores. Es lo acordado (el ERP manda), pero es irreversible sobre el
+archivo que hoy mantiene Administración.
 
 ---
 

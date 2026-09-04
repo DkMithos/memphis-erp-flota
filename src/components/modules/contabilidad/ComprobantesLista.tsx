@@ -12,6 +12,7 @@ import { Badge } from '../../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { useComprobantesStore, type ComprobantePago } from '../../../lib/contabilidad/comprobantes-store';
 import { useConfirmAction } from '@/components/shared/ConfirmDialogProvider';
+import { BotonExportar } from '../../shared/BotonExportar';
 
 interface Props { onNavigate: (route: string) => void; }
 
@@ -55,6 +56,32 @@ export function ComprobantesLista({ onNavigate }: Props) {
 
   const pendientes = comprobantes.filter(c => !c.contabilizado && c.estado === 'activo').length;
 
+  // Lo que Walter necesita para trabajar el comprobante fuera del sistema:
+  // el documento completo, con quién, cuánto y en qué estado del flujo.
+  const paraExportar = useMemo(() => filtrados.map(c => ({
+    numero: c.numeroCompleto,
+    tipo: TIPO_LABELS[c.tipo] ?? c.tipo,
+    direccion: c.direccion === 'recibido' ? 'Recibido' : 'Emitido',
+    fechaEmision: c.fechaEmision,
+    fechaVencimiento: c.fechaVencimiento ?? '',
+    ruc: (c.direccion === 'recibido' ? c.rucEmisor : c.rucReceptor) ?? '',
+    razonSocial: (c.direccion === 'recibido' ? c.razonSocialEmisor : c.razonSocialReceptor) ?? '',
+    moneda: c.moneda,
+    subtotal: Number(c.subtotal ?? 0),
+    igv: Number(c.igv ?? 0),
+    total: Number(c.total ?? 0),
+    estado: c.estado,
+    contabilizado: c.contabilizado ? 'Sí' : 'No',
+  })), [filtrados]);
+
+  const CAB_EXPORT = {
+    numero: 'Comprobante', tipo: 'Tipo', direccion: 'Dirección',
+    fechaEmision: 'Fecha de emisión', fechaVencimiento: 'Vencimiento',
+    ruc: 'RUC', razonSocial: 'Razón social', moneda: 'Moneda',
+    subtotal: 'Subtotal', igv: 'IGV', total: 'Total',
+    estado: 'Estado', contabilizado: 'Contabilizado',
+  };
+
   async function handleAnular(id: string) {
     const ok = await confirmAction({ title: 'Confirmar anulación', description: '¿Anular este comprobante?', confirmLabel: 'Anular', variant: 'destructive' });
     if (!ok) return;
@@ -72,9 +99,15 @@ export function ComprobantesLista({ onNavigate }: Props) {
             {pendientes > 0 && <span className="ml-2 text-amber-600 font-medium">· {pendientes} pend. contabilizar</span>}
           </p>
         </div>
-        <Button size="sm" onClick={() => onNavigate('/contabilidad/comprobantes/nuevo')} className="gap-1.5">
-          <Plus className="size-3.5" /> Nuevo Comprobante
-        </Button>
+        <div className="flex items-center gap-2">
+          <BotonExportar
+            modulo="contabilidad" nombre="comprobantes" hoja="Comprobantes"
+            datos={paraExportar} headers={CAB_EXPORT} size="sm"
+          />
+          <Button size="sm" onClick={() => onNavigate('/contabilidad/comprobantes/nuevo')} className="gap-1.5">
+            <Plus className="size-3.5" /> Nuevo Comprobante
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2">

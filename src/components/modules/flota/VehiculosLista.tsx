@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Car, Plus, Search, Eye, MapPin, X, CheckCircle2, PowerOff, Gauge, QrCode } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { BotonExportar } from '../../shared/BotonExportar';
 import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
@@ -95,6 +96,26 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          <BotonExportar
+            modulo="flota" nombre="vehiculos" hoja="Vehículos"
+            datos={vehiculosFiltrados.map(v => ({
+              placa: v.placa,
+              placaInterna: v.placaInterna ?? '',
+              padron: v.numeroPadron ?? '',
+              vin: v.vin ?? '',
+              tipo: v.tipo,
+              marca: v.marca ?? '',
+              modelo: v.modelo ?? '',
+              flota: v.flotaId ?? '',
+              estado: v.estado,
+              administrativo: v.esAdministrativo ? 'Sí' : 'No',
+            }))}
+            headers={{
+              placa: 'Placa', placaInterna: 'Placa interna', padron: 'N° padrón',
+              vin: 'VIN', tipo: 'Tipo', marca: 'Marca', modelo: 'Modelo',
+              flota: 'Flota', estado: 'Estado', administrativo: 'Administrativo',
+            }}
+          />
           <Button variant="outline" onClick={() => onNavigate('/flota/qr')}>
             <QrCode className="size-4" />
             Imprimir QRs

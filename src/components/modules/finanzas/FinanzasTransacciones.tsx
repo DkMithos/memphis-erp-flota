@@ -7,6 +7,7 @@ import { PageNav } from '@/components/shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { BotonExportar } from '@/components/shared/BotonExportar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -218,10 +219,30 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
             <p className="text-muted-foreground mt-1">Ingresos, egresos y transferencias financieras</p>
           </div>
         </div>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="size-4" />
-          Nueva Transacción
-        </Button>
+        <div className="flex items-center gap-2">
+          <BotonExportar
+            modulo="finanzas" nombre="transacciones" hoja="Transacciones"
+            datos={transacciones.map(t => ({
+              fecha: t.fecha,
+              tipo: t.tipo,
+              categoria: t.categoria ?? '',
+              descripcion: t.descripcion ?? '',
+              proveedor: t.proveedorNombre ?? '',
+              moneda: t.moneda,
+              monto: Number(t.monto ?? 0),
+              estado: t.estado,
+            }))}
+            headers={{
+              fecha: 'Fecha', tipo: 'Tipo', categoria: 'Categoría',
+              descripcion: 'Descripción', proveedor: 'Proveedor',
+              moneda: 'Moneda', monto: 'Monto', estado: 'Estado',
+            }}
+          />
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="size-4" />
+            Nueva Transacción
+          </Button>
+        </div>
       </div>
 
       {/* KPIs — patrón Home */}

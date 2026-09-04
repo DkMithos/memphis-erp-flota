@@ -12,6 +12,7 @@ import { Badge } from '../../ui/badge';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { PageNav } from '../../shared/PageNav';
+import { BotonExportar } from '../../shared/BotonExportar';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../../ui/select';
@@ -198,9 +199,32 @@ export function FacturasProveedores({ onNavigate }: Props) {
             </p>
           </div>
         </div>
-        <Button variant="outline" onClick={cargar} disabled={loading}>
-          <RefreshCw className="size-4" /> Actualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <BotonExportar
+            modulo="compras" nombre="facturas-proveedores" hoja="Facturas"
+            datos={filtradas.map(f => ({
+              comprobante: f.numeroCompleto,
+              fechaEmision: f.fechaEmision,
+              ruc: f.proveedorRuc ?? '',
+              proveedor: f.proveedorNombre ?? '',
+              orden: f.ordenNumero ?? '',
+              moneda: f.moneda,
+              total: Number(f.total ?? 0),
+              estado: f.estadoFlujo,
+              observacion: f.motivoObservacion ?? '',
+              subidaPorProveedor: f.subidoPorProveedor ? 'Sí' : 'No',
+            }))}
+            headers={{
+              comprobante: 'Comprobante', fechaEmision: 'Fecha de emisión',
+              ruc: 'RUC', proveedor: 'Proveedor', orden: 'Orden de compra',
+              moneda: 'Moneda', total: 'Total', estado: 'Estado del flujo',
+              observacion: 'Motivo de observación', subidaPorProveedor: 'Subida por el proveedor',
+            }}
+          />
+          <Button variant="outline" onClick={cargar} disabled={loading}>
+            <RefreshCw className="size-4" /> Actualizar
+          </Button>
+        </div>
       </div>
 
       {/* KPIs */}

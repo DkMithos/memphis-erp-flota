@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { BookOpen, Plus, Search, Filter, CheckCircle2, Clock, XCircle, ChevronDown, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { BotonExportar } from '../../shared/BotonExportar';
 import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
@@ -169,9 +170,30 @@ export function AsientosLista({ onNavigate, detalleNumero }: Props) {
           <h1 className="text-xl font-bold flex items-center gap-2"><BookOpen className="size-5 text-primary" />Libro Diario</h1>
           <p className="text-xs text-muted-foreground mt-0.5">{filtrados.length} asiento(s)</p>
         </div>
-        <Button size="sm" onClick={() => onNavigate('/contabilidad/asientos/nuevo')} className="gap-1.5">
-          <Plus className="size-3.5" /> Nuevo Asiento
-        </Button>
+        <div className="flex items-center gap-2">
+          <BotonExportar
+            modulo="contabilidad" nombre="libro-diario" hoja="Asientos"
+            datos={filtrados.map(a => ({
+              numero: a.numero,
+              fecha: a.fecha,
+              glosa: a.glosa,
+              tipo: a.tipo,
+              moneda: a.moneda,
+              debe: Number(a.totalDebe ?? 0),
+              haber: Number(a.totalHaber ?? 0),
+              estado: a.estado,
+            }))}
+            headers={{
+              numero: 'N° Asiento', fecha: 'Fecha', glosa: 'Glosa',
+              tipo: 'Tipo', moneda: 'Moneda',
+              debe: 'Total debe', haber: 'Total haber', estado: 'Estado',
+            }}
+            size="sm"
+          />
+          <Button size="sm" onClick={() => onNavigate('/contabilidad/asientos/nuevo')} className="gap-1.5">
+            <Plus className="size-3.5" /> Nuevo Asiento
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2">

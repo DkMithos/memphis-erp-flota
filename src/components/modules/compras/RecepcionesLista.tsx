@@ -3,6 +3,7 @@ import { usePagination } from '../../../lib/shared/usePagination';
 import { Package, Search, Filter, Download, Eye, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { BotonExportar } from '../../shared/BotonExportar';
 import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
@@ -49,6 +50,26 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
 
   const { paged: recepcionesPaged, page, totalPages, setPage } = usePagination(recepcionesFiltradas);
 
+  // Lo que Richard necesita para cruzar recepciones contra órdenes y facturas.
+  const paraExportar = useMemo(() => recepcionesFiltradas.map(r => ({
+    recepcion: r.id,
+    orden: r.ordenId,
+    fecha: r.fechaRecepcion,
+    estado: r.estado,
+    conforme: r.conforme ? 'Sí' : 'No',
+    items: r.itemsRecibidos?.length ?? 0,
+    cantidadTotal: (r.itemsRecibidos ?? []).reduce((t, i) => t + Number(i.cantidadRecibida ?? 0), 0),
+    observaciones: r.observaciones ?? '',
+    registradoPor: r.auditoria?.creadoPor ?? '',
+  })), [recepcionesFiltradas]);
+
+  const CAB_EXPORT = {
+    recepcion: 'N° Recepción', orden: 'Orden de compra', fecha: 'Fecha de recepción',
+    estado: 'Estado', conforme: 'Conforme', items: 'Ítems recibidos',
+    cantidadTotal: 'Cantidad total', observaciones: 'Observaciones',
+    registradoPor: 'Registrado por',
+  };
+
   const stats = useMemo(() => ({
     total: recepciones.length,
     pendientes: recepciones.filter(r => r.estado === 'pendiente').length,
@@ -78,10 +99,10 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
             <Plus className="size-4" />
             Nueva Recepción
           </Button>
-          <Button variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
-            <Download className="size-4" />
-            Exportar
-          </Button>
+          <BotonExportar
+            modulo="compras" nombre="recepciones" hoja="Recepciones"
+            datos={paraExportar} headers={CAB_EXPORT}
+          />
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Wrench, Search, Plus, X } from 'lucide-react';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { BotonExportar } from '../../shared/BotonExportar';
 import { Badge } from '../../ui/badge';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -190,9 +191,36 @@ export function FlotaMantenimientos({ onNavigate: _onNavigate }: Props) {
             </p>
           </div>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="size-4" /> Registrar mantenimiento
-        </Button>
+        <div className="flex items-center gap-2">
+          <BotonExportar
+            modulo="flota" nombre="mantenimientos" hoja="Mantenimientos"
+            datos={filtrados.map(s => ({
+              vehiculo: s.codigoVehiculo ?? '',
+              placa: s.placa ?? '',
+              padron: s.padron ?? '',
+              flota: s.flotaId ?? '',
+              taller: s.taller ?? '',
+              estado: s.estado,
+              fechaProgramada: s.fechaProgramada ?? '',
+              fechaEjecucion: s.fechaEjecucion ?? '',
+              kmServicio: Number(s.kmServicio ?? 0),
+              kmOdometro: Number(s.kmOdometro ?? 0),
+              moneda: s.moneda,
+              costo: Number(s.costo ?? 0),
+              factura: s.factura ?? '',
+            }))}
+            headers={{
+              vehiculo: 'Vehículo', placa: 'Placa', padron: 'N° padrón',
+              flota: 'Flota', taller: 'Taller', estado: 'Estado',
+              fechaProgramada: 'Programado', fechaEjecucion: 'Ejecutado',
+              kmServicio: 'Km del servicio', kmOdometro: 'Km odómetro',
+              moneda: 'Moneda', costo: 'Costo', factura: 'Factura',
+            }}
+          />
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="size-4" /> Registrar mantenimiento
+          </Button>
+        </div>
       </div>
 
       {/* Filtros */}
