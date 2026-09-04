@@ -129,6 +129,7 @@ const InventarioAlmacenes = lazy(() => import('./components/modules/inventario/I
 // BI (carga diferida — incluye recharts)
 const BIDashboard = lazy(() => import('./components/modules/bi/BIDashboard').then(m => ({ default: m.BIDashboard })));
 const ReporteCruzado = lazy(() => import('./components/modules/bi/ReporteCruzado').then(m => ({ default: m.ReporteCruzado })));
+const FlujoGerencia = lazy(() => import('./components/modules/bi/FlujoGerencia').then(m => ({ default: m.FlujoGerencia })));
 import { BIProvider } from './lib/bi/bi-store';
 
 // Contabilidad (carga diferida — módulo pesado, no en ruta crítica)
@@ -910,6 +911,7 @@ export default function App() {
     // BI
     if (currentRoute.startsWith('/bi')) {
       if (currentRoute === '/bi/cruzado') return <ReporteCruzado />;
+      if (currentRoute === '/bi/gerencia') return <FlujoGerencia />;
       return <BIDashboard onNavigate={navigateTo} />;
     }
 

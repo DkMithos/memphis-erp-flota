@@ -287,6 +287,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       subItems: [
         { label: t('nav.sub.dashboard'), href: '/bi', id: 'bi-dashboard' },
         { label: t('nav.sub.reporte_cruzado'), href: '/bi/cruzado', id: 'bi-cruzado' },
+        { label: t('nav.sub.flujo_gerencia', 'Flujo Gerencia'), href: '/bi/gerencia', id: 'bi-gerencia' },
       ]
     },
     {
