@@ -1,6 +1,13 @@
 /**
  * Formularios de fianza y de carta fianza.
  *
+ * El monto afianzado NO se calcula a partir del monto de contrato por el
+ * porcentaje. Un contrato puede estar cubierto por varias cartas: en GORE
+ * Amazonas los 12M son el total del proyecto (11M de contrato más 1M+ de
+ * documento equivalente) y por eso hay dos cartas, una de S/470,740 y otra de
+ * S/20,661. Cada monto se teclea como figura en su carta; el porcentaje se
+ * guarda como referencia y no alimenta ningún cálculo.
+ *
  * Lo que NO se pide en el formulario de la carta: el fin y la fecha de
  * renovación. Los calcula la base (FIN = INICIO + PLAZO − 1, RENOVACIÓN =
  * FIN − 5), igual que las fórmulas del Excel. Se muestran mientras se escribe,
@@ -73,12 +80,6 @@ export function FianzaForm({
     });
   }, [abierto, fianza]);
 
-  const afianzado = useMemo(() => {
-    const m = aNumero(f.montoContrato), p = aNumero(f.porcentaje);
-    if (m === null || p === null) return null;
-    return Math.round(m * (p / 100) * 100) / 100;
-  }, [f.montoContrato, f.porcentaje]);
-
   const guardar = async () => {
     if (!f.nombreProyecto.trim() || !f.entidad.trim()) {
       toast.error('El nombre del proyecto y la entidad son obligatorios');
@@ -109,7 +110,8 @@ export function FianzaForm({
         <DialogHeader>
           <DialogTitle>{fianza ? 'Editar fianza' : 'Nueva fianza'}</DialogTitle>
           <DialogDescription>
-            El contrato afianzado. Las cartas y sus renovaciones se registran aparte.
+            El contrato afianzado. Las cartas y sus renovaciones se registran aparte,
+            y cada una lleva su propio monto afianzado tal como figura en la carta.
           </DialogDescription>
         </DialogHeader>
 
@@ -149,12 +151,9 @@ export function FianzaForm({
             <Input id="fz-pct" className="mt-1" inputMode="decimal" value={f.porcentaje}
               onChange={e => setF(v => ({ ...v, porcentaje: e.target.value }))}
               placeholder="4" />
-            {afianzado !== null && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Equivale a S/ {afianzado.toLocaleString('es-PE', { minimumFractionDigits: 2 })} — referencia,
-                el monto real lo lleva cada carta.
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              Se registra tal como figura, no se usa para calcular nada.
+            </p>
           </div>
           <div className="sm:col-span-2">
             <Label>Proyecto del ERP</Label>

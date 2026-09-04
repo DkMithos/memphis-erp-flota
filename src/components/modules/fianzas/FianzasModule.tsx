@@ -73,6 +73,33 @@ export function FianzasModule() {
   const [formFianza, setFormFianza] = useState<{ abierto: boolean; fianza: Fianza | null }>({ abierto: false, fianza: null });
   const [formCarta, setFormCarta] = useState<{ abierto: boolean; carta: CartaFianza | null }>({ abierto: false, carta: null });
   const [actualizandoExcel, setActualizandoExcel] = useState(false);
+  const [importando, setImportando] = useState(false);
+
+  /**
+   * Trae los cargos que estén en SharePoint y aún no figuren aquí.
+   * Es idempotente, así que se puede pulsar cuantas veces haga falta.
+   */
+  const importarCargos = async () => {
+    if (!puedeCrear) return;
+    setImportando(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fianzas-cargos-import', { body: {} });
+      if (error) throw error;
+      const r = data as { ok?: boolean; error?: string; importados?: number; ya_estaban?: number; sin_fianza?: unknown[] };
+      if (!r?.ok) throw new Error(r?.error ?? 'Respuesta inesperada');
+      const sueltos = r.sin_fianza?.length ?? 0;
+      toast.success(
+        `${r.importados} cargo(s) nuevos · ${r.ya_estaban} ya estaban` +
+        (sueltos ? ` · ${sueltos} en carpetas sin fianza registrada` : ''),
+        { duration: 8000 },
+      );
+    } catch (e) {
+      toast.error('No se pudieron importar los cargos. ' +
+        (e instanceof Error ? e.message : 'Error desconocido'), { duration: 10000 });
+    } finally {
+      setImportando(false);
+    }
+  };
 
   /**
    * Regenera la hoja de SharePoint con lo que hay en el ERP.
@@ -378,6 +405,15 @@ export function FianzasModule() {
                 </div>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={importarCargos} disabled={importando || !puedeCrear}>
+                <FileText className={`size-4 ${importando ? 'animate-pulse' : ''}`} />
+                <div>
+                  <div>{importando ? 'Importando…' : 'Importar cargos de SharePoint'}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Trae al sistema lo que haya en «Cargos Fianzas»
+                  </div>
+                </div>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={actualizarExcel} disabled={actualizandoExcel}>
                 <RefreshCw className={`size-4 ${actualizandoExcel ? 'animate-spin' : ''}`} />
                 <div>
