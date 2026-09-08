@@ -823,3 +823,46 @@ módulos. No se tocó el día del lanzamiento: son ~20 pantallas y conviene hace
 67/67 tests (8 nuevos de rutas) · 994 errores de tipos antes y después, ninguno en lo tocado ·
 las tres correcciones se volvieron a probar en vivo con perfiles de Cargos Fianzas, Contabilidad
 y Gerencia.
+
+---
+
+## 08/09/2026 — BI y Reporte Cruzado, listos para Gerencia
+
+**El Reporte Cruzado no devolvía nada.** Sus cuatro consultas pedían columnas que no existen
+(`ordenes_trabajo.proyecto_id`, `gastos_caja_chica.centro_costo_id`,
+`requerimientos_compra.fecha_solicitud`); PostgREST respondía error y el código lo tragaba
+devolviendo lista vacía. Y dejaba fuera las órdenes de compra, que son el gasto real.
+
+**El panel de BI pedía quince métricas a seis tablas vacías** — transacciones, oportunidades,
+clientes, artículos, contratos, tareas — y mostraba "Balance del mes S/ 0" y "Pipeline S/ 0" como
+si fueran cifras.
+
+### Lo que hay ahora
+
+- **`v_bi_movimientos`**: órdenes de compra + gastos e ingresos de caja chica normalizados,
+  **2,414 movimientos** (S/ 20.5M y $ 22.3M de egreso). Excluye anuladas y rechazadas.
+- El **centro de costo se resuelve contra el catálogo** para que el mismo centro no se parta en
+  dos: las órdenes traen `centro_costo_id`, que ya arregla los alias del legado; el texto de caja
+  chica se casa por código o por nombre, y lo que no casa se marca `en_catalogo = false`.
+- **Reporte Cruzado**: cruza por proyecto, centro de costo, mes, proveedor u origen. Soles y
+  dólares **siempre separados**. Se paginó la consulta — PostgREST corta en 1,000 filas y el
+  reporte y su Excel se quedaban ahí sin avisar.
+- **Panel BI**: una tarjeta por módulo con datos reales, cada una sujeta al permiso de ese módulo,
+  gráfico de compromiso mensual y un bloque explícito de "lo que todavía no se puede reportar".
+- Las cinco vistas `v_gerencia_*` corrían como su dueño (saltándose RLS) y estaban concedidas a
+  `anon`. Pasan a `security_invoker` y se les quita `anon`.
+- Se retiró `BIProvider`: nadie consumía `useBI` y disparaba 18 consultas en cada carga.
+
+### Verificación
+
+78/78 tests (11 nuevos) · build limpio · sin errores de tipos en lo tocado · recorrido en vivo con
+perfiles de **Gerencia** (ve las seis tarjetas, las tres series del gráfico, 2,414 movimientos) y
+**Compras** (solo compras y proveedores, sin la serie de caja chica, sin Flujo Gerencia) ·
+0 errores de consola.
+
+### Lo que salió a la luz
+
+- **616 movimientos** traen un centro de costo escrito a mano que no está en el catálogo; el grueso
+  es "OFICINA CENTRAL" (519), que existe como `OFCENTRAL` / "Gastos Oficina Central". Es un mapeo
+  de Administración, no código.
+- **1,006 egresos sin proyecto** — coherente con las 353 OCs que espera Operaciones.
