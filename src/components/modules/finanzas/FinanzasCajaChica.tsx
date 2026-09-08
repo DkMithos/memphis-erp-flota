@@ -64,8 +64,18 @@ const ESTADO_GASTO_COLORS = {
 interface NuevaCajaForm {
   nombre: string;
   responsable: string;
-  montoAsignado: string;
+  /** Depósito con el que se refuerza la caja, aparte del saldo que arrastra. */
+  montoAdicional: string;
   moneda: 'PEN' | 'USD';
+  /** Caja abierta de la que hereda el saldo; '' = caja desde cero. */
+  cajaOrigenId: string;
+}
+
+interface NuevoIngresoForm {
+  descripcion: string;
+  monto: string;
+  fecha: string;
+  origen: string;
 }
 
 interface NuevoGastoForm {
@@ -91,7 +101,7 @@ const defaultGastoForm: NuevoGastoForm = {
 };
 
 export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
-  const { cajasChicas, gastos, addCajaChica, addGasto, updateGasto, updateCajaChica, loading } = useFinanzas();
+  const { cajasChicas, gastos, addGasto, updateGasto, updateCajaChica, loading, reload } = useFinanzas();
   const { can } = usePermissions();
   // Cada usuario descarga su propia data: se exige <modulo>.exportar
   const puedeExportar = can('finanzas', 'exportar');
@@ -182,8 +192,14 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
   const [nuevaCajaForm, setNuevaCajaForm] = useState<NuevaCajaForm>({
     nombre: '',
     responsable: '',
-    montoAsignado: '',
+    montoAdicional: '',
     moneda: 'PEN',
+    cajaOrigenId: '',
+  });
+
+  const [showNuevoIngreso, setShowNuevoIngreso] = useState(false);
+  const [ingresoForm, setIngresoForm] = useState<NuevoIngresoForm>({
+    descripcion: '', monto: '', fecha: new Date().toISOString().slice(0, 10), origen: '',
   });
 
   const [gastoForm, setGastoForm] = useState<NuevoGastoForm>(defaultGastoForm);
@@ -252,14 +268,14 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
         .select('caja_id, numero, fecha, centro_costo, categoria, comprobante_numero, beneficiario, descripcion, monto, moneda, estado')
         .in('caja_id', ids),
       supabase.from('ingresos_caja_chica')
-        .select('caja_id, numero, fecha, concepto, monto, moneda')
+        .select('caja_id, numero, fecha, descripcion, origen, monto, moneda')
         .in('caja_id', ids),
     ]);
     const filas = [
       ...(ing.data ?? []).map((r: any) => ({
         caja: nombrePorId.get(r.caja_id) ?? '', fecha: r.fecha, item: r.numero,
-        centroCosto: '', tipoDoc: 'INGRESO', comprobante: '', razonSocial: '',
-        descripcion: r.concepto, ingreso: Number(r.monto), egreso: null,
+        centroCosto: '', tipoDoc: 'INGRESO', comprobante: '', razonSocial: r.origen ?? '',
+        descripcion: r.descripcion, ingreso: Number(r.monto), egreso: null,
         moneda: r.moneda, estado: '',
       })),
       ...(egr.data ?? []).map((r: any) => ({
@@ -353,33 +369,99 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
     return { total, pendientes };
   }, [gastosDeCaja, mesActual, anioActual]);
 
+  /** Cajas abiertas que pueden ceder su saldo a una nueva, por moneda. */
+  const cajasQueCedenSaldo = useMemo(
+    () => cajasChicas.filter(c => c.estado !== 'cerrada' && c.moneda === nuevaCajaForm.moneda),
+    [cajasChicas, nuevaCajaForm.moneda],
+  );
+  const cajaOrigen = cajasQueCedenSaldo.find(c => c._dbId === nuevaCajaForm.cajaOrigenId);
+  const saldoQueArrastra = cajaOrigen?.montoDisponible ?? 0;
+  const aperturaTotal = saldoQueArrastra + (parseFloat(nuevaCajaForm.montoAdicional) || 0);
+
+  /**
+   * La apertura la resuelve la base en una sola transacción
+   * (`fn_abrir_caja_chica`): crea la caja, arrastra el saldo de la anterior,
+   * suma el depósito y cierra la de origen. Hacerlo en cuatro pasos desde aquí
+   * dejaría cajas a medio abrir si se corta la conexión en medio.
+   */
   const handleCrearCaja = async () => {
-    if (!tenantId) return;
-    if (!nuevaCajaForm.nombre.trim() || !nuevaCajaForm.responsable.trim() || !nuevaCajaForm.montoAsignado) {
-      toast.error('Todos los campos son obligatorios');
+    if (!nuevaCajaForm.responsable.trim()) {
+      toast.error('Indica el responsable de la caja');
       return;
     }
-    const monto = parseFloat(nuevaCajaForm.montoAsignado);
+    const adicional = parseFloat(nuevaCajaForm.montoAdicional) || 0;
+    if (adicional < 0) { toast.error('El monto adicional no puede ser negativo'); return; }
+    if (aperturaTotal <= 0) {
+      toast.error('La caja quedaría en cero: elige una caja de origen con saldo o indica un monto');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      const { data, error } = await (supabase as any).rpc('fn_abrir_caja_chica', {
+        p_responsable: nuevaCajaForm.responsable.trim(),
+        p_moneda: nuevaCajaForm.moneda,
+        p_monto_adicional: adicional,
+        p_caja_origen: nuevaCajaForm.cajaOrigenId || null,
+        p_nombre: nuevaCajaForm.nombre.trim() || null,
+      });
+      if (error) throw error;
+      const creada = (Array.isArray(data) ? data[0] : data) as { nombre?: string } | null;
+      toast.success(`${creada?.nombre ?? 'Caja'} abierta`, {
+        description: cajaOrigen
+          ? `Arrastra ${fmt(saldoQueArrastra, nuevaCajaForm.moneda)} de ${cajaOrigen.nombre}, que queda cerrada`
+          : `Saldo inicial ${fmt(adicional, nuevaCajaForm.moneda)}`,
+      });
+      setShowNuevaCaja(false);
+      setNuevaCajaForm({ nombre: '', responsable: '', montoAdicional: '', moneda: 'PEN', cajaOrigenId: '' });
+      await reload?.();
+    } catch (e) {
+      toast.error('No se pudo abrir la caja', {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    } finally { setSaving(false); }
+  };
+
+  /** Reposición: dinero que entra a una caja ya abierta. */
+  const handleCrearIngreso = async () => {
+    if (!tenantId || !selectedCaja) return;
+    if (!ingresoForm.descripcion.trim() || !ingresoForm.monto || !ingresoForm.fecha) {
+      toast.error('Completa descripción, monto y fecha');
+      return;
+    }
+    const monto = parseFloat(ingresoForm.monto);
     if (isNaN(monto) || monto <= 0) { toast.error('Monto inválido'); return; }
 
     setSaving(true);
     try {
-      const seq = String(cajasChicas.length + 1).padStart(3, '0');
-      await addCajaChica({
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      const tablaIngresos = () => (supabase as any).from('ingresos_caja_chica');
+      const { count } = await tablaIngresos()
+        .select('id', { count: 'exact', head: true })
+        .eq('caja_id', selectedCaja._dbId);
+      const { error } = await tablaIngresos().insert({
         tenant_id: tenantId,
-        nombre: nuevaCajaForm.nombre,
-        codigo: `CC-${seq}`,
-        responsable: nuevaCajaForm.responsable,
-        monto_asignado: monto,
-        monto_disponible: monto,
-        moneda: nuevaCajaForm.moneda,
-        estado: 'activo',
+        caja_id: selectedCaja._dbId,
+        numero: String((count ?? 0) + 1),
+        descripcion: ingresoForm.descripcion.trim(),
+        tipo: 'reposicion',
+        monto,
+        moneda: selectedCaja.moneda,
+        fecha: ingresoForm.fecha,
+        origen: ingresoForm.origen.trim() || null,
+        estado: 'confirmado',
       });
-      toast.success('Caja chica creada');
-      setShowNuevaCaja(false);
-      setNuevaCajaForm({ nombre: '', responsable: '', montoAsignado: '', moneda: 'PEN' });
-    } catch { toast.error('Error al crear caja'); }
-    finally { setSaving(false); }
+      if (error) throw error;
+      toast.success(`Ingreso de ${fmt(monto, selectedCaja.moneda)} registrado`);
+      setShowNuevoIngreso(false);
+      setIngresoForm({ descripcion: '', monto: '', fecha: new Date().toISOString().slice(0, 10), origen: '' });
+      await reload?.();
+    } catch (e) {
+      toast.error('No se pudo registrar el ingreso', {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    } finally { setSaving(false); }
   };
 
   const handleCrearGasto = async () => {
@@ -829,6 +911,12 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                 </Button>
               )}
               {selectedCaja.estado !== 'cerrada' && (
+                <Button size="sm" variant="outline" onClick={() => setShowNuevoIngreso(true)}>
+                  <Plus className="size-4" />
+                  Registrar Ingreso
+                </Button>
+              )}
+              {selectedCaja.estado !== 'cerrada' && (
                 <Button size="sm" onClick={() => setShowNuevoGasto(true)}>
                   <Plus className="size-4" />
                   Registrar Gasto
@@ -922,6 +1010,65 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
         </Card>
       )}
 
+      {/* Dialog Nuevo Ingreso — reposición de una caja ya abierta */}
+      <Dialog open={showNuevoIngreso} onOpenChange={setShowNuevoIngreso}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar Ingreso — {selectedCaja?.nombre}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div>
+              <Label>Descripción *</Label>
+              <Input
+                placeholder="Ej: DEPOSITADO PARA VIÁTICOS DE PERSONAL"
+                value={ingresoForm.descripcion}
+                onChange={e => setIngresoForm(f => ({ ...f, descripcion: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Monto ({selectedCaja?.moneda === 'USD' ? '$' : 'S/'}) *</Label>
+                <Input
+                  type="number" min="0" step="0.01" placeholder="0.00"
+                  value={ingresoForm.monto}
+                  onChange={e => setIngresoForm(f => ({ ...f, monto: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Fecha *</Label>
+                <Input
+                  type="date"
+                  value={ingresoForm.fecha}
+                  onChange={e => setIngresoForm(f => ({ ...f, fecha: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Origen</Label>
+              <Input
+                placeholder="Ej: BBVA, CUENTA CORRIENTE"
+                value={ingresoForm.origen}
+                onChange={e => setIngresoForm(f => ({ ...f, origen: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+            {selectedCaja && (
+              <p className="text-xs text-muted-foreground">
+                Disponible ahora: {fmt(selectedCaja.montoDisponible, selectedCaja.moneda)} · quedará en{' '}
+                {fmt(selectedCaja.montoDisponible + (parseFloat(ingresoForm.monto) || 0), selectedCaja.moneda)}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNuevoIngreso(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
+            <Button onClick={handleCrearIngreso} disabled={saving}>{saving ? 'Registrando…' : 'Registrar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog Nueva Caja */}
       <Dialog open={showNuevaCaja} onOpenChange={setShowNuevaCaja}>
         <DialogContent className="max-w-md">
@@ -930,28 +1077,10 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div>
-              <Label>Nombre *</Label>
-              <Input
-                placeholder="Ej: Caja Chica Administración"
-                value={nuevaCajaForm.nombre}
-                onChange={e => setNuevaCajaForm(f => ({ ...f, nombre: e.target.value }))}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Responsable *</Label>
-              <Input
-                placeholder="Nombre del responsable"
-                value={nuevaCajaForm.responsable}
-                onChange={e => setNuevaCajaForm(f => ({ ...f, responsable: e.target.value }))}
-                className="mt-1"
-              />
-            </div>
-            <div>
               <Label>Moneda *</Label>
               <Select
                 value={nuevaCajaForm.moneda}
-                onValueChange={v => setNuevaCajaForm(f => ({ ...f, moneda: v as 'PEN' | 'USD' }))}
+                onValueChange={v => setNuevaCajaForm(f => ({ ...f, moneda: v as 'PEN' | 'USD', cajaOrigenId: '' }))}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue />
@@ -962,22 +1091,88 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                 </SelectContent>
               </Select>
             </div>
+
             <div>
-              <Label>Monto Asignado ({nuevaCajaForm.moneda === 'USD' ? '$' : 'S/'}) *</Label>
+              <Label>Viene de la caja</Label>
+              <Select
+                value={nuevaCajaForm.cajaOrigenId || 'ninguna'}
+                onValueChange={v => setNuevaCajaForm(f => ({ ...f, cajaOrigenId: v === 'ninguna' ? '' : v }))}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ninguna">Ninguna — empezar de cero</SelectItem>
+                  {cajasQueCedenSaldo.map(c => (
+                    <SelectItem key={c._dbId} value={c._dbId}>
+                      {c.nombre} — saldo {fmt(c.montoDisponible, c.moneda)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                {cajaOrigen
+                  ? `Se cerrará ${cajaOrigen.nombre} y su saldo pasa como primer movimiento de la nueva.`
+                  : 'Si eliges una, la caja nueva nace con su saldo y la anterior queda cerrada.'}
+              </p>
+            </div>
+
+            <div>
+              <Label>Depósito adicional ({nuevaCajaForm.moneda === 'USD' ? '$' : 'S/'})</Label>
               <Input
                 type="number"
                 min="0"
                 step="0.01"
                 placeholder="0.00"
-                value={nuevaCajaForm.montoAsignado}
-                onChange={e => setNuevaCajaForm(f => ({ ...f, montoAsignado: e.target.value }))}
+                value={nuevaCajaForm.montoAdicional}
+                onChange={e => setNuevaCajaForm(f => ({ ...f, montoAdicional: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+
+            {/* Lo que va a quedar, para que nadie tenga que sumarlo de cabeza. */}
+            <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1">
+              {cajaOrigen && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Saldo de {cajaOrigen.nombre}</span>
+                  <span className="tabular-nums">{fmt(saldoQueArrastra, nuevaCajaForm.moneda)}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Depósito adicional</span>
+                <span className="tabular-nums">{fmt(parseFloat(nuevaCajaForm.montoAdicional) || 0, nuevaCajaForm.moneda)}</span>
+              </div>
+              <div className="flex justify-between font-semibold border-t pt-1">
+                <span>Abre con</span>
+                <span className="tabular-nums">{fmt(aperturaTotal, nuevaCajaForm.moneda)}</span>
+              </div>
+            </div>
+
+            <div>
+              <Label>Responsable *</Label>
+              <Input
+                placeholder="Nombre del responsable"
+                value={nuevaCajaForm.responsable}
+                onChange={e => setNuevaCajaForm(f => ({ ...f, responsable: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label>Nombre</Label>
+              <Input
+                placeholder={`Se numera sola: CAJA N ${nuevaCajaForm.moneda === 'USD' ? 'DÓLARES' : 'SOLES'}`}
+                value={nuevaCajaForm.nombre}
+                onChange={e => setNuevaCajaForm(f => ({ ...f, nombre: e.target.value }))}
                 className="mt-1"
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNuevaCaja(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
-            <Button onClick={handleCrearCaja} disabled={saving}>{saving ? 'Creando...' : 'Crear'}</Button>
+            <Button onClick={handleCrearCaja} disabled={saving || aperturaTotal <= 0}>
+              {saving ? 'Abriendo…' : 'Abrir caja'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
