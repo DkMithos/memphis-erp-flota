@@ -39,7 +39,12 @@ interface Props {
   onNavigate: (route: string) => void;
 }
 
-function fmt(n: number, moneda: string = 'PEN') {
+/**
+ * La moneda es OBLIGATORIA a propósito. Antes tenía 'PEN' por defecto y tres
+ * llamadas se olvidaron de pasarla: una caja en dólares mostraba sus gastos
+ * rotulados en soles, que es peor que no mostrar el símbolo.
+ */
+function fmt(n: number, moneda: string) {
   const sym = moneda === 'USD' ? '$' : 'S/';
   return `${sym} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
 }
@@ -750,7 +755,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                 <span>Responsable: <strong className="text-foreground">{selectedCaja.responsable}</strong></span>
                 <span>Asignado: <strong className="text-foreground">{fmt(selectedCaja.montoAsignado, selectedCaja.moneda)}</strong></span>
                 <span>Disponible: <strong className={selectedCaja.montoDisponible < 0 ? 'text-red-600' : 'text-green-600'}>{fmt(selectedCaja.montoDisponible, selectedCaja.moneda)}</strong></span>
-                <span>Total mes: <strong className="text-foreground">{fmt(kpisGastos.total)}</strong></span>
+                <span>Total mes: <strong className="text-foreground">{fmt(kpisGastos.total, selectedCaja.moneda)}</strong></span>
                 {kpisGastos.pendientes > 0 && (
                   <span className="flex items-center gap-1 text-yellow-600">
                     <AlertCircle className="size-3.5" />
@@ -856,7 +861,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                         <TableCell className="text-sm max-w-[160px] truncate">{g.descripcion}</TableCell>
                         <TableCell className="text-sm">{g.categoria}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{g.beneficiario ?? '—'}</TableCell>
-                        <TableCell className="text-right font-medium text-sm">{fmt(g.monto)}</TableCell>
+                        <TableCell className="text-right font-medium text-sm">{fmt(g.monto, g.moneda ?? selectedCaja.moneda)}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {g.comprobanteNumero ?? '—'}
                           {g.comprobanteTipo && <span className="text-xs ml-1">({g.comprobanteTipo})</span>}
@@ -1019,7 +1024,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
               </div>
             </div>
             <div>
-              <Label>Monto (S/) *</Label>
+              <Label>Monto ({selectedCaja?.moneda === 'USD' ? '$' : 'S/'}) *</Label>
               <Input
                 type="number"
                 min="0"
