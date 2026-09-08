@@ -989,3 +989,44 @@ diálogo; CAJA 23 SOLES sigue mostrando S/.
   fila menciona "CAJA CHICA ANTERIOR 23" cuando viene de la 24.
 - Siguen las tres fechas ya reportadas: CAJA 8 SOLES ítem 47 con `1900-01-26` y CAJA 17 SOLES
   ítem 43 con `2026-15-06` (mes 15). El ERP las tiene con la fecha corregida.
+
+---
+
+## 08/09/2026 — Caja chica: apertura encadenada y saldo automático
+
+Kevin confirmó lo que se veía en el Excel: **Administración nunca abre una caja de cero**, cada una
+nace con el saldo de la que se cierra. Implementado.
+
+### Backend (`fn_abrir_caja_chica`)
+
+Una sola transacción hace las cuatro escrituras: crea la caja, mete el arrastre como primer
+movimiento (`SALDO A FAVOR DE CAJA CHICA ANTERIOR (…)`), suma el depósito adicional y cierra la de
+origen — **en ese orden**, de modo que si algo falla la caja anterior sigue abierta. Rechaza abrir
+desde una caja cerrada, cruzar monedas y crear una caja en cero. Numera sola siguiendo el
+correlativo de Administración: `CAJA 26 SOLES` / `ADMI026-SOLES`.
+
+### Backend (`fn_recalcular_caja` + disparadores)
+
+El saldo se escribía **una sola vez, al crear la caja**, y nunca más. Por eso las 41 estaban
+desfasadas. Ahora lo mantiene la base en cada alta, baja o corrección de gasto o ingreso, venga de
+la pantalla o de una carga masiva:
+
+- `asignado` = suma de ingresos (incluido el arrastre) — la fila "Ingresos" del Excel
+- `disponible` = asignado − gastos, **sin contar los rechazados** — la fila "Saldo Final"
+
+### Pantalla
+
+- "Nueva Caja Chica" pregunta **de qué caja viene** y **cuánto se deposita**, y muestra la suma
+  antes de confirmar. El nombre es opcional: si se deja vacío, se numera solo.
+- Botón **"Registrar Ingreso"** para las reposiciones de una caja abierta. Antes solo se podían
+  cargar por SQL, que es la razón por la que faltaba el ingreso de apertura de la CAJA 25.
+- Corregido un bug latente: la exportación global leía `concepto` en `ingresos_caja_chica`, columna
+  que no existe, así que **los ingresos nunca salían** en el Excel de todas las cajas.
+
+### Verificación
+
+Probado de punta a punta contra la base real y deshecho después: apertura de CAJA 26 SOLES con
+arrastre S/ 95.78 + depósito S/ 4,000 = S/ 4,095.78 y cierre de la 25; reposición de S/ 1,060 →
+S/ 5,155.78; gasto de S/ 250 → S/ 4,905.78. El saldo siguió cada paso solo. Las tres guardas de
+`fn_abrir_caja_chica` probadas una a una. Estado final intacto: 41 cajas, 2 abiertas, 1,006 gastos,
+145 ingresos.
