@@ -1,7 +1,7 @@
 # Memphis ERP — Pendientes acumulados
 
 > Registro vivo de lo que queda por hacer. Se actualiza conforme avanzamos o se priorizan cosas nuevas.
-> Última actualización: **viernes 04/09/2026**
+> Última actualización: **lunes 08/09/2026**
 
 > **El orden de trabajo vive ahora en [PLAN-ACCION.md](PLAN-ACCION.md)**, que define qué
 > significa "al 100%" y en qué orden llegar. Este documento queda como inventario.
@@ -43,6 +43,53 @@ archivo que hoy mantiene Administración.
 ---
 
 ## 🟠 Trabajo listo para hacer, sin bloqueos
+
+### 🔴 Los verbos de escritura no se comprueban fuera de Compras, Proveedores y Fianzas
+
+Del recorrido con un perfil por rol (08/09). La tabla de permisos distingue `crear`, `editar`,
+`eliminar` y `aprobar`, pero **solo Compras, Proveedores, Fianzas y las exportaciones los miran**.
+En el resto de módulos, quien puede *ver* puede *escribir*. Y RLS no lo ataja: las políticas de
+`transacciones`, `proyectos`, `vehiculos`, `asientos_contables`, `articulos`, `clientes`,
+`gastos_caja_chica` y `cajas_chicas` filtran por tenant y nada más, así que el botón que se ve
+escribe de verdad.
+
+Lo que eso significa hoy, con los usuarios que ya existen:
+
+| Rol (quiénes) | Puede hacer sin tener el permiso |
+|---|---|
+| **Gerencia** (Guillermo, Miguel, consultor) | Crear/editar/borrar proyectos, vehículos, asientos, transacciones, cajas chicas, artículos, clientes, equipos y recepciones. Su rol es solo `ver`+`exportar`+`aprobar` |
+| **Contabilidad** (Walter) | Crear cajas chicas y transacciones (tiene `finanzas.ver`, no `crear`) |
+| **Proyectos** (Miguelangel) | Igual en finanzas; y borrar proyectos, que su rol no incluye |
+| **Compras** (Richard) | Crear artículos, almacenes y movimientos de inventario (`inventario.ver` sin `crear`) |
+| **Técnico Flota** (José, Miguelangel) | Borrar vehículos y mantenimientos (`flota` sin `eliminar`) |
+
+**Caja chica** merece mención aparte: aprobar y rechazar un gasto tampoco comprueban
+`finanzas.aprobar`.
+
+Pantallas a tocar, por orden de a quién afecta hoy: caja chica (nuevo gasto, aprobar, rechazar),
+transacciones, presupuestos, proyectos (lista y detalle), flota (vehículos y mantenimientos),
+contabilidad (asientos, plan de cuentas, periodos, comprobantes), y al final inventario, CRM y
+biomédico, que están apagados para el tenant.
+
+### 🟡 Los módulos apagados se abren tecleando la URL
+
+`biomedico`, `inventario` y `crm` están en `false` para Memphis. El menú los oculta, pero
+`puedeVerRuta` no mira ese interruptor, así que un rol con el permiso entra por URL. Efecto
+secundario: el rol **Técnico Biomédico** no ve su propio módulo en el menú, porque el módulo está
+apagado (hoy no hay nadie con ese rol).
+
+Además, el interruptor lo lee el sidebar de **localStorage**, no de la base: `loadModulesConfig()`
+es síncrona y solo `GestionModulos` consulta `tenants.modules_config`. Un navegador nuevo cae al
+valor por defecto del código, no al del tenant.
+
+### ⚪ Detalles del mismo recorrido
+
+- El botón **"Configuración"** del pie del menú lleva a `/admin` para todos; nueve de once roles
+  aterrizan en la pantalla de permiso denegado.
+- `/admin` sin más renderiza Gestión de Usuarios, que se defiende sola. Gerencia, que tiene
+  `admin.ver` pero no `gestionar_usuarios`, ve un muro en vez de ir a Catálogos, que sí puede abrir.
+- Cualquier ruta que no coincida con ningún prefijo (`/tesoreria`, por ejemplo) cae en el Dashboard
+  general en vez de un "no existe".
 
 ### Exportaciones — Fase 1
 → [PLAN-Exportaciones-Excel.md](PLAN-Exportaciones-Excel.md). Hay **12 pantallas** con exportación;

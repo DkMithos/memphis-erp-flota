@@ -793,3 +793,33 @@ fecha); y si bancos e ingresos entran al ERP.
 
 Build limpio · 43/43 tests · 0 errores de tipos nuevos (995 antes y 995 después; las diferencias
 del diff eran desplazamientos de línea, confirmado ignorando línea y columna).
+
+---
+
+## 08/09/2026 — Recorrido del sistema con un perfil por rol
+
+Once cuentas QA temporales, una por rol, creadas y borradas en la misma sesión (nunca se tecleó
+una contraseña en el formulario: sesión por API y volcada a `localStorage`). Cada perfil vio su
+menú y trató de abrir 17 rutas, incluidas varias que no le tocan.
+
+**Bien:** Fianzas y Cargos de Fianzas están limpios — Lisbet llega a `/fianzas/cargos` con
+`fianzas.cargos` y sin ver un solo monto, y el tablero de fianzas le queda cerrado. Compras,
+Proveedores y las exportaciones comprueban sus verbos. Administrador ve todo, sin errores de
+consola.
+
+**Corregido y desplegado** (`af965dc4`): Flujo Gerencia estaba abierto a siete roles; el Dashboard
+general no pedía permiso alguno y mostraba presupuesto y costo real de proyectos a cualquiera con
+sesión; y dar conformidad de mercadería solo pedía ver compras. Los accesos rápidos del inicio no
+incluían Fianzas, así que Shirley, Carolina y Lisbet leían "tu rol todavía no tiene módulos
+asignados". Las reglas decididas a mano quedaron fijadas en `src/lib/rbac/rutas.test.ts`.
+
+**Lo que quedó abierto y está en PENDIENTES:** fuera de Compras, Proveedores y Fianzas, los verbos
+`crear`/`editar`/`eliminar`/`aprobar` no se comprueban en pantalla, y RLS es solo por tenant, así
+que el botón que se ve escribe. Gerencia —que es rol de consulta— puede crear y borrar en seis
+módulos. No se tocó el día del lanzamiento: son ~20 pantallas y conviene hacerlo con Kevin mirando.
+
+### Verificación
+
+67/67 tests (8 nuevos de rutas) · 994 errores de tipos antes y después, ninguno en lo tocado ·
+las tres correcciones se volvieron a probar en vivo con perfiles de Cargos Fianzas, Contabilidad
+y Gerencia.
