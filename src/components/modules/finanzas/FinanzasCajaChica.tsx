@@ -404,7 +404,9 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
         descripcion: gastoForm.descripcion,
         categoria: gastoForm.categoria,
         monto,
-        moneda: 'PEN',
+        // La moneda es la de la caja, no siempre soles: un gasto de CAJA 17
+        // DÓLARES se estaba GUARDANDO como PEN, no solo mostrándose así.
+        moneda: selectedCaja.moneda,
         fecha: gastoForm.fecha,
         beneficiario: gastoForm.beneficiario || null,
         comprobante_numero: gastoForm.comprobanteNumero || null,
