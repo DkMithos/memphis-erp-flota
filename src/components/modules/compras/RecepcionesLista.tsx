@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '../../ui/select';
 import { useRecepcionesStore } from '../../../lib/compras/recepciones-store';
+import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { RECEPCION_ESTADO_CONFIG, formatearFecha, type EstadoRecepcion } from '../../../lib/compras/recepciones-config';
 
 interface RecepcionesListaProps {
@@ -31,6 +32,10 @@ interface RecepcionesListaProps {
 
 export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
   const { recepciones } = useRecepcionesStore();
+  // Recepcionar es un permiso propio: Contabilidad y Gerencia ven las
+  // recepciones para consultarlas, pero no dan conformidad de mercadería.
+  const { can } = usePermissions();
+  const puedeRecepcionar = can('compras', 'recepcionar');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<EstadoRecepcion | 'todos'>('todos');
@@ -95,10 +100,12 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
         </div>
 
         <div className="flex gap-2">
+          {puedeRecepcionar && (
           <Button onClick={() => onNavigate?.('/compras/recepciones/nuevo')}>
             <Plus className="size-4" />
             Nueva Recepción
           </Button>
+          )}
           <BotonExportar
             modulo="compras" nombre="recepciones" hoja="Recepciones"
             datos={paraExportar} headers={CAB_EXPORT}

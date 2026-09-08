@@ -23,6 +23,7 @@ import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
 import { supabase } from '../../lib/supabase/client';
 import { useAuth } from '../../auth/AuthProvider';
+import { usePermissions, type Modulo } from '../../lib/rbac/usePermissions';
 import { useDarkMode } from '../../hooks/useDarkMode';
 
 interface DashboardProps {
@@ -40,6 +41,13 @@ interface DashboardKPIs {
   requerimientosPendientes: number;
 }
 
+/** De qué módulo depende cada tarjeta, para no mostrarla a quien no lo ve. */
+const MODULO_DE_TARJETA: Record<string, Modulo> = {
+  flota: 'flota', ots: 'flota', alertas: 'flota',
+  proyectos: 'proyectos', biomedico: 'biomedico',
+  oc: 'compras', req: 'compras', prov: 'proveedores',
+};
+
 interface ProyectoResumen {
   id: string;
   codigo: string;
@@ -52,6 +60,9 @@ interface ProyectoResumen {
 
 export function Dashboard({ onNavigate }: DashboardProps) {
   const { tenantId } = useAuth();
+  // Este tablero cruza módulos: cada tarjeta se muestra solo si el rol puede
+  // ver ese módulo. Antes se mostraba entero a cualquiera con sesión.
+  const { can } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const isDark = useDarkMode();
@@ -154,7 +165,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           { id: 'req', label: 'Requerimientos', icon: Package, route: '/compras/requerimientos', value: kpis.requerimientosPendientes, sub: 'pendientes de atención', color: 'bg-indigo-500 text-white' },
           { id: 'prov', label: 'Proveedores', icon: Users, route: '/proveedores', value: kpis.proveedoresActivos, sub: 'proveedores activos', color: 'bg-emerald-500 text-white' },
           { id: 'alertas', label: 'Alertas', icon: AlertTriangle, route: '/flota/mantenimientos', value: kpis.otsPendientes > 0 ? kpis.otsPendientes : '—', sub: 'requieren atención', color: 'bg-amber-500 text-white' },
-        ].map((card) => {
+        ].filter(card => can(MODULO_DE_TARJETA[card.id], 'ver')).map((card) => {
           const accentColor = isDark ? '#f0c000' : '#000000';
           const isHovered = hoveredId === card.id;
           const bgColor = isDark
@@ -201,7 +212,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         })}
       </div>
 
-      {/* Proyectos recientes */}
+      {/* Proyectos recientes — lleva presupuesto y costo real */}
+      {can('proyectos', 'ver') && (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Proyectos Recientes</CardTitle>
@@ -244,6 +256,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react';
 import {
   Truck, Activity, ShoppingCart, Package, DollarSign,
   FolderKanban, Users, BarChart3, ArrowRight, Stethoscope,
-  TrendingUp, Bell, CheckCircle2, Clock, AlertTriangle, ChevronRight
+  TrendingUp, Bell, CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldCheck
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -83,6 +83,24 @@ const QUICK_ACCESS = [
     color: 'bg-indigo-500 text-white group-hover:!bg-black group-hover:!text-white transition-colors',
   },
   {
+    id: 'fianzas',
+    modulo: 'fianzas',
+    label: 'Fianzas',
+    desc: 'Cartas fianza y renovaciones',
+    icon: ShieldCheck,
+    route: '/fianzas',
+    color: 'bg-teal-600 text-white group-hover:!bg-black group-hover:!text-white transition-colors',
+  },
+  {
+    id: 'fianzas-cargos',
+    modulo: 'fianzas',
+    label: 'Cargos de Fianzas',
+    desc: 'Constancias de entrega',
+    icon: ShieldCheck,
+    route: '/fianzas/cargos',
+    color: 'bg-teal-600 text-white group-hover:!bg-black group-hover:!text-white transition-colors',
+  },
+  {
     id: 'bi',
     label: 'BI & Reportes',
     desc: 'Análisis e indicadores',
@@ -122,7 +140,7 @@ export function HomeWelcome({ onNavigate }: HomeWelcomeProps) {
 
   // Solo los accesos que el usuario puede abrir y cuyo módulo está encendido.
   const accesos = useMemo(
-    () => QUICK_ACCESS.filter(a => isModuleEnabled(a.id) && puedeVerRuta(a.route, can)),
+    () => QUICK_ACCESS.filter(a => isModuleEnabled(('modulo' in a ? a.modulo : a.id) as string) && puedeVerRuta(a.route, can)),
     [can],
   );
 

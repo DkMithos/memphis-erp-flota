@@ -21,11 +21,27 @@ export interface RequisitoRuta {
 /** Rutas visibles para cualquier usuario con sesión y rol, sin permiso extra. */
 const RUTAS_LIBRES = ['/home', '/', '', '/perfil', '/notificaciones', '/ayuda'];
 
+/** Prefijo de ruta → módulo, para la regla general. */
+const MODULO_POR_PREFIJO: { prefijo: string; modulo: Modulo }[] = [
+  { prefijo: '/proveedores', modulo: 'proveedores' },
+  { prefijo: '/compras', modulo: 'compras' },
+  { prefijo: '/inventario', modulo: 'inventario' },
+  { prefijo: '/contabilidad', modulo: 'contabilidad' },
+  { prefijo: '/finanzas', modulo: 'finanzas' },
+  { prefijo: '/fianzas', modulo: 'fianzas' },
+  { prefijo: '/proyectos', modulo: 'proyectos' },
+  { prefijo: '/flota', modulo: 'flota' },
+  { prefijo: '/biomedico', modulo: 'biomedico' },
+  { prefijo: '/crm', modulo: 'crm' },
+];
+
 /**
  * Excepciones ruta→permiso. Se evalúan por prefijo y gana la más específica,
  * por eso el orden importa: primero las más largas.
  */
 const EXCEPCIONES: { prefijo: string; requisitos: RequisitoRuta[] }[] = [
+  // Dar conformidad de mercadería exige `recepcionar`; verlas basta con `ver`.
+  { prefijo: '/compras/recepciones/nuevo', requisitos: [{ modulo: 'compras', accion: 'recepcionar' }] },
   // Recepciones: Compras, Técnico Flota y Proyectos (N35)
   {
     prefijo: '/compras/recepciones',
@@ -48,6 +64,10 @@ const EXCEPCIONES: { prefijo: string; requisitos: RequisitoRuta[] }[] = [
   { prefijo: '/admin/usuarios', requisitos: [{ modulo: 'admin', accion: 'gestionar_usuarios' }] },
   { prefijo: '/admin/roles', requisitos: [{ modulo: 'admin', accion: 'gestionar_roles' }] },
   { prefijo: '/admin', requisitos: [{ modulo: 'admin', accion: 'ver' }] },
+  // Flujo Gerencia: margen por proyecto, rentabilidad y caja de toda la empresa.
+  // Es el tablero de los socios, no un reporte operativo — por eso NO hereda el
+  // criterio abierto de /bi. Va antes que '/bi' porque gana el prefijo más largo.
+  { prefijo: '/bi/gerencia', requisitos: [{ modulo: 'admin', accion: 'ver' }] },
   // BI cruza módulos: basta con poder ver alguno de los que reporta
   {
     prefijo: '/bi',
@@ -58,22 +78,13 @@ const EXCEPCIONES: { prefijo: string; requisitos: RequisitoRuta[] }[] = [
       { modulo: 'flota', accion: 'ver' },
     ],
   },
-  // El dashboard general lo ve cualquiera con rol
-  { prefijo: '/dashboard', requisitos: [] },
-];
-
-/** Prefijo de ruta → módulo, para la regla general. */
-const MODULO_POR_PREFIJO: { prefijo: string; modulo: Modulo }[] = [
-  { prefijo: '/proveedores', modulo: 'proveedores' },
-  { prefijo: '/compras', modulo: 'compras' },
-  { prefijo: '/inventario', modulo: 'inventario' },
-  { prefijo: '/contabilidad', modulo: 'contabilidad' },
-  { prefijo: '/finanzas', modulo: 'finanzas' },
-  { prefijo: '/fianzas', modulo: 'fianzas' },
-  { prefijo: '/proyectos', modulo: 'proyectos' },
-  { prefijo: '/flota', modulo: 'flota' },
-  { prefijo: '/biomedico', modulo: 'biomedico' },
-  { prefijo: '/crm', modulo: 'crm' },
+  // El dashboard general resume TODOS los módulos (incluye presupuesto y costo
+  // real de proyectos), así que pide ver al menos uno. Un rol de un solo trámite
+  // —Cargos de Fianzas— no tiene por qué ver la foto de la empresa.
+  {
+    prefijo: '/dashboard',
+    requisitos: MODULO_POR_PREFIJO.map(m => ({ modulo: m.modulo, accion: 'ver' as const })),
+  },
 ];
 
 /**
