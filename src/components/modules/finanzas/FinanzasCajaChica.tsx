@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Wallet, Check, X, AlertCircle, Download, FileText, ChevronDown, Coins, FolderOpen, Layers } from 'lucide-react';
+import { Plus, Wallet, X, Download, FileText, ChevronDown, Coins, FolderOpen, Layers } from 'lucide-react';
 import { PageNav } from '@/components/shared/PageNav';
 import { usePermissions } from '@/lib/rbac/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,12 +55,6 @@ const ESTADO_CAJA_COLORS = {
   cerrada: 'bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400',
 };
 
-const ESTADO_GASTO_COLORS = {
-  pendiente: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-  aprobado: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  rechazado: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-};
-
 interface NuevaCajaForm {
   nombre: string;
   responsable: string;
@@ -101,7 +95,7 @@ const defaultGastoForm: NuevoGastoForm = {
 };
 
 export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
-  const { cajasChicas, gastos, addGasto, updateGasto, updateCajaChica, loading, reload } = useFinanzas();
+  const { cajasChicas, gastos, addGasto, updateCajaChica, loading, reload } = useFinanzas();
   const { can } = usePermissions();
   // Cada usuario descarga su propia data: se exige <modulo>.exportar
   const puedeExportar = can('finanzas', 'exportar');
@@ -365,8 +359,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
       return d.getMonth() === mesActual && d.getFullYear() === anioActual && g.estado !== 'rechazado';
     });
     const total = mes.reduce((s, g) => s + g.monto, 0);
-    const pendientes = gastosDeCaja.filter(g => g.estado === 'pendiente').length;
-    return { total, pendientes };
+    return { total };
   }, [gastosDeCaja, mesActual, anioActual]);
 
   /** Cajas abiertas que pueden ceder su saldo a una nueva, por moneda. */
@@ -398,7 +391,6 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
 
     setSaving(true);
     try {
-      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       const { data, error } = await (supabase as any).rpc('fn_abrir_caja_chica', {
         p_responsable: nuevaCajaForm.responsable.trim(),
         p_moneda: nuevaCajaForm.moneda,
@@ -435,7 +427,6 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
 
     setSaving(true);
     try {
-      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       const tablaIngresos = () => (supabase as any).from('ingresos_caja_chica');
       const { count } = await tablaIngresos()
         .select('id', { count: 'exact', head: true })
@@ -493,8 +484,10 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
         beneficiario: gastoForm.beneficiario || null,
         comprobante_numero: gastoForm.comprobanteNumero || null,
         comprobante_tipo: (gastoForm.comprobanteTipo as GastoCajaChica['comprobanteTipo']) || null,
-        estado: 'pendiente',
-        aprobado_por: null,
+        // Sin paso de aprobación (decisión de Kevin, 08/09): quien registra el
+        // gasto es quien lo aprueba, así que nace aprobado y firmado por ella.
+        estado: 'aprobado',
+        aprobado_por: user?.email ?? null,
         notas: gastoForm.notas || null,
         realizado_por: user?.email ?? null,
       });
@@ -503,23 +496,6 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
       setGastoForm(defaultGastoForm);
     } catch { toast.error('Error al registrar gasto'); }
     finally { setSaving(false); }
-  };
-
-  const handleAprobarGasto = async (g: GastoCajaChica) => {
-    try {
-      await updateGasto(g._dbId, {
-        estado: 'aprobado',
-        aprobado_por: user?.email ?? 'Sistema',
-      });
-      toast.success('Gasto aprobado');
-    } catch { toast.error('Error al aprobar'); }
-  };
-
-  const handleRechazarGasto = async (g: GastoCajaChica) => {
-    try {
-      await updateGasto(g._dbId, { estado: 'rechazado' });
-      toast.success('Gasto rechazado');
-    } catch { toast.error('Error al rechazar'); }
   };
 
   return (
@@ -840,12 +816,6 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                 <span>Asignado: <strong className="text-foreground">{fmt(selectedCaja.montoAsignado, selectedCaja.moneda)}</strong></span>
                 <span>Disponible: <strong className={selectedCaja.montoDisponible < 0 ? 'text-red-600' : 'text-green-600'}>{fmt(selectedCaja.montoDisponible, selectedCaja.moneda)}</strong></span>
                 <span>Total mes: <strong className="text-foreground">{fmt(kpisGastos.total, selectedCaja.moneda)}</strong></span>
-                {kpisGastos.pendientes > 0 && (
-                  <span className="flex items-center gap-1 text-yellow-600">
-                    <AlertCircle className="size-3.5" />
-                    {kpisGastos.pendientes} pendiente(s)
-                  </span>
-                )}
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -939,8 +909,6 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                       <TableHead>Beneficiario</TableHead>
                       <TableHead className="text-right">Monto</TableHead>
                       <TableHead>Comprobante</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -955,35 +923,6 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                         <TableCell className="text-sm text-muted-foreground">
                           {g.comprobanteNumero ?? '—'}
                           {g.comprobanteTipo && <span className="text-xs ml-1">({g.comprobanteTipo})</span>}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={`text-xs ${ESTADO_GASTO_COLORS[g.estado] ?? ''}`}>
-                            {g.estado}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {g.estado === 'pendiente' && (
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-7 text-green-600 hover:text-green-700"
-                                title="Aprobar"
-                                onClick={() => handleAprobarGasto(g)}
-                              >
-                                <Check className="size-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-7 text-red-500 hover:text-red-600"
-                                title="Rechazar"
-                                onClick={() => handleRechazarGasto(g)}
-                              >
-                                <X className="size-3.5" />
-                              </Button>
-                            </div>
-                          )}
                         </TableCell>
                       </TableRow>
                     ))}
