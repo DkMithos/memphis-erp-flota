@@ -130,7 +130,6 @@ const InventarioAlmacenes = lazy(() => import('./components/modules/inventario/I
 const BIDashboard = lazy(() => import('./components/modules/bi/BIDashboard').then(m => ({ default: m.BIDashboard })));
 const ReporteCruzado = lazy(() => import('./components/modules/bi/ReporteCruzado').then(m => ({ default: m.ReporteCruzado })));
 const FlujoGerencia = lazy(() => import('./components/modules/bi/FlujoGerencia').then(m => ({ default: m.FlujoGerencia })));
-import { BIProvider } from './lib/bi/bi-store';
 
 // Contabilidad (carga diferida — módulo pesado, no en ruta crítica)
 const ContabilidadDashboard = lazy(() => import('./components/modules/contabilidad/ContabilidadDashboard').then(m => ({ default: m.ContabilidadDashboard })));
@@ -938,7 +937,6 @@ export default function App() {
     <PlanCuentasProvider>
     <AsientosProvider>
     <ComprobantesProvider>
-    <BIProvider>
     <ProyectosProvider>
     <CentrosCostoProvider>
     <FinanzasProvider>
@@ -1080,7 +1078,6 @@ export default function App() {
     </FinanzasProvider>
     </CentrosCostoProvider>
     </ProyectosProvider>
-    </BIProvider>
     </ComprobantesProvider>
     </AsientosProvider>
     </PlanCuentasProvider>

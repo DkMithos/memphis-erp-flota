@@ -1,20 +1,15 @@
 /**
- * REPORTE CRUZADO
- * Reportes cruzados por proyecto y centro de costo
- * Filtros: DateRange, Proyecto, Centro de Costo, Módulos
- * KPIs + Tabla + Export CSV
+ * REPORTE CRUZADO — a dónde se va la plata, por proyecto y por centro de costo.
+ *
+ * Cruza órdenes de compra con la caja chica sobre la vista `v_bi_movimientos`.
+ * Soles y dólares van SIEMPRE separados: el gasto de Memphis es mayoritariamente
+ * en dólares y consolidar con un tipo de cambio fijo movería el total en
+ * millones. El consolidado llega con la tabla de tipos de cambio por fecha.
  */
-
-import { useState, useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
-  Loader2,
-  Search,
-  Download,
-  BarChart3,
-  FolderKanban,
-  Building2,
-  FileSpreadsheet,
-  Filter,
+  Loader2, Search, BarChart3, FolderKanban, Building2,
+  CalendarDays, Truck, AlertTriangle, ArrowDownRight, ArrowUpRight,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -24,369 +19,354 @@ import { Label } from '../../ui/label';
 import { Badge } from '../../ui/badge';
 import { Checkbox } from '../../ui/checkbox';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../../ui/table';
 import { ProyectoSelector } from '../../shared/ProyectoSelector';
 import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
-import { useAuth } from '../../../auth/AuthProvider';
+import { BotonExportar } from '../../shared/BotonExportar';
 import {
-  fetchCrossReportData,
-  calcCrossReportKPIs,
-  MODULO_LABELS,
-  MODULOS_DISPONIBLES,
-  type CrossReportRow,
-  type CrossReportKPIs,
-} from '../../../lib/bi/cross-report';
-import { exportToCSV } from '../../../lib/shared/export-utils';
-import { usePermissions } from '../../../lib/rbac/usePermissions';
+  fetchMovimientos, agrupar, totales, paraExportar, CABECERAS_EXPORT, FUENTES,
+  type Movimiento, type Fuente, type Dimension, type Importe,
+} from '../../../lib/bi/cruzado';
 
-const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(amount);
+const soles = (n: number) =>
+  `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+const dolares = (n: number) =>
+  `$ ${n.toLocaleString('es-PE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return '-';
-  return new Date(dateStr).toLocaleDateString('es-PE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-};
+const fecha = (s: string) =>
+  s ? new Date(s + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
 
-// Default date range: last 30 days
-function getDefaultDates() {
-  const to = new Date();
-  const from = new Date();
-  from.setDate(from.getDate() - 30);
+/** Los dos importes de una celda, uno debajo del otro. Cero se calla. */
+function Plata({ importe, className = '' }: { importe: Importe; className?: string }) {
+  if (importe.pen === 0 && importe.usd === 0) return <span className="text-muted-foreground">—</span>;
+  return (
+    <div className={`leading-tight ${className}`}>
+      {importe.pen !== 0 && <div>{soles(importe.pen)}</div>}
+      {importe.usd !== 0 && <div className="text-muted-foreground">{dolares(importe.usd)}</div>}
+    </div>
+  );
+}
+
+const DIMENSIONES: { id: Dimension; label: string; icon: typeof FolderKanban }[] = [
+  { id: 'proyecto', label: 'Por proyecto', icon: FolderKanban },
+  { id: 'centroCosto', label: 'Por centro de costo', icon: Building2 },
+  { id: 'mes', label: 'Por mes', icon: CalendarDays },
+  { id: 'contraparte', label: 'Por proveedor', icon: Truck },
+  { id: 'fuente', label: 'Por origen', icon: BarChart3 },
+];
+
+/** Arranca en el año corrido: es el rango que pide Gerencia. */
+function rangoPorDefecto() {
+  const hoy = new Date();
   return {
-    from: from.toISOString().split('T')[0],
-    to: to.toISOString().split('T')[0],
+    desde: `${hoy.getFullYear()}-01-01`,
+    hasta: hoy.toISOString().slice(0, 10),
   };
 }
 
 export function ReporteCruzado() {
-  const { tenantId } = useAuth();
-  const { can } = usePermissions();
-  // BI cruza varios módulos y no es un módulo RBAC propio: igual que la ruta
-  // /bi, basta con poder exportar alguno de los módulos que alimenta el reporte.
-  const puedeExportar =
-    can('compras', 'exportar') ||
-    can('finanzas', 'exportar') ||
-    can('proyectos', 'exportar') ||
-    can('flota', 'exportar');
-  const defaults = getDefaultDates();
+  const inicial = rangoPorDefecto();
 
-  // Filters state
-  const [dateFrom, setDateFrom] = useState(defaults.from);
-  const [dateTo, setDateTo] = useState(defaults.to);
-  const [proyectoId, setProyectoId] = useState<string>('');
-  const [centroCostoId, setCentroCostoId] = useState<string>('');
-  const [modulosSeleccionados, setModulosSeleccionados] = useState<string[]>([...MODULOS_DISPONIBLES]);
+  const [desde, setDesde] = useState(inicial.desde);
+  const [hasta, setHasta] = useState(inicial.hasta);
+  const [proyectoId, setProyectoId] = useState<string | null>(null);
+  const [centroCostoId, setCentroCostoId] = useState<string | null>(null);
+  const [fuentes, setFuentes] = useState<Fuente[]>(FUENTES.map(f => f.id));
 
-  // Data state
-  const [rows, setRows] = useState<CrossReportRow[]>([]);
-  const [kpis, setKpis] = useState<CrossReportKPIs | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [movs, setMovs] = useState<Movimiento[]>([]);
+  const [dimension, setDimension] = useState<Dimension>('proyecto');
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [buscado, setBuscado] = useState(false);
 
-  const handleToggleModulo = (modulo: string) => {
-    setModulosSeleccionados((prev) =>
-      prev.includes(modulo) ? prev.filter((m) => m !== modulo) : [...prev, modulo]
-    );
-  };
-
-  const handleBuscar = useCallback(async () => {
-    if (!tenantId) return;
-    if (modulosSeleccionados.length === 0) return;
-
-    setLoading(true);
-    setHasSearched(true);
+  const buscar = useCallback(async () => {
+    setCargando(true);
+    setError(null);
     try {
-      const data = await fetchCrossReportData({
-        dateFrom,
-        dateTo,
-        proyectoId: proyectoId || undefined,
-        centroCostoId: centroCostoId || undefined,
-        modulos: modulosSeleccionados,
-        tenantId,
-      });
-      setRows(data);
-      setKpis(calcCrossReportKPIs(data));
-    } catch (err) {
-      console.error('Error fetching cross report:', err);
-      setRows([]);
-      setKpis(null);
+      const data = await fetchMovimientos({ desde, hasta, proyectoId, centroCostoId, fuentes });
+      setMovs(data);
+      setBuscado(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo consultar');
+      setMovs([]);
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
-  }, [tenantId, dateFrom, dateTo, proyectoId, centroCostoId, modulosSeleccionados]);
+  }, [desde, hasta, proyectoId, centroCostoId, fuentes]);
 
-  const handleExportCSV = () => {
+  const t = useMemo(() => totales(movs), [movs]);
+  const filas = useMemo(() => agrupar(movs, dimension), [movs, dimension]);
+  const detalle = useMemo(() => movs.slice(0, 100), [movs]);
+  const exportables = useMemo(() => paraExportar(movs), [movs]);
 
-    if (!puedeExportar) return;
-    if (rows.length === 0) return;
-    exportToCSV('reporte-cruzado', rows, {
-      fecha: 'Fecha',
-      modulo: 'Módulo',
-      tipo: 'Tipo',
-      numero: 'Número',
-      descripcion: 'Descripción',
-      monto: 'Monto',
-      moneda: 'Moneda',
-      proyecto: 'Proyecto',
-      centroCosto: 'Centro de Costo',
-    } as any);
-  };
-
-  const topProyectos = kpis
-    ? Object.entries(kpis.porProyecto)
-        .sort(([, a], [, b]) => b.monto - a.monto)
-        .slice(0, 5)
-    : [];
-
-  const topCentrosCosto = kpis
-    ? Object.entries(kpis.porCentroCosto)
-        .sort(([, a], [, b]) => b.monto - a.monto)
-        .slice(0, 5)
-    : [];
+  const alternarFuente = (id: Fuente) =>
+    setFuentes(prev => (prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]));
 
   return (
     <div className="space-y-6">
       <PageNav />
 
-      {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-3">
           <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
             <BarChart3 className="size-6 text-black dark:text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold">Reporte Cruzado</h2>
-            <p className="text-muted-foreground mt-1">
-              Análisis cruzado por proyecto y centro de costo
+            <h1 className="text-2xl font-bold">Reporte Cruzado</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Órdenes de compra y caja chica, cruzadas por proyecto y centro de costo
             </p>
           </div>
         </div>
-        {rows.length > 0 && (
-          <Button onClick={handleExportCSV} variant="outline" className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
-            <Download className="size-4" />
-            Exportar CSV
-          </Button>
+        {buscado && (
+          <BotonExportar
+            modulo="compras"
+            nombre="reporte-cruzado"
+            hoja="Movimientos"
+            datos={exportables}
+            headers={CABECERAS_EXPORT}
+            etiqueta={`Exportar ${movs.length}`}
+          />
         )}
       </div>
 
-      {/* Filtros */}
+      {/* FILTROS */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Filter className="size-5" />
-            Filtros
-          </CardTitle>
+          <CardTitle className="text-base">Qué quieres mirar</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Fechas + Selectores */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <Label htmlFor="cr-date-from">Desde</Label>
-              <Input
-                id="cr-date-from"
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="desde">Desde</Label>
+              <Input id="desde" type="date" value={desde} onChange={e => setDesde(e.target.value)} />
             </div>
-            <div>
-              <Label htmlFor="cr-date-to">Hasta</Label>
-              <Input
-                id="cr-date-to"
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
+            <div className="space-y-1.5">
+              <Label htmlFor="hasta">Hasta</Label>
+              <Input id="hasta" type="date" value={hasta} onChange={e => setHasta(e.target.value)} />
             </div>
-            <div>
+            <div className="space-y-1.5">
               <Label>Proyecto</Label>
-              <ProyectoSelector
-                value={proyectoId}
-                onChange={setProyectoId}
-              />
+              <ProyectoSelector value={proyectoId} onChange={setProyectoId} />
             </div>
-            <div>
-              <Label>Centro de Costo</Label>
-              <CentroCostoSelector
-                value={centroCostoId}
-                onChange={setCentroCostoId}
-              />
+            <div className="space-y-1.5">
+              <Label>Centro de costo</Label>
+              <CentroCostoSelector value={centroCostoId} onChange={setCentroCostoId} />
             </div>
           </div>
 
-          {/* Módulos */}
-          <div>
-            <Label className="mb-2 block">Módulos</Label>
-            <div className="flex flex-wrap items-center gap-4">
-              {MODULOS_DISPONIBLES.map((mod) => (
-                <div key={mod} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`mod-${mod}`}
-                    checked={modulosSeleccionados.includes(mod)}
-                    onCheckedChange={() => handleToggleModulo(mod)}
-                  />
-                  <Label htmlFor={`mod-${mod}`} className="text-sm cursor-pointer !mb-0">
-                    {MODULO_LABELS[mod]}
-                  </Label>
-                </div>
-              ))}
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="space-y-2">
+              <Label>Origen del movimiento</Label>
+              <div className="flex flex-wrap gap-4">
+                {FUENTES.map(f => (
+                  <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={fuentes.includes(f.id)}
+                      onCheckedChange={() => alternarFuente(f.id)}
+                    />
+                    <span>
+                      {f.label}
+                      <span className="text-muted-foreground"> · {f.detalle}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
+            <Button onClick={buscar} disabled={cargando || fuentes.length === 0}>
+              {cargando ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+              Generar
+            </Button>
           </div>
 
-          <Button
-            onClick={handleBuscar}
-            disabled={loading || modulosSeleccionados.length === 0}
-          >
-            {loading ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Search className="size-4" />
-            )}
-            Buscar
-          </Button>
+          <p className="text-xs text-muted-foreground border-t pt-3">
+            No entran aquí las facturas de proveedores (el módulo de cuentas por pagar todavía no
+            está alimentado) ni las órdenes de trabajo de flota, que hoy no guardan proyecto ni
+            centro de costo, así que no se pueden cruzar sin inventar la imputación.
+          </p>
         </CardContent>
       </Card>
 
-      {/* KPIs */}
-      {kpis && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Total */}
-          <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
-                <FileSpreadsheet className="size-5 text-white" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Total Registros</p>
-                <p className="text-2xl font-bold">{kpis.totalRegistros}</p>
-                <p className="text-sm font-medium text-blue-600">{formatCurrency(kpis.totalMonto)}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Top Proyectos */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2 mb-3">
-                <FolderKanban className="size-5 text-purple-600" />
-                <p className="text-sm font-medium">Top Proyectos</p>
-              </div>
-              <div className="space-y-1.5">
-                {topProyectos.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Sin datos</p>
-                ) : (
-                  topProyectos.map(([nombre, data]) => (
-                    <div key={nombre} className="flex items-center justify-between text-sm">
-                      <span className="truncate max-w-[140px]">{nombre}</span>
-                      <span className="font-medium">{formatCurrency(data.monto)}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Top Centros de Costo */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Building2 className="size-5 text-emerald-600" />
-                <p className="text-sm font-medium">Top Centros de Costo</p>
-              </div>
-              <div className="space-y-1.5">
-                {topCentrosCosto.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Sin datos</p>
-                ) : (
-                  topCentrosCosto.map(([nombre, data]) => (
-                    <div key={nombre} className="flex items-center justify-between text-sm">
-                      <span className="truncate max-w-[140px]">{nombre}</span>
-                      <span className="font-medium">{formatCurrency(data.monto)}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      {error && (
+        <Card className="border-destructive">
+          <CardContent className="p-4 text-sm text-destructive">
+            No se pudo generar el reporte: {error}
+          </CardContent>
+        </Card>
       )}
 
-      {/* Por Módulo badges */}
-      {kpis && Object.keys(kpis.porModulo).length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(kpis.porModulo).map(([modulo, data]) => (
-            <Badge key={modulo} variant="secondary" className="text-sm py-1 px-3">
-              {modulo}: {data.count} ({formatCurrency(data.monto)})
-            </Badge>
-          ))}
-        </div>
-      )}
-
-      {/* Tabla de resultados */}
-      {hasSearched && (
+      {buscado && !cargando && movs.length === 0 && !error && (
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">
-              Resultados ({rows.length} registros)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {rows.length === 0 ? (
-              <div className="text-center py-12">
-                <FileSpreadsheet className="size-12 mx-auto mb-4 opacity-30" />
-                <p className="text-muted-foreground">
-                  No se encontraron registros con los filtros aplicados.
+          <CardContent className="p-8 text-center text-muted-foreground">
+            No hay movimientos con estos filtros. Prueba ampliando el rango de fechas.
+          </CardContent>
+        </Card>
+      )}
+
+      {movs.length > 0 && (
+        <>
+          {/* RESUMEN */}
+          <div className="grid gap-3 md:grid-cols-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <ArrowDownRight className="size-3.5 text-red-500" /> Egresos
+                </div>
+                <Plata importe={t.egreso} className="text-xl font-bold mt-1" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <ArrowUpRight className="size-3.5 text-emerald-500" /> Ingresos de caja
+                </div>
+                <Plata importe={t.ingreso} className="text-xl font-bold mt-1" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Movimientos</p>
+                <p className="text-xl font-bold mt-1">{t.movimientos.toLocaleString('es-PE')}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {fecha(desde)} — {fecha(hasta)}
                 </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Egresos sin proyecto</p>
+                <p className="text-xl font-bold mt-1">{t.sinProyecto.toLocaleString('es-PE')}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t.movimientos > 0
+                    ? `${Math.round((t.sinProyecto / t.movimientos) * 100)}% de lo listado`
+                    : '—'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {t.fueraDeCatalogo > 0 && (
+            <Card className="border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20">
+              <CardContent className="p-4 flex gap-3 text-sm">
+                <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
+                <p>
+                  <strong>{t.fueraDeCatalogo.toLocaleString('es-PE')} movimientos</strong> traen un
+                  centro de costo escrito a mano que no está en el catálogo — vienen de la caja
+                  chica. Aparecen con su texto tal cual, sin sumarse al centro del catálogo que les
+                  correspondería.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* AGRUPADO */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <CardTitle className="text-base">Cómo se reparte</CardTitle>
+                <div className="flex flex-wrap gap-1.5">
+                  {DIMENSIONES.map(d => (
+                    <Button
+                      key={d.id}
+                      size="sm"
+                      variant={dimension === d.id ? 'default' : 'outline'}
+                      onClick={() => setDimension(d.id)}
+                    >
+                      <d.icon className="size-3.5" />
+                      {d.label}
+                    </Button>
+                  ))}
+                </div>
               </div>
-            ) : (
+            </CardHeader>
+            <CardContent>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Módulo</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Número</TableHead>
-                      <TableHead>Descripción</TableHead>
-                      <TableHead className="text-right">Monto</TableHead>
-                      <TableHead>Proyecto</TableHead>
-                      <TableHead>Centro Costo</TableHead>
+                      <TableHead>{DIMENSIONES.find(d => d.id === dimension)?.label.replace('Por ', '')}</TableHead>
+                      <TableHead className="text-right">Movimientos</TableHead>
+                      <TableHead className="text-right">Egresos</TableHead>
+                      <TableHead className="text-right">Ingresos</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((row, idx) => (
-                      <TableRow key={`${row.modulo}-${row.numero}-${idx}`}>
-                        <TableCell className="whitespace-nowrap">{formatDate(row.fecha)}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {row.modulo}
-                          </Badge>
+                    {filas.map(f => (
+                      <TableRow key={f.clave}>
+                        <TableCell className="font-medium">
+                          {f.etiqueta}
+                          {!f.enCatalogo && (
+                            <Badge variant="outline" className="ml-2 text-amber-600 border-amber-500/50">
+                              fuera de catálogo
+                            </Badge>
+                          )}
                         </TableCell>
-                        <TableCell className="capitalize">{row.tipo}</TableCell>
-                        <TableCell className="font-mono text-sm">{row.numero}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{row.descripcion}</TableCell>
-                        <TableCell className="text-right font-medium whitespace-nowrap">
-                          {formatCurrency(row.monto)}
-                        </TableCell>
-                        <TableCell className="text-sm">{row.proyecto ?? '-'}</TableCell>
-                        <TableCell className="text-sm">{row.centroCosto ?? '-'}</TableCell>
+                        <TableCell className="text-right tabular-nums">{f.movimientos}</TableCell>
+                        <TableCell className="text-right"><Plata importe={f.egreso} /></TableCell>
+                        <TableCell className="text-right"><Plata importe={f.ingreso} /></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* DETALLE */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">
+                Detalle
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  {movs.length > detalle.length
+                    ? `primeros ${detalle.length} de ${movs.length.toLocaleString('es-PE')} — el Excel los trae todos`
+                    : `${movs.length} movimiento(s)`}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Número</TableHead>
+                      <TableHead>Proveedor / beneficiario</TableHead>
+                      <TableHead>Proyecto</TableHead>
+                      <TableHead>Centro de costo</TableHead>
+                      <TableHead className="text-right">Importe</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detalle.map(m => (
+                      <TableRow key={`${m.fuente}-${m.id}`}>
+                        <TableCell className="whitespace-nowrap">{fecha(m.fecha)}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <span className="font-medium">{m.numero ?? '—'}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {FUENTES.find(f => f.id === m.fuente)?.label}
+                          </span>
+                        </TableCell>
+                        <TableCell className="max-w-[220px] truncate" title={m.contraparte ?? ''}>
+                          {m.contraparte ?? '—'}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={m.proyecto ?? ''}>
+                          {m.proyecto ?? <span className="text-muted-foreground">Sin proyecto</span>}
+                        </TableCell>
+                        <TableCell>{m.centroCosto ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                        <TableCell className={`text-right whitespace-nowrap tabular-nums ${m.flujo === 'ingreso' ? 'text-emerald-600' : ''}`}>
+                          {m.flujo === 'ingreso' ? '+' : ''}
+                          {m.moneda === 'USD' ? dolares(m.monto) : soles(m.monto)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );
