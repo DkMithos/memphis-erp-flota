@@ -1030,3 +1030,16 @@ arrastre S/ 95.78 + depósito S/ 4,000 = S/ 4,095.78 y cierre de la 25; reposici
 S/ 5,155.78; gasto de S/ 250 → S/ 4,905.78. El saldo siguió cada paso solo. Las tres guardas de
 `fn_abrir_caja_chica` probadas una a una. Estado final intacto: 41 cajas, 2 abiertas, 1,006 gastos,
 145 ingresos.
+
+### Sin paso de aprobación (decisión de Kevin, 08/09)
+
+Carolina registra y aprueba ella misma, así que el gasto **nace aprobado**, firmado con el correo
+de quien lo registró. Fuera los botones de aprobar/rechazar, el contador de pendientes y las
+columnas Estado y Acciones, que dirían siempre lo mismo.
+
+`estado` sigue existiendo en la base y el recálculo del saldo mantiene la regla de **no contar los
+rechazados**: si alguna vez hay uno por carga o corrección manual, se sigue respetando.
+
+Verificado: gasto de $ 33.33 en CAJA 17 DÓLARES → guardado como `aprobado`, `aprobado_por` con el
+correo del usuario, moneda USD, y el disponible bajó de $ 1,808.69 a $ 1,775.36 solo. Borrado
+después; estado final intacto (1,006 gastos, 145 ingresos, 41 cajas, 2 abiertas).
