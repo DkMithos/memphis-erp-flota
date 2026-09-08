@@ -866,3 +866,73 @@ perfiles de **Gerencia** (ve las seis tarjetas, las tres series del gráfico, 2,
   es "OFICINA CENTRAL" (519), que existe como `OFCENTRAL` / "Gastos Oficina Central". Es un mapeo
   de Administración, no código.
 - **1,006 egresos sin proyecto** — coherente con las 353 OCs que espera Operaciones.
+
+---
+
+## 08/09/2026 (tarde) — Actualización de datos desde los archivos de Operaciones
+
+Cinco frentes, todos contra el archivo vivo del equipo y comparando por contenido, nunca por
+posición de fila.
+
+### Mantenimientos — +232 (662 en total)
+
+Fuente: `CONTROL DE MANTENIMIENTO CAMIONETAS ICA.xlsx`, hoja `mantenimientos historico`
+(actualizado hoy 13:49). El ERP estaba al 22/05; ahora llega al **02/09/2026**.
+
+- **229 mantenimientos nuevos** cargados, S/ 86,562.92.
+- **3 OTs tenían el año 2006** en vez de 2026 (error de lectura de la carga original). Son las
+  mismas que el Excel trae en enero de 2026 —misma placa, mismo km, mismo costo—, así que se les
+  **corrigió la fecha** en lugar de insertar un gemelo.
+- Cuadre exacto: Excel 661 registros / S/ 236,347.11 · ERP 662 / S/ 236,881.28. La diferencia es
+  **OT-ICA-0140** (EPH-999, 10/09/2025, km 30,000, S/ 534.17), que el Excel ya no tiene: esa
+  camioneta figura con **dos mantenimientos de 30,000 km** y sin el de 25,000. No se borró nada;
+  queda para que Operaciones diga cuál es.
+
+### Vehículos — 50 actualizados
+
+Kilometraje, último y próximo mantenimiento de las 50 camionetas del GORE ICA, desde la hoja
+`PRINCIPAL`. Los 50 subieron km (ninguno retrocedió); antes **ninguno** tenía fecha de próximo
+mantenimiento y ahora los 50 la tienen. Promedio 70,088 km.
+
+### Compras — +3 órdenes (1,316)
+
+MM-001250, MM-001251 y MM-001252, las tres de hoy, a PERUANA DE MOTORES HG por mantenimientos ICA,
+con sus ítems y las 6 aprobaciones reales del historial del legado.
+
+- **Un proveedor nuevo quedó fuera a propósito**: "GEREMIE KEVIN CALLUCO QUISPE" con RUC
+  `107345501536`, de **12 dígitos**. Un RUC tiene 11. No lo referencia ninguna orden.
+- **Corregido un fallo del script de delta**: `MAPA_ESTADO` tenía claves en snake_case
+  (`pendiente_comprador`) pero Firestore guarda "Aprobada", "Rechazado", "Aprobado por Gerencia".
+  Nunca casaba, así que el delta informaba "0 cambios de estado" pasara lo que pasara — una orden
+  anulada en el legado habría seguido figurando como aprobada aquí. Con el mapa arreglado, hoy
+  siguen siendo 0 de verdad.
+
+### Proyectos — presupuestos y situación
+
+Espejo del Excel resincronizado (la vista `/proyectos/excel-sync` estaba al 07/08). La copia de
+SharePoint y la de OneDrive coinciden.
+
+- **Presupuesto** afinado en tres: HUÁNUCO 6,800,000 → 6,804,736.57 · LORETO 33,200,000 →
+  33,204,526.79 · AMAZONAS 11,660,046.03 → 11,945,011.03.
+- **Situación** sincerada: SERENAZGO → `revision_suspension`, AMBULANCIAS → `suspension`,
+  HUÁNUCO → `revision_td`. Las dos primeras situaciones no existían en el CHECK y se agregaron:
+  antes caían en `revision_estado`, que no dice lo mismo.
+
+### CRPL — ningún cobro nuevo, y por qué parece que sí
+
+**El `MONTO COBRADO` de las siete fichas coincide exactamente con lo que ya tenía el ERP.** Lo que
+sí cambió son las **valorizaciones**: hoy suman S/ 89.99 M aprobadas frente a S/ 58.27 M cobrados.
+
+La hoja `STATUS DE PROYECTOS` muestra AMAZONAS y CUSCO-HIDROAMBULANCIAS como **cobrados al 100 %**,
+pero **es un error de fórmula**: en esas dos filas las cuatro columnas (inicial, modificado,
+cobrado y saldo) devuelven el mismo número, la inversión inicial. Se nota en el total: saldo
+S/ 83.95 M cuando modificado − cobrado da S/ 69.89 M; la diferencia, S/ 14.07 M, es exactamente
+11.75 + 2.32. Las fichas de esos dos proyectos dicen cobrado S/ 0.
+
+**Pendiente de confirmar con Operaciones:** o la fórmula del STATUS está mal, o el cobro ocurrió y
+las fichas no se actualizaron. El ERP se quedó con lo que dicen las fichas.
+
+### Verificación
+
+Rol temporal `delta_0908` creado y eliminado. 0 fechas imposibles. Totales: 1,316 órdenes ·
+2,504 ítems · 662 mantenimientos · 414 vehículos (50 con km fresco) · 11 proyectos.
