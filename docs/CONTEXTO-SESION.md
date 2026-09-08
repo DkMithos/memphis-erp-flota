@@ -936,3 +936,56 @@ las fichas no se actualizaron. El ERP se quedó con lo que dicen las fichas.
 
 Rol temporal `delta_0908` creado y eliminado. 0 fechas imposibles. Totales: 1,316 órdenes ·
 2,504 ítems · 662 mantenimientos · 414 vehículos (50 con km fresco) · 11 proyectos.
+
+---
+
+## 08/09/2026 (noche) — Caja chica: cajas abiertas, moneda y duplicados
+
+### Carolina tenía razón: dos cajas abiertas, no cuatro
+
+El Excel lo confirma sin ambigüedad: **CAJA 24 SOLES** cerró con S/ 95.78 y esa cifra es la que
+abre la 25; **CAJA 16 DÓLARES** cerró con $ 0.75 y esa abre la 17. Las dos quedaron marcadas como
+cerradas. Abiertas: **CAJA 25 SOLES** y **CAJA 17 DÓLARES**.
+
+### La causa de fondo: la descripción se usaba como identidad
+
+La carga de caja chica comparaba por caja + fecha + monto + **descripción**. Cuando Administración
+corrige un texto en el Excel, la fila deja de parecerse a la que ya está cargada y entra otra vez.
+Eso produjo cuatro duplicados:
+
+| Caja | Duplicado | Gemelo real |
+|---|---|---|
+| CAJA 16 DÓLARES | tres "(pendiente de detalle en el Excel de Administración)" | los mismos gastos ya con su descripción, beneficiario y comprobante |
+| CAJA 24 SOLES | "devolucion miguelangel" S/ 480 | "LEGALIZACION DE FIRMAS — NOTARIA ARELLANO PEREZ", mismo día e importe |
+
+Se borraron los cuatro (marcadores sin información, no datos) y se corrigió el criterio en
+`17-cargar-caja-0809.mjs`: ahora basta con que coincida la descripción **o** el número de ítem
+dentro de la caja.
+
+### Saldos recalculados
+
+`monto_asignado` y `monto_disponible` estaban congelados en el valor de la carga inicial. Se
+recalcularon desde los movimientos, que es justo lo que muestra la cabecera del Excel: "Ingresos"
+como asignado y "Saldo Final" como disponible. **Las 41 cajas cuadran al céntimo con el Excel.**
+
+### Nada faltaba por cargar
+
+Los cuatro movimientos que el delta marcaba como ausentes ya estaban, con descripción genérica
+("GASTO", "INGRESO") porque la celda del Excel está en blanco. Sí faltaba **uno**: el ingreso de
+apertura de CAJA 25 SOLES (S/ 95.78), que el Excel deja sin fecha; se cargó con la del último
+movimiento de la 24 (04/09).
+
+### El símbolo de moneda
+
+`fmt()` tenía `'PEN'` por defecto y tres llamadas no pasaban la moneda: la tabla de gastos dentro
+de una caja, el "Total mes" y la etiqueta "Monto (S/)" del diálogo de registrar gasto. Una caja en
+dólares mostraba sus importes con S/. El parámetro pasó a ser obligatorio para que el compilador
+no deje repetir el olvido. Verificado en pantalla: CAJA 17 DÓLARES muestra $ en cabecera, tabla y
+diálogo; CAJA 23 SOLES sigue mostrando S/.
+
+### Para Administración
+
+- La hoja **CAJA 25 SOLES** dice `N° DE CAJA: ADMI024-SOLES` (copiado de la anterior) y su primera
+  fila menciona "CAJA CHICA ANTERIOR 23" cuando viene de la 24.
+- Siguen las tres fechas ya reportadas: CAJA 8 SOLES ítem 47 con `1900-01-26` y CAJA 17 SOLES
+  ítem 43 con `2026-15-06` (mes 15). El ERP las tiene con la fecha corregida.
