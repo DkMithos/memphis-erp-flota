@@ -35,7 +35,7 @@ import {
 } from '../../ui/select';
 import { toast } from 'sonner';
 import { useConfirmAction } from '@/components/shared/ConfirmDialogProvider';
-import { Shield, Users, Plus, Pencil, Trash2, UserCog, Layers, ClipboardList, UserPlus, GitBranch, List, CheckCircle2, UserX, Ban } from 'lucide-react';
+import { Shield, Users, Plus, Pencil, Trash2, UserCog, Layers, ClipboardList, UserPlus, GitBranch, List, CheckCircle2, UserX, Ban, KeyRound, Copy } from 'lucide-react';
 import { Card, CardContent } from '../../ui/card';
 import { usePagination } from '../../../lib/shared/usePagination';
 import { supabase } from '../../../lib/supabase/client';
@@ -364,9 +364,13 @@ interface NuevoUsuarioDialogProps {
 }
 
 function NuevoUsuarioDialog({ tenantId, onClose, onSuccess }: NuevoUsuarioDialogProps) {
+  const { roles } = useRoles();
   const [email, setEmail] = useState('');
   const [nombre, setNombre] = useState('');
   const [cargo, setCargo] = useState('');
+  // El rol se elige aquí y no en un segundo paso: un usuario sin rol entra al
+  // sistema y ve la pantalla de "cuenta pendiente", que parece una avería.
+  const [rolId, setRolId] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enlace, setEnlace] = useState<string | null>(null);
@@ -384,7 +388,13 @@ function NuevoUsuarioDialog({ tenantId, onClose, onSuccess }: NuevoUsuarioDialog
     setError(null);
     try {
       const { data, error: fnError } = await supabase.functions.invoke('usuarios-alta', {
-        body: { accion: 'alta', email: email.trim(), nombre: nombre.trim(), cargo: cargo || undefined },
+        body: {
+          accion: 'alta',
+          email: email.trim(),
+          nombre: nombre.trim(),
+          cargo: cargo || undefined,
+          rol_id: rolId || undefined,
+        },
       });
       if (fnError) {
         // El cuerpo del error trae el mensaje real de la función
@@ -425,6 +435,19 @@ function NuevoUsuarioDialog({ tenantId, onClose, onSuccess }: NuevoUsuarioDialog
           <div className="space-y-1">
             <Label htmlFor="nu-cargo">Cargo</Label>
             <Input id="nu-cargo" value={cargo} onChange={e => setCargo(e.target.value)} placeholder="Ej: Técnico, Supervisor..." />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="nu-rol">Rol</Label>
+            <Select value={rolId} onValueChange={setRolId}>
+              <SelectTrigger id="nu-rol">
+                <SelectValue placeholder="Seleccionar rol" />
+              </SelectTrigger>
+              <SelectContent>
+                {roles.map(r => (
+                  <SelectItem key={r._dbId} value={r._dbId}>{r.nombre}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <p className="text-xs text-muted-foreground">
             No definas tú la contraseña: al crear la cuenta se genera un enlace para que la
@@ -479,6 +502,7 @@ function TabUsuarios() {
   const [usuarioGestionando, setUsuarioGestionando] = useState<UsuarioTenant | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [showNuevoUsuario, setShowNuevoUsuario] = useState(false);
+  const [enlaceGenerado, setEnlaceGenerado] = useState<{ email: string; enlace: string } | null>(null);
 
   const filtrados = useMemo(() => {
     return usuarios.filter(u => {
@@ -504,6 +528,33 @@ function TabUsuarios() {
     setSaving(null);
     if (result.exito) toast.success(`Usuario ${nuevoEstado}`);
     else toast.error('Error al cambiar estado');
+  };
+
+  // Enlace de un solo uso para que la persona fije su propia contraseña.
+  // La Edge Function ya sabía hacerlo (`accion: 'reenviar'`), pero la pantalla
+  // no lo ofrecía: quien perdía el enlace del alta se quedaba sin entrar y no
+  // había forma de darle otro sin tocar la base.
+  const handleReenviarEnlace = async (u: UsuarioTenant) => {
+    setSaving(u._dbId);
+    try {
+      const { data, error } = await supabase.functions.invoke('usuarios-alta', {
+        body: { accion: 'reenviar', email: u.email },
+      });
+      if (error) {
+        const detalle = await (error as { context?: Response }).context?.json?.().catch(() => null);
+        throw new Error(detalle?.error ?? error.message);
+      }
+      if (data?.error) throw new Error(data.error);
+      const enlace = data?.enlace_clave as string | undefined;
+      if (!enlace) throw new Error('La función no devolvió el enlace');
+      setEnlaceGenerado({ email: u.email, enlace });
+    } catch (err) {
+      toast.error('No se pudo generar el enlace', {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setSaving(null);
+    }
   };
 
   return (
@@ -638,6 +689,19 @@ function TabUsuarios() {
                     {u.estado === 'activo' && (
                       <Button
                         size="sm"
+                        variant="outline"
+                        className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
+                        disabled={saving === u._dbId}
+                        onClick={() => handleReenviarEnlace(u)}
+                        title="Genera un enlace de un solo uso para que fije su contraseña"
+                      >
+                        <KeyRound className="size-3.5" />
+                        Enlace de acceso
+                      </Button>
+                    )}
+                    {u.estado === 'activo' && (
+                      <Button
+                        size="sm"
                         variant="ghost"
                         className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground"
                         disabled={saving === u._dbId}
@@ -700,6 +764,48 @@ function TabUsuarios() {
           onClose={() => setShowNuevoUsuario(false)}
           onSuccess={() => { setShowNuevoUsuario(false); reload?.(); }}
         />
+      )}
+
+      {/* Enlace de acceso recién generado */}
+      {enlaceGenerado && (
+        <Dialog open onOpenChange={() => setEnlaceGenerado(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <KeyRound className="size-5" />
+                Enlace de acceso
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <p className="text-sm">
+                Envíaselo a <strong>{enlaceGenerado.email}</strong> para que defina su propia
+                contraseña. Sirve <strong>una sola vez</strong> y caduca en 24 horas; si se pierde,
+                genera otro desde aquí.
+              </p>
+              <div className="rounded-md border bg-muted/50 p-2">
+                <code className="text-xs break-all">{enlaceGenerado.enlace}</code>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Nadie de Memphis teclea la contraseña de otra persona: por eso el alta entrega un
+                enlace y no una clave.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard?.writeText(enlaceGenerado.enlace)
+                    .then(() => toast.success('Enlace copiado'))
+                    .catch(() => toast.error('No se pudo copiar; selecciónalo a mano'));
+                }}
+              >
+                <Copy className="size-4" />
+                Copiar
+              </Button>
+              <Button onClick={() => setEnlaceGenerado(null)}>Listo</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
