@@ -19,6 +19,8 @@ import { useCotizacionesStore, type NuevaCotizacionInput, type ItemCotizacion } 
 import { useRequerimientosStore } from '../../../lib/compras/requerimientos-store';
 import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
 import { SearchableSelect } from '../../shared/SearchableSelect';
+import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
+import { useCentrosCosto } from '../../../lib/centros-costo/centros-costo-store';
 import {
   validarProveedorNombre,
   validarDescripcionItem,
@@ -45,6 +47,7 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
   const { obtenerCotizacionPorId, crearCotizacion, actualizarCotizacion, cambiarEstado, usuarioActual } = useCotizacionesStore();
   const { obtenerRequerimientoPorId, requerimientos } = useRequerimientosStore();
   const { proveedores } = useProveedorStore();
+  const { centrosCosto } = useCentrosCosto();
 
   /** Solo se cotiza lo aprobado: es el estado que habilita comprar. */
   const requerimientosAprobados = useMemo(
@@ -108,6 +111,9 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
     }
 
     // Proveedor
+    if (!formData.centroCostoId) {
+      newErrors.centroCostoId = 'El centro de costo es obligatorio: sin él la compra no llega a ningún proyecto';
+    }
     if (!formData.proveedorNombre) {
       newErrors.proveedorNombre = 'El nombre del proveedor es obligatorio';
     } else {
@@ -292,10 +298,14 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
                     value={formData.requerimientoId || null}
                     onChange={(v) => {
                       const req = requerimientosAprobados.find(r => r.id === v);
+                      // La cotización hereda el centro de costo del
+                      // requerimiento: es la misma compra, no otra.
+                      const cc = centrosCosto.find(c => c.codigo === req?.centroCosto);
                       setFormData({
                         ...formData,
                         requerimientoId: v ?? '',
                         requerimientoDbId: req?._dbId,
+                        centroCostoId: cc?._dbId ?? formData.centroCostoId ?? null,
                       });
                       if (errors.requerimientoId) setErrors({ ...errors, requerimientoId: '' });
                     }}
@@ -342,6 +352,25 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
                   <p className="text-sm text-red-600 flex items-center gap-1">
                     <AlertCircle className="size-3" />
                     {errors.proveedorNombre}
+                  </p>
+                )}
+              </div>
+
+              {/* Centro de costo: sin él la compra no llega a ningún proyecto. */}
+              <div className="space-y-2">
+                <Label htmlFor="centroCosto">Centro de Costo *</Label>
+                <CentroCostoSelector
+                  value={formData.centroCostoId ?? null}
+                  onChange={(v) => {
+                    setFormData({ ...formData, centroCostoId: v });
+                    if (errors.centroCostoId) setErrors({ ...errors, centroCostoId: '' });
+                  }}
+                  nullable={false}
+                />
+                {errors.centroCostoId && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="size-3" />
+                    {errors.centroCostoId}
                   </p>
                 )}
               </div>

@@ -59,6 +59,11 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
           observacionItem: ''
         }))
       );
+      // La dimensión se hereda de la orden: la recepción es de esa compra, no
+      // de otra. Se deja editable por si hay que corregirla, pero no se empieza
+      // en blanco arriesgando que quede sin imputar.
+      setCentroCostoId(prev => prev ?? orden.centroCostoId ?? null);
+      setProyectoId(prev => prev ?? orden.proyectoId ?? null);
     }
   }, [orden]);
 

@@ -126,6 +126,8 @@ export interface NuevaOrdenInput {
   // DB FK: proveedor UUID and cotizacion UUID must be provided from calling context
   proveedorDbId?: string;
   cotizacionDbId?: string;
+  /** Centro de costo heredado de la cotización. De él se deriva el proyecto. */
+  centroCostoId?: string | null;
 }
 
 export interface ActualizarOrdenInput extends Partial<NuevaOrdenInput> {}
@@ -375,6 +377,10 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         total,
         condiciones_pago: input.condiciones?.trim() ?? null,
         lugar_entrega: input.lugarEntrega?.trim() ?? null,
+        // La orden arrastra la dimensión de la cotización. `trg_oc_proyecto`
+        // deriva el proyecto del centro de costo; sin esto la compra nacida en
+        // el ERP llegaba sin imputar y no aparecía en ningún proyecto.
+        centro_costo_id: input.centroCostoId ?? null,
         observaciones: null,
         aprobado_por: null,
         aprobado_en: null,

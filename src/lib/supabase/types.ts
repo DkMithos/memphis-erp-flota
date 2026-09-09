@@ -1345,7 +1345,9 @@ export interface GastoCajaChicaDB {
   estado: 'pendiente' | 'aprobado' | 'rechazado';
   aprobado_por?: string | null; notas?: string | null;
   realizado_por?: string | null; creado_en: string;
-  proyecto_id?: string | null; centro_costo_id?: string | null;
+  /** Código del centro de costo (GOREICAPNP…). La columna real es texto, no un id. */
+  centro_costo?: string | null;
+  proyecto_id?: string | null;
   caja?: { nombre: string; codigo: string } | null;
 }
 

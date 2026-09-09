@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { useFinanzas, type CajaChica, type GastoCajaChica } from '@/lib/finanzas/finanzas-store';
 import { ProyectoSelector } from '../../shared/ProyectoSelector';
 import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
+import { useCentrosCosto } from '../../../lib/centros-costo/centros-costo-store';
 import { SearchableSelect } from '../../shared/SearchableSelect';
 import { useAuth } from '@/auth/AuthProvider';
 import { useProyectos } from '@/lib/proyectos/proyectos-store';
@@ -102,6 +103,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
   const { tenantId, user } = useAuth();
   const { proyectos } = useProyectos();
   const { getByTipo } = useCatalogos();
+  const { centrosCosto } = useCentrosCosto();
   const tiposDocCaja = getByTipo('tipo_doc_caja');
 
   const [selectedCajaId, setSelectedCajaId] = useState<string | null>(null);
@@ -461,6 +463,11 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
       toast.error('Completa los campos obligatorios');
       return;
     }
+    // Todo gasto va contra un centro de costo: es lo que lo lleva al proyecto.
+    if (!gastoCentroCostoId) {
+      toast.error('Indica el centro de costo: sin él el gasto no llega a ningún proyecto');
+      return;
+    }
     const monto = parseFloat(gastoForm.monto);
     if (isNaN(monto) || monto <= 0) { toast.error('Monto inválido'); return; }
 
@@ -490,10 +497,18 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
         aprobado_por: user?.email ?? null,
         notas: gastoForm.notas || null,
         realizado_por: user?.email ?? null,
+        // La pantalla tenía los selectores de proyecto y centro de costo desde
+        // siempre, pero no se guardaban: cada gasto nacía sin imputar y no
+        // llegaba al proyecto. `centro_costo` va por CÓDIGO porque es lo que
+        // lee el disparador `trg_gasto_proyecto` para derivar el proyecto solo.
+        centro_costo: centrosCosto.find(c => c._dbId === gastoCentroCostoId)?.codigo ?? null,
+        proyecto_id: gastoProyectoId,
       });
       toast.success('Gasto registrado');
       setShowNuevoGasto(false);
       setGastoForm(defaultGastoForm);
+      setGastoProyectoId(null);
+      setGastoCentroCostoId(null);
     } catch { toast.error('Error al registrar gasto'); }
     finally { setSaving(false); }
   };
@@ -1215,7 +1230,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                 />
               </div>
               <div>
-                <Label>Centro de Costo</Label>
+                <Label>Centro de Costo *</Label>
                 <CentroCostoSelector
                   value={gastoCentroCostoId}
                   onChange={setGastoCentroCostoId}

@@ -96,6 +96,8 @@ export interface Cotizacion {
 
 export interface NuevaCotizacionInput {
   requerimientoId: string;
+  /** Centro de costo al que se imputa. De él se deriva el proyecto. */
+  centroCostoId?: string | null;
   requerimientoDbId?: string; // UUID from DB — preferred for FK
   proveedorId?: string | null;
   proveedorNombre: string;
@@ -333,6 +335,9 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
         plazo_entrega: null,
         condiciones_pago: input.terminos?.trim() ?? null,
         observaciones: input.observaciones?.trim() ?? null,
+        // La dimensión viaja con la cotización: el disparador
+        // `trg_cotizacion_proyecto` deriva el proyecto del centro de costo.
+        centro_costo_id: input.centroCostoId ?? null,
         creado_por: user.id,
         modificado_por: null,
         modificado_en: null,

@@ -215,6 +215,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
           // que "Crear Orden" no hacía nada y no decía por qué.
           proveedorDbId: cotizacionPrefill?.proveedorId ?? undefined,
           cotizacionDbId: cotizacionPrefill?._dbId,
+          centroCostoId: cotizacionPrefill?.centroCostoId ?? null,
           // El requerimiento NO se pasa: `ordenes_compra` no lo guarda y lo que
           // llegaba era el uuid de la cotización, que la pantalla pintaba tal
           // cual. La trazabilidad va por la cotización, que sí está enlazada.
