@@ -17,6 +17,8 @@ import { Alert, AlertDescription } from '../../ui/alert';
 import { Badge } from '../../ui/badge';
 import { useCotizacionesStore, type NuevaCotizacionInput, type ItemCotizacion } from '../../../lib/compras/cotizaciones-store';
 import { useRequerimientosStore } from '../../../lib/compras/requerimientos-store';
+import { puedeCotizarRequerimiento } from '../../../lib/compras/requerimientos-config';
+import { heredarDelRequerimiento } from '../../../lib/compras/heredar-requerimiento';
 import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
 import { SearchableSelect } from '../../shared/SearchableSelect';
 import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
@@ -50,9 +52,9 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
   const { proveedores } = useProveedorStore();
   const { centrosCosto } = useCentrosCosto();
 
-  /** Solo se cotiza lo aprobado: es el estado que habilita comprar. */
-  const requerimientosAprobados = useMemo(
-    () => requerimientos.filter(r => r.estado === 'aprobado'),
+  /** Lo que se puede cotizar: enviado o aprobado. Ver `puedeCotizarRequerimiento`. */
+  const requerimientosCotizables = useMemo(
+    () => requerimientos.filter(r => puedeCotizarRequerimiento(r.estado)),
     [requerimientos],
   );
   
@@ -76,6 +78,30 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Al llegar desde el requerimiento (?req=RQ-...) hay que heredar sus items.
+  // Va en un efecto y no en el estado inicial porque el store carga DESPUÉS del
+  // primer render: leerlo una sola vez al montar dejaba la cotización vacía y
+  // obligaba a teclear todo otra vez. Se hereda una vez por requerimiento, para
+  // no pisar lo que el comprador ya haya editado.
+  const [heredadoDe, setHeredadoDe] = useState<string | null>(null);
+  useEffect(() => {
+    if (isEditing || !requerimientoIdParam) return;
+    if (heredadoDe === requerimientoIdParam) return;
+
+    const req = obtenerRequerimientoPorId(requerimientoIdParam);
+    if (!req) return; // todavía no cargó: se reintenta cuando llegue
+
+    const cc = centrosCosto.find(c => c.codigo === req.centroCosto);
+    setFormData(prev => ({
+      ...prev,
+      requerimientoId: req.id,
+      requerimientoDbId: req._dbId,
+      centroCostoId: cc?._dbId ?? prev.centroCostoId ?? null,
+      ...heredarDelRequerimiento(req),
+    }));
+    setHeredadoDe(requerimientoIdParam);
+  }, [isEditing, requerimientoIdParam, heredadoDe, obtenerRequerimientoPorId, centrosCosto]);
 
   // Cargar datos si es edición
   useEffect(() => {
@@ -298,24 +324,28 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
                   <SearchableSelect
                     value={formData.requerimientoId || null}
                     onChange={(v) => {
-                      const req = requerimientosAprobados.find(r => r.id === v);
+                      const req = requerimientosCotizables.find(r => r.id === v);
                       // La cotización hereda el centro de costo del
                       // requerimiento: es la misma compra, no otra.
                       const cc = centrosCosto.find(c => c.codigo === req?.centroCosto);
+                      const heredado = req ? heredarDelRequerimiento(req) : null;
                       setFormData({
                         ...formData,
                         requerimientoId: v ?? '',
                         requerimientoDbId: req?._dbId,
                         centroCostoId: cc?._dbId ?? formData.centroCostoId ?? null,
+                        // Cambiar de requerimiento cambia lo que se cotiza.
+                        ...(heredado ?? {}),
+                        observaciones: heredado?.observaciones || formData.observaciones,
                       });
                       if (errors.requerimientoId) setErrors({ ...errors, requerimientoId: '' });
                     }}
-                    options={requerimientosAprobados.map(r => ({
+                    options={requerimientosCotizables.map(r => ({
                       value: r.id,
                       label: `${r.id} — ${r.titulo}`,
                     }))}
-                    placeholder="Seleccionar requerimiento aprobado"
-                    emptyText="No hay requerimientos aprobados"
+                    placeholder="Seleccionar requerimiento"
+                    emptyText="No hay requerimientos por cotizar"
                   />
                 )}
                 {errors.requerimientoId && (

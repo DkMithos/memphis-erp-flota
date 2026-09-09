@@ -250,6 +250,22 @@ export function puedeRevisarRequerimiento(estado: EstadoRequerimiento): boolean 
 }
 
 /**
+ * ¿Se le pueden pedir cotizaciones a este requerimiento?
+ *
+ * Desde que está **enviado**: los precios son justamente lo que hace falta para
+ * decidir si se aprueba, así que exigir la aprobación antes de cotizar deja el
+ * trámite mordiéndose la cola. Lo que no se cotiza es un borrador (todavía no
+ * lo pidió nadie) ni algo rechazado o anulado.
+ *
+ * La pantalla del requerimiento ya ofrecía "Crear Primera Cotización" con este
+ * criterio; el selector de la cotización exigía `aprobado` y por eso el mismo
+ * requerimiento existía por un camino y no por el otro.
+ */
+export function puedeCotizarRequerimiento(estado: EstadoRequerimiento): boolean {
+  return estado === 'enviado' || estado === 'aprobado';
+}
+
+/**
  * Los permisos de este módulo NO se definen aquí.
  *
  * Viven en la base de datos (tablas `roles`, `permisos`, `roles_permisos`) y se

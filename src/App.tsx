@@ -218,6 +218,11 @@ function applyTheme(mode: 'light' | 'dark' | 'system'): boolean {
 }
 // ────────────────────────────────────────────────────────────────────────────
 
+/** La ruta tal como está en la barra de direcciones, query incluida. */
+function rutaActual(): string {
+  return (window.location.pathname || '/home') + window.location.search;
+}
+
 export default function App() {
   const { user, profile, tenantName, loading, signOut, recuperandoClave } = useAuth();
   const { can, isAdmin, sinRolConfirmado, loading: permsLoading } = usePermissions();
@@ -226,9 +231,10 @@ export default function App() {
     const path = window.location.pathname || '/home';
     return path.split('/')[1] || 'home';
   });
-  const [currentRoute, setCurrentRoute] = useState(() => {
-    return window.location.pathname || '/home';
-  });
+  // Con la query: `?req=RQ-00245` y compañía son parte de la ruta. Tomando solo
+  // el pathname, recargar la pantalla de nueva cotización perdía el
+  // requerimiento y el formulario salía en blanco.
+  const [currentRoute, setCurrentRoute] = useState(() => rutaActual());
   const [onboardingDone, setOnboardingDone] = useState(false);
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(getInitialThemeMode);
   const [darkMode, setDarkMode] = useState<boolean>(() => applyTheme(getInitialThemeMode()));
@@ -266,9 +272,9 @@ export default function App() {
   // Listener del botón atrás/adelante del navegador
   useEffect(() => {
     const handlePopState = () => {
-      const path = window.location.pathname || '/home';
+      const path = rutaActual();
       setCurrentRoute(path);
-      const modulePart = path.split('/')[1] || 'home';
+      const modulePart = path.split('?')[0].split('/')[1] || 'home';
       setCurrentModule(modulePart);
     };
     window.addEventListener('popstate', handlePopState);
@@ -283,7 +289,7 @@ export default function App() {
     setCurrentModule(moduleId);
     setCurrentRoute(route);
     setIsMobileSidebarOpen(false);
-    if (window.location.pathname !== route) {
+    if (rutaActual() !== route) {
       window.history.pushState({ route }, '', route);
     }
     window.scrollTo(0, 0);
@@ -291,10 +297,10 @@ export default function App() {
 
   const navigateTo = (route: string) => {
     setCurrentRoute(route);
-    const modulePart = route.split('/')[1];
+    const modulePart = route.split('?')[0].split('/')[1];
     if (modulePart) setCurrentModule(modulePart);
     // Sync URL del navegador (deep linking + botón atrás)
-    if (window.location.pathname !== route) {
+    if (rutaActual() !== route) {
       window.history.pushState({ route }, '', route);
     }
     window.scrollTo(0, 0);

@@ -25,6 +25,7 @@ import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
 import { REGIMENES, tasaIgv, llevaIgv, etiquetaRegimen, esPersonaNatural, type RegimenIgv } from '../../../lib/compras/regimen-igv';
 import { useOrdenesStore, type NuevaOrdenInput } from '../../../lib/compras/ordenes-store';
 import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
+import type { TipoCotizacion } from '../../../lib/compras/cotizaciones-config';
 import {
   ORDEN_TIPO_LABELS,
   ORDEN_MONEDA_LABELS,
@@ -62,6 +63,9 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
   const isEditing = Boolean(ordenId);
   const ordenExistente = isEditing ? obtenerOrdenPorId(ordenId!) : undefined;
 
+  /** La cotización dice bienes/servicios; la orden, OC/OS. Es lo mismo dicho de otro modo. */
+  const tipoDeCotizacion = (t: TipoCotizacion): TipoOrden => (t === 'servicios' ? 'os' : 'oc');
+
   // Cargar cotización si viene de parámetro
   const cotizacionPrefill = cotizacionIdParam 
     ? cotizaciones.find(c => c.id === cotizacionIdParam) 
@@ -69,7 +73,8 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
 
   // Estado del formulario
   const [tipo, setTipo] = useState<TipoOrden>(
-    ordenExistente?.tipo || tipoParam || cotizacionPrefill?.tipo || 'oc'
+    ordenExistente?.tipo || tipoParam ||
+    (cotizacionPrefill ? tipoDeCotizacion(cotizacionPrefill.tipo) : 'oc')
   );
   const [cotizacionId, setCotizacionId] = useState(
     ordenExistente?.cotizacionId || cotizacionIdParam || ''
@@ -91,7 +96,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
     ordenExistente?.fechaEntregaEstimada?.split('T')[0] || ''
   );
   const [condiciones, setCondiciones] = useState(
-    ordenExistente?.condiciones || cotizacionPrefill?.condiciones || ''
+    ordenExistente?.condiciones || cotizacionPrefill?.terminos || ''
   );
   const [lugarEntrega, setLugarEntrega] = useState(ordenExistente?.lugarEntrega || '');
   /** Régimen de IGV: se hereda de la cotización y se puede ajustar aquí. */
@@ -113,6 +118,41 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
   );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Los stores cargan DESPUÉS del primer render. Estos valores no pueden
+  // quedarse solo en el estado inicial: al abrir la pantalla por URL o al
+  // refrescar, la cotización todavía no estaba y la orden salía en blanco —
+  // había que volver a teclear lo ya cotizado, que es justo lo que esta
+  // pantalla existe para evitar. Se aplica una sola vez por origen, así que no
+  // pisa lo que el comprador edite después.
+  const [prefillAplicado, setPrefillAplicado] = useState<string | null>(null);
+  useEffect(() => {
+    const clave = ordenExistente
+      ? `orden:${ordenExistente.id}`
+      : cotizacionPrefill ? `cot:${cotizacionPrefill.id}` : null;
+    if (!clave || prefillAplicado === clave) return;
+
+    if (ordenExistente) {
+      setTipo(ordenExistente.tipo);
+      setCotizacionId(ordenExistente.cotizacionId);
+      setProveedorNombre(ordenExistente.proveedorNombre);
+      setMoneda(ordenExistente.moneda);
+      setFechaEntregaEstimada(ordenExistente.fechaEntregaEstimada?.split('T')[0] || '');
+      setCondiciones(ordenExistente.condiciones || '');
+      setLugarEntrega(ordenExistente.lugarEntrega || '');
+      setRegimenIgv(ordenExistente.regimenIgv ?? 'gravado');
+      setAplicaRetencionRh(ordenExistente.aplicaRetencionRh ?? false);
+      if (ordenExistente.items?.length) setItems(ordenExistente.items);
+    } else if (cotizacionPrefill) {
+      setTipo(tipoParam || tipoDeCotizacion(cotizacionPrefill.tipo));
+      setProveedorNombre(cotizacionPrefill.proveedorNombre);
+      setMoneda(cotizacionPrefill.moneda);
+      setCondiciones(cotizacionPrefill.terminos || '');
+      setRegimenIgv(cotizacionPrefill.regimenIgv ?? 'gravado');
+      if (cotizacionPrefill.items?.length) setItems(cotizacionPrefill.items);
+    }
+    setPrefillAplicado(clave);
+  }, [ordenExistente, cotizacionPrefill, tipoParam, prefillAplicado]);
 
   // Calcular totales en tiempo real
   const totales = useMemo(() => {
