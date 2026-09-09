@@ -1043,3 +1043,67 @@ rechazados**: si alguna vez hay uno por carga o corrección manual, se sigue res
 Verificado: gasto de $ 33.33 en CAJA 17 DÓLARES → guardado como `aprobado`, `aprobado_por` con el
 correo del usuario, moneda USD, y el disponible bajó de $ 1,808.69 a $ 1,775.36 solo. Borrado
 después; estado final intacto (1,006 gastos, 145 ingresos, 41 cajas, 2 abiertas).
+
+---
+
+## 09/09/2026 — El "error" de Flota y la prueba completa del flujo compra→pago
+
+### 1. El dashboard de Flota no estaba roto: era el despliegue
+
+Carga bien en desarrollo **y** con el build de producción. El ERP se parte en ~90 archivos que se
+piden bajo demanda y llevan un hash en el nombre; al publicar una versión nueva los de la anterior
+desaparecen, así que a quien tenía el sistema abierto le fallaba la carga del siguiente módulo que
+abriera. Flota fue el que le tocó a Kevin.
+
+`lib/shared/lazy-modulo.tsx` recarga **una** vez cuando el fallo es "no encontré el archivo", que es
+lo que trae el index.html nuevo. Marcado en sessionStorage para que un módulo realmente roto no
+entre en bucle, y sin confundir un error DENTRO del módulo con un fallo de descarga.
+
+### 2. Prueba integral: requerimiento → … → flujo de caja
+
+Se recorrió la cadena entera creando datos reales y se borró todo al terminar. **La cadena llega de
+punta a punta**, pero antes de esta sesión se rompía en cinco sitios distintos. Catorce fallos
+encontrados y corregidos:
+
+**Requerimientos** — "Guardar y Enviar" dejaba el requerimiento en BORRADOR anunciando que lo había
+enviado (carrera entre crear y cambiar de estado, con el resultado sin comprobar); el centro de
+costo se guardaba como UUID mientras los 242 migrados usan el CÓDIGO; aprobar no hacía nada porque
+se mandaba el CORREO a una columna uuid.
+
+**Cotizaciones** — **no se podía crear ninguna**: el formulario pedía el proveedor a mano y el
+guardado exige el del catálogo. Tampoco se podía aprobar: la tabla no tenía las columnas de
+aprobación que el código escribe desde siempre.
+
+**Órdenes** — "Crear Orden" **fallaba en silencio** (faltaban los ids de proveedor y cotización, y
+el error solo iba a la consola); las condiciones de pago exigían 10 caracteres cuando las opciones
+del propio catálogo son "30 días"; faltaba el botón para enviar a aprobación, así que una orden
+nueva se quedaba en borrador para siempre; y el nivel de aprobación comparaba el NOMBRE de la
+persona contra los roles, negándole el permiso a un Administrador que sí está en el nivel 1.
+
+**Recepciones** — mismo fallo mudo; y como el formulario no enviaba la cantidad pedida, **ninguna
+recepción podía marcarse completa**: toda orden quedaba en "recibida parcial" aunque llegara todo.
+
+**Fechas** — todo Compras mostraba **un día menos** del real (`new Date('2026-09-09')` es medianoche
+UTC y Lima va cinco horas atrás). Nuevo helper `lib/shared/fecha.ts`.
+
+### 3. Dónde se corta el flujo hoy (no es un fallo, es que falta)
+
+| Eslabón | Estado |
+|---|---|
+| Requerimiento → Cotización → Orden → Recepción | funciona (tras los arreglos) |
+| Factura | **solo entra por el portal del proveedor** (XML UBL). No hay forma de cargarla desde el ERP |
+| Detracción / Retención | las columnas existen, **nadie las calcula ni hay dónde indicarlas** |
+| Pago | "Marcar pagada" solo cambia un estado: no mueve caja, no genera asiento ni cuenta por pagar |
+| Presupuesto | se crea, pero **no se cruza** con las órdenes ni con el gasto real |
+| Transacción | hay que teclearla **a mano**; nada de la cadena la genera |
+| Cuentas por Pagar | **no existe**: la ruta `/finanzas/cuentas-pagar` muestra la pantalla de Transacciones |
+| Flujo de Caja | funciona, pero lee **solo** `transacciones` — sin transacciones a mano, sale S/ 0.00 |
+
+Con la transacción registrada a mano, el flujo de caja mostró correctamente el egreso de S/ 991.20.
+
+### Limpieza
+
+Toda la cadena de prueba borrada (RQ-00245, COT-0041, MM-001253, REC-0001, F001-00099001,
+TRX-2026-0001 y el presupuesto). La clave temporal de la cuenta de portal del proveedor se
+sustituyó por una irrecuperable. **Queda un archivo huérfano**: el XML de prueba en el bucket
+`facturas-proveedores`, que no se puede borrar por SQL y no tenemos la clave de servicio a mano.
