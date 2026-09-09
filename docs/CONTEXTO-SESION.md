@@ -1197,3 +1197,54 @@ Al probar la corrección se duplicó un gasto de Carolina (GCC-2026-016): el cam
 evitaba el duplicado no había llegado a guardarse porque el script que lo aplicaba abortó por un
 error posterior. Se borró el duplicado y la caja volvió a sus 15 gastos y S/ 1,264.11 exactos.
 **Lección: verificar que el cambio está en el archivo antes de probarlo contra datos reales.**
+
+---
+
+## 09/09/2026 — Régimen de IGV y circuito de firmas
+
+### Régimen de IGV por proveedor
+
+El ERP cobraba **18% siempre**, aunque en el histórico ya hay **58 órdenes sin IGV**
+(S/ 229,793.61). Cuatro regímenes: gravado, exonerado Amazonía, no domiciliado, inafecto. Se define
+en el proveedor, la compra lo hereda y se ajusta por orden. **Se guarda con la compra**: una orden
+de hace un año no cambia porque el proveedor cambie de régimen hoy.
+
+54 de las 58 quedaron clasificadas solas. **Faltan 4 por criterio humano**: MM-000035 y MM-000101
+(Master Tires — el total SÍ incluye el 18% pero la columna igv dice cero, parece defecto de
+migración) y MM-000053 / MM-000054 (Boullosa Motors — total = subtotal, sin IGV).
+
+Retención de 4ta: se marca en el proveedor **con la vigencia de la constancia de suspensión**,
+porque vence. Vencida, el sistema vuelve a proponer la retención.
+
+### Circuito de firmas
+
+**comprador → operaciones → gerencia.** Bajo S/ 10,000 firman las dos primeras; a partir de ahí
+entra Gerencia. La orden pasa a aprobada **solo con todas las firmas requeridas**.
+
+| Etapa | Rol | Quién |
+|---|---|---|
+| comprador | Compras | Richard — firma **al generar** la orden |
+| operaciones | Proyectos | Miguelangel |
+| gerencia | Gerencia | Guillermo, William, Miguel |
+
+- A Compras se le **quitó** `aprobar`: genera y firma, pero no aprueba.
+- A Proyectos se le **dieron** `ver` y `aprobar` sobre compras, que no tenía.
+- La configuración del flujo vivía en **localStorage** — cada navegador la suya. Ahora está en la
+  tabla `flujo_aprobacion`.
+
+Verificado con tres cuentas sobre una orden de S/ 23,600: comprador firmó al crear, operaciones la
+dejó **pendiente** avisando que faltaba Gerencia, y solo con la tercera pasó a Aprobada. El PDF
+salió con las tres columnas.
+
+### Fallo de fondo corregido
+
+El disparador de auditoría **hacía fallar cualquier cambio de permisos de un rol**:
+`roles_permisos` no tiene `tenant_id`, la función caía en un id inexistente y la clave foránea
+revertía el INSERT entero. Era imposible dar o quitar un permiso por ningún camino. La auditoría no
+debe impedir la operación que audita.
+
+### Pendiente operativo
+
+**Nadie ha subido su firma**: `firmas_usuario` está vacía. Hasta que Richard, Miguelangel, Guillermo
+y William suban la suya en Perfil → Mi Firma, el PDF imprime la línea en blanco con el nombre
+debajo, para firma manuscrita.
