@@ -1248,3 +1248,56 @@ debe impedir la operación que audita.
 **Nadie ha subido su firma**: `firmas_usuario` está vacía. Hasta que Richard, Miguelangel, Guillermo
 y William suban la suya en Perfil → Mi Firma, el PDF imprime la línea en blanco con el nombre
 debajo, para firma manuscrita.
+
+---
+
+## 2026-09-09 — Firma dibujada en el sistema y numeración de caja chica
+
+### La firma se dibuja, ya no hay que escanearla
+
+`src/components/shared/PadFirma.tsx`. En Perfil → Mi Firma aparece **"Firmar aquí"** antes que
+"Subir imagen": se abre un lienzo y se firma con el mouse o con el dedo en la pantalla táctil de
+oficina. Está hecho con Pointer Events, así que mouse, dedo y lápiz entran por el mismo camino y no
+hay que mantener dos implementaciones.
+
+Tres cosas que no se ven pero importan:
+
+- El lienzo se dimensiona por `devicePixelRatio`; sin eso la firma sale pixelada en pantallas
+  buenas y peor todavía al ampliarla en el PDF.
+- El trazo se suaviza con curvas cuadráticas entre puntos: a mano alzada, unir puntos con rectas
+  deja una firma temblorosa que no se parece a la de la persona.
+- Antes de guardar se **recorta el vacío** alrededor del trazo. Si no, la firma llega al PDF como
+  una imagen enorme casi transparente y se ve minúscula dentro de su recuadro.
+
+Se conserva **subir imagen** para quien ya tenga su firma escaneada. Sigue sin poder subirse un
+**PDF**: no hay ninguna librería de PDF entre las dependencias y meter pdf.js completo solo para
+extraer una firma no se justifica ahora que se puede dibujar. Si alguien la tiene únicamente en
+PDF, se resuelve en un minuto con una captura de pantalla — o se agrega, si hace falta de verdad.
+
+Probado de punta a punta con una cuenta temporal: se dibujó, se guardó, y la fila quedó en
+`firmas_usuario` como PNG. La cuenta se eliminó después; la tabla vuelve a estar vacía.
+
+### Dos personas registrando en la misma caja se pisaban el número
+
+CAJA 25 SOLES tenía **dos GCC-2026-004 y ningún 003**. El frontend leía el último número y sumaba
+uno; con dos personas registrando a la vez, ambas leían el mismo. Ya había pasado en producción.
+
+El correlativo se movió a la base: `fn_siguiente_correlativo_caja` bloquea la fila de la caja
+(`FOR UPDATE`) mientras calcula, y los disparadores `BEFORE INSERT` de gastos e ingresos lo asignan.
+Los disparadores **respetan el número cuando viene dado**, para que las cargas desde Excel conserven
+el del archivo. El gasto duplicado ("COMPRA DE LAPTOP PARA NUEVO GERENTE GENERAL") se renumeró a
+GCC-2026-003.
+
+Migración: `caja_chica_numeracion_en_la_base`.
+
+### Sin tocar, por indicación de Kevin
+
+Las 4 órdenes sin clasificar IGV (MM-000035, MM-000101 de Master Tires; MM-000053, MM-000054 de
+Boullosa Motors), las 15 con el total descuadrado, y el cuadro "Control ERP" — los ve con
+Operaciones.
+
+### Quedan dos números repetidos del Excel
+
+CAJA 12 DÓLARES nº 3 y CAJA 19 SOLES nº 15, ambos en cajas **cerradas**. Vienen del archivo
+original, no del sistema. Se dejan como están: renumerar un movimiento de una caja cerrada cambia
+un documento ya cuadrado y firmado.
