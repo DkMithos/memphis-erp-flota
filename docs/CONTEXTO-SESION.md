@@ -1150,3 +1150,50 @@ anteriores al arreglo de hoy — hay que imputarlos a mano.
 El número de gasto se genera contando los gastos de la caja en memoria (`length + 1`), así que dos
 personas registrando a la vez pueden obtener el mismo número. Hoy no ha pasado, pero conviene
 resolverlo antes de que sean varios usando caja chica.
+
+---
+
+## 09/09/2026 (noche) — Caja chica: corregir movimientos y origen de la caja
+
+Pedido de Carolina, que ya está usando el módulo en producción.
+
+### Corregir movimientos
+
+Cada gasto y cada ingreso tienen un botón de lápiz que abre el mismo formulario ya relleno. Al
+guardar se **actualiza**, no se duplica, y el saldo lo recalcula solo el disparador. Solo se corrige
+en **cajas abiertas**: si el error está en una cerrada hay que reabrirla, mismo criterio con el que
+la base impide registrar movimientos en una caja cerrada.
+
+Para poder corregir los ingresos había que verlos: no se mostraban en el detalle de la caja y ahora
+se listan aparte de los gastos.
+
+### De dónde viene la caja
+
+Panel **"Cómo se abrió esta caja"**: el saldo que trajo y de cuál, los depósitos posteriores uno a
+uno, el total con el que cuenta, lo gastado y el saldo actual. Si la caja ya se cerró, dice a qué
+caja pasó su saldo. En CAJA 25 SOLES se lee así:
+
+```
+Saldo que trajo de CAJA 24 SOLES        S/     95.78
+CAJA CHICA APERTURA            07/09    S/ 10,000.00
+DEVOLUCIÓN ANTONIO REYES       08/09    S/    120.00
+Total con el que cuenta                 S/ 10,215.78
+Gastado                                 S/  8,951.67
+Saldo actual                            S/  1,264.11
+```
+
+### Datos corregidos de paso
+
+- El arrastre de apertura de CAJA 25 lo cargué a mano el 08/09, antes de que existiera
+  `fn_abrir_caja_chica`, y quedó como reposición genérica. Se le puso su tipo (`saldo_anterior`) y
+  su origen (`CAJA 24 SOLES`) reales para que la caja sepa de dónde viene.
+- `GCC-2026-015` quedó imputado a `OFCENTRAL`, que era el centro de costo que le faltaba.
+- El store leía `centro_costo_id` en `gastos_caja_chica`, columna que no existe (la real es
+  `centro_costo`, con el código), así que la imputación se leía siempre vacía.
+
+### Nota de la sesión
+
+Al probar la corrección se duplicó un gasto de Carolina (GCC-2026-016): el cambio de código que
+evitaba el duplicado no había llegado a guardarse porque el script que lo aplicaba abortó por un
+error posterior. Se borró el duplicado y la caja volvió a sus 15 gastos y S/ 1,264.11 exactos.
+**Lección: verificar que el cambio está en el archivo antes de probarlo contra datos reales.**
