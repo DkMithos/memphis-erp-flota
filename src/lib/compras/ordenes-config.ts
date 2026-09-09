@@ -128,15 +128,21 @@ export function validarMotivo(motivo: string, tipoAccion: 'anulación' | 'rechaz
 }
 
 /**
- * Valida condiciones de pago/entrega
+ * Valida condiciones de pago/entrega.
+ *
+ * NO exige un mínimo de caracteres: el campo se llena desde el catálogo de
+ * condiciones, cuyas opciones reales son "30 días", "15 días", "Al contado"…
+ * El mínimo de 10 que había antes rechazaba las opciones que el propio
+ * formulario ofrecía, así que no se podía crear una orden eligiendo del
+ * desplegable. Lo único que importa es que, si se escribe a mano, diga algo.
  */
 export function validarCondiciones(condiciones: string): ValidationResult {
   const condicionesLimpias = condiciones.trim();
-  
-  if (condicionesLimpias.length > 0 && condicionesLimpias.length < 10) {
-    return { valid: false, error: 'Las condiciones deben tener al menos 10 caracteres' };
+
+  if (condicionesLimpias.length > 0 && condicionesLimpias.length < 3) {
+    return { valid: false, error: 'Indica la condición acordada (por ejemplo, "30 días")' };
   }
-  
+
   return { valid: true };
 }
 

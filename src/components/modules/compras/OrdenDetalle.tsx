@@ -5,6 +5,7 @@ import { ArrowLeft, Edit, CheckCircle, XCircle, Ban, Truck, Package, FileText, C
 import { loadFlujoAprobacion, determinarNivelAprobacion, nivelAprobacionColor } from '../../../lib/compras/approval-flow';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useRoles } from '../../../lib/rbac/roles-store';
+import { useAuth } from '../../../auth/AuthProvider';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
@@ -44,9 +45,10 @@ interface OrdenDetalleProps {
 }
 
 export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
-  const { obtenerOrdenPorId, aprobarOrden, rechazarOrden, marcarEnEjecucion, anularOrden, usuarioActual } = useOrdenesStore();
+  const { obtenerOrdenPorId, aprobarOrden, rechazarOrden, marcarEnEjecucion, anularOrden, cambiarEstado, usuarioActual } = useOrdenesStore();
   // Permisos reales del usuario (RBAC), no el rol suelto de profiles
-  const { can } = usePermissions();
+  const { can, isAdmin } = usePermissions();
+  const { user } = useAuth();
   const { usuarios } = useRoles();
   /** Las columnas guardan el id de quien aprueba; aquí se muestra su nombre. */
   const nombreDe = (id: string | null | undefined) =>
@@ -126,15 +128,34 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
     );
   }
 
+  const handleEnviarAAprobacion = async () => {
+    const res = await cambiarEstado(orden.id, 'pendiente_aprobacion');
+    if (res.exito) toast.success(`${orden.id} enviada a aprobación`);
+    else toast.error(res.errores?.[0] ?? 'No se pudo enviar a aprobación');
+  };
+
   const estadoConfig = ORDEN_ESTADO_CONFIG[orden.estado];
-  const rolActualPuedeAprobarEsteNivel = nivelAprobacion.roles.includes(usuarioActual.nombre) ||
-    nivelAprobacion.roles.some(r => r.toLowerCase() === usuarioActual.rol.toLowerCase().replace(/_/g, ' '));
+  /**
+   * Los niveles del flujo se configuran con nombres de rol del ERP ("Gerencia",
+   * "Administrador"). Antes esto se comparaba contra el NOMBRE de la persona y
+   * contra un rol heredado del modelo viejo, así que nunca casaba: a un
+   * Administrador —que el nivel 1 sí incluye— le decía "tu rol no está
+   * configurado para este nivel".
+   */
+  const misRoles = usuarios.find(u => u.userId === user?.id)?.roles.map(r => r.nombre) ?? [];
+  const rolActualPuedeAprobarEsteNivel = isAdmin ||
+    nivelAprobacion.roles.some(rolNivel =>
+      misRoles.some(mio => mio.toLowerCase().trim() === rolNivel.toLowerCase().trim()));
 
   const puedeAprobar = can('compras', 'aprobar') && puedeRevisarOrden(orden.estado);
   const puedeRechazar = can('compras', 'aprobar') && puedeRevisarOrden(orden.estado);
   const puedeEditar = can('compras', 'editar') && puedeEditarOrden(orden.estado);
   const puedeAnular = can('compras', 'eliminar') && puedeAnularOrden(orden.estado);
   const puedeIniciarEjecucion = can('compras', 'editar') && puedeMarcarEnEjecucion(orden.estado);
+  // Una orden nueva nace en borrador y la máquina de estados permite pasarla a
+  // pendiente_aprobacion, pero no había ningún botón que lo hiciera: las órdenes
+  // creadas desde el ERP se quedaban en borrador para siempre.
+  const puedeEnviarAAprobacion = can('compras', 'editar') && orden.estado === 'borrador';
   // Registrar una recepción es una acción, no una lectura: exige el permiso propio
   // `compras.recepcionar` (el que tienen Compras, Flota y Operaciones), no `ver`.
   const puedeCrearRecepcion = can('compras', 'recepcionar') && puedeRecibirOrden(orden.estado);
@@ -228,6 +249,12 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
             <Button onClick={() => onNavigate(`/compras/ordenes/${orden.id}/editar`)}>
               <Edit className="size-4" />
               Editar
+            </Button>
+          )}
+          {puedeEnviarAAprobacion && (
+            <Button onClick={handleEnviarAAprobacion} variant="default">
+              <CheckCircle className="size-4" />
+              Enviar a aprobación
             </Button>
           )}
           {puedeAprobar && (
@@ -463,7 +490,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div>
-            <span className="text-muted-foreground">Creado por:</span> {orden.auditoria.creadoPor} el {formatearFecha(orden.auditoria.creadoEn)}
+            <span className="text-muted-foreground">Creado por:</span> {nombreDe(orden.auditoria.creadoPor)} el {formatearFecha(orden.auditoria.creadoEn)}
           </div>
           {orden.auditoria.modificadoPor && (
             <div>

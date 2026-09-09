@@ -190,6 +190,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
         });
         if (!res.exito) {
           console.error('Error al actualizar orden:', res.errores);
+          toast.error(res.errores?.[0] ?? 'No se pudo actualizar la orden');
           return;
         }
         onSuccess(ordenExistente.id);
@@ -207,18 +208,29 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
           })),
           fechaEntregaEstimada: fechaEntregaEstimada || undefined,
           condiciones: condiciones.trim() || undefined,
-          lugarEntrega: lugarEntrega.trim() || undefined
+          lugarEntrega: lugarEntrega.trim() || undefined,
+          // Los identificadores de base vienen de la cotización de origen. Sin
+          // ellos el guardado rechaza la orden con "Se requiere un proveedor
+          // válido con ID de BD" — y antes ese error solo iba a la consola, así
+          // que "Crear Orden" no hacía nada y no decía por qué.
+          proveedorDbId: cotizacionPrefill?.proveedorId ?? undefined,
+          cotizacionDbId: cotizacionPrefill?._dbId,
+          // El requerimiento NO se pasa: `ordenes_compra` no lo guarda y lo que
+          // llegaba era el uuid de la cotización, que la pantalla pintaba tal
+          // cual. La trazabilidad va por la cotización, que sí está enlazada.
         };
 
         const res = await crearOrdenDesdeCotizacion(nuevaOrdenInput);
         if (!res.exito || !res.orden) {
           console.error('Error al crear orden:', res.errores);
+          toast.error(res.errores?.[0] ?? 'No se pudo crear la orden');
           return;
         }
         onSuccess(res.orden.id);
       }
     } catch (error) {
       console.error('Error al guardar orden:', error);
+      toast.error(error instanceof Error ? error.message : 'Error al guardar la orden');
     }
   };
 
