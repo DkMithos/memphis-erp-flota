@@ -3,7 +3,8 @@ import { ArrowLeft, Save, X, Plus, Trash2, AlertTriangle, FileText, ChevronDown,
 import { PageNav } from '../../shared/PageNav';
 import { useCatalogos } from '../../../lib/shared/catalogos-store';
 import { SelectCatalogo } from '../../shared/SelectCatalogo';
-import { loadFlujoAprobacion, determinarNivelAprobacion, nivelAprobacionColor } from '../../../lib/compras/approval-flow';
+import { determinarNivelAprobacion, nivelAprobacionColor, ETIQUETA_ETAPA } from '../../../lib/compras/approval-flow';
+import { useFlujoAprobacion } from '../../../lib/compras/flujo-aprobacion-store';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -54,7 +55,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
   const { getByTipo } = useCatalogos();
   const unidades = getByTipo('unidad_medida');
   const condicionesPago = getByTipo('condicion_pago');
-  const flujoConfig = useMemo(() => loadFlujoAprobacion(), []);
+  const { config: flujoConfig } = useFlujoAprobacion();
   const { cotizaciones } = useCotizacionesStore();
   const { proveedores } = useProveedorStore();
 
@@ -584,7 +585,9 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
               return (
                 <div className={`mt-3 rounded-lg px-3 py-2 text-xs ${nivelAprobacionColor(nivel.nivel)}`}>
                   <p className="font-semibold">Nivel {nivel.nivel} — {nivel.label}</p>
-                  <p className="opacity-80">{nivel.descripcion} · {nivel.aprobadoresRequeridos} aprobador{nivel.aprobadoresRequeridos > 1 ? 'es' : ''}</p>
+                  <p className="opacity-80">
+                    {nivel.descripcion} · Firman: {(nivel.etapas ?? []).map(e => ETIQUETA_ETAPA[e]).join(' → ')}
+                  </p>
                 </div>
               );
             })()}

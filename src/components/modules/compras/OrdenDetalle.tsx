@@ -1,10 +1,14 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { ArrowLeft, Edit, CheckCircle, XCircle, Ban, Truck, Package, FileText, Calendar, DollarSign, ShieldAlert, ShieldCheck, Users, ShoppingBag } from 'lucide-react';
-import { loadFlujoAprobacion, determinarNivelAprobacion, nivelAprobacionColor } from '../../../lib/compras/approval-flow';
+import {
+  loadFlujoAprobacion, determinarNivelAprobacion, nivelAprobacionColor,
+  etapasRequeridas, puedeFirmarEtapa, ETIQUETA_ETAPA, type EtapaAprobacion,
+} from '../../../lib/compras/approval-flow';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useRoles } from '../../../lib/rbac/roles-store';
+import { useFlujoAprobacion } from '../../../lib/compras/flujo-aprobacion-store';
 import { llevaIgv, etiquetaRegimen } from '../../../lib/compras/regimen-igv';
 import { useAuth } from '../../../auth/AuthProvider';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -46,7 +50,7 @@ interface OrdenDetalleProps {
 }
 
 export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
-  const { obtenerOrdenPorId, aprobarOrden, rechazarOrden, marcarEnEjecucion, anularOrden, cambiarEstado, usuarioActual } = useOrdenesStore();
+  const { obtenerOrdenPorId, firmarEtapa, rechazarOrden, marcarEnEjecucion, anularOrden, cambiarEstado, usuarioActual } = useOrdenesStore();
   // Permisos reales del usuario (RBAC), no el rol suelto de profiles
   const { can, isAdmin } = usePermissions();
   const { user } = useAuth();
@@ -72,26 +76,22 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
    * una imagen de ~12 KB: traerlas en el listado de órdenes lo haría inusable.
    */
   const [aprobaciones, setAprobaciones] = useState<any[]>([]);
-  useEffect(() => {
-    let vivo = true;
+  const recargarAprobaciones = useCallback(async () => {
     if (!orden?._dbId) { setAprobaciones([]); return; }
-    supabase
+    const { data } = await supabase
       .from('orden_aprobaciones')
       .select('etapa, aprobado_por_email, aprobado_por_nombre, aprobado_en, firma, origen')
-      .eq('orden_id', orden._dbId)
-      .then(({ data }) => {
-        if (!vivo) return;
-        setAprobaciones((data ?? []).map((a: any) => ({
-          etapa: a.etapa,
-          aprobadoPorEmail: a.aprobado_por_email,
-          aprobadoPorNombre: a.aprobado_por_nombre,
-          aprobadoEn: a.aprobado_en,
-          firma: a.firma,
-          origen: a.origen,
-        })));
-      });
-    return () => { vivo = false; };
+      .eq('orden_id', orden._dbId);
+    setAprobaciones((data ?? []).map((a: any) => ({
+      etapa: a.etapa,
+      aprobadoPorEmail: a.aprobado_por_email,
+      aprobadoPorNombre: a.aprobado_por_nombre,
+      aprobadoEn: a.aprobado_en,
+      firma: a.firma,
+      origen: a.origen,
+    })));
   }, [orden?._dbId]);
+  useEffect(() => { void recargarAprobaciones(); }, [recargarAprobaciones]);
 
   // Cotización de origen: la orden guarda el UUID; mostrar el número legible
   const { cotizaciones } = useCotizacionesStore();
@@ -113,7 +113,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
   // IMPORTANTE: estos hooks deben llamarse SIEMPRE en el mismo orden (regla de
   // los hooks), por eso van ANTES del return condicional. Usan defaults seguros
   // cuando la orden no existe (en cuyo caso el componente retorna abajo).
-  const flujoConfig = useMemo(() => loadFlujoAprobacion(), []);
+  const { config: flujoConfig } = useFlujoAprobacion();
   const nivelAprobacion = useMemo(
     () => determinarNivelAprobacion(orden?.total ?? 0, orden?.moneda ?? 'PEN', flujoConfig),
     [orden?.total, orden?.moneda, flujoConfig]
@@ -144,11 +144,19 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
    * configurado para este nivel".
    */
   const misRoles = usuarios.find(u => u.userId === user?.id)?.roles.map(r => r.nombre) ?? [];
-  const rolActualPuedeAprobarEsteNivel = isAdmin ||
-    nivelAprobacion.roles.some(rolNivel =>
-      misRoles.some(mio => mio.toLowerCase().trim() === rolNivel.toLowerCase().trim()));
 
-  const puedeAprobar = can('compras', 'aprobar') && puedeRevisarOrden(orden.estado);
+  /**
+   * El circuito de esta orden: qué etapas deben firmar según su monto, quién
+   * firmó ya y cuál me toca a mí.
+   */
+  const etapas = etapasRequeridas(orden.total, orden.moneda as 'PEN' | 'USD', flujoConfig);
+  const firmadas = new Set(aprobaciones.map(a => a.etapa));
+  const miEtapaPendiente = etapas.find(e =>
+    !firmadas.has(e) && (isAdmin || puedeFirmarEtapa(misRoles, e, flujoConfig)));
+  const rolActualPuedeAprobarEsteNivel = !!miEtapaPendiente ||
+    etapas.some(e => isAdmin || puedeFirmarEtapa(misRoles, e, flujoConfig));
+
+  const puedeAprobar = !!miEtapaPendiente && puedeRevisarOrden(orden.estado);
   const puedeRechazar = can('compras', 'aprobar') && puedeRevisarOrden(orden.estado);
   const puedeEditar = can('compras', 'editar') && puedeEditarOrden(orden.estado);
   const puedeAnular = can('compras', 'eliminar') && puedeAnularOrden(orden.estado);
@@ -163,13 +171,24 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
 
   // Handlers
   const handleAprobar = async () => {
-    const res = await aprobarOrden(orden.id, usuarioActual.email);
+    if (!miEtapaPendiente) return;
+    const res = await firmarEtapa(orden.id, miEtapaPendiente, flujoConfig);
     if (!res.exito) {
-      toast.error(res.errores?.[0] ?? 'Error al aprobar la orden');
+      toast.error(res.errores?.[0] ?? 'Error al firmar la orden');
       return;
     }
     setShowAprobarDialog(false);
-    toast.success('Orden aprobada correctamente');
+    // `errores` trae las etapas que faltan: la orden solo queda aprobada con
+    // todas las firmas que su monto exige.
+    const faltan = res.errores ?? [];
+    if (faltan.length === 0) {
+      toast.success(`${orden.id} aprobada — firmas completas`);
+    } else {
+      toast.success(`Firmaste como ${ETIQUETA_ETAPA[miEtapaPendiente]}`, {
+        description: `Falta la firma de ${faltan.map(e => ETIQUETA_ETAPA[e as EtapaAprobacion]).join(' y ')}.`,
+      });
+    }
+    await recargarAprobaciones();
   };
 
   const handleRechazar = async () => {
@@ -410,16 +429,32 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
                   </Badge>
                 </div>
                 <p className="opacity-80">{nivelAprobacion.descripcion}</p>
-                <div className="flex items-center gap-1 pt-0.5">
-                  <Users className="size-3 opacity-70" />
-                  <span className="opacity-80">
-                    {nivelAprobacion.aprobadoresRequeridos} aprobador{nivelAprobacion.aprobadoresRequeridos > 1 ? 'es' : ''} requerido{nivelAprobacion.aprobadoresRequeridos > 1 ? 's' : ''}
-                  </span>
+                {/* El circuito, firma por firma: quién ya firmó y a quién le
+                    toca. La orden no queda aprobada hasta que estén todas. */}
+                <div className="space-y-1 pt-1">
+                  {etapas.map(e => {
+                    const ap = aprobaciones.find(a => a.etapa === e);
+                    return (
+                      <div key={e} className="flex items-center gap-1.5">
+                        {ap
+                          ? <ShieldCheck className="size-3 text-green-600 shrink-0" />
+                          : <ShieldAlert className="size-3 opacity-50 shrink-0" />}
+                        <span className={ap ? '' : 'opacity-60'}>
+                          <strong>{ETIQUETA_ETAPA[e]}</strong>
+                          {ap
+                            ? ` — ${ap.aprobadoPorNombre || ap.aprobadoPorEmail || 'firmado'}`
+                            : ' — pendiente'}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="flex items-center gap-1 pt-0.5">
-                  {rolActualPuedeAprobarEsteNivel
-                    ? <><ShieldCheck className="size-3" /> <span>Tu rol puede aprobar este nivel</span></>
-                    : <><ShieldAlert className="size-3" /> <span>Tu rol no está configurado para este nivel</span></>
+                  {miEtapaPendiente
+                    ? <><ShieldCheck className="size-3" /> <span>Te toca firmar como {ETIQUETA_ETAPA[miEtapaPendiente]}</span></>
+                    : rolActualPuedeAprobarEsteNivel
+                      ? <><ShieldCheck className="size-3" /> <span>Tu etapa ya está firmada</span></>
+                      : <><ShieldAlert className="size-3" /> <span>Tu rol no firma en este circuito</span></>
                   }
                 </div>
               </div>

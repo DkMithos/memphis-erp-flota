@@ -3,7 +3,7 @@
  * Permite configurar los 3 niveles de aprobación por monto de orden.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, Shield, AlertTriangle, ChevronRight, ArrowRight, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -13,10 +13,11 @@ import { Label } from '../../ui/label';
 import { Badge } from '../../ui/badge';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { Checkbox } from '../../ui/checkbox';
+import { useFlujoAprobacion } from '../../../lib/compras/flujo-aprobacion-store';
 import { useRoles } from '../../../lib/rbac/roles-store';
 import {
-  loadFlujoAprobacion,
-  saveFlujoAprobacion,
+  ETIQUETA_ETAPA,
+  type EtapaAprobacion,
   formatearUmbral,
   nivelAprobacionColor,
   type FlujoAprobacionConfig,
@@ -29,7 +30,8 @@ const NIVEL_TITLES = ['Nivel 1', 'Nivel 2', 'Nivel 3'];
 
 export function GestionFlujoAprobacion() {
   const { roles } = useRoles();
-  const [config, setConfig] = useState<FlujoAprobacionConfig>(loadFlujoAprobacion);
+  const { config: configGuardada, guardar, cargando } = useFlujoAprobacion();
+  const [config, setConfig] = useState<FlujoAprobacionConfig>(configGuardada);
   const [saving, setSaving] = useState(false);
 
   // Helpers para actualizar un nivel
@@ -45,15 +47,20 @@ export function GestionFlujoAprobacion() {
     });
   };
 
-  const toggleRole = (nivelIdx: 0 | 1 | 2, rolNombre: string, checked: boolean) => {
-    const current = config.niveles[nivelIdx].roles;
-    const updated = checked
-      ? [...current, rolNombre]
-      : current.filter(r => r !== rolNombre);
-    updateNivel(nivelIdx, { roles: updated });
+  // La configuración llega de la base de forma asíncrona.
+  useEffect(() => { setConfig(configGuardada); }, [configGuardada]);
+
+  /** Marca o desmarca una ETAPA como requerida en este nivel. */
+  const toggleEtapa = (nivelIdx: 0 | 1 | 2, etapa: EtapaAprobacion, checked: boolean) => {
+    const actuales = config.niveles[nivelIdx].etapas ?? [];
+    const ORDEN: EtapaAprobacion[] = ['comprador', 'operaciones', 'gerencia'];
+    const nuevas = checked
+      ? ORDEN.filter(e => actuales.includes(e) || e === etapa)   // mantiene el orden del circuito
+      : actuales.filter(e => e !== etapa);
+    updateNivel(nivelIdx, { etapas: nuevas });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validate thresholds are ascending
     const [n1, n2] = config.niveles;
     if (n1.montoMax === null || n2.montoMax === null) {
@@ -68,12 +75,20 @@ export function GestionFlujoAprobacion() {
       toast.error('El tipo de cambio de referencia debe ser mayor a 0');
       return;
     }
+    if (config.niveles.some(n => (n.etapas ?? []).length === 0)) {
+      toast.error('Cada nivel necesita al menos una etapa que firme');
+      return;
+    }
     setSaving(true);
     try {
-      saveFlujoAprobacion(config);
-      toast.success('Flujo de aprobación guardado', {
-        description: 'Los cambios aplican a las nuevas órdenes de compra.',
-      });
+      const res = await guardar(config);
+      if (res.exito) {
+        toast.success('Flujo de aprobación guardado', {
+          description: 'Aplica a las órdenes que se aprueben desde ahora, para todos los usuarios.',
+        });
+      } else {
+        toast.error('No se pudo guardar', { description: res.error });
+      }
     } finally {
       setSaving(false);
     }
@@ -170,7 +185,7 @@ export function GestionFlujoAprobacion() {
                   />
                 </div>
                 <Badge className={`text-xs shrink-0 ${nivelAprobacionColor(nivel.nivel)}`}>
-                  {nivel.aprobadoresRequeridos} aprobador{nivel.aprobadoresRequeridos > 1 ? 'es' : ''}
+                  {(nivel.etapas ?? []).length} firma{(nivel.etapas ?? []).length === 1 ? '' : 's'}
                 </Badge>
               </CardTitle>
             </CardHeader>
@@ -214,50 +229,32 @@ export function GestionFlujoAprobacion() {
                 </div>
               </div>
 
-              {/* Nro de aprobadores */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium text-muted-foreground">APROBADORES REQUERIDOS</Label>
-                <div className="flex gap-1">
-                  {[1, 2, 3].map(n => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => updateNivel(idx as 0|1|2, { aprobadoresRequeridos: n })}
-                      className={`flex-1 h-8 rounded text-sm font-medium transition-colors ${nivel.aprobadoresRequeridos === n
-                        ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                        : 'bg-muted hover:!bg-black hover:!text-white dark:hover:!bg-muted/80 dark:hover:!text-muted-foreground text-muted-foreground'}`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Roles */}
+              {/* Etapas que firman este nivel. El circuito de Memphis es
+                  comprador → operaciones → gerencia; el monto decide cuántas
+                  de las tres hacen falta. */}
               <div className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground">ROLES QUE PUEDEN APROBAR</Label>
-                {roles.length === 0 && (
-                  <p className="text-xs text-muted-foreground italic">Cargando roles...</p>
-                )}
-                <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                  {roles.map(rol => (
-                    <div key={rol._dbId} className="flex items-center gap-2">
+                <Label className="text-xs font-medium text-muted-foreground">ETAPAS QUE DEBEN FIRMAR</Label>
+                <div className="space-y-1.5">
+                  {(['comprador', 'operaciones', 'gerencia'] as EtapaAprobacion[]).map(etapa => (
+                    <div key={etapa} className="flex items-center gap-2">
                       <Checkbox
-                        id={`n${idx}-${rol._dbId}`}
-                        checked={nivel.roles.includes(rol.nombre)}
-                        onCheckedChange={checked => toggleRole(idx as 0|1|2, rol.nombre, Boolean(checked))}
+                        id={`n${idx}-${etapa}`}
+                        checked={(nivel.etapas ?? []).includes(etapa)}
+                        onCheckedChange={checked => toggleEtapa(idx as 0|1|2, etapa, Boolean(checked))}
                       />
-                      <label htmlFor={`n${idx}-${rol._dbId}`} className="text-xs cursor-pointer flex-1">
-                        {rol.nombre}
-                        {rol.esSistema && <span className="ml-1 text-muted-foreground">(sistema)</span>}
+                      <label htmlFor={`n${idx}-${etapa}`} className="text-xs cursor-pointer flex-1">
+                        {ETIQUETA_ETAPA[etapa]}
+                        <span className="ml-1 text-muted-foreground">
+                          ({(config.rolesPorEtapa[etapa] ?? []).join(', ') || 'sin rol'})
+                        </span>
                       </label>
                     </div>
                   ))}
                 </div>
-                {nivel.roles.length === 0 && (
+                {(nivel.etapas ?? []).length === 0 && (
                   <p className="text-xs text-yellow-600 flex items-center gap-1">
                     <AlertTriangle className="size-3" />
-                    Sin roles asignados — nadie podrá aprobar
+                    Sin etapas — nadie podría aprobar una orden de este monto
                   </p>
                 )}
               </div>
@@ -280,7 +277,9 @@ export function GestionFlujoAprobacion() {
                   <div className="text-muted-foreground">
                     {formatearUmbral(nivel.montoMin)} — {formatearUmbral(nivel.montoMax)}
                   </div>
-                  <div className="text-muted-foreground">{nivel.aprobadoresRequeridos} aprobador{nivel.aprobadoresRequeridos > 1 ? 'es' : ''}</div>
+                  <div className="text-muted-foreground">
+                    {(nivel.etapas ?? []).map(e => ETIQUETA_ETAPA[e]).join(' → ')}
+                  </div>
                 </div>
                 {idx < 2 && <ArrowRight className="size-4 text-muted-foreground shrink-0" />}
               </div>

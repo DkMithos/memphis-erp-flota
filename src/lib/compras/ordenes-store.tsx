@@ -10,6 +10,7 @@ import { dbOrdenesCompra } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { validateTransition, ORDEN_TRANSITIONS } from '../shared/state-machine';
 import type { RegimenIgv } from './regimen-igv';
+import { etapasRequeridas, type EtapaAprobacion, type FlujoAprobacionConfig } from './approval-flow';
 import { solicitarAprobacionTeams } from './solicitar-aprobacion';
 import type {
   OrdenCompra as OrdenCompraDB,
@@ -152,7 +153,8 @@ interface OrdenStoreContext {
   crearOrdenDesdeCotizacion: (input: NuevaOrdenInput) => Promise<CrudResult & { orden?: Orden }>;
   actualizarOrden: (id: string, input: ActualizarOrdenInput) => Promise<CrudResult>;
   cambiarEstado: (id: string, nuevoEstado: EstadoOrden) => Promise<CrudResult>;
-  aprobarOrden: (id: string, aprobadoPor: string) => Promise<CrudResult>;
+  /** Firma una etapa; la orden queda aprobada solo con todas las requeridas. */
+  firmarEtapa: (id: string, etapa: EtapaAprobacion, config: FlujoAprobacionConfig) => Promise<CrudResult>;
   rechazarOrden: (id: string, rechazadoPor: string, motivo: string) => Promise<CrudResult>;
   marcarEnEjecucion: (id: string) => Promise<CrudResult>;
   anularOrden: (id: string, motivo: string) => Promise<CrudResult>;
@@ -411,6 +413,32 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
 
       const dbRow = inserted as OrdenCompraDB;
 
+      // Quien genera la orden la FIRMA como comprador. No es una aprobación:
+      // es la evidencia de quién la hizo, y es la primera de las 2 o 3 firmas
+      // que el PDF debe mostrar. Si falla, la orden queda igual: la firma se
+      // puede volver a poner, pero perder la orden no se arregla.
+      try {
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        const { data: miFirma } = await (supabase.from('firmas_usuario') as any)
+          .select('imagen, nombre')
+          .eq('user_id', user.id)
+          .maybeSingle() as { data: { imagen: string; nombre: string | null } | null };
+
+        await (supabase.from('orden_aprobaciones') as any).upsert({
+          tenant_id: tenantId,
+          orden_id: dbRow.id,
+          etapa: 'comprador',
+          aprobado_por_email: user.email ?? null,
+          aprobado_por_nombre: miFirma?.nombre ?? profile?.nombre ?? null,
+          aprobado_en: new Date().toISOString(),
+          firma: miFirma?.imagen ?? null,
+          origen: 'erp',
+        }, { onConflict: 'orden_id,etapa' });
+        /* eslint-enable @typescript-eslint/no-explicit-any */
+      } catch (e) {
+        console.error('[ORDENES] No se pudo registrar la firma del comprador:', e);
+      }
+
       // Insert items en batch (atómico)
       const itemsPayload = itemsConSubtotal.map(item => ({
         tenant_id: tenantId,
@@ -606,76 +634,81 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
     [user, ordenes]
   );
 
-  const aprobarOrden = useCallback(
-    async (id: string, aprobadoPor: string): Promise<CrudResult> => {
-      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
+  /**
+   * Firma una etapa del circuito (comprador → operaciones → gerencia).
+   *
+   * Antes había un solo "aprobar" que cerraba la orden con UNA firma, aunque el
+   * nivel pidiera dos o tres. Ahora cada quien firma SU etapa y la orden pasa a
+   * aprobada únicamente cuando están todas las que el monto exige.
+   */
+  const firmarEtapa = useCallback(
+    async (id: string, etapa: EtapaAprobacion, config: FlujoAprobacionConfig): Promise<CrudResult> => {
+      if (!user || !tenantId) return { exito: false, errores: ['Sin sesión activa'] };
 
-      const dbId = ordenesRef.current.find(o => o.id === id)?._dbId;
-      if (!dbId) return { exito: false, errores: ['Orden no encontrada'] };
+      const orden = ordenesRef.current.find(o => o.id === id);
+      const dbId = orden?._dbId;
+      if (!dbId || !orden) return { exito: false, errores: ['Orden no encontrada'] };
 
       const ahora = new Date().toISOString();
-      const { error } = await dbOrdenesCompra.update(dbId, {
-        estado: 'aprobada',
-        aprobado_por: user.id,
+
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      // La firma se guarda como COPIA, no como referencia: si esa persona
+      // cambia su rúbrica más adelante, este documento sigue mostrando lo que
+      // se firmó hoy. Que falte la firma no invalida nada: la línea sale en
+      // blanco para firma manuscrita.
+      const { data: miFirma } = await (supabase.from('firmas_usuario') as any)
+        .select('imagen, nombre')
+        .eq('user_id', user.id)
+        .maybeSingle() as { data: { imagen: string; nombre: string | null } | null };
+
+      const { error: errFirma } = await (supabase.from('orden_aprobaciones') as any).upsert({
+        tenant_id: tenantId,
+        orden_id: dbId,
+        etapa,
+        aprobado_por_email: user.email ?? null,
+        aprobado_por_nombre: miFirma?.nombre ?? profile?.nombre ?? null,
         aprobado_en: ahora,
-        modificado_por: user.id,
-        modificado_en: ahora,
-      });
+        firma: miFirma?.imagen ?? null,
+        origen: 'erp',
+      }, { onConflict: 'orden_id,etapa' });
 
-      if (error) {
-        console.error('[ORDENES] Error al aprobar:', error.message);
-        return { exito: false, errores: [error.message] };
+      if (errFirma) {
+        console.error('[ORDENES] No se pudo registrar la firma:', errFirma.message);
+        return { exito: false, errores: [errFirma.message] };
       }
 
-      // Deja constancia de la aprobación con una COPIA de la firma registrada.
-      // Se guarda la copia y no una referencia para que, si esa persona cambia
-      // su firma más adelante, este documento siga mostrando lo que se firmó hoy.
-      // Que falte la firma no invalida la aprobación: la orden queda aprobada
-      // igual y la línea sale en blanco para firma manuscrita.
-      try {
-        // Tabla nueva, todavía fuera de los tipos generados.
-        const { data: miFirma } = await (supabase.from('firmas_usuario') as any)
-          .select('imagen, nombre')
-          .eq('user_id', user.id)
-          .maybeSingle() as { data: { imagen: string; nombre: string | null } | null };
+      // ¿Ya están todas las firmas que este monto exige?
+      const { data: firmadas } = await (supabase.from('orden_aprobaciones') as any)
+        .select('etapa')
+        .eq('orden_id', dbId) as { data: { etapa: string }[] | null };
+      /* eslint-enable @typescript-eslint/no-explicit-any */
 
-        // La tabla es nueva: aún no está en los tipos generados de Supabase.
-        await (supabase.from('orden_aprobaciones') as any).upsert({
-          tenant_id: tenantId,
-          orden_id: dbId,
-          // El ERP aprueba por umbrales de monto y los niveles 2 y 3 piden varios
-          // aprobadores. Si la etapa fuera fija, el segundo sobrescribiría al
-          // primero por la unicidad (orden_id, etapa): se identifica por persona.
-          etapa: `aprobador:${aprobadoPor}`,
-          aprobado_por_email: aprobadoPor,
-          aprobado_por_nombre: miFirma?.nombre ?? profile?.nombre ?? null,
+      const etapas = (firmadas ?? []).map(f => f.etapa);
+      const requeridas = etapasRequeridas(orden.total, orden.moneda as 'PEN' | 'USD', config);
+      const faltan = requeridas.filter(e => !etapas.includes(e));
+      const completa = faltan.length === 0;
+
+      if (completa) {
+        const { error } = await dbOrdenesCompra.update(dbId, {
+          estado: 'aprobada',
+          aprobado_por: user.id,
           aprobado_en: ahora,
-          firma: miFirma?.imagen ?? null,
-          origen: 'erp',
-        }, { onConflict: 'orden_id,etapa' });
-      } catch (e) {
-        console.error('[ORDENES] No se pudo registrar la firma de la aprobación:', e);
+          modificado_por: user.id,
+          modificado_en: ahora,
+        });
+        if (error) {
+          console.error('[ORDENES] Error al cerrar la aprobación:', error.message);
+          return { exito: false, errores: [error.message] };
+        }
       }
 
-      setOrdenes(prev =>
-        prev.map(o =>
-          o.id === id
-            ? {
-                ...o,
-                estado: 'aprobada' as EstadoOrden,
-                aprobadoPor: user.id,
-                aprobadoEn: ahora,
-                auditoria: { ...o.auditoria, modificadoPor: user.id, modificadoEn: ahora },
-              }
-            : o
-        )
-      );
+      setOrdenes(prev => prev.map(o => o.id === id
+        ? { ...o, estado: completa ? ('aprobada' as EstadoOrden) : o.estado }
+        : o));
 
-      if (DEBUG_ORDENES) {
-        console.log('[ORD_APPROVED]', { id, aprobadoPor });
-      }
-
-      return { exito: true };
+      // `errores` lleva las etapas que faltan: la pantalla lo usa para decir si
+      // la orden ya quedó aprobada o a quién le toca firmar.
+      return { exito: true, errores: completa ? undefined : faltan };
     },
     [user, tenantId, profile]
   );
@@ -852,7 +885,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
     crearOrdenDesdeCotizacion,
     actualizarOrden,
     cambiarEstado,
-    aprobarOrden,
+    firmarEtapa,
     rechazarOrden,
     marcarEnEjecucion,
     anularOrden,
