@@ -1301,3 +1301,47 @@ Operaciones.
 CAJA 12 DÓLARES nº 3 y CAJA 19 SOLES nº 15, ambos en cajas **cerradas**. Vienen del archivo
 original, no del sistema. Se dejan como están: renumerar un movimiento de una caja cerrada cambia
 un documento ya cuadrado y firmado.
+
+---
+
+## 2026-09-09 (tarde) — Richard no debe ver Finanzas
+
+Kevin capacitó a Richard y vio que llegaba a las transacciones y a la caja chica. Había dos causas
+distintas, y la segunda no se arreglaba con roles.
+
+### Richard tenía dos roles
+
+`rnavarro@memphis.pe` tenía **Compras** y **Administración**. El segundo es el rol de Carolina y trae
+`finanzas` completo — de ahí la caja chica. Además traía `compras.aprobar`, **el permiso que le
+quitamos a Compras la semana pasada** al montar el circuito de firmas: el segundo rol se lo devolvía
+por la puerta de atrás. Se le quitó Administración.
+
+También se quitó **Inventario** del rol Compras (lo tenía en `ver` y `exportar`). Richard queda con
+`compras` y `proveedores`, nada más, que es lo pedido.
+
+Lección: al restringir un rol hay que mirar si la persona tiene otro. Los permisos se **suman**.
+
+### El Reporte Cruzado enseñaba la caja de todos modos
+
+Quitar el rol esconde el menú y bloquea `/finanzas/*`, pero el Reporte Cruzado de BI cruza órdenes
+**con caja chica** y ofrecía las tres fuentes sin mirar permisos. Con solo `compras.ver` se llegaba
+a `/bi` y se listaban los gastos e ingresos de las cajas, importe por importe.
+
+Ahora cada origen exige su módulo (`fuentesPermitidas()` en `src/lib/bi/cruzado.ts`, con pruebas).
+Un rol de Compras solo ve "Órdenes de compra"; el subtítulo, la tarjeta de "Ingresos de caja" y el
+texto del enlace en el panel de BI se adaptan, para no anunciar lo que no se va a ver.
+
+El panel de BI ya estaba bien: la tarjeta de caja y la serie del gráfico ya pedían `finanzas.ver`.
+
+Verificado con una cuenta temporal con el rol exacto de Richard: menú sin Finanzas ni Inventario,
+`/finanzas/caja-chica` y `/finanzas/transacciones` bloqueadas por URL directa, y el reporte devolvió
+571 movimientos, todos órdenes de compra, sin una sola línea de caja. Cuenta eliminada después.
+
+### Lo que esto NO resuelve
+
+**La RLS es solo por tenant.** Las políticas de `cajas_chicas`, `gastos_caja_chica` y `transacciones`
+dicen únicamente `tenant_id = auth_tenant_id()`: el filtro por módulo vive entero en la interfaz.
+Quien sepa usar la API con su propio token puede leer esas tablas aunque el ERP no se las muestre.
+Para Richard no es un problema real, pero el día que haya un rol al que de verdad haya que ocultarle
+cifras, esto se arregla con una función `auth_puede(modulo, accion)` usada dentro de las políticas.
+Es un cambio que toca el acceso de todos a la vez — decisión de Kevin, no se hizo de oficio.
