@@ -5,6 +5,7 @@
  */
 
 import { Package, CheckCircle, AlertTriangle, Ban, type LucideIcon } from 'lucide-react';
+import { formatearFecha as fmtFecha } from '../shared/fecha';
 
 // ============================================================================
 // DEBUG FLAG
@@ -139,11 +140,8 @@ export function extraerNumeroSecuencial(recepcionId: string): number | null {
  * Formatea fecha ISO a fecha local
  */
 export function formatearFecha(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString('es-PE', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
+  // Delegado al helper común: `new Date('YYYY-MM-DD')` restaba un día en Lima.
+  return fmtFecha(isoDate);
 }
 
 /**

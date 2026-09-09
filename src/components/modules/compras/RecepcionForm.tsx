@@ -131,6 +131,10 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
         itemsRecibidos: itemsRecibidos.map(item => ({
           descripcion: item.descripcion,
           cantidadRecibida: item.cantidadRecibida,
+          // Sin la cantidad PEDIDA el store no puede decidir si la recepción
+          // está completa y marcaba la orden como "recibida parcial" siempre,
+          // aunque llegara todo. El formulario ya la tiene: es la de la orden.
+          cantidadPedida: item.cantidadOrdenada,
           unidad: item.unidad,
           observacionItem: item.observacionItem.trim() || null
         })),
@@ -138,6 +142,11 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
         observaciones: observaciones.trim() || undefined,
         proyectoId: proyectoId ?? undefined,
         centroCostoId: centroCostoId ?? undefined,
+        // Los identificadores de base salen de la orden. Sin ellos el guardado
+        // devolvía "Se requieren IDs de BD para orden y proveedor" y el error
+        // solo iba a la consola: "Crear Recepción" no hacía nada visible.
+        ordenDbId: orden?._dbId,
+        proveedorDbId: orden?.proveedorDbId ?? undefined,
       };
 
       // Callback para actualizar el estado de la orden
@@ -148,11 +157,13 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
       const res = await crearRecepcion(input, onOrdenUpdated);
       if (!res.exito || !res.recepcion) {
         console.error('Error al crear recepción:', res.errores);
+        toast.error(res.errores?.[0] ?? 'No se pudo registrar la recepción');
         return;
       }
       onSuccess(res.recepcion.id);
     } catch (error) {
       console.error('Error al crear recepción:', error);
+      toast.error(error instanceof Error ? error.message : 'Error al registrar la recepción');
     }
   };
 
