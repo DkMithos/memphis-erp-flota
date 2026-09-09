@@ -27,6 +27,7 @@ import {
 } from '../../ui/table';
 import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
+import { useRoles } from '../../../lib/rbac/roles-store';
 import { useRequerimientosStore } from '../../../lib/compras/requerimientos-store';
 import { useOrdenesStore } from '../../../lib/compras/ordenes-store';
 import {
@@ -57,6 +58,10 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
   } = useCotizacionesStore();
   // Permisos reales del usuario (RBAC), no el rol suelto de profiles
   const { can } = usePermissions();
+  const { usuarios } = useRoles();
+  /** Las columnas guardan el id de quien aprueba; aquí se muestra su nombre. */
+  const nombreDe = (id: string | null | undefined) =>
+    usuarios.find(u => u.userId === id)?.nombre ?? id ?? '—';
   
   const { obtenerRequerimientoPorId } = useRequerimientosStore();
   const { obtenerOrdenesPorCotizacion } = useOrdenesStore();
@@ -211,7 +216,7 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
             <strong>Cotización Rechazada</strong>
             <p className="mt-2">{cotizacion.motivoRechazo}</p>
             <div className="text-xs mt-2 opacity-75">
-              Rechazada por {cotizacion.rechazadoPor} el{' '}
+              Rechazada por {nombreDe(cotizacion.rechazadoPor)} el{' '}
               {new Date(cotizacion.rechazadoEn!).toLocaleString('es-PE')}
             </div>
           </AlertDescription>
@@ -224,7 +229,7 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
           <AlertDescription className="text-green-800 dark:text-green-200">
             <strong>Cotización Aprobada</strong>
             <p className="mt-1 text-sm">
-              Aprobada por {cotizacion.aprobadoPor} el{' '}
+              Aprobada por {nombreDe(cotizacion.aprobadoPor)} el{' '}
               {new Date(cotizacion.aprobadoEn!).toLocaleString('es-PE')}
             </p>
             <p className="text-sm mt-1">Lista para generar Orden de Compra</p>
@@ -454,7 +459,7 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
                 <div>
                   <p className="text-sm font-medium">Aprobado</p>
                   <p className="text-sm text-muted-foreground">
-                    Por {cotizacion.aprobadoPor} el{' '}
+                    Por {nombreDe(cotizacion.aprobadoPor)} el{' '}
                     {new Date(cotizacion.aprobadoEn!).toLocaleString('es-PE')}
                   </p>
                 </div>
@@ -466,7 +471,7 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
                 <div>
                   <p className="text-sm font-medium">Rechazado</p>
                   <p className="text-sm text-muted-foreground">
-                    Por {cotizacion.rechazadoPor} el{' '}
+                    Por {nombreDe(cotizacion.rechazadoPor)} el{' '}
                     {new Date(cotizacion.rechazadoEn!).toLocaleString('es-PE')}
                   </p>
                 </div>

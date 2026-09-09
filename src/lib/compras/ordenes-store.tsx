@@ -596,7 +596,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
       const ahora = new Date().toISOString();
       const { error } = await dbOrdenesCompra.update(dbId, {
         estado: 'aprobada',
-        aprobado_por: aprobadoPor,
+        aprobado_por: user.id,
         aprobado_en: ahora,
         modificado_por: user.id,
         modificado_en: ahora,
@@ -643,7 +643,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
             ? {
                 ...o,
                 estado: 'aprobada' as EstadoOrden,
-                aprobadoPor,
+                aprobadoPor: user.id,
                 aprobadoEn: ahora,
                 auditoria: { ...o.auditoria, modificadoPor: user.id, modificadoEn: ahora },
               }
@@ -670,7 +670,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
       const ahora = new Date().toISOString();
       const { error } = await dbOrdenesCompra.update(dbId, {
         estado: 'rechazada', // rejected state
-        rechazado_por: rechazadoPor,
+        rechazado_por: user.id,
         rechazado_en: ahora,
         motivo_rechazo: motivo.trim(),
         modificado_por: user.id,
@@ -688,7 +688,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
             ? {
                 ...o,
                 estado: 'rechazada' as EstadoOrden,
-                rechazadoPor,
+                rechazadoPor: user.id,
                 rechazadoEn: ahora,
                 motivoRechazo: motivo.trim(),
                 auditoria: { ...o.auditoria, modificadoPor: user.id, modificadoEn: ahora },

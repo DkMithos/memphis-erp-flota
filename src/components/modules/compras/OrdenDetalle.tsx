@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, Edit, CheckCircle, XCircle, Ban, Truck, Package, FileText, Calendar, DollarSign, ShieldAlert, ShieldCheck, Users, ShoppingBag } from 'lucide-react';
 import { loadFlujoAprobacion, determinarNivelAprobacion, nivelAprobacionColor } from '../../../lib/compras/approval-flow';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
+import { useRoles } from '../../../lib/rbac/roles-store';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
@@ -46,6 +47,10 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
   const { obtenerOrdenPorId, aprobarOrden, rechazarOrden, marcarEnEjecucion, anularOrden, usuarioActual } = useOrdenesStore();
   // Permisos reales del usuario (RBAC), no el rol suelto de profiles
   const { can } = usePermissions();
+  const { usuarios } = useRoles();
+  /** Las columnas guardan el id de quien aprueba; aquí se muestra su nombre. */
+  const nombreDe = (id: string | null | undefined) =>
+    usuarios.find(u => u.userId === id)?.nombre ?? id ?? '—';
   const { obtenerRecepcionesPorOrden } = useRecepcionesStore();
   
   const orden = obtenerOrdenPorId(ordenId);
@@ -265,7 +270,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
           <AlertDescription>
             <strong>Orden rechazada:</strong> {orden.motivoRechazo}
             <br />
-            <span className="text-xs">Por: {orden.rechazadoPor} el {orden.rechazadoEn && formatearFecha(orden.rechazadoEn)}</span>
+            <span className="text-xs">Por: {nombreDe(orden.rechazadoPor)} el {orden.rechazadoEn && formatearFecha(orden.rechazadoEn)}</span>
           </AlertDescription>
         </Alert>
       )}
@@ -467,7 +472,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
           )}
           {orden.aprobadoPor && (
             <div>
-              <span className="text-muted-foreground">Aprobado por:</span> {orden.aprobadoPor} el {orden.aprobadoEn && formatearFecha(orden.aprobadoEn)}
+              <span className="text-muted-foreground">Aprobado por:</span> {nombreDe(orden.aprobadoPor)} el {orden.aprobadoEn && formatearFecha(orden.aprobadoEn)}
             </div>
           )}
         </CardContent>

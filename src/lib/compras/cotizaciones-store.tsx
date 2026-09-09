@@ -119,7 +119,7 @@ interface CotizacionStoreContext {
   loading: boolean;
   obtenerCotizacionPorId: (id: string) => Cotizacion | undefined;
   obtenerCotizacionesPorRequerimiento: (requerimientoId: string) => Cotizacion[];
-  crearCotizacion: (input: NuevaCotizacionInput) => Promise<CrudResult & { cotizacion?: Cotizacion }>;
+  crearCotizacion: (input: NuevaCotizacionInput, estadoInicial?: EstadoCotizacion) => Promise<CrudResult & { cotizacion?: Cotizacion }>;
   actualizarCotizacion: (id: string, input: ActualizarCotizacionInput) => Promise<CrudResult>;
   cambiarEstado: (id: string, nuevoEstado: EstadoCotizacion) => Promise<CrudResult>;
   aprobarCotizacion: (id: string, aprobadoPor: string) => Promise<CrudResult>;
@@ -282,7 +282,9 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
   // ============================================================================
 
   const crearCotizacion = useCallback(
-    async (input: NuevaCotizacionInput): Promise<CrudResult & { cotizacion?: Cotizacion }> => {
+    /** Mismo motivo que en requerimientos: crear y cambiar de estado en dos
+     *  pasos dejaba la cotización en borrador anunciando que se había enviado. */
+    async (input: NuevaCotizacionInput, estadoInicial: EstadoCotizacion = 'borrador'): Promise<CrudResult & { cotizacion?: Cotizacion }> => {
       if (!tenantId || !user) {
         return { exito: false, errores: ['Sin sesión activa'] };
       }
@@ -321,7 +323,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
         numero: nuevoCodigo,
         requerimiento_id: input.requerimientoDbId || input.requerimientoId || null, // Prefer UUID (_dbId); fall back to display code
         proveedor_id: proveedorDbId,
-        estado: 'borrador' as EstadoCotizacion,
+        estado: estadoInicial,
         fecha_emision: timestamp,
         fecha_validez: fechaVencimiento,
         moneda: input.moneda,
@@ -534,7 +536,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
       const ahora = new Date().toISOString();
       const { error } = await dbCotizaciones.update(dbId, {
         estado: 'aprobada' as EstadoCotizacion,
-        aprobado_por: aprobadoPor,
+        aprobado_por: user.id,
         aprobado_en: ahora,
         modificado_por: user.id,
         modificado_en: ahora,
@@ -551,7 +553,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
             ? {
                 ...c,
                 estado: 'aprobada' as EstadoCotizacion,
-                aprobadoPor,
+                aprobadoPor: user.id,
                 aprobadoEn: ahora,
                 auditoria: { ...c.auditoria, modificadoPor: user.id, modificadoEn: ahora },
               }
@@ -578,7 +580,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
       const ahora = new Date().toISOString();
       const { error } = await dbCotizaciones.update(dbId, {
         estado: 'rechazada' as EstadoCotizacion,
-        rechazado_por: rechazadoPor,
+        rechazado_por: user.id,
         rechazado_en: ahora,
         motivo_rechazo: motivo.trim(),
         modificado_por: user.id,
@@ -596,7 +598,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
             ? {
                 ...c,
                 estado: 'rechazada' as EstadoCotizacion,
-                rechazadoPor,
+                rechazadoPor: user.id,
                 rechazadoEn: ahora,
                 motivoRechazo: motivo.trim(),
                 auditoria: { ...c.auditoria, modificadoPor: user.id, modificadoEn: ahora },

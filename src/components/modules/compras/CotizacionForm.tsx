@@ -17,6 +17,8 @@ import { Alert, AlertDescription } from '../../ui/alert';
 import { Badge } from '../../ui/badge';
 import { useCotizacionesStore, type NuevaCotizacionInput, type ItemCotizacion } from '../../../lib/compras/cotizaciones-store';
 import { useRequerimientosStore } from '../../../lib/compras/requerimientos-store';
+import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
+import { SearchableSelect } from '../../shared/SearchableSelect';
 import {
   validarProveedorNombre,
   validarDescripcionItem,
@@ -41,7 +43,14 @@ interface CotizacionFormProps {
 
 export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, onSuccess }: CotizacionFormProps) {
   const { obtenerCotizacionPorId, crearCotizacion, actualizarCotizacion, cambiarEstado, usuarioActual } = useCotizacionesStore();
-  const { obtenerRequerimientoPorId } = useRequerimientosStore();
+  const { obtenerRequerimientoPorId, requerimientos } = useRequerimientosStore();
+  const { proveedores } = useProveedorStore();
+
+  /** Solo se cotiza lo aprobado: es el estado que habilita comprar. */
+  const requerimientosAprobados = useMemo(
+    () => requerimientos.filter(r => r.estado === 'aprobado'),
+    [requerimientos],
+  );
   
   const isEditing = !!cotizacionId;
   const cotizacionExistente = isEditing ? obtenerCotizacionPorId(cotizacionId) : undefined;
@@ -164,18 +173,15 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
         onSuccess(cotizacionId);
       } else {
         // Crear cotización
-        const resCrear = await crearCotizacion(formData as NuevaCotizacionInput);
+        const resCrear = await crearCotizacion(formData as NuevaCotizacionInput, enviar ? 'enviada' : 'borrador');
         if (!resCrear.exito || !resCrear.cotizacion) {
           toast.error(resCrear.errores?.[0] ?? 'Error al crear la cotización');
           return;
         }
         const nuevaCot = resCrear.cotizacion;
-        if (enviar) {
-          await cambiarEstado(nuevaCot.id, 'enviada');
-          toast.success(`Cotización ${nuevaCot.id} creada y enviada`);
-        } else {
-          toast.success(`Cotización ${nuevaCot.id} guardada como borrador`);
-        }
+        toast.success(enviar
+          ? `Cotización ${nuevaCot.id} creada y enviada`
+          : `Cotización ${nuevaCot.id} guardada como borrador`);
         onSuccess(nuevaCot.id);
       }
     } catch (error) {
@@ -274,18 +280,33 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
               <CardTitle>Información General</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Requerimiento (solo lectura si viene de param) */}
+              {/* Requerimiento: se elige de los aprobados. Antes era texto libre
+                  con el ejemplo "REQ-0001" —un formato que ya no se usa— y nada
+                  comprobaba que el requerimiento existiera. */}
               <div className="space-y-2">
                 <Label htmlFor="requerimientoId">Requerimiento Asociado *</Label>
-                <Input
-                  id="requerimientoId"
-                  value={formData.requerimientoId}
-                  onChange={(e) => setFormData({ ...formData, requerimientoId: e.target.value })}
-                  disabled={!!requerimientoIdParam || isEditing}
-                  readOnly={!!requerimientoIdParam || isEditing}
-                  placeholder="REQ-0001"
-                  className="font-mono"
-                />
+                {(!!requerimientoIdParam || isEditing) ? (
+                  <Input id="requerimientoId" value={formData.requerimientoId} readOnly disabled className="font-mono" />
+                ) : (
+                  <SearchableSelect
+                    value={formData.requerimientoId || null}
+                    onChange={(v) => {
+                      const req = requerimientosAprobados.find(r => r.id === v);
+                      setFormData({
+                        ...formData,
+                        requerimientoId: v ?? '',
+                        requerimientoDbId: req?._dbId,
+                      });
+                      if (errors.requerimientoId) setErrors({ ...errors, requerimientoId: '' });
+                    }}
+                    options={requerimientosAprobados.map(r => ({
+                      value: r.id,
+                      label: `${r.id} — ${r.titulo}`,
+                    }))}
+                    placeholder="Seleccionar requerimiento aprobado"
+                    emptyText="No hay requerimientos aprobados"
+                  />
+                )}
                 {errors.requerimientoId && (
                   <p className="text-sm text-red-600 flex items-center gap-1">
                     <AlertCircle className="size-3" />
@@ -294,17 +315,28 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
                 )}
               </div>
 
-              {/* Proveedor */}
+              {/* Proveedor: del catálogo. El formulario pedía el nombre a mano
+                  pero el guardado exige el proveedor de la base, así que la
+                  cotización SIEMPRE fallaba con "Se requiere un proveedor
+                  válido con ID de BD". */}
               <div className="space-y-2">
-                <Label htmlFor="proveedorNombre">Nombre del Proveedor *</Label>
-                <Input
-                  id="proveedorNombre"
-                  value={formData.proveedorNombre}
-                  onChange={(e) => {
-                    setFormData({ ...formData, proveedorNombre: e.target.value });
+                <Label htmlFor="proveedorNombre">Proveedor *</Label>
+                <SearchableSelect
+                  value={formData.proveedorId ?? null}
+                  onChange={(v) => {
+                    const prov = proveedores.find(p => p._dbId === v);
+                    setFormData({
+                      ...formData,
+                      proveedorId: v,
+                      proveedorNombre: prov?.razonSocial ?? '',
+                    });
                     if (errors.proveedorNombre) setErrors({ ...errors, proveedorNombre: '' });
                   }}
-                  placeholder="Nombre de la empresa proveedora"
+                  options={proveedores
+                    .filter(p => p.estado === 'activo')
+                    .map(p => ({ value: p._dbId, label: `${p.razonSocial} — ${p.ruc}` }))}
+                  placeholder="Seleccionar proveedor"
+                  emptyText="No hay proveedores activos"
                 />
                 {errors.proveedorNombre && (
                   <p className="text-sm text-red-600 flex items-center gap-1">
