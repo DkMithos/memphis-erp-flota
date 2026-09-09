@@ -10,6 +10,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { PenLine, Upload, Trash2, Save } from 'lucide-react';
+import { PadFirma } from '../../shared/PadFirma';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -53,6 +54,8 @@ export function MiFirma() {
   const [nombre, setNombre] = useState('');
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
+  /** Con el pad abierto se firma a mano; cerrado, se ve la firma guardada. */
+  const [dibujando, setDibujando] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -160,6 +163,10 @@ export function MiFirma() {
                 />
 
                 <div className="flex flex-wrap gap-2">
+                  <Button onClick={() => setDibujando(v => !v)} variant={dibujando ? 'outline' : 'default'}>
+                    <PenLine className="size-4" />
+                    {dibujando ? 'Cerrar' : imagen ? 'Volver a firmar' : 'Firmar aquí'}
+                  </Button>
                   <Button variant="outline" onClick={() => inputRef.current?.click()}>
                     <Upload className="size-4" />
                     {imagen ? 'Cambiar imagen' : 'Subir imagen'}
@@ -178,10 +185,22 @@ export function MiFirma() {
               </div>
             </div>
 
+            {dibujando && (
+              <PadFirma
+                onFirmar={(png) => {
+                  setImagen(png);
+                  setDibujando(false);
+                  toast.success('Firma capturada. Dale a Guardar para dejarla registrada.');
+                }}
+              />
+            )}
+
             <p className="text-xs text-muted-foreground">
-              Escanea o fotografía tu firma sobre papel blanco y recórtala. Un PNG con fondo
-              transparente queda mejor sobre el documento. Cambiarla aquí no modifica las órdenes
-              que ya aprobaste: cada aprobación conserva la firma con la que se hizo.
+              Lo más cómodo es <strong>firmar aquí mismo</strong>, con el dedo o el lápiz en la
+              pantalla táctil de oficina, o con el mouse. Si prefieres, también puedes subir una
+              foto o escaneo de tu firma sobre papel blanco (PNG o JPG, mejor recortada).
+              Cambiarla no modifica las órdenes que ya aprobaste: cada aprobación conserva la firma
+              con la que se hizo.
             </p>
           </>
         )}
