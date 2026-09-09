@@ -30,6 +30,7 @@ import { useRequerimientosStore } from '../../../lib/compras/requerimientos-stor
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
 import { useCentrosCosto } from '../../../lib/centros-costo/centros-costo-store';
+import { useRoles } from '../../../lib/rbac/roles-store';
 import { COTIZACION_ESTADO_CONFIG, formatearMonto as formatearMontoCotizacion } from '../../../lib/compras/cotizaciones-config';
 import {
   REQUERIMIENTO_ESTADO_CONFIG,
@@ -59,6 +60,10 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
   } = useRequerimientosStore();
   // Permisos reales del usuario (RBAC), no el rol suelto de profiles
   const { can } = usePermissions();
+  const { usuarios } = useRoles();
+  /** `aprobadoPor` es el id del usuario; se muestra su nombre, no el uuid. */
+  const nombreDe = (id: string | null | undefined) =>
+    usuarios.find(u => u.userId === id)?.nombre ?? id ?? '—';
   
   const { obtenerCotizacionesPorRequerimiento } = useCotizacionesStore();
   const { centrosCosto } = useCentrosCosto();
@@ -245,7 +250,7 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
           <AlertDescription className="text-green-800 dark:text-green-200">
             <strong>Requerimiento Aprobado</strong>
             <p className="mt-1 text-sm">
-              Aprobado por {requerimiento.aprobadoPor} el{' '}
+              Aprobado por {nombreDe(requerimiento.aprobadoPor)} el{' '}
               {new Date(requerimiento.aprobadoEn!).toLocaleString('es-PE')}
             </p>
             <p className="text-sm mt-1">Listo para generar Orden de Compra</p>
@@ -448,7 +453,7 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
                 <div>
                   <p className="text-sm font-medium">Aprobado</p>
                   <p className="text-sm text-muted-foreground">
-                    Por {requerimiento.aprobadoPor} el{' '}
+                    Por {nombreDe(requerimiento.aprobadoPor)} el{' '}
                     {new Date(requerimiento.aprobadoEn!).toLocaleString('es-PE')}
                   </p>
                 </div>

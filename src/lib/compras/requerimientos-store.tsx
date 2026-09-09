@@ -114,7 +114,7 @@ interface RequerimientoStoreContext {
   requerimientos: Requerimiento[];
   loading: boolean;
   obtenerRequerimientoPorId: (id: string) => Requerimiento | undefined;
-  crearRequerimiento: (input: NuevoRequerimientoInput) => Promise<CrudResult & { requerimiento?: Requerimiento }>;
+  crearRequerimiento: (input: NuevoRequerimientoInput, estadoInicial?: EstadoRequerimiento) => Promise<CrudResult & { requerimiento?: Requerimiento }>;
   actualizarRequerimiento: (id: string, input: ActualizarRequerimientoInput) => Promise<CrudResult>;
   cambiarEstado: (id: string, nuevoEstado: EstadoRequerimiento) => Promise<CrudResult>;
   aprobarRequerimiento: (id: string, aprobadoPor: string) => Promise<CrudResult>;
@@ -261,7 +261,14 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
   // ============================================================================
 
   const crearRequerimiento = useCallback(
-    async (input: NuevoRequerimientoInput): Promise<CrudResult & { requerimiento?: Requerimiento }> => {
+    /**
+     * `estadoInicial` evita el viaje de ida y vuelta que había antes: se creaba
+     * en 'borrador' y acto seguido se llamaba a cambiarEstado('enviado'), que
+     * busca el registro en una referencia que TODAVÍA no se había refrescado,
+     * no lo encontraba y devolvía error. El formulario no miraba ese resultado,
+     * así que el usuario leía "enviado para aprobación" sobre un borrador.
+     */
+    async (input: NuevoRequerimientoInput, estadoInicial: EstadoRequerimiento = 'borrador'): Promise<CrudResult & { requerimiento?: Requerimiento }> => {
       if (!tenantId || !user) {
         return { exito: false, errores: ['Sin sesión activa'] };
       }
@@ -281,7 +288,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
         numero: nuevoCodigo,
         titulo: input.titulo.trim(),
         descripcion: input.descripcion.trim(),
-        estado: 'borrador' as EstadoRequerimiento,
+        estado: estadoInicial,
         prioridad: input.prioridad,
         centro_costo: input.centroCosto,
         fecha_requerida: input.fechaRequerida || null,
@@ -502,9 +509,13 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
       if (!dbId) return { exito: false, errores: ['Requerimiento no encontrado'] };
 
       const ahora = new Date().toISOString();
+      // `aprobado_por` es uuid. La pantalla venía mandando el CORREO del usuario
+      // y Postgres rechazaba el update entero con "invalid input syntax for type
+      // uuid", así que aprobar no hacía nada: el requerimiento se quedaba
+      // enviado. Se guarda el id de quien aprueba, que es lo que la columna pide.
       const { error } = await dbRequerimientos.update(dbId, {
         estado: 'aprobado' as EstadoRequerimiento,
-        aprobado_por: aprobadoPor,
+        aprobado_por: user.id,
         aprobado_en: ahora,
         modificado_por: user.id,
         modificado_en: ahora,
@@ -521,7 +532,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
             ? {
                 ...r,
                 estado: 'aprobado' as EstadoRequerimiento,
-                aprobadoPor,
+                aprobadoPor: user.id,
                 aprobadoEn: ahora,
                 auditoria: { ...r.auditoria, modificadoPor: user.id, modificadoEn: ahora },
               }

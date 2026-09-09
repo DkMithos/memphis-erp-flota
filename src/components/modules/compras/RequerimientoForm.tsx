@@ -28,6 +28,7 @@ import {
 import { toast } from 'sonner';
 import { ProyectoSelector } from '../../shared/ProyectoSelector';
 import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
+import { useCentrosCosto } from '../../../lib/centros-costo/centros-costo-store';
 
 interface RequerimientoFormProps {
   requerimientoId?: string; // Si existe, es edición
@@ -37,6 +38,7 @@ interface RequerimientoFormProps {
 
 export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: RequerimientoFormProps) {
   const { obtenerRequerimientoPorId, crearRequerimiento, actualizarRequerimiento, cambiarEstado, usuarioActual } = useRequerimientosStore();
+  const { centrosCosto } = useCentrosCosto();
   const isEditing = !!requerimientoId;
   const requerimientoExistente = isEditing ? obtenerRequerimientoPorId(requerimientoId) : undefined;
 
@@ -171,7 +173,12 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
           return;
         }
         if (enviar) {
-          await cambiarEstado(requerimientoId, 'enviado');
+          const resEnviar = await cambiarEstado(requerimientoId, 'enviado');
+          if (!resEnviar.exito) {
+            toast.error(resEnviar.errores?.[0] ?? 'Se guardó, pero no se pudo enviar a aprobación');
+            onSuccess(requerimientoId);
+            return;
+          }
           toast.success('Requerimiento actualizado y enviado para aprobación');
         } else {
           toast.success('Requerimiento actualizado correctamente');
@@ -179,18 +186,21 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
         onSuccess(requerimientoId);
       } else {
         // Crear requerimiento
-        const resCrear = await crearRequerimiento(formData as NuevoRequerimientoInput);
+        // Se crea directamente con su estado final. Antes se creaba en borrador
+        // y se llamaba después a cambiarEstado, que fallaba por una carrera y
+        // dejaba el requerimiento en borrador anunciando que estaba enviado.
+        const resCrear = await crearRequerimiento(
+          formData as NuevoRequerimientoInput,
+          enviar ? 'enviado' : 'borrador',
+        );
         if (!resCrear.exito || !resCrear.requerimiento) {
           toast.error(resCrear.errores?.[0] ?? 'Error al crear el requerimiento');
           return;
         }
         const nuevoReq = resCrear.requerimiento;
-        if (enviar) {
-          await cambiarEstado(nuevoReq.id, 'enviado');
-          toast.success(`Requerimiento ${nuevoReq.id} creado y enviado para aprobación`);
-        } else {
-          toast.success(`Requerimiento ${nuevoReq.id} guardado como borrador`);
-        }
+        toast.success(enviar
+          ? `Requerimiento ${nuevoReq.id} creado y enviado para aprobación`
+          : `Requerimiento ${nuevoReq.id} guardado como borrador`);
         onSuccess(nuevoReq.id);
       }
     } catch (error) {
@@ -325,7 +335,15 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
                   <CentroCostoSelector
                     value={(formData as any).centroCostoId ?? null}
                     onChange={(v) => {
-                      setFormData({ ...formData, centroCosto: (v ?? 'general') as CentroCosto, centroCostoId: v } as any);
+                      // `centro_costo` guarda el CÓDIGO (GOREICAPNP), que es lo que
+                      // tienen los 242 requerimientos migrados y lo que entiende el
+                      // resto del ERP. El UUID solo se usa para pintar el selector.
+                      const codigo = centrosCosto.find(c => c._dbId === v)?.codigo;
+                      setFormData({
+                        ...formData,
+                        centroCosto: (codigo ?? 'general') as CentroCosto,
+                        centroCostoId: v,
+                      } as any);
                       if (errors.centroCosto) setErrors({ ...errors, centroCosto: '' });
                     }}
                     nullable={false}
