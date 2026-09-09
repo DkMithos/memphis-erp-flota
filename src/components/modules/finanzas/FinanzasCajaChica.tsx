@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Plus, Wallet, X, Download, FileText, ChevronDown, Coins, FolderOpen, Layers } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, Wallet, X, Download, FileText, ChevronDown, Coins, FolderOpen, Layers, Pencil, ArrowDownCircle } from 'lucide-react';
 import { PageNav } from '@/components/shared/PageNav';
 import { usePermissions } from '@/lib/rbac/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,6 +45,12 @@ interface Props {
  * llamadas se olvidaron de pasarla: una caja en dólares mostraba sus gastos
  * rotulados en soles, que es peor que no mostrar el símbolo.
  */
+/** `2026-09-09` → `09/09`. Para no repetir el año en cada línea. */
+const fechaCorta = (iso: string) => {
+  const [, m, d] = iso.slice(0, 10).split('-');
+  return d && m ? `${d}/${m}` : iso;
+};
+
 function fmt(n: number, moneda: string) {
   const sym = moneda === 'USD' ? '$' : 'S/';
   return `${sym} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
@@ -64,6 +70,18 @@ interface NuevaCajaForm {
   moneda: 'PEN' | 'USD';
   /** Caja abierta de la que hereda el saldo; '' = caja desde cero. */
   cajaOrigenId: string;
+}
+
+/** Un ingreso de caja, tal como lo devuelve la tabla. */
+interface IngresoCaja {
+  _dbId: string;
+  numero: string | null;
+  descripcion: string;
+  tipo: string | null;
+  monto: number;
+  moneda: string;
+  fecha: string | null;
+  origen: string | null;
 }
 
 interface NuevoIngresoForm {
@@ -96,7 +114,7 @@ const defaultGastoForm: NuevoGastoForm = {
 };
 
 export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
-  const { cajasChicas, gastos, addGasto, updateCajaChica, loading, reload } = useFinanzas();
+  const { cajasChicas, gastos, addGasto, updateGasto, updateCajaChica, loading, reload } = useFinanzas();
   const { can } = usePermissions();
   // Cada usuario descarga su propia data: se exige <modulo>.exportar
   const puedeExportar = can('finanzas', 'exportar');
@@ -194,6 +212,14 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
   });
 
   const [showNuevoIngreso, setShowNuevoIngreso] = useState(false);
+  /** Movimiento que se está corrigiendo; null = se está creando uno nuevo. */
+  const [gastoEditando, setGastoEditando] = useState<GastoCajaChica | null>(null);
+  const [ingresoEditando, setIngresoEditando] = useState<IngresoCaja | null>(null);
+  /** Ingresos de la caja abierta. Los gastos ya vienen del store; estos no. */
+  const [ingresosDeCaja, setIngresosDeCaja] = useState<IngresoCaja[]>([]);
+  /** Caja que se llevó el saldo de esta, si esta ya se cerró. */
+  const [cajaSucesora, setCajaSucesora] = useState<string | null>(null);
+  const [refrescoIngresos, setRefrescoIngresos] = useState(0);
   const [ingresoForm, setIngresoForm] = useState<NuevoIngresoForm>({
     descripcion: '', monto: '', fecha: new Date().toISOString().slice(0, 10), origen: '',
   });
@@ -336,6 +362,89 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
     toast.success(`Consolidado por moneda — ${alcanceActual}`);
   };
 
+  /**
+   * Ingresos de la caja abierta y de dónde viene / a dónde fue su saldo.
+   *
+   * Carolina necesita ver con cuánto se abrió la caja y desde cuál venía: el
+   * arrastre es el ingreso de tipo `saldo_anterior`, y quien se llevó su saldo
+   * es la caja cuyo arrastre la menciona como origen.
+   */
+  useEffect(() => {
+    if (!selectedCaja) { setIngresosDeCaja([]); setCajaSucesora(null); return; }
+    let vivo = true;
+    (async () => {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      const t = () => (supabase as any).from('ingresos_caja_chica');
+      const [propios, sucesora] = await Promise.all([
+        t().select('id, numero, descripcion, tipo, monto, moneda, fecha, origen')
+           .eq('caja_id', selectedCaja._dbId)
+           .order('fecha', { ascending: true }),
+        t().select('caja_id, cajas_chicas!inner(nombre)')
+           .eq('tipo', 'saldo_anterior')
+           .eq('origen', selectedCaja.nombre)
+           .limit(1),
+      ]);
+      if (!vivo) return;
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      setIngresosDeCaja(((propios.data ?? []) as any[]).map((r): IngresoCaja => ({
+        _dbId: r.id, numero: r.numero, descripcion: r.descripcion ?? '', tipo: r.tipo,
+        monto: Number(r.monto ?? 0), moneda: r.moneda, fecha: r.fecha, origen: r.origen,
+      })));
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      const suc = (sucesora.data ?? [])[0] as any;
+      setCajaSucesora(suc?.cajas_chicas?.nombre ?? null);
+    })();
+    return () => { vivo = false; };
+  }, [selectedCaja, refrescoIngresos]);
+
+  /**
+   * Solo se corrige en una caja abierta. Si el error está en una cerrada hay que
+   * reabrirla primero: es el mismo criterio con el que la base impide registrar
+   * movimientos en una caja cerrada.
+   */
+  const puedeCorregir = can('finanzas', 'editar') && selectedCaja?.estado !== 'cerrada';
+
+  const abrirEdicionGasto = (g: GastoCajaChica) => {
+    setGastoEditando(g);
+    setGastoForm({
+      descripcion: g.descripcion ?? '',
+      categoria: g.categoria ?? '',
+      monto: String(g.monto ?? ''),
+      fecha: g.fecha ?? new Date().toISOString().slice(0, 10),
+      beneficiario: g.beneficiario ?? '',
+      comprobanteNumero: g.comprobanteNumero ?? '',
+      comprobanteTipo: g.comprobanteTipo ?? '',
+      notas: g.notas ?? '',
+    });
+    setGastoCentroCostoId(centrosCosto.find(c => c.codigo === g.centroCosto)?._dbId ?? null);
+    setGastoProyectoId(g.proyectoId ?? null);
+    setShowNuevoGasto(true);
+  };
+
+  const abrirEdicionIngreso = (i: IngresoCaja) => {
+    setIngresoEditando(i);
+    setIngresoForm({
+      descripcion: i.descripcion ?? '',
+      monto: String(i.monto ?? ''),
+      fecha: i.fecha ?? new Date().toISOString().slice(0, 10),
+      origen: i.origen ?? '',
+    });
+    setShowNuevoIngreso(true);
+  };
+
+  /** El desglose de la apertura, tal como lo pide Carolina. */
+  const origenCaja = useMemo(() => {
+    const arrastre = ingresosDeCaja.find(i => i.tipo === 'saldo_anterior') ?? null;
+    const depositos = ingresosDeCaja.filter(i => i.tipo !== 'saldo_anterior');
+    return {
+      arrastre,
+      cajaAnterior: arrastre?.origen ?? null,
+      montoArrastrado: arrastre?.monto ?? 0,
+      depositos,
+      totalDepositos: depositos.reduce((s, i) => s + i.monto, 0),
+    };
+  }, [ingresosDeCaja]);
+
   // Gastos de la caja: del más reciente al más antiguo (fecha desc, luego creación desc)
   const gastosDeCaja = useMemo(() =>
     gastos
@@ -430,6 +539,25 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
     setSaving(true);
     try {
       const tablaIngresos = () => (supabase as any).from('ingresos_caja_chica');
+
+      // Corrección de un ingreso ya registrado: se actualiza, no se duplica.
+      if (ingresoEditando) {
+        const { error } = await tablaIngresos().update({
+          descripcion: ingresoForm.descripcion.trim(),
+          monto,
+          fecha: ingresoForm.fecha,
+          origen: ingresoForm.origen.trim() || null,
+        }).eq('id', ingresoEditando._dbId);
+        if (error) throw error;
+        toast.success('Ingreso corregido');
+        setShowNuevoIngreso(false);
+        setIngresoEditando(null);
+        setIngresoForm({ descripcion: '', monto: '', fecha: new Date().toISOString().slice(0, 10), origen: '' });
+        setRefrescoIngresos(n => n + 1);
+        await reload?.();
+        return;
+      }
+
       const { count } = await tablaIngresos()
         .select('id', { count: 'exact', head: true })
         .eq('caja_id', selectedCaja._dbId);
@@ -447,6 +575,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
       });
       if (error) throw error;
       toast.success(`Ingreso de ${fmt(monto, selectedCaja.moneda)} registrado`);
+      setRefrescoIngresos(n => n + 1);
       setShowNuevoIngreso(false);
       setIngresoForm({ descripcion: '', monto: '', fecha: new Date().toISOString().slice(0, 10), origen: '' });
       await reload?.();
@@ -473,6 +602,30 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
 
     setSaving(true);
     try {
+      // Corrección de un gasto ya registrado: se actualiza, no se duplica. El
+      // saldo de la caja lo recalcula solo el disparador de la base.
+      if (gastoEditando) {
+        await updateGasto(gastoEditando._dbId, {
+          descripcion: gastoForm.descripcion,
+          categoria: gastoForm.categoria,
+          monto,
+          fecha: gastoForm.fecha,
+          beneficiario: gastoForm.beneficiario || null,
+          comprobante_numero: gastoForm.comprobanteNumero || null,
+          comprobante_tipo: (gastoForm.comprobanteTipo as GastoCajaChica['comprobanteTipo']) || null,
+          notas: gastoForm.notas || null,
+          centro_costo: centrosCosto.find(c => c._dbId === gastoCentroCostoId)?.codigo ?? null,
+          proyecto_id: gastoProyectoId,
+        });
+        toast.success(`Gasto ${gastoEditando.id} corregido`);
+        setShowNuevoGasto(false);
+        setGastoEditando(null);
+        setGastoForm(defaultGastoForm);
+        setGastoProyectoId(null);
+        setGastoCentroCostoId(null);
+        return;
+      }
+
       const now = new Date();
       const seq = String(gastos.filter(g => g.cajaDbId === selectedCajaId).length + 1).padStart(3, '0');
       const numero = `GCC-${now.getFullYear()}-${seq}`;
@@ -909,6 +1062,104 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
               )}
             </div>
           </CardHeader>
+
+          {/* De dónde salió el dinero de esta caja y a dónde fue su saldo.
+              Es la lectura que Carolina hace en el Excel: la caja nueva abre con
+              el saldo de la anterior más lo que se deposite. */}
+          <CardContent className="pt-0 pb-4">
+            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Cómo se abrió esta caja
+              </p>
+
+              {origenCaja.arrastre ? (
+                <div className="flex items-baseline justify-between gap-3 text-sm">
+                  <span>
+                    Saldo que trajo de{' '}
+                    <strong className="text-foreground">{origenCaja.cajaAnterior ?? 'la caja anterior'}</strong>
+                  </span>
+                  <span className="tabular-nums">{fmt(origenCaja.montoArrastrado, selectedCaja.moneda)}</span>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Se abrió desde cero: no arrastra saldo de otra caja.
+                </p>
+              )}
+
+              {origenCaja.depositos.map(d => (
+                <div key={d._dbId} className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="text-muted-foreground">
+                    {d.descripcion || 'Depósito'}
+                    {d.fecha && <span className="text-xs ml-2">{fechaCorta(d.fecha)}</span>}
+                  </span>
+                  <span className="tabular-nums">{fmt(d.monto, selectedCaja.moneda)}</span>
+                </div>
+              ))}
+
+              <div className="flex items-baseline justify-between gap-3 text-sm border-t pt-2">
+                <span className="font-medium">Total con el que cuenta</span>
+                <span className="font-semibold tabular-nums">{fmt(selectedCaja.montoAsignado, selectedCaja.moneda)}</span>
+              </div>
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="text-muted-foreground">Gastado</span>
+                <span className="tabular-nums">
+                  {fmt(selectedCaja.montoAsignado - selectedCaja.montoDisponible, selectedCaja.moneda)}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="font-medium">Saldo actual</span>
+                <span className={`font-semibold tabular-nums ${selectedCaja.montoDisponible < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {fmt(selectedCaja.montoDisponible, selectedCaja.moneda)}
+                </span>
+              </div>
+
+              {cajaSucesora && (
+                <p className="text-xs text-muted-foreground border-t pt-2">
+                  Su saldo pasó a <strong className="text-foreground">{cajaSucesora}</strong>.
+                </p>
+              )}
+            </div>
+          </CardContent>
+
+          {/* Los ingresos también se corrigen: el arrastre de apertura o un
+              depósito mal tecleado son tan editables como un gasto. */}
+          {ingresosDeCaja.length > 0 && (
+            <CardContent className="pt-0 pb-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                Ingresos de la caja ({ingresosDeCaja.length})
+              </p>
+              <div className="rounded-md border divide-y">
+                {ingresosDeCaja.map(i => (
+                  <div key={i._dbId} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                    <div className="min-w-0 flex items-center gap-2">
+                      <ArrowDownCircle className="size-4 text-green-600 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="truncate">{i.descripcion || 'Ingreso'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {i.fecha ? fechaCorta(i.fecha) : 'sin fecha'}
+                          {i.origen && ` · ${i.origen}`}
+                          {i.tipo === 'saldo_anterior' && ' · apertura'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="tabular-nums font-medium">{fmt(i.monto, selectedCaja.moneda)}</span>
+                      {puedeCorregir && (
+                        <Button
+                          variant="ghost" size="icon" className="size-7"
+                          title="Corregir este ingreso"
+                          onClick={() => abrirEdicionIngreso(i)}
+                        >
+                          <Pencil className="size-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          )}
+
           <CardContent className="p-0">
             {gastosDeCaja.length === 0 ? (
               <p className="text-sm text-muted-foreground p-4">Sin gastos registrados.</p>
@@ -924,6 +1175,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                       <TableHead>Beneficiario</TableHead>
                       <TableHead className="text-right">Monto</TableHead>
                       <TableHead>Comprobante</TableHead>
+                      {puedeCorregir && <TableHead className="w-16"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -939,6 +1191,17 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                           {g.comprobanteNumero ?? '—'}
                           {g.comprobanteTipo && <span className="text-xs ml-1">({g.comprobanteTipo})</span>}
                         </TableCell>
+                        {puedeCorregir && (
+                          <TableCell>
+                            <Button
+                              variant="ghost" size="icon" className="size-7"
+                              title="Corregir este gasto"
+                              onClick={() => abrirEdicionGasto(g)}
+                            >
+                              <Pencil className="size-3.5" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -965,10 +1228,18 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
       )}
 
       {/* Dialog Nuevo Ingreso — reposición de una caja ya abierta */}
-      <Dialog open={showNuevoIngreso} onOpenChange={setShowNuevoIngreso}>
+      <Dialog open={showNuevoIngreso} onOpenChange={(v) => {
+        setShowNuevoIngreso(v);
+        if (!v) {
+          setIngresoEditando(null);
+          setIngresoForm({ descripcion: '', monto: '', fecha: new Date().toISOString().slice(0, 10), origen: '' });
+        }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Registrar Ingreso — {selectedCaja?.nombre}</DialogTitle>
+            <DialogTitle>
+              {ingresoEditando ? 'Corregir ingreso' : 'Registrar Ingreso'} — {selectedCaja?.nombre}
+            </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div>
@@ -1018,7 +1289,9 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNuevoIngreso(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
-            <Button onClick={handleCrearIngreso} disabled={saving}>{saving ? 'Registrando…' : 'Registrar'}</Button>
+            <Button onClick={handleCrearIngreso} disabled={saving}>
+              {saving ? 'Guardando…' : ingresoEditando ? 'Guardar cambios' : 'Registrar'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1132,10 +1405,20 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
       </Dialog>
 
       {/* Dialog Nuevo Gasto */}
-      <Dialog open={showNuevoGasto} onOpenChange={setShowNuevoGasto}>
+      <Dialog open={showNuevoGasto} onOpenChange={(v) => {
+        setShowNuevoGasto(v);
+        if (!v) {
+          setGastoEditando(null);
+          setGastoForm(defaultGastoForm);
+          setGastoProyectoId(null);
+          setGastoCentroCostoId(null);
+        }
+      }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Registrar Gasto — {selectedCaja?.nombre}</DialogTitle>
+            <DialogTitle>
+              {gastoEditando ? `Corregir ${gastoEditando.id}` : 'Registrar Gasto'} — {selectedCaja?.nombre}
+            </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div>
@@ -1252,7 +1535,9 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNuevoGasto(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
-            <Button onClick={handleCrearGasto} disabled={saving}>{saving ? 'Guardando...' : 'Registrar'}</Button>
+            <Button onClick={handleCrearGasto} disabled={saving}>
+              {saving ? 'Guardando…' : gastoEditando ? 'Guardar cambios' : 'Registrar'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -99,9 +99,11 @@ export interface GastoCajaChica {
   notas?: string;
   realizadoPor?: string;
   creadoEn: string;
-  // Imputación dual
+  // El gasto guarda el CÓDIGO del centro de costo (GOREICAPNP…), no un id: la
+  // columna `centro_costo_id` no existe en gastos_caja_chica y se leía siempre
+  // como undefined. El proyecto lo deriva un disparador a partir del código.
   proyectoId?: string;
-  centroCostoId?: string;
+  centroCosto?: string;
 }
 
 // ============================================================================
@@ -209,7 +211,7 @@ function mapGasto(row: GastoCajaChicaDB): GastoCajaChica {
     realizadoPor: row.realizado_por ?? undefined,
     creadoEn: row.creado_en,
     proyectoId: row.proyecto_id ?? undefined,
-    centroCostoId: row.centro_costo_id ?? undefined,
+    centroCosto: row.centro_costo ?? undefined,
   };
 }
 
