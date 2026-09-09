@@ -1345,3 +1345,52 @@ Quien sepa usar la API con su propio token puede leer esas tablas aunque el ERP 
 Para Richard no es un problema real, pero el día que haya un rol al que de verdad haya que ocultarle
 cifras, esto se arregla con una función `auth_puede(modulo, accion)` usada dentro de las políticas.
 Es un cambio que toca el acceso de todos a la vez — decisión de Kevin, no se hizo de oficio.
+
+---
+
+## 2026-09-09 (tarde II) — El requerimiento no llegaba a la cotización
+
+Richard creó RQ-00245 y no le aparecía para cotizar; al entrar por "Crear Primera Cotización" el
+formulario salía en blanco. Eran **tres fallos distintos** que se veían como uno.
+
+### 1. Los dos caminos no se ponían de acuerdo
+
+El selector de la cotización solo listaba requerimientos en estado `aprobado` — **17 de 245**. La
+pantalla del requerimiento, en cambio, ofrecía "Crear Primera Cotización" en cualquier estado. El
+mismo requerimiento existía por un camino y no por el otro.
+
+Ahora los dos usan `puedeCotizarRequerimiento()`: se cotiza desde **enviado**. El motivo es de
+negocio, no de código — los precios son justamente lo que hace falta para decidir si se aprueba, así
+que exigir la aprobación antes de cotizar deja el trámite mordiéndose la cola. Sigue sin cotizarse un
+borrador, un rechazado o un anulado. **Si Operaciones prefiere que solo se cotice lo aprobado, es
+cambiar una línea.**
+
+### 2. Los items no se copiaban nunca
+
+No es que se rompiera: `items: []` estaba escrito en el estado inicial y nadie lo llenaba jamás. La
+cotización nacía vacía siempre, viniera de donde viniera.
+
+`heredarDelRequerimiento()` (`src/lib/compras/heredar-requerimiento.ts`, con pruebas) trae items,
+cantidades, unidades, precio estimado como precio de partida, moneda y centro de costo. Los
+**comentarios** de cada item van a `observaciones`, no a la descripción: esa línea acaba en el PDF
+que ve el proveedor, y un "urge para el lunes" no tiene por qué viajar ahí.
+
+### 3. El prefill se perdía si el store cargaba tarde
+
+Todo el arrastre se leía en el **primer render**, y los stores cargan después. Al abrir la pantalla
+por URL o al refrescar, la cotización y la orden salían en blanco. Es el mismo fallo que apareció
+hoy con los permisos del Reporte Cruzado: **un valor que depende de datos asíncronos no puede vivir
+solo en `useState(inicial)`**. Ahora se aplica en un efecto, una vez por origen, así que no pisa lo
+que el comprador edite después.
+
+De regalo, dos cosas que estaban rotas y el compilador ya venía avisando:
+
+- La ruta se guardaba con `window.location.pathname` **sin la query**, así que al recargar se perdían
+  `?req=` y `?cot=`.
+- La orden leía `cotizacion.condiciones`, campo que no existe: es `terminos`. Las condiciones
+  negociadas nunca se heredaban.
+
+Verificado con el requerimiento real de Richard y una cuenta con su mismo rol: por el botón y por el
+selector la cotización llega con el item, 2 unidades a S/ 78,660, subtotal S/ 157,320 — igual que el
+estimado del requerimiento. La orden creada desde esa cotización hereda proveedor, item y totales
+incluso abriéndola por URL. La cotización de prueba (COT-0041) y la cuenta temporal se eliminaron.
