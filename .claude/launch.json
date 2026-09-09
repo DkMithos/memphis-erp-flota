@@ -4,9 +4,22 @@
     {
       "name": "Memphis ERP Dev Server",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite"],
+      "runtimeArgs": [
+        "vite"
+      ],
       "autoPort": true,
       "port": 3000
+    },
+    {
+      "name": "Memphis ERP Build (produccion)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "preview",
+        "--port",
+        "4173"
+      ],
+      "port": 4173
     }
   ]
 }

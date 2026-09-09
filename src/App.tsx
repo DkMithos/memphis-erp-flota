@@ -1,4 +1,5 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { lazyModulo } from './lib/shared/lazy-modulo';
 
 // Auth
 import { useAuth } from './auth/AuthProvider';
@@ -24,22 +25,22 @@ import { HomeWelcome } from './components/modules/HomeWelcome';
 
 // Main Modules
 import { Dashboard } from './components/modules/Dashboard';
-const Compras = lazy(() => import('./components/modules/Compras').then(m => ({ default: m.Compras })));
-const Proveedores = lazy(() => import('./components/modules/Proveedores').then(m => ({ default: m.Proveedores })));
+const Compras = lazyModulo(() => import('./components/modules/Compras').then(m => ({ default: m.Compras })));
+const Proveedores = lazyModulo(() => import('./components/modules/Proveedores').then(m => ({ default: m.Proveedores })));
 
 // Flota
-const FlotaDashboard = lazy(() => import('./components/modules/flota/FlotaDashboard').then(m => ({ default: m.FlotaDashboard })));
-const VehiculosLista = lazy(() => import('./components/modules/flota/VehiculosLista').then(m => ({ default: m.VehiculosLista })));
-const VehiculoDetalle = lazy(() => import('./components/modules/flota/VehiculoDetalle').then(m => ({ default: m.VehiculoDetalle })));
-const VehiculoForm = lazy(() => import('./components/modules/flota/VehiculoForm').then(m => ({ default: m.VehiculoForm })));
+const FlotaDashboard = lazyModulo(() => import('./components/modules/flota/FlotaDashboard').then(m => ({ default: m.FlotaDashboard })));
+const VehiculosLista = lazyModulo(() => import('./components/modules/flota/VehiculosLista').then(m => ({ default: m.VehiculosLista })));
+const VehiculoDetalle = lazyModulo(() => import('./components/modules/flota/VehiculoDetalle').then(m => ({ default: m.VehiculoDetalle })));
+const VehiculoForm = lazyModulo(() => import('./components/modules/flota/VehiculoForm').then(m => ({ default: m.VehiculoForm })));
 // Rediseño Flota 2026-07 (N17): flotas por proyecto, contratos y mantenimientos del plan.
 // GPS, análisis preventivo, reportes y OTs salieron del módulo.
-const FlotasLista = lazy(() => import('./components/modules/flota/FlotasLista').then(m => ({ default: m.FlotasLista })));
-const FlotaDetalleView = lazy(() => import('./components/modules/flota/FlotaDetalleView').then(m => ({ default: m.FlotaDetalleView })));
-const FlotaMantenimientos = lazy(() => import('./components/modules/flota/FlotaMantenimientos').then(m => ({ default: m.FlotaMantenimientos })));
-const FlotaProgramacion = lazy(() => import('./components/modules/flota/FlotaProgramacion').then(m => ({ default: m.FlotaProgramacion })));
-const FlotaConfirmaciones = lazy(() => import('./components/modules/flota/FlotaConfirmaciones').then(m => ({ default: m.FlotaConfirmaciones })));
-const FlotaQRPrint = lazy(() => import('./components/modules/flota/FlotaQRPrint').then(m => ({ default: m.FlotaQRPrint })));
+const FlotasLista = lazyModulo(() => import('./components/modules/flota/FlotasLista').then(m => ({ default: m.FlotasLista })));
+const FlotaDetalleView = lazyModulo(() => import('./components/modules/flota/FlotaDetalleView').then(m => ({ default: m.FlotaDetalleView })));
+const FlotaMantenimientos = lazyModulo(() => import('./components/modules/flota/FlotaMantenimientos').then(m => ({ default: m.FlotaMantenimientos })));
+const FlotaProgramacion = lazyModulo(() => import('./components/modules/flota/FlotaProgramacion').then(m => ({ default: m.FlotaProgramacion })));
+const FlotaConfirmaciones = lazyModulo(() => import('./components/modules/flota/FlotaConfirmaciones').then(m => ({ default: m.FlotaConfirmaciones })));
+const FlotaQRPrint = lazyModulo(() => import('./components/modules/flota/FlotaQRPrint').then(m => ({ default: m.FlotaQRPrint })));
 
 // Flota - Hojas de Vida QR
 import { VehiclePublicView } from './components/modules/flota/VehiclePublicView';
@@ -47,110 +48,110 @@ import { VehiclePublicLifeSheet } from './components/modules/flota/VehiclePublic
 import { VehicleQRPrint } from './components/modules/flota/VehicleQRPrint';
 
 // Biomédico
-const BiomedicoDashboard = lazy(() => import('./components/modules/biomedico/BiomedicoDashboard').then(m => ({ default: m.BiomedicoDashboard })));
-const BiomedicoEquipos = lazy(() => import('./components/modules/biomedico/BiomedicoEquipos').then(m => ({ default: m.BiomedicoEquipos })));
-const BiomedicoEquipoDetalle = lazy(() => import('./components/modules/biomedico/BiomedicoEquipoDetalle').then(m => ({ default: m.BiomedicoEquipoDetalle })));
-const BiomedicoEquipoForm = lazy(() => import('./components/modules/biomedico/BiomedicoEquipoForm').then(m => ({ default: m.BiomedicoEquipoForm })));
-const BiomedicoMantenimientos = lazy(() => import('./components/modules/biomedico/BiomedicoMantenimientos').then(m => ({ default: m.BiomedicoMantenimientos })));
-const BiomedicoMantenimientoDetalle = lazy(() => import('./components/modules/biomedico/BiomedicoMantenimientoDetalle').then(m => ({ default: m.BiomedicoMantenimientoDetalle })));
-const BiomedicoMantenimientoForm = lazy(() => import('./components/modules/biomedico/BiomedicoMantenimientoForm').then(m => ({ default: m.BiomedicoMantenimientoForm })));
-const BiomedicoCalibraciones = lazy(() => import('./components/modules/biomedico/BiomedicoCalibraciones').then(m => ({ default: m.BiomedicoCalibraciones })));
-const BiomedicoIncidencias = lazy(() => import('./components/modules/biomedico/BiomedicoIncidencias').then(m => ({ default: m.BiomedicoIncidencias })));
-const BiomedicoDocumentos = lazy(() => import('./components/modules/biomedico/BiomedicoDocumentos').then(m => ({ default: m.BiomedicoDocumentos })));
-const BiomedicoContratos = lazy(() => import('./components/modules/biomedico/BiomedicoContratos').then(m => ({ default: m.BiomedicoContratos })));
-const BiomedicoContratoForm = lazy(() => import('./components/modules/biomedico/BiomedicoContratoForm').then(m => ({ default: m.BiomedicoContratoForm })));
+const BiomedicoDashboard = lazyModulo(() => import('./components/modules/biomedico/BiomedicoDashboard').then(m => ({ default: m.BiomedicoDashboard })));
+const BiomedicoEquipos = lazyModulo(() => import('./components/modules/biomedico/BiomedicoEquipos').then(m => ({ default: m.BiomedicoEquipos })));
+const BiomedicoEquipoDetalle = lazyModulo(() => import('./components/modules/biomedico/BiomedicoEquipoDetalle').then(m => ({ default: m.BiomedicoEquipoDetalle })));
+const BiomedicoEquipoForm = lazyModulo(() => import('./components/modules/biomedico/BiomedicoEquipoForm').then(m => ({ default: m.BiomedicoEquipoForm })));
+const BiomedicoMantenimientos = lazyModulo(() => import('./components/modules/biomedico/BiomedicoMantenimientos').then(m => ({ default: m.BiomedicoMantenimientos })));
+const BiomedicoMantenimientoDetalle = lazyModulo(() => import('./components/modules/biomedico/BiomedicoMantenimientoDetalle').then(m => ({ default: m.BiomedicoMantenimientoDetalle })));
+const BiomedicoMantenimientoForm = lazyModulo(() => import('./components/modules/biomedico/BiomedicoMantenimientoForm').then(m => ({ default: m.BiomedicoMantenimientoForm })));
+const BiomedicoCalibraciones = lazyModulo(() => import('./components/modules/biomedico/BiomedicoCalibraciones').then(m => ({ default: m.BiomedicoCalibraciones })));
+const BiomedicoIncidencias = lazyModulo(() => import('./components/modules/biomedico/BiomedicoIncidencias').then(m => ({ default: m.BiomedicoIncidencias })));
+const BiomedicoDocumentos = lazyModulo(() => import('./components/modules/biomedico/BiomedicoDocumentos').then(m => ({ default: m.BiomedicoDocumentos })));
+const BiomedicoContratos = lazyModulo(() => import('./components/modules/biomedico/BiomedicoContratos').then(m => ({ default: m.BiomedicoContratos })));
+const BiomedicoContratoForm = lazyModulo(() => import('./components/modules/biomedico/BiomedicoContratoForm').then(m => ({ default: m.BiomedicoContratoForm })));
 
 // Compras
-const RequerimientosLista = lazy(() => import('./components/modules/compras/RequerimientosLista').then(m => ({ default: m.RequerimientosLista })));
-const RequerimientoDetalle = lazy(() => import('./components/modules/compras/RequerimientoDetalle').then(m => ({ default: m.RequerimientoDetalle })));
-const RequerimientoForm = lazy(() => import('./components/modules/compras/RequerimientoForm').then(m => ({ default: m.RequerimientoForm })));
-const CotizacionesLista = lazy(() => import('./components/modules/compras/CotizacionesLista').then(m => ({ default: m.CotizacionesLista })));
-const CotizacionDetalle = lazy(() => import('./components/modules/compras/CotizacionDetalle').then(m => ({ default: m.CotizacionDetalle })));
-const CotizacionForm = lazy(() => import('./components/modules/compras/CotizacionForm').then(m => ({ default: m.CotizacionForm })));
-const OrdenesLista = lazy(() => import('./components/modules/compras/OrdenesLista').then(m => ({ default: m.OrdenesLista })));
-const OrdenDetalle = lazy(() => import('./components/modules/compras/OrdenDetalle').then(m => ({ default: m.OrdenDetalle })));
-const OrdenForm = lazy(() => import('./components/modules/compras/OrdenForm').then(m => ({ default: m.OrdenForm })));
-const RecepcionesLista = lazy(() => import('./components/modules/compras/RecepcionesLista').then(m => ({ default: m.RecepcionesLista })));
-const FacturasProveedores = lazy(() => import('./components/modules/compras/FacturasProveedores').then(m => ({ default: m.FacturasProveedores })));
-const RecepcionDetalle = lazy(() => import('./components/modules/compras/RecepcionDetalle').then(m => ({ default: m.RecepcionDetalle })));
-const RecepcionForm = lazy(() => import('./components/modules/compras/RecepcionForm').then(m => ({ default: m.RecepcionForm })));
+const RequerimientosLista = lazyModulo(() => import('./components/modules/compras/RequerimientosLista').then(m => ({ default: m.RequerimientosLista })));
+const RequerimientoDetalle = lazyModulo(() => import('./components/modules/compras/RequerimientoDetalle').then(m => ({ default: m.RequerimientoDetalle })));
+const RequerimientoForm = lazyModulo(() => import('./components/modules/compras/RequerimientoForm').then(m => ({ default: m.RequerimientoForm })));
+const CotizacionesLista = lazyModulo(() => import('./components/modules/compras/CotizacionesLista').then(m => ({ default: m.CotizacionesLista })));
+const CotizacionDetalle = lazyModulo(() => import('./components/modules/compras/CotizacionDetalle').then(m => ({ default: m.CotizacionDetalle })));
+const CotizacionForm = lazyModulo(() => import('./components/modules/compras/CotizacionForm').then(m => ({ default: m.CotizacionForm })));
+const OrdenesLista = lazyModulo(() => import('./components/modules/compras/OrdenesLista').then(m => ({ default: m.OrdenesLista })));
+const OrdenDetalle = lazyModulo(() => import('./components/modules/compras/OrdenDetalle').then(m => ({ default: m.OrdenDetalle })));
+const OrdenForm = lazyModulo(() => import('./components/modules/compras/OrdenForm').then(m => ({ default: m.OrdenForm })));
+const RecepcionesLista = lazyModulo(() => import('./components/modules/compras/RecepcionesLista').then(m => ({ default: m.RecepcionesLista })));
+const FacturasProveedores = lazyModulo(() => import('./components/modules/compras/FacturasProveedores').then(m => ({ default: m.FacturasProveedores })));
+const RecepcionDetalle = lazyModulo(() => import('./components/modules/compras/RecepcionDetalle').then(m => ({ default: m.RecepcionDetalle })));
+const RecepcionForm = lazyModulo(() => import('./components/modules/compras/RecepcionForm').then(m => ({ default: m.RecepcionForm })));
 
 // Proveedores
-const ProveedoresDirectorio = lazy(() => import('./components/modules/proveedores/ProveedoresDirectorio').then(m => ({ default: m.ProveedoresDirectorio })));
-const ProveedorDetalle = lazy(() => import('./components/modules/proveedores/ProveedorDetalle').then(m => ({ default: m.ProveedorDetalle })));
-const ProveedorForm = lazy(() => import('./components/modules/proveedores/ProveedorForm').then(m => ({ default: m.ProveedorForm })));
-const ProveedoresEvaluaciones = lazy(() => import('./components/modules/proveedores/ProveedoresEvaluaciones').then(m => ({ default: m.ProveedoresEvaluaciones })));
-const ProveedoresContratos = lazy(() => import('./components/modules/proveedores/ProveedoresContratos').then(m => ({ default: m.ProveedoresContratos })));
-const ProveedoresTalleres = lazy(() => import('./components/modules/proveedores/ProveedoresTalleres').then(m => ({ default: m.ProveedoresTalleres })));
-const GestionCategorias = lazy(() => import('./components/modules/proveedores/GestionCategorias').then(m => ({ default: m.GestionCategorias })));
+const ProveedoresDirectorio = lazyModulo(() => import('./components/modules/proveedores/ProveedoresDirectorio').then(m => ({ default: m.ProveedoresDirectorio })));
+const ProveedorDetalle = lazyModulo(() => import('./components/modules/proveedores/ProveedorDetalle').then(m => ({ default: m.ProveedorDetalle })));
+const ProveedorForm = lazyModulo(() => import('./components/modules/proveedores/ProveedorForm').then(m => ({ default: m.ProveedorForm })));
+const ProveedoresEvaluaciones = lazyModulo(() => import('./components/modules/proveedores/ProveedoresEvaluaciones').then(m => ({ default: m.ProveedoresEvaluaciones })));
+const ProveedoresContratos = lazyModulo(() => import('./components/modules/proveedores/ProveedoresContratos').then(m => ({ default: m.ProveedoresContratos })));
+const ProveedoresTalleres = lazyModulo(() => import('./components/modules/proveedores/ProveedoresTalleres').then(m => ({ default: m.ProveedoresTalleres })));
+const GestionCategorias = lazyModulo(() => import('./components/modules/proveedores/GestionCategorias').then(m => ({ default: m.GestionCategorias })));
 
 // Proyectos
-const ProyectosLista = lazy(() => import('./components/modules/proyectos/ProyectosLista').then(m => ({ default: m.ProyectosLista })));
-const ProyectoDetalle = lazy(() => import('./components/modules/proyectos/ProyectoDetalle').then(m => ({ default: m.ProyectoDetalle })));
-const Proyecto360 = lazy(() => import('./components/modules/proyectos/Proyecto360').then(m => ({ default: m.Proyecto360 })));
-const ProyectosPanorama = lazy(() => import('./components/modules/proyectos/ProyectosPanorama').then(m => ({ default: m.ProyectosPanorama })));
-const ProyectosExcelSync = lazy(() => import('./components/modules/proyectos/ProyectosExcelSync').then(m => ({ default: m.ProyectosExcelSync })));
-const ProyectosTareasGlobal = lazy(() => import('./components/modules/proyectos/ProyectosTareasGlobal').then(m => ({ default: m.ProyectosTareasGlobal })));
-const TareaDetalle = lazy(() => import('./components/modules/proyectos/TareaDetalle').then(m => ({ default: m.TareaDetalle })));
+const ProyectosLista = lazyModulo(() => import('./components/modules/proyectos/ProyectosLista').then(m => ({ default: m.ProyectosLista })));
+const ProyectoDetalle = lazyModulo(() => import('./components/modules/proyectos/ProyectoDetalle').then(m => ({ default: m.ProyectoDetalle })));
+const Proyecto360 = lazyModulo(() => import('./components/modules/proyectos/Proyecto360').then(m => ({ default: m.Proyecto360 })));
+const ProyectosPanorama = lazyModulo(() => import('./components/modules/proyectos/ProyectosPanorama').then(m => ({ default: m.ProyectosPanorama })));
+const ProyectosExcelSync = lazyModulo(() => import('./components/modules/proyectos/ProyectosExcelSync').then(m => ({ default: m.ProyectosExcelSync })));
+const ProyectosTareasGlobal = lazyModulo(() => import('./components/modules/proyectos/ProyectosTareasGlobal').then(m => ({ default: m.ProyectosTareasGlobal })));
+const TareaDetalle = lazyModulo(() => import('./components/modules/proyectos/TareaDetalle').then(m => ({ default: m.TareaDetalle })));
 import { ProyectosProvider } from './lib/proyectos/proyectos-store';
 
 // Finanzas - módulos adicionales
-const FinanzasFlujoCaja = lazy(() => import('./components/modules/finanzas/FinanzasFlujoCaja').then(m => ({ default: m.FinanzasFlujoCaja })));
-const FinanzasReportes = lazy(() => import('./components/modules/finanzas/FinanzasReportes').then(m => ({ default: m.FinanzasReportes })));
+const FinanzasFlujoCaja = lazyModulo(() => import('./components/modules/finanzas/FinanzasFlujoCaja').then(m => ({ default: m.FinanzasFlujoCaja })));
+const FinanzasReportes = lazyModulo(() => import('./components/modules/finanzas/FinanzasReportes').then(m => ({ default: m.FinanzasReportes })));
 
 // Proyectos - módulos adicionales
-const ProyectosCronograma = lazy(() => import('./components/modules/proyectos/ProyectosCronograma').then(m => ({ default: m.ProyectosCronograma })));
-const ProyectosValorizaciones = lazy(() => import('./components/modules/proyectos/ProyectosValorizaciones').then(m => ({ default: m.ProyectosValorizaciones })));
-const ProyectosRiesgos = lazy(() => import('./components/modules/proyectos/ProyectosRiesgos').then(m => ({ default: m.ProyectosRiesgos })));
-const ProyectosDocumentos = lazy(() => import('./components/modules/proyectos/ProyectosDocumentos').then(m => ({ default: m.ProyectosDocumentos })));
+const ProyectosCronograma = lazyModulo(() => import('./components/modules/proyectos/ProyectosCronograma').then(m => ({ default: m.ProyectosCronograma })));
+const ProyectosValorizaciones = lazyModulo(() => import('./components/modules/proyectos/ProyectosValorizaciones').then(m => ({ default: m.ProyectosValorizaciones })));
+const ProyectosRiesgos = lazyModulo(() => import('./components/modules/proyectos/ProyectosRiesgos').then(m => ({ default: m.ProyectosRiesgos })));
+const ProyectosDocumentos = lazyModulo(() => import('./components/modules/proyectos/ProyectosDocumentos').then(m => ({ default: m.ProyectosDocumentos })));
 
 // Finanzas
-const FinanzasDashboard = lazy(() => import('./components/modules/finanzas/FinanzasDashboard').then(m => ({ default: m.FinanzasDashboard })));
-const FinanzasTransacciones = lazy(() => import('./components/modules/finanzas/FinanzasTransacciones').then(m => ({ default: m.FinanzasTransacciones })));
-const FinanzasPresupuestosModule = lazy(() => import('./components/modules/finanzas/FinanzasPresupuestosModule').then(m => ({ default: m.FinanzasPresupuestosModule })));
-const FinanzasCajaChica = lazy(() => import('./components/modules/finanzas/FinanzasCajaChica').then(m => ({ default: m.FinanzasCajaChica })));
-const FianzasModule = lazy(() => import('./components/modules/fianzas/FianzasModule').then(m => ({ default: m.FianzasModule })));
-const FianzasCargos = lazy(() => import('./components/modules/fianzas/FianzasCargos').then(m => ({ default: m.FianzasCargos })));
+const FinanzasDashboard = lazyModulo(() => import('./components/modules/finanzas/FinanzasDashboard').then(m => ({ default: m.FinanzasDashboard })));
+const FinanzasTransacciones = lazyModulo(() => import('./components/modules/finanzas/FinanzasTransacciones').then(m => ({ default: m.FinanzasTransacciones })));
+const FinanzasPresupuestosModule = lazyModulo(() => import('./components/modules/finanzas/FinanzasPresupuestosModule').then(m => ({ default: m.FinanzasPresupuestosModule })));
+const FinanzasCajaChica = lazyModulo(() => import('./components/modules/finanzas/FinanzasCajaChica').then(m => ({ default: m.FinanzasCajaChica })));
+const FianzasModule = lazyModulo(() => import('./components/modules/fianzas/FianzasModule').then(m => ({ default: m.FianzasModule })));
+const FianzasCargos = lazyModulo(() => import('./components/modules/fianzas/FianzasCargos').then(m => ({ default: m.FianzasCargos })));
 import { FinanzasProvider } from './lib/finanzas/finanzas-store';
 
 // CRM
-const CRMDashboard = lazy(() => import('./components/modules/crm/CRMDashboard').then(m => ({ default: m.CRMDashboard })));
-const CRMClientes = lazy(() => import('./components/modules/crm/CRMClientes').then(m => ({ default: m.CRMClientes })));
-const CRMOportunidades = lazy(() => import('./components/modules/crm/CRMOportunidades').then(m => ({ default: m.CRMOportunidades })));
-const CRMActividades = lazy(() => import('./components/modules/crm/CRMActividades').then(m => ({ default: m.CRMActividades })));
+const CRMDashboard = lazyModulo(() => import('./components/modules/crm/CRMDashboard').then(m => ({ default: m.CRMDashboard })));
+const CRMClientes = lazyModulo(() => import('./components/modules/crm/CRMClientes').then(m => ({ default: m.CRMClientes })));
+const CRMOportunidades = lazyModulo(() => import('./components/modules/crm/CRMOportunidades').then(m => ({ default: m.CRMOportunidades })));
+const CRMActividades = lazyModulo(() => import('./components/modules/crm/CRMActividades').then(m => ({ default: m.CRMActividades })));
 import { CRMProvider } from './lib/crm/crm-store';
 
 // Inventario (carga diferida)
-const InventarioDashboard = lazy(() => import('./components/modules/inventario/InventarioDashboard').then(m => ({ default: m.InventarioDashboard })));
-const InventarioArticulos = lazy(() => import('./components/modules/inventario/InventarioArticulos').then(m => ({ default: m.InventarioArticulos })));
-const InventarioMovimientos = lazy(() => import('./components/modules/inventario/InventarioMovimientos').then(m => ({ default: m.InventarioMovimientos })));
-const InventarioAlmacenes = lazy(() => import('./components/modules/inventario/InventarioAlmacenes').then(m => ({ default: m.InventarioAlmacenes })));
+const InventarioDashboard = lazyModulo(() => import('./components/modules/inventario/InventarioDashboard').then(m => ({ default: m.InventarioDashboard })));
+const InventarioArticulos = lazyModulo(() => import('./components/modules/inventario/InventarioArticulos').then(m => ({ default: m.InventarioArticulos })));
+const InventarioMovimientos = lazyModulo(() => import('./components/modules/inventario/InventarioMovimientos').then(m => ({ default: m.InventarioMovimientos })));
+const InventarioAlmacenes = lazyModulo(() => import('./components/modules/inventario/InventarioAlmacenes').then(m => ({ default: m.InventarioAlmacenes })));
 
 // BI (carga diferida — incluye recharts)
-const BIDashboard = lazy(() => import('./components/modules/bi/BIDashboard').then(m => ({ default: m.BIDashboard })));
-const ReporteCruzado = lazy(() => import('./components/modules/bi/ReporteCruzado').then(m => ({ default: m.ReporteCruzado })));
-const FlujoGerencia = lazy(() => import('./components/modules/bi/FlujoGerencia').then(m => ({ default: m.FlujoGerencia })));
+const BIDashboard = lazyModulo(() => import('./components/modules/bi/BIDashboard').then(m => ({ default: m.BIDashboard })));
+const ReporteCruzado = lazyModulo(() => import('./components/modules/bi/ReporteCruzado').then(m => ({ default: m.ReporteCruzado })));
+const FlujoGerencia = lazyModulo(() => import('./components/modules/bi/FlujoGerencia').then(m => ({ default: m.FlujoGerencia })));
 
 // Contabilidad (carga diferida — módulo pesado, no en ruta crítica)
-const ContabilidadDashboard = lazy(() => import('./components/modules/contabilidad/ContabilidadDashboard').then(m => ({ default: m.ContabilidadDashboard })));
-const PlanCuentas = lazy(() => import('./components/modules/contabilidad/PlanCuentas').then(m => ({ default: m.PlanCuentas })));
-const PeriodosContables = lazy(() => import('./components/modules/contabilidad/PeriodosContables').then(m => ({ default: m.PeriodosContables })));
-const AsientosLista = lazy(() => import('./components/modules/contabilidad/AsientosLista').then(m => ({ default: m.AsientosLista })));
-const AsientoForm = lazy(() => import('./components/modules/contabilidad/AsientoForm').then(m => ({ default: m.AsientoForm })));
-const ComprobantesLista = lazy(() => import('./components/modules/contabilidad/ComprobantesLista').then(m => ({ default: m.ComprobantesLista })));
-const ComprobantePagoForm = lazy(() => import('./components/modules/contabilidad/ComprobantePagoForm').then(m => ({ default: m.ComprobantePagoForm })));
-const RegistroCompras = lazy(() => import('./components/modules/contabilidad/RegistroCompras').then(m => ({ default: m.RegistroCompras })));
-const RegistroVentas = lazy(() => import('./components/modules/contabilidad/RegistroVentas').then(m => ({ default: m.RegistroVentas })));
+const ContabilidadDashboard = lazyModulo(() => import('./components/modules/contabilidad/ContabilidadDashboard').then(m => ({ default: m.ContabilidadDashboard })));
+const PlanCuentas = lazyModulo(() => import('./components/modules/contabilidad/PlanCuentas').then(m => ({ default: m.PlanCuentas })));
+const PeriodosContables = lazyModulo(() => import('./components/modules/contabilidad/PeriodosContables').then(m => ({ default: m.PeriodosContables })));
+const AsientosLista = lazyModulo(() => import('./components/modules/contabilidad/AsientosLista').then(m => ({ default: m.AsientosLista })));
+const AsientoForm = lazyModulo(() => import('./components/modules/contabilidad/AsientoForm').then(m => ({ default: m.AsientoForm })));
+const ComprobantesLista = lazyModulo(() => import('./components/modules/contabilidad/ComprobantesLista').then(m => ({ default: m.ComprobantesLista })));
+const ComprobantePagoForm = lazyModulo(() => import('./components/modules/contabilidad/ComprobantePagoForm').then(m => ({ default: m.ComprobantePagoForm })));
+const RegistroCompras = lazyModulo(() => import('./components/modules/contabilidad/RegistroCompras').then(m => ({ default: m.RegistroCompras })));
+const RegistroVentas = lazyModulo(() => import('./components/modules/contabilidad/RegistroVentas').then(m => ({ default: m.RegistroVentas })));
 import { PeriodosProvider } from './lib/contabilidad/periodos-store';
 import { PlanCuentasProvider } from './lib/contabilidad/plan-cuentas-store';
 import { AsientosProvider } from './lib/contabilidad/asientos-store';
 import { ComprobantesProvider } from './lib/contabilidad/comprobantes-store';
 
 // Admin
-const GestionUsuarios = lazy(() => import('./components/modules/admin/GestionUsuarios').then(m => ({ default: m.GestionUsuarios })));
-const GestionCatalogos = lazy(() => import('./components/modules/admin/GestionCatalogos').then(m => ({ default: m.GestionCatalogos })));
-const GestionFlujoAprobacion = lazy(() => import('./components/modules/admin/GestionFlujoAprobacion').then(m => ({ default: m.GestionFlujoAprobacion })));
-const CentrosCostoAdmin = lazy(() => import('./components/modules/admin/CentrosCostoAdmin').then(m => ({ default: m.CentrosCostoAdmin })));
+const GestionUsuarios = lazyModulo(() => import('./components/modules/admin/GestionUsuarios').then(m => ({ default: m.GestionUsuarios })));
+const GestionCatalogos = lazyModulo(() => import('./components/modules/admin/GestionCatalogos').then(m => ({ default: m.GestionCatalogos })));
+const GestionFlujoAprobacion = lazyModulo(() => import('./components/modules/admin/GestionFlujoAprobacion').then(m => ({ default: m.GestionFlujoAprobacion })));
+const CentrosCostoAdmin = lazyModulo(() => import('./components/modules/admin/CentrosCostoAdmin').then(m => ({ default: m.CentrosCostoAdmin })));
 import { CentrosCostoProvider } from './lib/centros-costo/centros-costo-store';
 
 // QR Público — Biomédico
@@ -158,12 +159,12 @@ import { EquipoPublicView } from './components/modules/biomedico/EquipoPublicVie
 import { EquipoQRPrint } from './components/modules/biomedico/EquipoQRPrint';
 
 // Perfil
-const UserProfile = lazy(() => import('./components/modules/perfil/UserProfile').then(m => ({ default: m.UserProfile })));
+const UserProfile = lazyModulo(() => import('./components/modules/perfil/UserProfile').then(m => ({ default: m.UserProfile })));
 
 // Portal de proveedores (ruta pública /portal, con su propio login por RUC)
-const PortalProveedores = lazy(() => import('./components/portal/PortalProveedores').then(m => ({ default: m.PortalProveedores })));
+const PortalProveedores = lazyModulo(() => import('./components/portal/PortalProveedores').then(m => ({ default: m.PortalProveedores })));
 // Portal de talleres (ruta pública /taller, login por código del taller)
-const PortalTalleres = lazy(() => import('./components/portal/PortalTalleres').then(m => ({ default: m.PortalTalleres })));
+const PortalTalleres = lazyModulo(() => import('./components/portal/PortalTalleres').then(m => ({ default: m.PortalTalleres })));
 
 // Stores
 import { OTStoreProvider } from './lib/flota/ot-store';
