@@ -1107,3 +1107,46 @@ Toda la cadena de prueba borrada (RQ-00245, COT-0041, MM-001253, REC-0001, F001-
 TRX-2026-0001 y el presupuesto). La clave temporal de la cuenta de portal del proveedor se
 sustituyó por una irrecuperable. **Queda un archivo huérfano**: el XML de prueba en el bucket
 `facturas-proveedores`, que no se puede borrar por SQL y no tenemos la clave de servicio a mano.
+
+---
+
+## 09/09/2026 (tarde) — Todo amarrado a centro de costo
+
+**Regla adoptada:** ningún gasto nace sin centro de costo. El **proyecto no se pide aparte**: se
+deriva del centro de costo con los disparadores que ya existían (`centros_costo.proyecto_id` es el
+puente). Así se elige una sola vez y no puede haber contradicción entre ambos.
+
+### Caja chica
+
+La pantalla tenía los selectores de Proyecto y Centro de Costo **desde siempre, pero no se
+guardaban**. Cada gasto registrado desde el ERP nacía sin imputar. Ahora se guardan y el centro de
+costo es obligatorio.
+
+### Cadena de compras
+
+El requerimiento ya capturaba el centro de costo (244 de 244) y **la cotización y la orden lo
+tiraban**. Ahora viaja entero:
+
+| Eslabón | De dónde saca la dimensión |
+|---|---|
+| Requerimiento | Se elige (obligatorio, ya existía) |
+| Cotización | **Hereda** del requerimiento · editable · obligatorio · deriva proyecto |
+| Orden | **Hereda** de la cotización |
+| Recepción | **Hereda** de la orden (antes empezaba en blanco) |
+| Factura | **Hereda** de la orden por disparador — antes no tenía dimensión ninguna |
+
+Verificado de punta a punta: GAMAZONPNP viajó del requerimiento a la factura y el proyecto
+05AMAPNP25 se dedujo solo en los cuatro eslabones.
+
+### Carolina ya está en producción
+
+Durante la sesión, `cokamura@memphis.pe` registró en **CAJA 25 SOLES** un ingreso de S/ 10,000 y dos
+gastos por el nombramiento del nuevo gerente general (S/ 530.00 y S/ 92.40). El saldo se recalculó
+solo: 10,095.78 − 622.40 = 9,473.38. **Los dos gastos quedaron sin centro de costo** porque son
+anteriores al arreglo de hoy — hay que imputarlos a mano.
+
+### Pendiente detectado
+
+El número de gasto se genera contando los gastos de la caja en memoria (`length + 1`), así que dos
+personas registrando a la vez pueden obtener el mismo número. Hoy no ha pasado, pero conviene
+resolverlo antes de que sean varios usando caja chica.
