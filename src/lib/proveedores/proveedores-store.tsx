@@ -34,6 +34,12 @@ export interface Proveedor {
   razonSocial: string;
   nombreComercial: string | null;
 
+  // Perfil fiscal: de aquí sale el IGV de sus compras y la retención de 4ta.
+  regimenIgv?: string;
+  domiciliado?: boolean;
+  suspensionRetencionRh?: boolean;
+  suspensionRetencionHasta?: string | null;
+
   // Clasificación
   tipo: TipoProveedor;
   categorias: CategoriaProveedor[];   // plural en frontend, singular en DB
@@ -100,6 +106,11 @@ export interface Proveedor {
 
 export interface NuevoProveedorInput {
   ruc: string;
+  /** Régimen de IGV del proveedor. Sus compras lo heredan. */
+  regimenIgv?: string;
+  /** Constancia de suspensión de retención de 4ta, y hasta cuándo vale. */
+  suspensionRetencionRh?: boolean;
+  suspensionRetencionHasta?: string | null;
   razonSocial: string;
   nombreComercial?: string;
   tipo: TipoProveedor;
@@ -183,6 +194,12 @@ function mapFromDB(row: ProveedorDB): Proveedor {
     ruc: row.ruc,
     razonSocial: row.razon_social,
     nombreComercial: row.nombre_comercial,
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    regimenIgv: (row as any).regimen_igv ?? 'gravado',
+    domiciliado: (row as any).domiciliado ?? true,
+    suspensionRetencionRh: (row as any).suspension_retencion_rh ?? false,
+    suspensionRetencionHasta: (row as any).suspension_retencion_hasta ?? null,
+    /* eslint-enable @typescript-eslint/no-explicit-any */
     tipo: row.tipo as TipoProveedor,
     categorias: row.categoria
       ? (row.categoria.split(',').map(c => c.trim()).filter(Boolean) as CategoriaProveedor[])
@@ -355,6 +372,9 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
       tasa_detraccion: input.datosTributarios?.tasaDetraccion ?? null,
       codigo_bien_servicio: input.datosTributarios?.codigoBienServicio ?? null,
       sujeto_retencion: input.datosTributarios?.sujetoRetencion ?? false,
+      regimen_igv: input.regimenIgv ?? 'gravado',
+      suspension_retencion_rh: input.suspensionRetencionRh ?? false,
+      suspension_retencion_hasta: input.suspensionRetencionHasta ?? null,
       observaciones: input.observaciones?.trim() ?? null,
       creado_por: user.id,
       modificado_por: null,

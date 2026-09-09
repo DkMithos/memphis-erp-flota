@@ -9,6 +9,7 @@ import { supabase } from '../supabase/client';
 import { dbCotizaciones } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { validateTransition, COTIZACION_TRANSITIONS } from '../shared/state-machine';
+import type { RegimenIgv } from './regimen-igv';
 import type {
   Cotizacion as CotizacionDB,
   CotizacionItem as CotizacionItemDB,
@@ -74,6 +75,7 @@ export interface Cotizacion {
   // Imputación dual
   proyectoId: string | null;
   centroCostoId: string | null;
+  regimenIgv: RegimenIgv;
 
   // Aprobación
   aprobadoPor: string | null;
@@ -98,6 +100,8 @@ export interface NuevaCotizacionInput {
   requerimientoId: string;
   /** Centro de costo al que se imputa. De él se deriva el proyecto. */
   centroCostoId?: string | null;
+  /** Régimen de IGV con el que se cotiza. Lo propone el proveedor. */
+  regimenIgv?: RegimenIgv;
   requerimientoDbId?: string; // UUID from DB — preferred for FK
   proveedorId?: string | null;
   proveedorNombre: string;
@@ -143,6 +147,10 @@ const CotizacionContext = createContext<CotizacionStoreContext | undefined>(unde
 // ============================================================================
 
 type CotizacionWithRelations = CotizacionDB & {
+  /** Columnas nuevas, aún fuera de los tipos generados de Supabase. */
+  regimen_igv?: string | null;
+  centro_costo_id?: string | null;
+  proyecto_id?: string | null;
   items: CotizacionItemDB[];
   proveedor?: { razon_social: string; ruc: string } | null;
 };
@@ -187,6 +195,7 @@ function mapFromDB(row: CotizacionWithRelations): Cotizacion {
     observaciones: row.observaciones,
     proyectoId: row.proyecto_id ?? null,
     centroCostoId: row.centro_costo_id ?? null,
+    regimenIgv: (row.regimen_igv ?? 'gravado') as RegimenIgv,
     aprobadoPor: row.aprobado_por ?? null,
     aprobadoEn: row.aprobado_en ?? null,
     rechazadoPor: row.rechazado_por ?? null,
@@ -338,6 +347,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
         // La dimensión viaja con la cotización: el disparador
         // `trg_cotizacion_proyecto` deriva el proyecto del centro de costo.
         centro_costo_id: input.centroCostoId ?? null,
+        regimen_igv: input.regimenIgv ?? 'gravado',
         creado_por: user.id,
         modificado_por: null,
         modificado_en: null,

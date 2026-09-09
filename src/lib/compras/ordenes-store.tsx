@@ -9,6 +9,7 @@ import { supabase } from '../supabase/client';
 import { dbOrdenesCompra } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { validateTransition, ORDEN_TRANSITIONS } from '../shared/state-machine';
+import type { RegimenIgv } from './regimen-igv';
 import { solicitarAprobacionTeams } from './solicitar-aprobacion';
 import type {
   OrdenCompra as OrdenCompraDB,
@@ -60,6 +61,8 @@ export interface Orden {
   proveedorNombre: string;
   /** UUID del proveedor en BD. Lo necesita el PDF para traer RUC, dirección y cuentas. */
   proveedorDbId: string | null;
+  regimenIgv: RegimenIgv;
+  aplicaRetencionRh: boolean;
 
   // Clasificación
   moneda: MonedaOrden;
@@ -128,6 +131,10 @@ export interface NuevaOrdenInput {
   cotizacionDbId?: string;
   /** Centro de costo heredado de la cotización. De él se deriva el proyecto. */
   centroCostoId?: string | null;
+  /** Régimen de IGV con el que se emite. Se hereda de la cotización. */
+  regimenIgv?: RegimenIgv;
+  /** Retención de renta de 4ta categoría (recibos por honorarios). */
+  aplicaRetencionRh?: boolean;
 }
 
 export interface ActualizarOrdenInput extends Partial<NuevaOrdenInput> {}
@@ -166,6 +173,9 @@ const OrdenContext = createContext<OrdenStoreContext | undefined>(undefined);
 // ============================================================================
 
 type OrdenWithRelations = OrdenCompraDB & {
+  /** Columnas nuevas, aún fuera de los tipos generados de Supabase. */
+  regimen_igv?: string | null;
+  aplica_retencion_rh?: boolean | null;
   items: OrdenItemDB[];
   proveedor?: { razon_social: string; ruc: string } | null;
   centro_costo?: { codigo: string; nombre: string } | null;
@@ -234,6 +244,8 @@ function mapFromDB(row: OrdenWithRelations): Orden {
     condiciones: row.condiciones_pago,
     proyectoId: row.proyecto_id ?? null,
     centroCostoId: row.centro_costo_id ?? null,
+    regimenIgv: (row.regimen_igv ?? 'gravado') as RegimenIgv,
+    aplicaRetencionRh: row.aplica_retencion_rh ?? false,
     aprobadoPor: row.aprobado_por,
     aprobadoEn: row.aprobado_en,
     rechazadoPor: row.rechazado_por ?? null,
@@ -381,6 +393,8 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         // deriva el proyecto del centro de costo; sin esto la compra nacida en
         // el ERP llegaba sin imputar y no aparecía en ningún proyecto.
         centro_costo_id: input.centroCostoId ?? null,
+        regimen_igv: input.regimenIgv ?? 'gravado',
+        aplica_retencion_rh: input.aplicaRetencionRh ?? false,
         observaciones: null,
         aprobado_por: null,
         aprobado_en: null,

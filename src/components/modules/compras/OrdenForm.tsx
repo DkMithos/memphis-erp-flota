@@ -19,6 +19,9 @@ import {
 import { Alert, AlertDescription } from '../../ui/alert';
 import { Badge } from '../../ui/badge';
 import { toast } from 'sonner';
+import { Checkbox } from '../../ui/checkbox';
+import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
+import { REGIMENES, tasaIgv, llevaIgv, etiquetaRegimen, esPersonaNatural, type RegimenIgv } from '../../../lib/compras/regimen-igv';
 import { useOrdenesStore, type NuevaOrdenInput } from '../../../lib/compras/ordenes-store';
 import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
 import {
@@ -53,6 +56,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
   const condicionesPago = getByTipo('condicion_pago');
   const flujoConfig = useMemo(() => loadFlujoAprobacion(), []);
   const { cotizaciones } = useCotizacionesStore();
+  const { proveedores } = useProveedorStore();
 
   const isEditing = Boolean(ordenId);
   const ordenExistente = isEditing ? obtenerOrdenPorId(ordenId!) : undefined;
@@ -89,6 +93,18 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
     ordenExistente?.condiciones || cotizacionPrefill?.condiciones || ''
   );
   const [lugarEntrega, setLugarEntrega] = useState(ordenExistente?.lugarEntrega || '');
+  /** Régimen de IGV: se hereda de la cotización y se puede ajustar aquí. */
+  const [regimenIgv, setRegimenIgv] = useState<RegimenIgv>(
+    ordenExistente?.regimenIgv ?? cotizacionPrefill?.regimenIgv ?? 'gravado'
+  );
+  const [aplicaRetencionRh, setAplicaRetencionRh] = useState<boolean>(
+    ordenExistente?.aplicaRetencionRh ?? false
+  );
+  /** RUC del proveedor: decide si tiene sentido ofrecer la retención de 4ta. */
+  const rucProveedor = useMemo(() => {
+    const id = cotizacionPrefill?.proveedorId ?? ordenExistente?.proveedorDbId ?? null;
+    return proveedores.find(p => p._dbId === id)?.ruc ?? null;
+  }, [proveedores, cotizacionPrefill, ordenExistente]);
   const [items, setItems] = useState<ItemForm[]>(
     ordenExistente?.items || cotizacionPrefill?.items || [
       { descripcion: '', cantidad: 1, unidad: '', precioUnitario: 0 }
@@ -99,7 +115,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
 
   // Calcular totales en tiempo real
   const totales = useMemo(() => {
-    return calcularTotales(items);
+    return calcularTotales(items, tasaIgv(regimenIgv));
   }, [items]);
 
   // Verificar si puede editar
@@ -216,6 +232,8 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
           proveedorDbId: cotizacionPrefill?.proveedorId ?? undefined,
           cotizacionDbId: cotizacionPrefill?._dbId,
           centroCostoId: cotizacionPrefill?.centroCostoId ?? null,
+          regimenIgv,
+          aplicaRetencionRh,
           // El requerimiento NO se pasa: `ordenes_compra` no lo guarda y lo que
           // llegaba era el uuid de la cotización, que la pantalla pintaba tal
           // cual. La trazabilidad va por la cotización, que sí está enlazada.
@@ -372,6 +390,45 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
               gente escribía en vez de elegir, y así "30 días" acabó con seis
               grafías distintas en 776 órdenes. Ahora el texto solo aparece si
               se elige "Otro". */}
+          {/* Régimen de IGV: llega heredado de la cotización, pero la orden es
+              el documento que se emite, así que aquí se puede corregir. */}
+          <div className="space-y-2">
+            <Label htmlFor="regimenIgv">Régimen de IGV *</Label>
+            <Select value={regimenIgv} onValueChange={(v) => setRegimenIgv(v as RegimenIgv)}>
+              <SelectTrigger id="regimenIgv"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {REGIMENES.map(r => (
+                  <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {REGIMENES.find(r => r.id === regimenIgv)?.detalle}
+            </p>
+          </div>
+
+          {/* Retención de 4ta solo tiene sentido con una persona natural, que es
+              quien emite recibo por honorarios. Se marca a mano porque quien
+              tiene constancia de suspensión vigente no debe sufrirla. */}
+          {esPersonaNatural(rucProveedor) && (
+            <div className="space-y-2">
+              <Label>Retención de renta (4ta categoría)</Label>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={aplicaRetencionRh}
+                  onCheckedChange={(v) => setAplicaRetencionRh(v === true)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Aplicar retención sobre el recibo por honorarios
+                  <span className="block text-xs text-muted-foreground">
+                    Desmárcala si el proveedor tiene constancia de suspensión vigente.
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Condiciones de Pago</Label>
             <SelectCatalogo
@@ -515,7 +572,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
               <span className="font-medium">{moneda === 'PEN' ? 'S/' : '$'} {totales.subtotal.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between">
-              <span>Impuestos (18% IGV):</span>
+              <span>{llevaIgv(regimenIgv) ? 'Impuestos (18% IGV):' : `Sin IGV — ${etiquetaRegimen(regimenIgv)}`}</span>
               <span className="font-medium">{moneda === 'PEN' ? 'S/' : '$'} {totales.impuestos.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between text-lg border-t pt-2">

@@ -221,7 +221,10 @@ export interface TotalesCotizacion {
 
 export function calcularTotales(
   items: Array<{ cantidad: number; precioUnitario: number }>,
-  tasaImpuesto: number = 0.18 // IGV 18% por defecto
+  // La tasa la manda el RÉGIMEN de la compra (ver lib/compras/regimen-igv.ts):
+  // 18% si es gravada, 0 si es de Amazonía, de un no domiciliado o inafecta.
+  // Antes estaba fija en 18% y no había forma de emitir sin IGV.
+  tasaImpuesto: number = 0.18
 ): TotalesCotizacion {
   const subtotal = items.reduce((sum, item) => sum + (item.cantidad * item.precioUnitario), 0);
   const impuestos = subtotal * tasaImpuesto;

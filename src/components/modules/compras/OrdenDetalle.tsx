@@ -5,6 +5,7 @@ import { ArrowLeft, Edit, CheckCircle, XCircle, Ban, Truck, Package, FileText, C
 import { loadFlujoAprobacion, determinarNivelAprobacion, nivelAprobacionColor } from '../../../lib/compras/approval-flow';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useRoles } from '../../../lib/rbac/roles-store';
+import { llevaIgv, etiquetaRegimen } from '../../../lib/compras/regimen-igv';
 import { useAuth } from '../../../auth/AuthProvider';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -375,10 +376,21 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
               <span className="text-muted-foreground">Subtotal</span>
               <span className="font-medium">{formatearMonto(orden.subtotal, orden.moneda)}</span>
             </div>
+            {/* El rótulo dice el régimen real: una orden a un no domiciliado o
+                de Amazonía no lleva IGV, y ponerle "18%" al lado de un cero
+                confunde a quien la lee. */}
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Impuestos (18% IGV)</span>
+              <span className="text-muted-foreground">
+                {llevaIgv(orden.regimenIgv) ? 'Impuestos (18% IGV)' : `Sin IGV — ${etiquetaRegimen(orden.regimenIgv)}`}
+              </span>
               <span className="font-medium">{formatearMonto(orden.impuestos, orden.moneda)}</span>
             </div>
+            {orden.aplicaRetencionRh && (
+              <p className="text-xs text-amber-600 flex items-center gap-1">
+                <ShieldAlert className="size-3" />
+                Con retención de renta de 4ta categoría
+              </p>
+            )}
             <div className="flex justify-between text-lg border-t pt-2">
               <span className="font-semibold">Total</span>
               <span className="font-semibold">{formatearMonto(orden.total, orden.moneda)}</span>

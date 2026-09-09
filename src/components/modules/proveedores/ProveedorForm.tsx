@@ -53,8 +53,14 @@ type DatosTributariosForm = {
 type ProveedorFormState = Omit<Partial<NuevoProveedorInput>, 'datosBancarios' | 'datosTributarios'> & {
   cuentasBancarias: CuentaBancariaForm[];
   datosTributarios?: DatosTributariosForm;
+  /** Régimen de IGV: decide si sus compras llevan el 18% o no. */
+  regimenIgv?: RegimenIgv;
+  /** Suspensión de retención de 4ta y hasta cuándo vale la constancia. */
+  suspensionRetencionRh?: boolean;
+  suspensionRetencionHasta?: string;
 };
 import { toast } from 'sonner';
+import { REGIMENES, esPersonaNatural, type RegimenIgv } from '../../../lib/compras/regimen-igv';
 
 interface ProveedorFormProps {
   proveedorId?: string; // Si existe, es edición
@@ -299,6 +305,11 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
         datosBancarios,
         datosTributarios,
         observaciones: formData.observaciones,
+        // Perfil fiscal: de aquí salen el IGV de sus compras y la retención de
+        // 4ta que se propone en cada orden.
+        regimenIgv: formData.regimenIgv ?? 'gravado',
+        suspensionRetencionRh: !!formData.suspensionRetencionRh,
+        suspensionRetencionHasta: formData.suspensionRetencionHasta || null,
       };
 
       if (isEditing) {
@@ -1007,6 +1018,62 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Régimen de IGV: es LO PRIMERO de los datos tributarios porque
+                  determina si la compra lleva IGV. El ERP cobraba 18% siempre y
+                  no había forma de emitir sin él. */}
+              <div className="space-y-2">
+                <Label htmlFor="regimenIgv">Régimen de IGV *</Label>
+                <Select
+                  value={formData.regimenIgv ?? 'gravado'}
+                  onValueChange={(v) => setFormData(prev => ({ ...prev, regimenIgv: v as RegimenIgv }))}
+                >
+                  <SelectTrigger id="regimenIgv"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {REGIMENES.map(r => (
+                      <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {REGIMENES.find(r => r.id === (formData.regimenIgv ?? 'gravado'))?.detalle}
+                  {' '}Las compras a este proveedor nacerán con este régimen, y se puede
+                  ajustar en cada orden.
+                </p>
+              </div>
+
+              {/* Suspensión de retención de 4ta: solo tiene sentido para personas
+                  naturales, que son quienes emiten recibo por honorarios. */}
+              {esPersonaNatural(formData.ruc) && (
+                <div className="space-y-3 rounded-md border p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">Tiene suspensión de retención (4ta categoría)</p>
+                      <p className="text-xs text-muted-foreground">
+                        Constancia de SUNAT que exime de la retención sobre sus recibos por honorarios.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={!!formData.suspensionRetencionRh}
+                      onCheckedChange={(v: boolean) => setFormData(prev => ({ ...prev, suspensionRetencionRh: v }))}
+                    />
+                  </div>
+                  {formData.suspensionRetencionRh && (
+                    <div className="space-y-2 border-l-2 border-primary/20 pl-4">
+                      <Label>Vigente hasta</Label>
+                      <Input
+                        type="date"
+                        value={formData.suspensionRetencionHasta ?? ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, suspensionRetencionHasta: e.target.value }))}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        La constancia vence. Con esta fecha el sistema vuelve a proponer la
+                        retención cuando caduque, en vez de darla por buena para siempre.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Detracción */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">

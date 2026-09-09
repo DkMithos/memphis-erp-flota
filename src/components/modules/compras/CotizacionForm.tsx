@@ -21,6 +21,7 @@ import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
 import { SearchableSelect } from '../../shared/SearchableSelect';
 import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
 import { useCentrosCosto } from '../../../lib/centros-costo/centros-costo-store';
+import { REGIMENES, tasaIgv, regimenSugerido, llevaIgv, etiquetaRegimen } from '../../../lib/compras/regimen-igv';
 import {
   validarProveedorNombre,
   validarDescripcionItem,
@@ -98,7 +99,7 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
       cantidad: item.cantidad || 0,
       precioUnitario: item.precioUnitario || 0
     }));
-    return calcularTotales(items);
+    return calcularTotales(items, tasaIgv(formData.regimenIgv));
   }, [formData.items]);
 
   // Validar formulario
@@ -339,6 +340,14 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
                       ...formData,
                       proveedorId: v,
                       proveedorNombre: prov?.razonSocial ?? '',
+                      // El régimen lo pone el proveedor; se puede ajustar debajo.
+                      regimenIgv: prov ? regimenSugerido({
+                        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+                        regimenIgv: (prov as any).regimenIgv,
+                        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+                        domiciliado: (prov as any).domiciliado,
+                        ruc: prov.ruc,
+                      }) : 'gravado',
                     });
                     if (errors.proveedorNombre) setErrors({ ...errors, proveedorNombre: '' });
                   }}
@@ -354,6 +363,26 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
                     {errors.proveedorNombre}
                   </p>
                 )}
+              </div>
+
+              {/* Régimen de IGV: lo propone el proveedor y se puede ajustar,
+                  porque un mismo proveedor puede vender algo gravado y algo no. */}
+              <div className="space-y-2">
+                <Label htmlFor="regimenIgv">Régimen de IGV *</Label>
+                <Select
+                  value={formData.regimenIgv ?? 'gravado'}
+                  onValueChange={(v) => setFormData({ ...formData, regimenIgv: v as typeof formData.regimenIgv })}
+                >
+                  <SelectTrigger id="regimenIgv"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {REGIMENES.map(r => (
+                      <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {REGIMENES.find(r => r.id === (formData.regimenIgv ?? 'gravado'))?.detalle}
+                </p>
               </div>
 
               {/* Centro de costo: sin él la compra no llega a ningún proyecto. */}
@@ -559,7 +588,9 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
                     <span className="font-medium">{formatearMonto(totales.subtotal, formData.moneda as MonedaCotizacion)}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">IGV (18%):</span>
+                    <span className="text-muted-foreground">
+                      {llevaIgv(formData.regimenIgv) ? 'IGV (18%):' : `Sin IGV — ${etiquetaRegimen(formData.regimenIgv)}`}
+                    </span>
                     <span className="font-medium">{formatearMonto(totales.impuestos, formData.moneda as MonedaCotizacion)}</span>
                   </div>
                   <div className="flex items-center justify-between text-lg font-semibold border-t pt-2">
