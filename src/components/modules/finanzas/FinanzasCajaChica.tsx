@@ -558,13 +558,11 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
         return;
       }
 
-      const { count } = await tablaIngresos()
-        .select('id', { count: 'exact', head: true })
-        .eq('caja_id', selectedCaja._dbId);
+      // Igual que en los gastos: numera la base, no el navegador.
       const { error } = await tablaIngresos().insert({
         tenant_id: tenantId,
         caja_id: selectedCaja._dbId,
-        numero: String((count ?? 0) + 1),
+        numero: '',
         descripcion: ingresoForm.descripcion.trim(),
         tipo: 'reposicion',
         monto,
@@ -626,14 +624,14 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
         return;
       }
 
-      const now = new Date();
-      const seq = String(gastos.filter(g => g.cajaDbId === selectedCajaId).length + 1).padStart(3, '0');
-      const numero = `GCC-${now.getFullYear()}-${seq}`;
-
+      // El número lo asigna la BASE (`trg_numerar_gasto`). Antes se calculaba
+      // aquí contando los gastos en memoria, y con la lista desactualizada o
+      // dos personas registrando a la vez salía repetido: en CAJA 25 SOLES
+      // acabaron dos gastos con el mismo GCC-2026-004.
       await addGasto({
         tenant_id: tenantId,
         caja_id: selectedCajaId,
-        numero,
+        numero: '',
         descripcion: gastoForm.descripcion,
         categoria: gastoForm.categoria,
         monto,
