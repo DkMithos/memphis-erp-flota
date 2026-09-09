@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  acumular, agrupar, totales, nombreMes, paraExportar,
+  acumular, agrupar, totales, nombreMes, paraExportar, fuentesPermitidas,
   type Movimiento,
 } from './cruzado';
 
@@ -123,5 +123,23 @@ describe('exportación', () => {
     expect(filas[0].soles).toBe('');
     expect(filas[1].soles).toBe(340);
     expect(filas[1].dolares).toBe('');
+  });
+});
+
+describe('el reporte no enseña lo que el rol no puede ver', () => {
+  it('un rol de Compras cruza órdenes, no la caja chica', () => {
+    expect(fuentesPermitidas(m => m === 'compras')).toEqual(['orden_compra']);
+  });
+
+  it('un rol de Finanzas ve las dos fuentes de caja y ninguna orden', () => {
+    expect(fuentesPermitidas(m => m === 'finanzas')).toEqual(['gasto_caja', 'ingreso_caja']);
+  });
+
+  it('quien ve los dos módulos cruza todo', () => {
+    expect(fuentesPermitidas(() => true)).toEqual(['orden_compra', 'gasto_caja', 'ingreso_caja']);
+  });
+
+  it('sin ninguno de los dos módulos no queda nada que cruzar', () => {
+    expect(fuentesPermitidas(() => false)).toEqual([]);
   });
 });

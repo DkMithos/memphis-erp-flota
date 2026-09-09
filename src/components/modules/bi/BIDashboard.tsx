@@ -143,7 +143,8 @@ export function BIDashboard({ onNavigate }: Props) {
             <div>
               <p className="font-semibold">Reporte Cruzado</p>
               <p className="text-sm text-muted-foreground">
-                Órdenes y caja chica cruzadas por proyecto, centro de costo, mes o proveedor. Con Excel.
+                {verCaja ? 'Órdenes y caja chica cruzadas' : 'Órdenes de compra cruzadas'} por
+                proyecto, centro de costo, mes o proveedor. Con Excel.
               </p>
             </div>
           </CardContent>

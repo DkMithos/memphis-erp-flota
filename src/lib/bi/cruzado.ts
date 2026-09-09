@@ -257,3 +257,23 @@ export const CABECERAS_EXPORT: Record<string, string> = {
   dolares: 'Dólares',
   estado: 'Estado',
 };
+
+/**
+ * Qué módulo hay que poder ver para que una fuente entre en el reporte.
+ *
+ * El reporte cruza compras con caja chica, así que sin esto un rol de Compras
+ * veía los movimientos de la caja: el módulo estaba oculto en el menú pero el
+ * dinero salía igual por el reporte. Pasó con Richard.
+ */
+export const MODULO_DE_FUENTE: Record<Fuente, 'compras' | 'finanzas'> = {
+  orden_compra: 'compras',
+  gasto_caja: 'finanzas',
+  ingreso_caja: 'finanzas',
+};
+
+/** Las fuentes que este usuario puede cruzar, en el orden del catálogo. */
+export function fuentesPermitidas(
+  puedeVer: (modulo: 'compras' | 'finanzas') => boolean,
+): Fuente[] {
+  return FUENTES.filter(f => puedeVer(MODULO_DE_FUENTE[f.id])).map(f => f.id);
+}

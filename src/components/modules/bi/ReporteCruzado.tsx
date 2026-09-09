@@ -6,7 +6,7 @@
  * en dólares y consolidar con un tipo de cambio fijo movería el total en
  * millones. El consolidado llega con la tabla de tipos de cambio por fecha.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Loader2, Search, BarChart3, FolderKanban, Building2,
   CalendarDays, Truck, AlertTriangle, ArrowDownRight, ArrowUpRight,
@@ -26,8 +26,10 @@ import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
 import { BotonExportar } from '../../shared/BotonExportar';
 import {
   fetchMovimientos, agrupar, totales, paraExportar, CABECERAS_EXPORT, FUENTES,
+  fuentesPermitidas,
   type Movimiento, type Fuente, type Dimension, type Importe,
 } from '../../../lib/bi/cruzado';
+import { usePermissions } from '../../../lib/rbac/usePermissions';
 
 const soles = (n: number) =>
   `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -72,7 +74,28 @@ export function ReporteCruzado() {
   const [hasta, setHasta] = useState(inicial.hasta);
   const [proyectoId, setProyectoId] = useState<string | null>(null);
   const [centroCostoId, setCentroCostoId] = useState<string | null>(null);
-  const [fuentes, setFuentes] = useState<Fuente[]>(FUENTES.map(f => f.id));
+  // El reporte cruza compras con caja chica. Quien no puede ver finanzas no
+  // debe poder pedir la caja por aquí: el menú lo esconde, el reporte no lo
+  // escondía.
+  const { can } = usePermissions();
+  const permitidas = useMemo(
+    () => fuentesPermitidas(m => can(m, 'ver')),
+    [can],
+  );
+
+  const [fuentes, setFuentes] = useState<Fuente[]>(permitidas);
+
+  // Los permisos llegan un instante DESPUÉS del primer render, así que
+  // `permitidas` empieza vacía y el estado inicial no sirve: hay que marcar las
+  // fuentes cuando llega la lista de verdad, o el reporte se queda con el botón
+  // apagado y nada que cruzar. `can` es estable (useCallback), así que esto no
+  // se dispara en cada render.
+  useEffect(() => {
+    setFuentes(prev => {
+      const validas = prev.filter(f => permitidas.includes(f));
+      return validas.length > 0 ? validas : permitidas;
+    });
+  }, [permitidas]);
 
   const [movs, setMovs] = useState<Movimiento[]>([]);
   const [dimension, setDimension] = useState<Dimension>('proyecto');
@@ -84,7 +107,8 @@ export function ReporteCruzado() {
     setCargando(true);
     setError(null);
     try {
-      const data = await fetchMovimientos({ desde, hasta, proyectoId, centroCostoId, fuentes });
+      const pedidas = fuentes.filter(f => permitidas.includes(f));
+      const data = await fetchMovimientos({ desde, hasta, proyectoId, centroCostoId, fuentes: pedidas });
       setMovs(data);
       setBuscado(true);
     } catch (e) {
@@ -93,7 +117,9 @@ export function ReporteCruzado() {
     } finally {
       setCargando(false);
     }
-  }, [desde, hasta, proyectoId, centroCostoId, fuentes]);
+  }, [desde, hasta, proyectoId, centroCostoId, fuentes, permitidas]);
+
+  const verIngresos = permitidas.includes('ingreso_caja');
 
   const t = useMemo(() => totales(movs), [movs]);
   const filas = useMemo(() => agrupar(movs, dimension), [movs, dimension]);
@@ -115,7 +141,9 @@ export function ReporteCruzado() {
           <div>
             <h1 className="text-2xl font-bold">Reporte Cruzado</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Órdenes de compra y caja chica, cruzadas por proyecto y centro de costo
+              {permitidas.length > 1
+                ? 'Órdenes de compra y caja chica, cruzadas por proyecto y centro de costo'
+                : `${FUENTES.find(f => f.id === permitidas[0])?.label ?? 'Sin orígenes disponibles'}, por proyecto y centro de costo`}
             </p>
           </div>
         </div>
@@ -160,7 +188,12 @@ export function ReporteCruzado() {
             <div className="space-y-2">
               <Label>Origen del movimiento</Label>
               <div className="flex flex-wrap gap-4">
-                {FUENTES.map(f => (
+                {permitidas.length === 0 && (
+                  <span className="text-sm text-muted-foreground">
+                    Tu rol no incluye ninguno de los orígenes de este reporte.
+                  </span>
+                )}
+                {FUENTES.filter(f => permitidas.includes(f.id)).map(f => (
                   <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox
                       checked={fuentes.includes(f.id)}
@@ -207,7 +240,7 @@ export function ReporteCruzado() {
       {movs.length > 0 && (
         <>
           {/* RESUMEN */}
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className={`grid gap-3 ${verIngresos ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -216,14 +249,18 @@ export function ReporteCruzado() {
                 <Plata importe={t.egreso} className="text-xl font-bold mt-1" />
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <ArrowUpRight className="size-3.5 text-emerald-500" /> Ingresos de caja
-                </div>
-                <Plata importe={t.ingreso} className="text-xl font-bold mt-1" />
-              </CardContent>
-            </Card>
+            {/* Sin acceso a la caja el ingreso es siempre cero: la tarjeta solo
+                aportaría un guion y la duda de qué se está escondiendo. */}
+            {verIngresos && (
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <ArrowUpRight className="size-3.5 text-emerald-500" /> Ingresos de caja
+                  </div>
+                  <Plata importe={t.ingreso} className="text-xl font-bold mt-1" />
+                </CardContent>
+              </Card>
+            )}
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">Movimientos</p>
