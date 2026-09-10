@@ -25,6 +25,7 @@ import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
 import { toast } from 'sonner';
 import { useFinanzas, type Transaccion } from '@/lib/finanzas/finanzas-store';
 import { useAuth } from '@/auth/AuthProvider';
+import { usePermissions } from '@/lib/rbac/usePermissions';
 
 interface Props {
   onNavigate: (route: string) => void;
@@ -85,6 +86,10 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
   const [filterHasta, setFilterHasta] = useState('');
 
   const [showForm, setShowForm] = useState(false);
+  // Ver no es poder escribir: `finanzas.ver` abre la pantalla, `crear` es lo
+  // que autoriza a registrar. Contabilidad y Proyectos la tienen en lectura.
+  const { can } = usePermissions();
+  const puedeRegistrar = can('finanzas', 'crear');
   const [formData, setFormData] = useState<FormData>(defaultForm);
   const [trxProyectoId, setTrxProyectoId] = useState<string | null>(null);
   const [trxCentroCostoId, setTrxCentroCostoId] = useState<string | null>(null);
@@ -238,10 +243,12 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
               moneda: 'Moneda', monto: 'Monto', estado: 'Estado',
             }}
           />
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="size-4" />
-            Nueva Transacción
-          </Button>
+          {puedeRegistrar && (
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="size-4" />
+              Nueva Transacción
+            </Button>
+          )}
         </div>
       </div>
 

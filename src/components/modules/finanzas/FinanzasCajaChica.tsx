@@ -118,6 +118,12 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
   const { can } = usePermissions();
   // Cada usuario descarga su propia data: se exige <modulo>.exportar
   const puedeExportar = can('finanzas', 'exportar');
+  // Ver no es poder escribir. El módulo se abría a quien tuviera `finanzas.ver`
+  // y a partir de ahí los botones no preguntaban nada más: Miguelangel, que
+  // tiene la caja solo en lectura, podía abrir una caja, registrar gastos y
+  // cerrarla. Los permisos `crear` y `editar` ya existían; nadie los miraba.
+  const puedeRegistrar = can('finanzas', 'crear');
+  const puedeCerrar = can('finanzas', 'editar');
   const { tenantId, user } = useAuth();
   const { proyectos } = useProyectos();
   const { getByTipo } = useCatalogos();
@@ -736,10 +742,12 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button onClick={() => setShowNuevaCaja(true)}>
-            <Plus className="size-4" />
-            Nueva Caja Chica
-          </Button>
+          {puedeRegistrar && (
+            <Button onClick={() => setShowNuevaCaja(true)}>
+              <Plus className="size-4" />
+              Nueva Caja Chica
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1012,7 +1020,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                 <FileText className="size-4" />
                 Excel
               </Button>
-              {selectedCaja.estado === 'cerrada' ? (
+              {puedeCerrar && (selectedCaja.estado === 'cerrada' ? (
                 <Button
                   variant="outline"
                   size="sm"
@@ -1045,14 +1053,14 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                   <X className="size-4" />
                   Cerrar Caja
                 </Button>
-              )}
-              {selectedCaja.estado !== 'cerrada' && (
+              ))}
+              {selectedCaja.estado !== 'cerrada' && puedeRegistrar && (
                 <Button size="sm" variant="outline" onClick={() => setShowNuevoIngreso(true)}>
                   <Plus className="size-4" />
                   Registrar Ingreso
                 </Button>
               )}
-              {selectedCaja.estado !== 'cerrada' && (
+              {selectedCaja.estado !== 'cerrada' && puedeRegistrar && (
                 <Button size="sm" onClick={() => setShowNuevoGasto(true)}>
                   <Plus className="size-4" />
                   Registrar Gasto

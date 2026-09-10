@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useFinanzas, type Presupuesto, type PresupuestoLinea } from '@/lib/finanzas/finanzas-store';
 import { useAuth } from '@/auth/AuthProvider';
+import { usePermissions } from '@/lib/rbac/usePermissions';
 
 interface Props {
   onNavigate: (route: string) => void;
@@ -54,6 +55,10 @@ export function FinanzasPresupuestosModule({ onNavigate: _onNavigate }: Props) {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNuevo, setShowNuevo] = useState(false);
+  // Ver no es poder escribir: `finanzas.ver` abre la pantalla, `crear` es lo
+  // que autoriza a registrar. Contabilidad y Proyectos la tienen en lectura.
+  const { can } = usePermissions();
+  const puedeRegistrar = can('finanzas', 'crear');
   const [showNuevaLinea, setShowNuevaLinea] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -162,10 +167,12 @@ export function FinanzasPresupuestosModule({ onNavigate: _onNavigate }: Props) {
             <p className="text-muted-foreground mt-1">Gestión de presupuestos y ejecución</p>
           </div>
         </div>
-        <Button onClick={() => setShowNuevo(true)}>
-          <Plus className="size-4" />
-          Nuevo Presupuesto
-        </Button>
+        {puedeRegistrar && (
+          <Button onClick={() => setShowNuevo(true)}>
+            <Plus className="size-4" />
+            Nuevo Presupuesto
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -238,10 +245,12 @@ export function FinanzasPresupuestosModule({ onNavigate: _onNavigate }: Props) {
                       Aprobar
                     </Button>
                   )}
+{puedeRegistrar && (
                   <Button size="sm" onClick={() => setShowNuevaLinea(true)}>
                     <Plus className="size-4" />
                     Agregar Línea
                   </Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="p-0">
