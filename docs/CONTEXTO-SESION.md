@@ -1998,3 +1998,43 @@ Menú: Compras, Fianzas, Proyectos, Flota (+ Inicio, Dashboard, BI). Bloqueados 
 `/bi/gerencia`, `/finanzas/caja-chica`, `/proveedores/directorio`. En la campanita, solo
 *"Aprobacion requerida: MM-001253"*. En MM-001240: **"Te toca firmar como Gerencia"**. No se firmó
 nada — la orden sigue `enviada` y sin firmas.
+
+---
+
+## 2026-09-10 (XIII) — El proveedor recién creado no aparecía al cotizar
+
+Richard dio de alta **KAYCOL S.A.C.** (PROV-0332) y al ir a cotizar no le salía.
+
+### Un callejón sin salida, no un filtro estricto
+
+Todo proveedor creado desde el ERP nace **`en_evaluacion`**, y el selector de la cotización solo
+listaba los `activo`. Hasta ahí sería un control razonable. El problema es que **no había forma de
+salir de ese estado**:
+
+- Lo único que mueve `en_evaluacion → activo` es `aprobarProveedor`, detrás del permiso
+  **`proveedores.aprobar`** — que existe en la tabla pero **ningún rol lo tiene**.
+- El botón "Activar" del detalle no sirve: solo aparece si el proveedor está `inactivo`.
+- El directorio además **ocultaba el botón Editar** a los proveedores en evaluación, así que tampoco
+  se podía corregir lo recién registrado.
+
+Los 136 proveedores usables lo son porque **llegaron `activo` en la migración de oc-system**. El
+único creado dentro del ERP se quedó atascado — por eso nadie lo había notado hasta ahora, con
+Compras usando el módulo de verdad.
+
+### Qué se cambió
+
+- El selector de la cotización ofrece **activo + en evaluación**, marcando estos últimos con
+  `· en evaluación`. Se siguen excluyendo `inactivo`, `observado` y `bloqueado`: esas sí son
+  exclusiones deliberadas.
+- El directorio permite **editar** un proveedor en evaluación.
+- **KAYCOL S.A.C. quedó activo** para que Richard continúe hoy.
+
+De paso se confirmó que el arreglo de ayer funcionó con su proveedor real: KAYCOL conserva el
+contacto (Omar Vasquez) y su cuenta bancaria con CCI.
+
+### Pendiente de decisión
+
+El estado `en_evaluacion` ya no bloquea, pero sigue sin haber **quién apruebe proveedores**:
+`proveedores.aprobar` no está en ningún rol. Si Memphis quiere de verdad evaluar proveedores antes
+de comprarles, hay que decidir a qué puesto le toca. Si no, conviene que nazcan `activo` y retirar
+el estado, en vez de dejar una etiqueta que nadie mueve.
