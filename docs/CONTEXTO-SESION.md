@@ -1534,3 +1534,32 @@ se mantiene — es lectura y la tienen. El resto de módulos queda pendiente de 
   este circuito"), pero sí **aprueba requerimientos y cotizaciones** y puede **Rechazar** una orden
   que está esperando las tres firmas. Ella no está en el circuito comprador → operaciones → gerencia.
 - El rol Fianzas incluye `eliminar` (Carolina y Sandra pueden borrar cartas fianza).
+
+### Decisiones de Kevin y lo que se hizo (10/09)
+
+1. **Miguelangel pierde Finanzas.** Se quitó del rol Proyectos. Sigue viendo el financiero por
+   proyecto dentro de Proyectos, que es lo que necesita.
+2. **Carolina se queda como está**: mantiene `compras.aprobar` (requerimientos, cotizaciones y el
+   rechazo de órdenes). No firma en el circuito y eso no cambia.
+3. **Se cierra `crear` / `editar` / `eliminar` en todo el sistema.**
+
+#### Cómo quedó el control de acciones
+
+Dos capas, porque una sola no basta:
+
+- **La ruta.** Cualquier pantalla que termina en `/nuevo` exige `crear` del módulo, no `ver`. Vive en
+  `rutas.ts`, así que cubre también las rutas que nadie se acuerde de proteger. Recepciones conserva
+  su excepción: la da quien recepciona, aunque no tenga el resto de Compras.
+- **Los botones.** Envueltos en `PermissionGuard` —que existía en el repositorio **sin usar**— los de
+  alta, edición y borrado de contabilidad, CRM, inventario, biomédico, proyectos y flota. Compras,
+  Proveedores y Fianzas ya estaban bien: son los módulos revisados hace poco.
+
+Verificado con los roles reales, no con supuestos:
+
+| Rol de prueba | Resultado |
+|---|---|
+| Gerencia (6 módulos en lectura) | Cero botones de escritura en los seis; `/crm/clientes/nuevo`, `/contabilidad/asientos/nuevo`, `/flota/vehiculos/nuevo` y `/proveedores/directorio/nuevo` responden "no tienes acceso" |
+| Compras + Técnico Flota + Proyectos | Todos los botones y todos los formularios de alta siguen accesibles |
+| Administración + Fianzas (Carolina) | Los cuatro botones de caja chica intactos |
+
+35 archivos, 146 pruebas en verde, build limpio, y el mismo número de errores de tipos que antes.
