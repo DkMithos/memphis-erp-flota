@@ -1768,3 +1768,47 @@ QA eliminadas.
 `cotizaciones` **no tiene columna `tipo`**: bienes/servicios no se guarda, se asume 'bienes' al leer.
 La distinción OC/OS de la cotización no viaja a la base. No se tocó — es una decisión de Operaciones
 si hace falta.
+
+---
+
+## 2026-09-10 (VIII) — Bienes/servicios, exportaciones… y los catálogos que solo veía Kevin
+
+### Bienes o servicios en la cotización
+
+El formulario ya lo preguntaba, pero `cotizaciones` no tenía columna `tipo`: al leer se asumía
+'bienes' para todo. De ahí sale además si la orden es **OC u OS**, así que la elección se perdía
+justo antes de servir para algo. Ya se guarda; verificado de punta a punta: una cotización de
+servicios propone **Orden de Servicio (OS)**.
+
+Las 226 migradas se quedan en 'bienes', que es lo que el ERP venía asumiendo — nada cambia de lo que
+ya se veía. Se corregirán al editarlas.
+
+Migración: `cotizaciones_tipo_bienes_servicios`.
+
+### Exportar centros de costo y catálogos
+
+- **Centros de costo** (79): llevan el **proyecto** al que cuelgan y si son de proyecto o de área.
+  Eso es lo que Operaciones va a revisar, y la pantalla ni siquiera lo mostraba. De paso el listado
+  deja ver dos pares que apuntan al mismo proyecto: `GLOREBOMBE`/`GLORETOBOM` a LORETO - BOMBEROS, y
+  `GICAPATRUL`/`GOREICAPNP` a ICA - PNP.
+- **Catálogos** (133): se exportan **todos de golpe**, con el nombre del catálogo como primera
+  columna. De uno en uno saldrían veinte archivos y no habría cómo revisarlos.
+
+### Lo gordo que apareció haciendo la exportación
+
+La exportación de catálogos daba **104 filas cuando la empresa tiene 133**. La causa:
+
+**`catalogos` era la ÚNICA tabla del sistema cuyas políticas resolvían el tenant con la tabla
+`memberships`**, en vez de `auth_tenant_id()` como las otras. Y en `memberships` **solo está Kevin**.
+
+Para Richard, Carolina, Walter y el resto la consulta devolvía **cero filas**, y el store lo
+interpretaba como "la tabla está vacía" y caía a los **valores por defecto del código**. Es decir:
+
+- Los bancos, condiciones de pago, unidades y lugares de entrega que la empresa configuró eran
+  **invisibles para todos menos Kevin**.
+- Lo que ellos agregaban desde su pantalla **desaparecía al recargar**.
+
+No se notaba porque los valores por defecto son razonables: parecía correcto, solo que no era lo que
+la empresa había configurado. Las políticas ahora usan `auth_tenant_id()`, como el resto.
+
+Migración: `catalogos_rls_como_el_resto`.
