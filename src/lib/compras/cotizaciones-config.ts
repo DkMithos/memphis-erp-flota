@@ -19,7 +19,11 @@ export const DEBUG_COTIZACIONES = import.meta.env.DEV;
 
 export type EstadoCotizacion =
   | 'borrador'     // Creada pero no enviada
-  | 'enviada'      // Enviada al proveedor
+  // El nombre viene del diseño original (mandar una solicitud al proveedor).
+  // En Memphis pasa al revés: el proveedor manda su cotización y Compras la
+  // registra, así que este estado significa "presentada y pendiente de que
+  // Gerencia la apruebe o la rechace". NO se envía nada a nadie.
+  | 'enviada'      // Registrada y en revisión interna
   | 'recibida'     // Respuesta del proveedor recibida, pendiente de decisión
   | 'aprobada'     // Aprobada, lista para OC
   | 'rechazada'    // Rechazada con motivo
@@ -56,7 +60,7 @@ export const COTIZACION_ESTADO_CONFIG: Record<EstadoCotizacion, BadgeConfig> = {
     className: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
   },
   enviada: {
-    label: 'Enviada',
+    label: 'En revisión',
     icon: Send,
     className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
   },

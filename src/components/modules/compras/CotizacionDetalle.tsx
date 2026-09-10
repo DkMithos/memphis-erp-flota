@@ -168,6 +168,14 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Aprobada la cotización, el siguiente paso es la orden. Estaba solo
+              al fondo, dentro de "Órdenes Asociadas", donde no se encontraba. */}
+          {cotizacion.estado === 'aprobada' && can('compras', 'crear') && (
+            <Button onClick={() => onNavigate?.(`/compras/ordenes/nuevo?cot=${cotizacion.id}&tipo=oc`)}>
+              <ShoppingBag className="size-4" />
+              Generar Orden
+            </Button>
+          )}
           {puedeRechazar && (
             <Button variant="destructive" onClick={() => setShowRechazarDialog(true)}>
               <XCircle className="size-4" />

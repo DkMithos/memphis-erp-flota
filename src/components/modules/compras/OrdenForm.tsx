@@ -25,6 +25,7 @@ import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
 import { REGIMENES, tasaIgv, llevaIgv, etiquetaRegimen, esPersonaNatural, type RegimenIgv } from '../../../lib/compras/regimen-igv';
 import { useOrdenesStore, type NuevaOrdenInput } from '../../../lib/compras/ordenes-store';
 import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
+import { SearchableSelect } from '../../shared/SearchableSelect';
 import type { TipoCotizacion } from '../../../lib/compras/cotizaciones-config';
 import {
   ORDEN_TIPO_LABELS,
@@ -58,6 +59,11 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
   const condicionesPago = getByTipo('condicion_pago');
   const { config: flujoConfig } = useFlujoAprobacion();
   const { cotizaciones } = useCotizacionesStore();
+  /** Solo se ordena lo aprobado: es la decisión de con qué proveedor se compra. */
+  const cotizacionesAprobadas = useMemo(
+    () => cotizaciones.filter(c => c.estado === 'aprobada'),
+    [cotizaciones],
+  );
   const { proveedores } = useProveedorStore();
 
   const isEditing = Boolean(ordenId);
@@ -66,18 +72,21 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
   /** La cotización dice bienes/servicios; la orden, OC/OS. Es lo mismo dicho de otro modo. */
   const tipoDeCotizacion = (t: TipoCotizacion): TipoOrden => (t === 'servicios' ? 'os' : 'oc');
 
-  // Cargar cotización si viene de parámetro
-  const cotizacionPrefill = cotizacionIdParam 
-    ? cotizaciones.find(c => c.id === cotizacionIdParam) 
+  const [cotizacionId, setCotizacionId] = useState(
+    ordenExistente?.cotizacionId || cotizacionIdParam || ''
+  );
+
+  // La cotización de la que sale la orden: la del enlace o la que se elija en el
+  // selector. Se sigue el ESTADO y no solo el parámetro, para que al elegirla a
+  // mano se arrastren proveedor, items y condiciones igual que por enlace.
+  const cotizacionPrefill = cotizacionId
+    ? cotizaciones.find(c => c.id === cotizacionId)
     : undefined;
 
   // Estado del formulario
   const [tipo, setTipo] = useState<TipoOrden>(
     ordenExistente?.tipo || tipoParam ||
     (cotizacionPrefill ? tipoDeCotizacion(cotizacionPrefill.tipo) : 'oc')
-  );
-  const [cotizacionId, setCotizacionId] = useState(
-    ordenExistente?.cotizacionId || cotizacionIdParam || ''
   );
   const [proveedorNombre, setProveedorNombre] = useState(
     ordenExistente?.proveedorNombre || cotizacionPrefill?.proveedorNombre || ''
@@ -372,16 +381,25 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
             </div>
           )}
 
-          {/* Cotización (solo lectura si viene de parámetro) */}
+          {/* Cotización de origen. Se elige del catálogo: antes era un campo de
+              texto libre donde había que acordarse del número, y escribir uno
+              que no existiera dejaba la orden sin cotización de verdad. */}
           <div>
             <Label htmlFor="cotizacionId">Cotización Origen *</Label>
-            <Input
-              id="cotizacionId"
-              value={cotizacionId}
-              onChange={(e) => { setCotizacionId(e.target.value); clearError('cotizacionId'); }}
-              disabled={Boolean(cotizacionIdParam) || isEditing}
-              placeholder="COT-0001"
-            />
+            {(Boolean(cotizacionIdParam) || isEditing) ? (
+              <Input id="cotizacionId" value={cotizacionId} readOnly disabled className="font-mono" />
+            ) : (
+              <SearchableSelect
+                value={cotizacionId || null}
+                onChange={(v) => { setCotizacionId(v ?? ''); clearError('cotizacionId'); }}
+                options={cotizacionesAprobadas.map(c => ({
+                  value: c.id,
+                  label: `${c.id} — ${c.proveedorNombre} — ${c.moneda === 'USD' ? '$' : 'S/'} ${c.total.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`,
+                }))}
+                placeholder="Seleccionar cotización aprobada"
+                emptyText="No hay cotizaciones aprobadas"
+              />
+            )}
             {errors.cotizacionId && (
               <p className="text-sm text-red-600 mt-1">{errors.cotizacionId}</p>
             )}

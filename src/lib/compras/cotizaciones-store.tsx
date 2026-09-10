@@ -9,7 +9,7 @@ import { supabase } from '../supabase/client';
 import { dbCotizaciones } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { validateTransition, COTIZACION_TRANSITIONS } from '../shared/state-machine';
-import type { RegimenIgv } from './regimen-igv';
+import { tasaIgv, type RegimenIgv } from './regimen-igv';
 import type {
   Cotizacion as CotizacionDB,
   CotizacionItem as CotizacionItemDB,
@@ -403,8 +403,19 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
         modificado_en: ahora,
       };
 
+      const cotPrevia = cotizacionesRef.current.find(c => c.id === id);
+
       if (input.moneda !== undefined) updatePayload.moneda = input.moneda;
       if (input.terminos !== undefined) updatePayload.condiciones_pago = input.terminos?.trim() ?? null;
+      // Estos cinco NO se enviaban: al corregir una cotización rechazada se
+      // guardaban los importes pero el proveedor, el centro de costo y el
+      // régimen de IGV se quedaban como estaban, sin decir nada.
+      // `tipo` (bienes/servicios) NO tiene columna en `cotizaciones`: se asume
+      // 'bienes' al leer. Enviarlo hace fallar el guardado entero.
+      if (input.proveedorId !== undefined) updatePayload.proveedor_id = input.proveedorId ?? null;
+      if (input.centroCostoId !== undefined) updatePayload.centro_costo_id = input.centroCostoId ?? null;
+      if (input.regimenIgv !== undefined) updatePayload.regimen_igv = input.regimenIgv;
+      if (input.requerimientoDbId !== undefined) updatePayload.requerimiento_id = input.requerimientoDbId;
       if (input.observaciones !== undefined) updatePayload.observaciones = input.observaciones?.trim() ?? null;
       if (input.validezDias !== undefined) {
         const cot = cotizaciones.find(c => c.id === id);
@@ -418,8 +429,12 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
           ...item,
           subtotal: item.cantidad * item.precioUnitario,
         }));
+        // El IGV sale del RÉGIMEN, no siempre del 18%. Sin esto, editar una
+        // cotización exonerada (Amazonía) o de un no domiciliado le sumaba IGV.
+        const regimen = input.regimenIgv ?? cotPrevia?.regimenIgv ?? 'gravado';
         const { subtotal, impuestos, total } = calcularTotales(
-          itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal }))
+          itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal })),
+          tasaIgv(regimen),
         );
         updatePayload.subtotal = subtotal;
         updatePayload.igv = impuestos;
@@ -469,6 +484,10 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
               ...(input.validezDias !== undefined && { validezDias: input.validezDias }),
               ...(input.terminos !== undefined && { terminos: input.terminos?.trim() ?? null }),
               ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() ?? null }),
+              ...(input.proveedorId !== undefined && { proveedorId: input.proveedorId ?? null }),
+              ...(input.proveedorNombre !== undefined && { proveedorNombre: input.proveedorNombre }),
+              ...(input.centroCostoId !== undefined && { centroCostoId: input.centroCostoId ?? null }),
+              ...(input.regimenIgv !== undefined && { regimenIgv: input.regimenIgv }),
               items: newItems,
               subtotal,
               impuestos,
@@ -487,6 +506,10 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
               ...(input.validezDias !== undefined && { validezDias: input.validezDias }),
               ...(input.terminos !== undefined && { terminos: input.terminos?.trim() ?? null }),
               ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() ?? null }),
+              ...(input.proveedorId !== undefined && { proveedorId: input.proveedorId ?? null }),
+              ...(input.proveedorNombre !== undefined && { proveedorNombre: input.proveedorNombre }),
+              ...(input.centroCostoId !== undefined && { centroCostoId: input.centroCostoId ?? null }),
+              ...(input.regimenIgv !== undefined && { regimenIgv: input.regimenIgv }),
               auditoria: { ...c.auditoria, modificadoPor: user.id, modificadoEn: ahora },
             };
           })

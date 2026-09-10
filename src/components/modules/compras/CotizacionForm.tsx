@@ -128,9 +128,17 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
   // Cargar datos si es edición
   useEffect(() => {
     if (isEditing && cotizacionExistente) {
+      // Faltaban proveedorId, centroCostoId y régimen: los selectores salían
+      // vacíos y la validación bloqueaba el guardado con "el centro de costo es
+      // obligatorio", aunque la cotización lo tuviera. Editar era imposible sin
+      // volver a elegirlo todo.
       setFormData({
         requerimientoId: cotizacionExistente.requerimientoId,
+        requerimientoDbId: (cotizacionExistente as any).requerimientoDbId ?? undefined,
+        proveedorId: cotizacionExistente.proveedorId ?? null,
         proveedorNombre: cotizacionExistente.proveedorNombre,
+        centroCostoId: cotizacionExistente.centroCostoId ?? null,
+        regimenIgv: cotizacionExistente.regimenIgv ?? 'gravado',
         tipo: cotizacionExistente.tipo,
         moneda: cotizacionExistente.moneda,
         validezDias: cotizacionExistente.validezDias,
@@ -220,8 +228,19 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
           return;
         }
         if (enviar) {
-          await cambiarEstado(cotizacionId, 'enviada');
-          toast.success('Cotización actualizada y enviada al proveedor');
+          // Hay que MIRAR el resultado. Sin esto, una transición no permitida
+          // se rechazaba en silencio y la pantalla anunciaba un envío que no
+          // había ocurrido: la cotización se quedaba como estaba.
+          const resEnviar = await cambiarEstado(cotizacionId, 'enviada');
+          if (!resEnviar.exito) {
+            toast.error(
+              `Se guardaron los cambios, pero la cotización sigue en "${cotizacionExistente?.estado ?? 'su estado anterior'}": `
+              + (resEnviar.errores?.[0] ?? 'no se pudo pasar a revisión'),
+            );
+            onSuccess(cotizacionId);
+            return;
+          }
+          toast.success('Cotización actualizada y enviada a revisión');
         } else {
           toast.success('Cotización actualizada correctamente');
         }
@@ -235,7 +254,7 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
         }
         const nuevaCot = resCrear.cotizacion;
         toast.success(enviar
-          ? `Cotización ${nuevaCot.id} creada y enviada`
+          ? `Cotización ${nuevaCot.id} creada y enviada a revisión`
           : `Cotización ${nuevaCot.id} guardada como borrador`);
 
         // Los adjuntos van después: hasta aquí no había cotización a la que
@@ -778,7 +797,7 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
               disabled={isSubmitting}
             >
               <Save className="size-4" />
-              {isSubmitting ? 'Guardando...' : 'Guardar y Enviar'}
+              {isSubmitting ? 'Guardando...' : 'Guardar y Enviar a revisión'}
             </Button>
           </div>
         </div>

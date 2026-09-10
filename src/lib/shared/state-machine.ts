@@ -86,7 +86,11 @@ export const COTIZACION_TRANSITIONS: TransitionMap<string> = {
   enviada: ['recibida', 'anulada'],
   recibida: ['aprobada', 'rechazada'],
   aprobada: [], // estado final — genera orden
-  rechazada: [],
+  // Una cotización rechazada se corrige y se vuelve a presentar. Era un callejón
+  // sin salida: Richard la editó, le dio a enviar, y el cambio de estado se
+  // rechazaba en silencio — la cotización se quedaba en "rechazada" mientras la
+  // pantalla decía que se había enviado.
+  rechazada: ['enviada', 'anulada'],
   anulada: [],
 };
 
