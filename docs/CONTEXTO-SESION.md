@@ -1711,3 +1711,60 @@ quedaron en la base; al editar Master Tires (migrado) aparecen sus dos cuentas y
 notaría PROV-0101 sale con su nombre. Proveedor de prueba eliminado — siguen 136.
 
 Migración: `proveedores_observaciones_y_contacto`.
+
+---
+
+## 2026-09-10 (VII) — El circuito de la cotización, de rechazada a orden
+
+### ¿Se envía algo al proveedor? No
+
+Ninguna función de correo está conectada a cotizaciones. El estado se llamaba "Enviada" y el mensaje
+decía "enviada al proveedor" por el **diseño original**: mandar una solicitud de cotización. En
+Memphis pasa al revés — el proveedor manda su cotización y Compras la registra.
+
+El estado pasa a llamarse **"En revisión"** y el botón **"Guardar y Enviar a revisión"**, que es lo
+que de verdad ocurre: queda a la espera de que Gerencia la apruebe o la rechace. Solo el texto
+mentía; el comportamiento no cambia.
+
+### Por qué la cotización de Richard no avanzaba
+
+Cinco cosas, encadenadas:
+
+1. **`rechazada` era un callejón sin salida.** La máquina de estados no permitía volver a
+   presentarla. Richard la corrigió, le dio a enviar… y el cambio **se rechazaba en silencio**
+   porque nadie miraba el resultado de `cambiarEstado`. La pantalla anunciaba el envío y la
+   cotización se quedaba en "rechazada". No era un problema de refresco: el estado nunca cambió.
+   Ahora `rechazada → enviada` está permitido, y si una transición falla se dice **en qué estado
+   quedó**.
+2. **Editar era imposible.** El formulario no cargaba `proveedorId` ni `centroCostoId`, así que los
+   selectores salían vacíos y la validación bloqueaba el guardado pidiendo *"el centro de costo es
+   obligatorio"* — uno que la cotización ya tenía.
+3. **Al guardar no se enviaban** proveedor, centro de costo ni régimen de IGV. Se guardaban los
+   importes y lo demás se quedaba como estaba, sin avisar.
+4. **El IGV se recalculaba siempre al 18%** al editar, ignorando el régimen: una cotización
+   exonerada de Amazonía salía con IGV.
+5. La lista tampoco reflejaba los campos que sí se guardaban, porque el parche en memoria solo
+   tocaba moneda, validez, condiciones, observaciones e items.
+
+### El paso a la orden
+
+- **"Generar Orden"** estaba solo al fondo, dentro de "Órdenes Asociadas". Ahora está también en la
+  cabecera, junto a Aprobar/Rechazar/Editar. Sigue apareciendo solo con la cotización **aprobada**,
+  que es lo correcto.
+- **La cotización de origen en la orden era un campo de TEXTO LIBRE** con el marcador "COT-0001":
+  había que acordarse del número, y escribir uno inexistente dejaba la orden sin cotización real.
+  Pasa a ser un selector de cotizaciones aprobadas, y al elegir una se arrastran proveedor, items y
+  condiciones — antes eso solo pasaba entrando desde la cotización.
+
+### Verificado de punta a punta
+
+Cotización creada → rechazada con motivo → corregida (precio 78,660 → 75,000) → **de vuelta a
+revisión sin refrescar** → aprobada → "Generar Orden" en la cabecera → orden con la cotización
+elegida del selector, proveedor e items heredados y total S/ 177,000. Cotización de prueba y cuenta
+QA eliminadas.
+
+### Un dato que salió de paso
+
+`cotizaciones` **no tiene columna `tipo`**: bienes/servicios no se guarda, se asume 'bienes' al leer.
+La distinción OC/OS de la cotización no viaja a la base. No se tocó — es una decisión de Operaciones
+si hace falta.
