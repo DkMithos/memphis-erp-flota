@@ -56,8 +56,13 @@ export interface Proveedor {
   ciudad: string | null;   // maps from DB departamento
   pais: string;
 
-  // Contacto principal — no almacenado en DB todavía
-  contactoPrincipal: null;
+  /** Contacto principal (columna `contacto` + las tres `contacto_*`). */
+  contactoPrincipal: {
+    nombre: string;
+    cargo: string;
+    email: string;
+    telefono: string;
+  } | null;
 
   // Datos bancarios
   datosBancarios: {
@@ -134,6 +139,14 @@ export interface NuevoProveedorInput {
     tipoCuenta: 'corriente' | 'ahorros';
     moneda: 'PEN' | 'USD';
   };
+  /** Todas las cuentas del proveedor. La pantalla permite varias. */
+  cuentasBancarias?: {
+    banco: string;
+    numeroCuenta: string;
+    cci?: string;
+    tipoCuenta: 'corriente' | 'ahorros';
+    moneda: 'PEN' | 'USD';
+  }[];
   datosTributarios?: {
     sujetoDetraccion: boolean;
     tasaDetraccion?: number;
@@ -177,6 +190,29 @@ interface ProveedorStoreContext {
   eliminarCategoria: (key: string) => Promise<void>;
 }
 
+/**
+ * Las cuentas tal como se guardan en `cuentas_bancarias`.
+ *
+ * Se escribe con las mismas claves que trajeron los 114 proveedores migrados de
+ * oc-system (`nombre`/`cuenta`), para que la columna tenga una sola forma y no
+ * dos según quién la haya escrito. La lectura ya acepta ambas.
+ */
+function aCuentasJson(
+  cuentas: { banco: string; numeroCuenta: string; cci?: string; tipoCuenta?: string; moneda?: string }[] | undefined,
+  unica: { banco: string; numeroCuenta: string; cci?: string; tipoCuenta?: string; moneda?: string } | undefined,
+) {
+  const lista = (cuentas && cuentas.length > 0 ? cuentas : unica ? [unica] : [])
+    .filter(c => (c.banco ?? '').trim() || (c.numeroCuenta ?? '').trim());
+
+  return lista.map(c => ({
+    nombre: (c.banco ?? '').trim(),
+    cuenta: (c.numeroCuenta ?? '').trim(),
+    cci: (c.cci ?? '').trim(),
+    moneda: c.moneda === 'USD' ? 'Dólares' : 'Soles',
+    tipoCuenta: c.tipoCuenta ?? 'corriente',
+  }));
+}
+
 // ============================================================================
 // CONTEXT
 // ============================================================================
@@ -213,7 +249,14 @@ function mapFromDB(row: ProveedorDB): Proveedor {
     direccion: row.direccion,
     ciudad: row.departamento,
     pais: row.pais,
-    contactoPrincipal: null,
+    contactoPrincipal: (row as any).contacto
+      ? {
+          nombre: (row as any).contacto as string,
+          cargo: (row as any).contacto_cargo ?? '',
+          email: (row as any).contacto_email ?? '',
+          telefono: (row as any).contacto_telefono ?? '',
+        }
+      : null,
     datosBancarios: row.banco && row.cuenta_bancaria
       ? {
           banco: row.banco,
@@ -376,6 +419,15 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
       suspension_retencion_rh: input.suspensionRetencionRh ?? false,
       suspension_retencion_hasta: input.suspensionRetencionHasta ?? null,
       observaciones: input.observaciones?.trim() ?? null,
+      contacto: input.contactoPrincipal?.nombre?.trim() || null,
+      contacto_cargo: input.contactoPrincipal?.cargo?.trim() || null,
+      contacto_email: normalizeEmail(input.contactoPrincipal?.email ?? '') || null,
+      contacto_telefono: input.contactoPrincipal?.telefono
+        ? normalizeTelefono(input.contactoPrincipal.telefono)
+        : null,
+      // Las cuentas van al jsonb, que admite varias. Las columnas planas se
+      // dejan con la primera por compatibilidad con lo migrado del legado.
+      cuentas_bancarias: aCuentasJson(input.cuentasBancarias, input.datosBancarios),
       creado_por: user.id,
       modificado_por: null,
       modificado_en: null,
@@ -438,6 +490,17 @@ export function ProveedorStoreProvider({ children }: { children: ReactNode }) {
     }
     if (input.observaciones !== undefined) {
       updatePayload.observaciones = input.observaciones?.trim() ?? null;
+    }
+    if (input.contactoPrincipal !== undefined) {
+      updatePayload.contacto = input.contactoPrincipal?.nombre?.trim() || null;
+      updatePayload.contacto_cargo = input.contactoPrincipal?.cargo?.trim() || null;
+      updatePayload.contacto_email = normalizeEmail(input.contactoPrincipal?.email ?? '') || null;
+      updatePayload.contacto_telefono = input.contactoPrincipal?.telefono
+        ? normalizeTelefono(input.contactoPrincipal.telefono)
+        : null;
+    }
+    if (input.cuentasBancarias !== undefined || input.datosBancarios !== undefined) {
+      updatePayload.cuentas_bancarias = aCuentasJson(input.cuentasBancarias, input.datosBancarios);
     }
 
     const { error } = await dbProveedores.update(dbId, updatePayload);

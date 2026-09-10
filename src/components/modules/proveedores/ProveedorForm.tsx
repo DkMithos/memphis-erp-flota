@@ -50,7 +50,13 @@ type DatosTributariosForm = {
   verificacionSunatEn?: string | null;
 };
 
-type ProveedorFormState = Omit<Partial<NuevoProveedorInput>, 'datosBancarios' | 'datosTributarios'> & {
+// `cuentasBancarias` se excluye igual que las otras dos: el formulario tiene su
+// propia forma (permite 'detraccion' y titular) y, si no, se intersecta con la
+// del store y deja de encajar consigo misma.
+type ProveedorFormState = Omit<
+  Partial<NuevoProveedorInput>,
+  'datosBancarios' | 'datosTributarios' | 'cuentasBancarias'
+> & {
   cuentasBancarias: CuentaBancariaForm[];
   datosTributarios?: DatosTributariosForm;
   /** Régimen de IGV: decide si sus compras llevan el 18% o no. */
@@ -104,6 +110,24 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
   // Cargar datos si es edición
   useEffect(() => {
     if (isEditing && proveedorExistente) {
+      // Al editar hay que traer TODAS las cuentas: las del jsonb (114 proveedores
+      // migrados las tienen ahí) y, si no hubiera ninguna, la de las columnas
+      // planas. Antes solo miraba las planas —que solo tienen 6— así que a casi
+      // todos les aparecía la sección de cuentas vacía.
+      const origen = proveedorExistente.cuentasBancarias?.length
+        ? proveedorExistente.cuentasBancarias
+        : proveedorExistente.datosBancarios
+          ? [proveedorExistente.datosBancarios]
+          : [];
+      const cuentas: CuentaBancariaForm[] = origen.map(c => ({
+        banco: c.banco,
+        numeroCuenta: c.numeroCuenta,
+        cci: c.cci ?? '',
+        tipoCuenta: c.tipoCuenta,
+        moneda: c.moneda,
+        titular: '',
+      }));
+
       setFormData({
         ruc: proveedorExistente.ruc,
         razonSocial: proveedorExistente.razonSocial,
@@ -117,17 +141,7 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
         ciudad: proveedorExistente.ciudad,
         pais: proveedorExistente.pais,
         contactoPrincipal: proveedorExistente.contactoPrincipal || undefined,
-        // Mapear datosBancarios (objeto único del store) → cuentasBancarias[] (UI multi-cuenta)
-        cuentasBancarias: proveedorExistente.datosBancarios
-          ? [{
-              banco: proveedorExistente.datosBancarios.banco,
-              numeroCuenta: proveedorExistente.datosBancarios.numeroCuenta,
-              cci: proveedorExistente.datosBancarios.cci ?? '',
-              tipoCuenta: proveedorExistente.datosBancarios.tipoCuenta,
-              moneda: proveedorExistente.datosBancarios.moneda,
-              titular: '',
-            }]
-          : [],
+        cuentasBancarias: cuentas,
         datosTributarios: {
           sujetoDetraccion: proveedorExistente.datosTributarios?.sujetoDetraccion ?? false,
           tasaDetraccion: proveedorExistente.datosTributarios?.tasaDetraccion ?? undefined,
@@ -261,8 +275,21 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
     setIsSubmitting(true);
 
     try {
-      // Mapear cuentasBancarias[0] → datosBancarios (el store persiste 1 cuenta)
+      // La primera cuenta va también a las columnas planas del legado; todas
+      // van al jsonb. Antes solo se guardaba la primera y las demás se perdían
+      // sin avisar, aunque la pantalla dejara agregarlas.
       const primeraCuenta = formData.cuentasBancarias?.[0];
+      const cuentasBancarias: NuevoProveedorInput['cuentasBancarias'] =
+        (formData.cuentasBancarias ?? [])
+          .filter(c => c.banco?.trim() || c.numeroCuenta?.trim())
+          .map(c => ({
+            banco: c.banco,
+            numeroCuenta: c.numeroCuenta,
+            cci: c.cci || undefined,
+            // 'detraccion' es tipo de UI — persiste como 'corriente' en DB
+            tipoCuenta: c.tipoCuenta === 'detraccion' ? 'corriente' : c.tipoCuenta,
+            moneda: c.moneda,
+          }));
       const datosBancarios: NuevoProveedorInput['datosBancarios'] = primeraCuenta?.banco
         ? {
             banco: primeraCuenta.banco,
@@ -303,6 +330,7 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
         pais: formData.pais!,
         contactoPrincipal: showContactoPrincipal ? formData.contactoPrincipal : undefined,
         datosBancarios,
+        cuentasBancarias,
         datosTributarios,
         observaciones: formData.observaciones,
         // Perfil fiscal: de aquí salen el IGV de sus compras y la retención de

@@ -444,19 +444,25 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
 
   // N27 punto 5 — avance por CANTIDAD: items ENTREGADO/RECEPCIONADO sobre el
   // total, tomados del Excel RESUMEN PROYECTOS (espejo). Se indexa por CIU.
-  const [itemsPorCiu, setItemsPorCiu] = useState<Record<string, { items: number; entregados: number }>>({});
+  const [itemsPorCiu, setItemsPorCiu] = useState<Record<string, { items: number; entregados: number; tipo: string | null }>>({});
   useEffect(() => {
     let vivo = true;
     (async () => {
       const { data } = await supabase
         .from('proyectos_excel_sync')
-        .select('ciu, items, items_entregados')
+        .select('ciu, items, items_entregados, tipo')
         .like('hoja', '#%');           // solo hojas de detalle oficiales
       if (!vivo || !data) return;
-      const m: Record<string, { items: number; entregados: number }> = {};
+      const m: Record<string, { items: number; entregados: number; tipo: string | null }> = {};
       for (const r of data as any[]) {
         if (!r.ciu) continue;
-        m[String(r.ciu).trim()] = { items: r.items ?? 0, entregados: r.items_entregados ?? 0 };
+        m[String(r.ciu).trim()] = {
+          items: r.items ?? 0,
+          entregados: r.items_entregados ?? 0,
+          // Tipo de inversión (IOARR / OXI). Lo mantiene Operaciones en el Excel;
+          // no es lo mismo que `modalidad`, que es cómo se financia.
+          tipo: r.tipo ?? null,
+        };
       }
       setItemsPorCiu(m);
     })();
@@ -524,6 +530,9 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
               nombre: p.nombre,
               entidad: p.entidadCliente ?? '',
               modalidad: p.modalidad ?? '',
+              tipoInversion: (p.codigoInversion
+                ? itemsPorCiu[String(p.codigoInversion).trim()]?.tipo
+                : null) ?? '',
               tipo: p.tipo,
               estado: p.estado,
               prioridad: p.prioridad,
@@ -538,7 +547,7 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
             }))}
             headers={{
               codigo: 'Código', nombre: 'Proyecto', entidad: 'Entidad / cliente',
-              modalidad: 'Modalidad', tipo: 'Tipo', estado: 'Estado',
+              modalidad: 'Modalidad', tipoInversion: 'Tipo de inversión', tipo: 'Tipo', estado: 'Estado',
               prioridad: 'Prioridad', gerente: 'Gerente', moneda: 'Moneda',
               presupuesto: 'Presupuesto', costoReal: 'Costo real', avance: '% avance',
               fechaInicio: 'Inicio', fechaFinEstimada: 'Fin estimado', fechaFinReal: 'Fin real',
@@ -656,7 +665,21 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-mono text-xs text-muted-foreground">{p.id}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-mono text-xs text-muted-foreground">{p.id}</p>
+                        {/* Tipo de inversión (IOARR / OxI): lo pide Operaciones para
+                            saber bajo qué figura se ejecuta cada proyecto. */}
+                        {(() => {
+                          const t = p.codigoInversion
+                            ? itemsPorCiu[String(p.codigoInversion).trim()]?.tipo
+                            : null;
+                          return t ? (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal">
+                              {t}
+                            </Badge>
+                          ) : null;
+                        })()}
+                      </div>
                       <h3 className="font-semibold text-sm mt-0.5 truncate">{p.nombre}</h3>
                     </div>
                     <div className="flex flex-col gap-1 items-end shrink-0">
