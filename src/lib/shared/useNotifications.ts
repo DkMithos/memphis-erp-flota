@@ -241,9 +241,10 @@ export function useNotifications() {
 
   // La caché es del tenant; lo que cada uno ve depende de sus módulos.
   //
-  // Y hay puestos que solo quieren saber de lo que tienen que firmar (William,
-  // 10/09): para ellos se deja pasar únicamente la solicitud de aprobación, y
-  // solo de los módulos donde de verdad aprueban — no basta con verlos.
+  // Y hay puestos que solo quieren saber de lo que tienen que firmar —Gerencia,
+  // por decisión de Kevin el 10/09—: para ellos se deja pasar únicamente la
+  // solicitud de aprobación, y solo de los módulos donde de verdad aprueban.
+  // Ver Flota no basta para que le lleguen avisos de órdenes de trabajo.
   const notificaciones = useMemo(
     () => todas.filter(n => {
       if (!puedeVerNotificacion(n.entidadTipo, can)) return false;

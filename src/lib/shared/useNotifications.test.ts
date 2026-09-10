@@ -37,8 +37,8 @@ describe('cada quien ve los avisos de sus módulos', () => {
 
 import { esSolicitudDeAprobacion, puedeAprobarNotificacion } from './useNotifications';
 
-/** El rol de William: ve cuatro módulos y solo aprueba en Compras. */
-const gerenciaOperativa = (m: Modulo, a: Accion) =>
+/** El rol Gerencia: ve cuatro módulos y solo aprueba en Compras. */
+const gerencia = (m: Modulo, a: Accion) =>
   (a === 'ver' || a === 'exportar') && ['compras', 'fianzas', 'proyectos', 'flota'].includes(m)
   || (a === 'aprobar' && m === 'compras');
 
@@ -59,20 +59,20 @@ describe('a quien solo le toca aprobar, solo le llega lo que aprueba', () => {
   });
 
   it('aprueba en Compras, así que la orden le llega', () => {
-    expect(puedeAprobarNotificacion('orden_compra', gerenciaOperativa)).toBe(true);
+    expect(puedeAprobarNotificacion('orden_compra', gerencia)).toBe(true);
   });
 
   it('ve Flota pero no aprueba ahí: la OT no le llega', () => {
     // Ver el módulo no basta — si no firma, el aviso es ruido.
-    expect(puedeAprobarNotificacion('orden_trabajo', gerenciaOperativa)).toBe(false);
+    expect(puedeAprobarNotificacion('orden_trabajo', gerencia)).toBe(false);
   });
 
   it('un aviso general tampoco pasa el filtro', () => {
-    expect(puedeAprobarNotificacion(undefined, gerenciaOperativa)).toBe(false);
-    expect(puedeAprobarNotificacion('vencimientos', gerenciaOperativa)).toBe(false);
+    expect(puedeAprobarNotificacion(undefined, gerencia)).toBe(false);
+    expect(puedeAprobarNotificacion('vencimientos', gerencia)).toBe(false);
   });
 
   it('caja chica no le llega: no tiene Finanzas', () => {
-    expect(puedeVerNotificacion('caja_chica', gerenciaOperativa)).toBe(false);
+    expect(puedeVerNotificacion('caja_chica', gerencia)).toBe(false);
   });
 });
