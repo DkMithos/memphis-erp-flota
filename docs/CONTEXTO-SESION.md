@@ -1612,3 +1612,61 @@ con el rol de Walter sin botones de escritura, y borrado que deja la tabla **y**
 
 **Queda por decidir:** hoy se adjunta desde el detalle, después de crear la cotización. Si Compras
 prefiere adjuntarlo dentro del formulario de alta, es un añadido pequeño.
+
+---
+
+## 2026-09-10 (V) — Adjunto en el alta y sincronización de RESUMEN PROYECTOS
+
+### Adjuntar también al crear la cotización
+
+Compras recibe el PDF y crea la cotización **a partir de él**, así que pedir "guarda primero y
+adjunta después" sobraba un paso. Los archivos elegidos se guardan en el formulario y se suben en
+cuanto la cotización existe.
+
+Si la cotización se guarda y un adjunto falla, se dice **cuál** y se recuerda que la cotización sí
+quedó: se adjunta desde su pantalla. Nunca se pierde el trabajo por culpa de un archivo. En edición
+se muestra el panel de siempre, que ya trabaja contra una cotización existente.
+
+Probado: dos PDFs adjuntados en el alta, ambos guardados con la cotización; prueba borrada después.
+
+### RESUMEN PROYECTOS.xlsx (OPERACIONES2)
+
+Fuente: `sites/OPERACIONES2/Documentos compartidos/OPERACIONES TEAM/RESUMEN PROYECTOS.xlsx`.
+
+**Las cifras del ERP ya estaban al día** — inversión, valor modificado, cobrado, presupuesto y
+situación coincidían al céntimo en los 7 proyectos en ejecución. Lo que faltaba era lo demás.
+
+#### Una trampa del archivo, y por qué no se cayó en ella
+
+La hoja **STATUS DE PROYECTOS** daba a AMAZONAS S/ 11.7 M cobrados y a HIDROAMBULANCIAS S/ 2.3 M.
+Es falso: son **valores cacheados de fórmulas sin recalcular**. Sus hojas dicen `MONTO COBRADO = 0`
+en ambos casos. Se notó porque el saldo no cuadraba con `modificado − cobrado` justo en esas dos
+filas, y solo en esas. **Nunca se toma un número de la hoja resumen: se toma de la hoja del
+proyecto**, que es donde Operaciones escribe.
+
+#### Qué se actualizó
+
+- **Items entregados**: estaban en **0 para los 7 proyectos**. Ahora salen del estatus real:
+  7/6, 2/1, 6/4, 9/2, 7/6, 6/5, 2/0. El criterio es `estatus = CULMINADA`, el mismo que usa el
+  propio Excel para calcular ITEMS PENDIENTES — y con él la resta cuadra en las siete hojas. La
+  columna "E" de entregado está desfasada (LORETO tiene 8 marcadas y solo 2 culminadas).
+- **Número de items**: SERENAZGO 6→7, LORETO 12→9. El bloque es siempre el rango 3:11, según las
+  propias fórmulas de la hoja.
+- **Comentarios de Operaciones**: los 6 bullets de cada proyecto (entregas, recepción,
+  inmatriculaciones, valorizaciones, CIPRL, otros), más suspensiones con fechas y días, guardados en
+  `datos_raw`.
+- **Responsables**: estaban vacíos en 5 de 7, y **AMAZONAS decía "Miguel Angel" cuando es Gabriela**.
+  Ahora: Lisbet, Nicolás, Miguelangel, Nicolás, Gabriela, Lisbet, Gabriela.
+- **Proyectos en cartera**, que figuraban en cero: SAN MARTÍN MÓVIL SALUD S/ 61,211,400;
+  LORETO MÓVIL SALUD S/ 284,094,738; SAN MARTÍN BOMBEROS S/ 40,185,642.20.
+- **Se borraron 8 filas duplicadas** de un sync del 08/06 con cifras redondeadas de una versión
+  anterior de la hoja, más una fila "MASTER" que no es un proyecto. Compartían CIU con las buenas y
+  la lista de proyectos indexa por CIU: **cuál se leía dependía del orden de las filas**.
+
+Validación: la extracción reproduce exactamente los importes de valorizaciones del sync anterior
+(7,547,696.56 / 35,888,370.21 / 6,941,500 / 16,543,724.49 / 12,187,282.93 / 10,884,569 / 0), y las
+siete filas cuadran contra `proyectos` en inversión, modificado, cobrado, presupuesto y responsable.
+
+**No se tocó** `modalidad`: el ERP dice OxI para todos y el Excel dice IOARR salvo AMAZONAS, pero son
+taxonomías distintas (IOARR es tipo de inversión, OxI es la modalidad de financiamiento). El tipo del
+Excel queda en `proyectos_excel_sync.tipo`.
