@@ -58,6 +58,19 @@ const RUTA_DE_ENTIDAD: Record<string, string> = {
   articulo: '/inventario',
 };
 
+/**
+ * ¿Este aviso pide una aprobación?
+ *
+ * Lo escribe `approvals-dispatch` como "Aprobación requerida: MM-001253". Los
+ * avisos guardados antes de que la función llevara tildes dicen "Aprobacion",
+ * así que se comparan sin acentos.
+ */
+export function esSolicitudDeAprobacion(titulo: string | undefined): boolean {
+  if (!titulo) return false;
+  const limpio = titulo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return limpio.startsWith('aprobacion requerida');
+}
+
 /** ¿Le corresponde este aviso a quien lo está mirando? */
 export function puedeVerNotificacion(
   entidadTipo: string | undefined,
@@ -66,6 +79,17 @@ export function puedeVerNotificacion(
   const ruta = entidadTipo ? RUTA_DE_ENTIDAD[entidadTipo] : undefined;
   if (!ruta) return true; // sin módulo conocido: aviso general
   return puedeVerRuta(ruta, can);
+}
+
+/** ¿Puede aprobar en el módulo del aviso? Un aviso general nunca cuenta. */
+export function puedeAprobarNotificacion(
+  entidadTipo: string | undefined,
+  can: (m: Modulo, a: Accion) => boolean,
+): boolean {
+  const ruta = entidadTipo ? RUTA_DE_ENTIDAD[entidadTipo] : undefined;
+  if (!ruta) return false;
+  const modulo = ruta.replace('/', '') as Modulo;
+  return can(modulo, 'aprobar');
 }
 
 export interface Notificacion {
@@ -210,15 +234,24 @@ function suscribir(tenantId: string, oyente: Oyente): () => void {
 
 export function useNotifications() {
   const { tenantId } = useAuth();
-  const { can } = usePermissions();
+  const { can, soloNotificaAprobaciones } = usePermissions();
   const [todas, setTodas] = useState<Notificacion[]>(
     () => (tenantId ? estado(tenantId).datos : []),
   );
 
   // La caché es del tenant; lo que cada uno ve depende de sus módulos.
+  //
+  // Y hay puestos que solo quieren saber de lo que tienen que firmar (William,
+  // 10/09): para ellos se deja pasar únicamente la solicitud de aprobación, y
+  // solo de los módulos donde de verdad aprueban — no basta con verlos.
   const notificaciones = useMemo(
-    () => todas.filter(n => puedeVerNotificacion(n.entidadTipo, can)),
-    [todas, can],
+    () => todas.filter(n => {
+      if (!puedeVerNotificacion(n.entidadTipo, can)) return false;
+      if (!soloNotificaAprobaciones) return true;
+      return esSolicitudDeAprobacion(n.titulo)
+        && puedeAprobarNotificacion(n.entidadTipo, can);
+    }),
+    [todas, can, soloNotificaAprobaciones],
   );
 
   useEffect(() => {

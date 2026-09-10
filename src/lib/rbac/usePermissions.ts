@@ -62,6 +62,12 @@ interface EstadoPermisos {
   sinRolConfirmado: boolean;
   /** Todavía no sabemos qué puede ver este usuario. */
   loading: boolean;
+  /**
+   * Todos sus roles piden que solo se le avise de lo que tiene que aprobar.
+   * Es "todos" y no "alguno": si además tiene un rol normal, ese manda y
+   * seguirá recibiendo lo suyo.
+   */
+  soloNotificaAprobaciones: boolean;
 }
 
 const SIN_RESPUESTA: EstadoPermisos = {
@@ -70,6 +76,7 @@ const SIN_RESPUESTA: EstadoPermisos = {
   hasRole: false,
   sinRolConfirmado: false,
   loading: true,
+  soloNotificaAprobaciones: false,
 };
 
 // ── Estado compartido ───────────────────────────────────────────────────────
@@ -133,7 +140,7 @@ async function consultar(user: any, profile: any, tenantId: string | null, inten
 
   const { data: userRoles, error } = await supabase
     .from('usuarios_roles')
-    .select('rol_id, roles(nombre, roles_permisos(permiso_id, permisos(modulo, accion)))')
+    .select('rol_id, roles(nombre, solo_notifica_aprobaciones, roles_permisos(permiso_id, permisos(modulo, accion)))')
     .eq('tenant_id', tenantId)
     .eq('user_id', user.id);
 
@@ -162,20 +169,30 @@ async function consultar(user: any, profile: any, tenantId: string | null, inten
 
   const permisos: PermisoEntry[] = [];
   let esAdmin = false;
+  const marcas: boolean[] = [];
 
   for (const ur of userRoles as any[]) {
     const rol = ur.roles as {
       nombre: string;
+      solo_notifica_aprobaciones?: boolean;
       roles_permisos: Array<{ permiso_id: string; permisos: { modulo: string; accion: string } | null }>;
     } | null;
     if (!rol) continue;
     if (rol.nombre === 'Administrador') esAdmin = true;
+    marcas.push(rol.solo_notifica_aprobaciones === true);
     for (const rp of rol.roles_permisos ?? []) {
       if (rp.permisos) permisos.push({ modulo: rp.permisos.modulo, accion: rp.permisos.accion });
     }
   }
 
-  publicar({ permisos, isAdmin: esAdmin, hasRole: true, sinRolConfirmado: false, loading: false });
+  publicar({
+    permisos,
+    isAdmin: esAdmin,
+    hasRole: true,
+    sinRolConfirmado: false,
+    loading: false,
+    soloNotificaAprobaciones: marcas.length > 0 && marcas.every(Boolean),
+  });
 }
 
 /**
@@ -231,7 +248,7 @@ export function usePermissions() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clave]);
 
-  const { permisos, isAdmin, hasRole, sinRolConfirmado, loading } = snapshot;
+  const { permisos, isAdmin, hasRole, sinRolConfirmado, loading, soloNotificaAprobaciones } = snapshot;
 
   const can = useCallback(
     (modulo: Modulo, accion: Accion): boolean => {
@@ -249,5 +266,5 @@ export function usePermissions() {
     [can, isAdmin],
   );
 
-  return { can, canAny, loading, isAdmin, hasRole, sinRolConfirmado, permisos };
+  return { can, canAny, loading, isAdmin, hasRole, sinRolConfirmado, permisos, soloNotificaAprobaciones };
 }
