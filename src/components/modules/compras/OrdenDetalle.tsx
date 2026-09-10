@@ -501,6 +501,19 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
         </Card>
       )}
 
+      {/* Observaciones — 730 órdenes migradas las traen y nunca se veían aquí,
+          solo salían al imprimir el PDF. */}
+      {orden.observaciones && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Observaciones</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="whitespace-pre-wrap">{orden.observaciones}</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Recepciones Asociadas */}
       {recepciones.length > 0 && (
         <Card>

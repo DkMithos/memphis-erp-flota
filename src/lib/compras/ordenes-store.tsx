@@ -127,6 +127,12 @@ export interface NuevaOrdenInput {
   fechaEntregaEstimada?: string;
   condiciones?: string;
   lugarEntrega?: string;
+  /**
+   * Notas de la orden: lo que hay que decirle al proveedor y no cabe en la
+   * descripción de un item. La columna existía y 730 órdenes migradas la traen,
+   * el PDF ya la imprime — solo faltaba poder escribirla.
+   */
+  observaciones?: string;
   // DB FK: proveedor UUID and cotizacion UUID must be provided from calling context
   proveedorDbId?: string;
   cotizacionDbId?: string;
@@ -397,7 +403,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         centro_costo_id: input.centroCostoId ?? null,
         regimen_igv: input.regimenIgv ?? 'gravado',
         aplica_retencion_rh: input.aplicaRetencionRh ?? false,
-        observaciones: null,
+        observaciones: input.observaciones?.trim() || null,
         aprobado_por: null,
         aprobado_en: null,
         motivo_anulacion: null,
@@ -492,6 +498,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
       if (input.moneda !== undefined) updatePayload.moneda = input.moneda;
       if (input.condiciones !== undefined) updatePayload.condiciones_pago = input.condiciones?.trim() ?? null;
       if (input.lugarEntrega !== undefined) updatePayload.lugar_entrega = input.lugarEntrega?.trim() ?? null;
+      if (input.observaciones !== undefined) updatePayload.observaciones = input.observaciones?.trim() || null;
       if (input.fechaEntregaEstimada !== undefined) updatePayload.fecha_entrega_esperada = input.fechaEntregaEstimada ?? null;
 
       if (input.items !== undefined) {
@@ -550,6 +557,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
               ...o,
               ...(input.moneda !== undefined && { moneda: input.moneda }),
               ...(input.condiciones !== undefined && { condiciones: input.condiciones?.trim() ?? null }),
+              ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() || null }),
               ...(input.fechaEntregaEstimada !== undefined && { fechaEntregaEstimada: input.fechaEntregaEstimada ?? null }),
               items: newItems,
               subtotal,
@@ -567,6 +575,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
               ...o,
               ...(input.moneda !== undefined && { moneda: input.moneda }),
               ...(input.condiciones !== undefined && { condiciones: input.condiciones?.trim() ?? null }),
+              ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() || null }),
               ...(input.fechaEntregaEstimada !== undefined && { fechaEntregaEstimada: input.fechaEntregaEstimada ?? null }),
               auditoria: { ...o.auditoria, modificadoPor: user.id, modificadoEn: ahora },
             };

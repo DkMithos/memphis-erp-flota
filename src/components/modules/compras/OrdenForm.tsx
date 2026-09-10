@@ -108,6 +108,11 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
     ordenExistente?.condiciones || cotizacionPrefill?.terminos || ''
   );
   const [lugarEntrega, setLugarEntrega] = useState(ordenExistente?.lugarEntrega || '');
+  // Lo que hay que decirle al proveedor y no cabe en la descripción de un item.
+  // Sale impreso en el PDF de la orden.
+  const [observaciones, setObservaciones] = useState(
+    ordenExistente?.observaciones || cotizacionPrefill?.observaciones || ''
+  );
   /** Régimen de IGV: se hereda de la cotización y se puede ajustar aquí. */
   const [regimenIgv, setRegimenIgv] = useState<RegimenIgv>(
     ordenExistente?.regimenIgv ?? cotizacionPrefill?.regimenIgv ?? 'gravado'
@@ -149,6 +154,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
       setFechaEntregaEstimada(ordenExistente.fechaEntregaEstimada?.split('T')[0] || '');
       setCondiciones(ordenExistente.condiciones || '');
       setLugarEntrega(ordenExistente.lugarEntrega || '');
+      setObservaciones(ordenExistente.observaciones || '');
       setRegimenIgv(ordenExistente.regimenIgv ?? 'gravado');
       setAplicaRetencionRh(ordenExistente.aplicaRetencionRh ?? false);
       if (ordenExistente.items?.length) setItems(ordenExistente.items);
@@ -247,6 +253,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
           fechaEntregaEstimada: fechaEntregaEstimada || undefined,
           condiciones: condiciones.trim() || undefined,
           lugarEntrega: lugarEntrega.trim() || undefined,
+          observaciones: observaciones.trim() || undefined,
           items: items.map(item => ({
             descripcion: item.descripcion.trim(),
             cantidad: item.cantidad,
@@ -275,6 +282,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
           fechaEntregaEstimada: fechaEntregaEstimada || undefined,
           condiciones: condiciones.trim() || undefined,
           lugarEntrega: lugarEntrega.trim() || undefined,
+          observaciones: observaciones.trim() || undefined,
           // Los identificadores de base vienen de la cotización de origen. Sin
           // ellos el guardado rechaza la orden con "Se requiere un proveedor
           // válido con ID de BD" — y antes ese error solo iba a la consola, así
@@ -515,6 +523,21 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
               permitirOtro
               otroPlaceholder="Dirección o referencia de entrega"
             />
+          </div>
+
+          {/* Observaciones: van impresas en el PDF que recibe el proveedor. */}
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="observaciones">Observaciones / Detalles</Label>
+            <Textarea
+              id="observaciones"
+              value={observaciones}
+              onChange={(e) => setObservaciones(e.target.value)}
+              placeholder="Instrucciones de entrega, referencias, acuerdos con el proveedor…"
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground">
+              Se imprimen en el PDF de la orden, debajo de las condiciones.
+            </p>
           </div>
         </CardContent>
       </Card>
