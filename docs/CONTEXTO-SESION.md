@@ -1913,3 +1913,53 @@ saltos de línea, visibles en el detalle y presentes en el PDF junto a las tres 
 **Cuidado tomado:** la cotización COT-0041 que estaba aprobada es la **real de Richard** (VENTYHOME,
 S/ 157,320.01, creada hoy 16:41). No se tocó — la prueba se hizo con una cotización propia
 (`QA-OBS-TEST`), y tanto ella como la orden generada se eliminaron después.
+
+---
+
+## 2026-09-10 (XII) — William entra con alcance acotado
+
+Kevin entró con el usuario de William y vio de más. Lo que debe tener: **Compras, Fianzas, Proyectos
+y Flota**, sin Administración; **solo aprueba órdenes** bajo el flujo de montos actual; y **solo se
+le avisa cuando se requiere su aprobación**.
+
+### Por qué un rol nuevo y no recortar Gerencia
+
+El rol **"Gerencia" lo comparten cuatro personas**: Guillermo, Miguel Zegarra, el consultor y
+William. Recortarlo se lo habría recortado a todos — Guillermo se habría quedado sin Finanzas,
+Contabilidad y el resto.
+
+William pasa a **"Gerencia Operativa"**: ver y exportar en sus cuatro módulos, y `aprobar` solo en
+Compras. Cuando asuma el alcance completo de Guillermo se le devuelve el rol Gerencia, y este queda
+para el siguiente que entre con el mismo recorte.
+
+**Detalle que había que atender:** el circuito de firmas resuelve quién firma **por nombre de rol**
+(`flujo_aprobacion.rolesPorEtapa`). Con un rol nuevo, William no habría podido firmar nada. Se añadió
+"Gerencia Operativa" a la etapa `gerencia`, junto a "Gerencia".
+
+### Las notificaciones
+
+`roles.solo_notifica_aprobaciones`, una marca del **puesto**, no de la persona: quien entre con ese
+rol hereda la misma tranquilidad.
+
+A quien tenga **solo** roles con esa marca le llegan únicamente las solicitudes de aprobación, y solo
+de los módulos donde de verdad **aprueba** — ver Flota no basta para recibir avisos de OTs. Es "solo"
+y no "alguno" a propósito: si además tiene un rol normal, ese manda y recibe lo suyo.
+
+### Verificado con su rol
+
+| | |
+|---|---|
+| Menú | Inicio, Dashboard, Compras, Fianzas, Proyectos, Flota, BI |
+| Por URL | `/admin`, `/admin/usuarios`, `/finanzas/caja-chica`, `/contabilidad/asientos` y `/proveedores/directorio` → **bloqueados** |
+| Campanita | Solo *"Aprobacion requerida: MM-001253"*. Sin resumen de vencimientos, sin caja chica |
+| Firma | En MM-001240 le sale **"Te toca firmar como Gerencia"** |
+
+No se firmó nada en la prueba: MM-001240 sigue en `enviada` y sin firmas.
+
+### Dos cosas para Kevin
+
+- **BI & Reportería** le aparece porque cruza módulos que él sí ve; no le enseña nada nuevo (la caja
+  chica no le sale, no tiene Finanzas). Si lo quieres fuera, es una línea.
+- El aviso de aprobación se crea **uno por orden para todo el tenant**, no uno por aprobador. Así que
+  a William le llegará también el de una orden por debajo de S/ 10,000, que solo firman comprador y
+  operaciones. Dirigir los avisos a personas es un cambio mayor: queda anotado, no colado.
