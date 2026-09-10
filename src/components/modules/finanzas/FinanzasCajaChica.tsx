@@ -610,6 +610,29 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
     const monto = parseFloat(gastoForm.monto);
     if (isNaN(monto) || monto <= 0) { toast.error('Monto inválido'); return; }
 
+    // El gasto puede superar el saldo —el dinero se gasta antes de que llegue
+    // la reposición— pero no en silencio: se dice con cuánto queda la caja y
+    // hay que aceptarlo. Quien registra decide, con el dato delante.
+    let permitirDescubierto = false;
+    if (!gastoEditando && selectedCaja && monto > selectedCaja.montoDisponible) {
+      const restante = selectedCaja.montoDisponible - monto;
+      const ok = window.confirm(
+        `El gasto supera el saldo de "${selectedCaja.nombre}".
+
+`
+        + `Disponible: ${fmt(selectedCaja.montoDisponible, selectedCaja.moneda)}
+`
+        + `Gasto: ${fmt(monto, selectedCaja.moneda)}
+`
+        + `La caja quedará en: ${fmt(restante, selectedCaja.moneda)}
+
+`
+        + `¿Registrarlo igualmente?`,
+      );
+      if (!ok) return;
+      permitirDescubierto = true;
+    }
+
     setSaving(true);
     try {
       // Corrección de un gasto ya registrado: se actualiza, no se duplica. El
@@ -666,8 +689,18 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
         // lee el disparador `trg_gasto_proyecto` para derivar el proyecto solo.
         centro_costo: centrosCosto.find(c => c._dbId === gastoCentroCostoId)?.codigo ?? null,
         proyecto_id: gastoProyectoId,
-      });
-      toast.success('Gasto registrado');
+      }, { permitirDescubierto });
+      // Si la caja quedó en descubierto se dice al terminar, no solo al
+      // preguntar: es el dato que hay que arrastrar hasta la reposición.
+      if (permitirDescubierto && selectedCaja) {
+        toast.success('Gasto registrado', {
+          description: `"${selectedCaja.nombre}" queda en `
+            + `${fmt(selectedCaja.montoDisponible - monto, selectedCaja.moneda)}. `
+            + `Pendiente de reposición.`,
+        });
+      } else {
+        toast.success('Gasto registrado');
+      }
       setShowNuevoGasto(false);
       setGastoForm(defaultGastoForm);
       setGastoProyectoId(null);
@@ -953,8 +986,17 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                       <TableCell className="text-sm">{c.responsable}</TableCell>
                       <TableCell className="text-sm">{c.moneda}</TableCell>
                       <TableCell className="text-right text-sm whitespace-nowrap">{fmt(c.montoAsignado, c.moneda)}</TableCell>
-                      <TableCell className={`text-right text-sm font-medium whitespace-nowrap ${c.porcentajeUsado > 80 ? 'text-red-500' : 'text-green-600'}`}>
+                      {/* Una caja en descubierto no es "gastada al 80%": es
+                          otra cosa y se marca aparte. */}
+                      <TableCell className={`text-right text-sm font-medium whitespace-nowrap ${
+                        c.montoDisponible < 0
+                          ? 'text-red-600 font-semibold'
+                          : c.porcentajeUsado > 80 ? 'text-red-500' : 'text-green-600'
+                      }`}>
                         {fmt(c.montoDisponible, c.moneda)}
+                        {c.montoDisponible < 0 && (
+                          <span className="block text-[10px] font-normal">en descubierto</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -1491,7 +1533,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
               {selectedCaja && !gastoEditando && (
                 <p className={`text-xs mt-1 ${excedeSaldo ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
                   {excedeSaldo
-                    ? `Supera el saldo de la caja (${fmt(selectedCaja.montoDisponible, selectedCaja.moneda)}). Registra primero un ingreso.`
+                    ? `Supera el saldo (${fmt(selectedCaja.montoDisponible, selectedCaja.moneda)}): la caja quedará en descubierto. Se pedirá confirmación.`
                     : `Disponible en la caja: ${fmt(selectedCaja.montoDisponible, selectedCaja.moneda)}`}
                 </p>
               )}

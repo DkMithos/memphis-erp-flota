@@ -242,7 +242,10 @@ interface FinanzasContextValue {
   updateCajaChica: (dbId: string, data: Partial<CajaChicaDB>) => Promise<void>;
 
   // Gastos Caja Chica
-  addGasto: (data: Omit<GastoCajaChicaDB, 'id' | 'creado_en' | 'caja'>) => Promise<GastoCajaChica>;
+  addGasto: (
+    data: Omit<GastoCajaChicaDB, 'id' | 'creado_en' | 'caja'>,
+    opciones?: { permitirDescubierto?: boolean },
+  ) => Promise<GastoCajaChica>;
   updateGasto: (dbId: string, data: Partial<GastoCajaChicaDB>) => Promise<void>;
 
   reload: () => Promise<void>;
@@ -409,10 +412,18 @@ export function FinanzasProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Gastos Caja Chica ──
-  const addGasto = useCallback(async (data: Omit<GastoCajaChicaDB, 'id' | 'creado_en' | 'caja'>) => {
-    // Validar saldo disponible en caja chica antes de registrar gasto
+  const addGasto = useCallback(async (
+    data: Omit<GastoCajaChicaDB, 'id' | 'creado_en' | 'caja'>,
+    opciones?: { permitirDescubierto?: boolean },
+  ) => {
+    // El gasto no debería superar el saldo de la caja, y por defecto no se
+    // registra si lo hace. Pero el dinero se gasta antes de que llegue la
+    // reposición: Administración necesita poder anotarlo igual (Carolina,
+    // 10/09), así que la caja puede quedar en descubierto SI quien registra lo
+    // confirma. La regla no desaparece — deja de ser un muro y pasa a ser un
+    // aviso que hay que aceptar a propósito.
     const caja = cajasChicas.find(c => c._dbId === data.caja_id);
-    if (caja && data.monto > caja.montoDisponible) {
+    if (caja && data.monto > caja.montoDisponible && !opciones?.permitirDescubierto) {
       throw new Error(`Saldo insuficiente en caja "${caja.nombre}". Disponible: ${caja.montoDisponible.toFixed(2)}, Gasto: ${data.monto.toFixed(2)}`);
     }
     const { data: row, error } = await dbGastosCajaChica.insert(data);
