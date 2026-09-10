@@ -367,7 +367,9 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
                           >
                             <Eye className="size-4" />
                           </Button>
-                          {puedeEditar && proveedor.estado !== 'inactivo' && proveedor.estado !== 'en_evaluacion' && (
+                          {/* En evaluación también se edita: es justo cuando hay
+                              que corregir lo que se acaba de registrar. */}
+                          {puedeEditar && proveedor.estado !== 'inactivo' && (
                             <Button
                               variant="ghost"
                               size="sm"

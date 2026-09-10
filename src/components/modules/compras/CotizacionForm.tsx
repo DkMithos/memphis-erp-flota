@@ -445,11 +445,21 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
                     });
                     if (errors.proveedorNombre) setErrors({ ...errors, proveedorNombre: '' });
                   }}
+                  // Un proveedor recién dado de alta nace "en evaluación", y
+                  // pedirlo activo dejaba a Compras sin poder cotizar con quien
+                  // acababa de registrar: el permiso para aprobarlo no lo tiene
+                  // nadie. Se ofrece igual, marcado, y se excluye solo lo que
+                  // se apartó a propósito (inactivo, observado, bloqueado).
                   options={proveedores
-                    .filter(p => p.estado === 'activo')
-                    .map(p => ({ value: p._dbId, label: `${p.razonSocial} — ${p.ruc}` }))}
+                    .filter(p => p.estado === 'activo' || p.estado === 'en_evaluacion')
+                    .map(p => ({
+                      value: p._dbId,
+                      label: p.estado === 'en_evaluacion'
+                        ? `${p.razonSocial} — ${p.ruc} · en evaluación`
+                        : `${p.razonSocial} — ${p.ruc}`,
+                    }))}
                   placeholder="Seleccionar proveedor"
-                  emptyText="No hay proveedores activos"
+                  emptyText="No hay proveedores disponibles"
                 />
                 {errors.proveedorNombre && (
                   <p className="text-sm text-red-600 flex items-center gap-1">
