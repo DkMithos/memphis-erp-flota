@@ -1491,3 +1491,46 @@ criterio, el menú, el buscador y las notificaciones.
 
 Home (`useResumenHome`), Dashboard, los formularios de requerimiento y proveedor: ya consultaban
 permisos antes de mostrar o de pedir. No se tocaron.
+
+---
+
+## 2026-09-10 (III) — Revisión de accesos de Carolina y Miguelangel
+
+### Lo que ve cada uno
+
+| | Roles | Módulos en el menú |
+|---|---|---|
+| Carolina (cokamura) | Administración + Fianzas | Compras, Fianzas, Finanzas, BI |
+| Miguelangel (mcastaneda) | Proyectos + Técnico Flota | Compras, **Finanzas**, Proyectos, Flota, BI |
+
+Carolina cuadra con su trabajo. **Miguelangel tiene Finanzas** (`ver`, `exportar`): transacciones,
+presupuestos, cuentas por pagar, **caja chica** (41 cajas, S/ 321,633 asignado), flujo de caja y
+reportes — y puede exportarlo todo. No lo necesita: el financiero por proyecto vive en el módulo
+Proyectos y no pide `finanzas.ver`. **Pendiente de decisión de Kevin.**
+
+### El hallazgo de fondo: `ver` valía por `crear`
+
+Miguelangel tiene la caja chica en **lectura** y aun así podía **abrir cajas, registrar gastos e
+ingresos y cerrar una caja**. Los botones solo comprobaban que la caja no estuviera cerrada. Los
+permisos `crear` / `editar` / `eliminar` estaban configurados en los roles y **la interfaz no los
+consultaba en ninguna parte**.
+
+No es exclusivo de Finanzas: el barrido encontró ~30 pantallas que muestran botones de alta y edición
+sin comprobar nada. Hoy pasa desapercibido porque casi todos los roles llevan `ver` y `crear` juntos.
+Los que NO, y por tanto están expuestos:
+
+| Rol | Persona | Módulos en solo lectura por diseño |
+|---|---|---|
+| Proyectos | Miguelangel | finanzas |
+| Contabilidad | Walter | compras, finanzas, proveedores |
+| Gerencia | Guillermo, William, Miguel Z., consultor | biomédico, contabilidad, CRM, fianzas, inventario, proveedores, proyectos |
+
+**Se cerró Finanzas** (es dinero y está en uso): caja chica, transacciones y presupuestos. Exportar
+se mantiene — es lectura y la tienen. El resto de módulos queda pendiente de decisión.
+
+### Otros dos puntos para Kevin
+
+- Carolina tiene `compras.aprobar`. **No** puede firmar órdenes (verificado: "Tu rol no firma en
+  este circuito"), pero sí **aprueba requerimientos y cotizaciones** y puede **Rechazar** una orden
+  que está esperando las tres firmas. Ella no está en el circuito comprador → operaciones → gerencia.
+- El rol Fianzas incluye `eliminar` (Carolina y Sandra pueden borrar cartas fianza).
