@@ -1394,3 +1394,48 @@ Verificado con el requerimiento real de Richard y una cuenta con su mismo rol: p
 selector la cotización llega con el item, 2 unidades a S/ 78,660, subtotal S/ 157,320 — igual que el
 estimado del requerimiento. La orden creada desde esa cotización hereda proveedor, item y totales
 incluso abriéndola por URL. La cotización de prueba (COT-0041) y la cuenta temporal se eliminaron.
+
+---
+
+## 2026-09-10 — El menú enseñaba todos los módulos antes de saber cuáles tocan
+
+Kevin lo vio con todos los usuarios que no tienen acceso completo: al entrar aparecía el menú
+entero, luego se quedaba con lo correcto, y **de rato en rato volvía a aparecer entero por menos de
+un segundo**. Dos causas distintas, una por síntoma.
+
+### 1. El sidebar mostraba todo mientras cargaba
+
+Estaba escrito así a propósito, con este comentario: *"Mientras cargan los permisos no se oculta
+nada, para no hacer parpadear el menú en cada refresco."* El razonamiento está al revés — enseñar
+todo y quitarlo **es** el parpadeo, y además le anuncia a cada persona módulos que no puede abrir.
+
+Ahora mientras no se sabe se pinta un **esqueleto** (barras grises). Ni miente ni parece roto.
+
+### 2. 39 componentes, 39 consultas, 39 "cargando"
+
+`usePermissions()` era un hook con estado propio y lo llaman **39 componentes**. Cada uno lanzaba su
+consulta a `usuarios_roles` y arrancaba en `loading: true`. Peor: el efecto dependía del objeto
+`profile`, que AuthProvider **vuelve a crear en cada refresco de token**. Un objeto nuevo con los
+mismos datos bastaba para mandarlos a todos a "cargando" a la vez — el parpadeo intermitente que
+Kevin veía ya trabajando.
+
+El resultado pasa a un **estado compartido fuera de React** (`useSyncExternalStore`), con la clave
+armada **por valor**: usuario + tenant + rol del perfil. La API del hook no cambió, así que los 39
+llamadores siguen igual.
+
+La regla que deja esto, y que ya había mordido dos veces ayer (permisos del Reporte Cruzado, prefill
+de cotizaciones): **lo que depende de una carga asíncrona no puede identificarse por la identidad
+del objeto ni resolverse en el primer render.**
+
+### Medido, no supuesto
+
+En la pantalla de órdenes con un rol de Compras:
+
+| | Antes | Ahora |
+|---|---|---|
+| Consultas de permisos por carga | 5 | 1 |
+| Módulos ajenos vistos (187 muestras cada 50 ms durante el login) | todos | 0 |
+| Módulos ajenos al recargar ya dentro | sí | 0 |
+
+También se recorrieron seis pantallas dentro de la sesión: **cero** consultas nuevas y cero
+apariciones de módulos ajenos.
