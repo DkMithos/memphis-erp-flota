@@ -1670,3 +1670,44 @@ siete filas cuadran contra `proyectos` en inversión, modificado, cobrado, presu
 **No se tocó** `modalidad`: el ERP dice OxI para todos y el Excel dice IOARR salvo AMAZONAS, pero son
 taxonomías distintas (IOARR es tipo de inversión, OxI es la modalidad de financiamiento). El tipo del
 Excel queda en `proyectos_excel_sync.tipo`.
+
+---
+
+## 2026-09-10 (VI) — Tipo de inversión a la vista y el alta de proveedor
+
+### Tipo de inversión (IOARR / OxI)
+
+Sale del Excel de Operaciones (`proyectos_excel_sync.tipo`) y se muestra como etiqueta junto al
+código en cada tarjeta de proyecto, y como columna en el Excel que exporta la lista. En producción:
+6 IOARR y 1 OxI (Amazonas), igual que el archivo.
+
+No se tocó `modalidad`: son taxonomías distintas — IOARR es el tipo de inversión bajo Invierte.pe,
+OxI es cómo se financia.
+
+### Richard no podía guardar
+
+El error de la consola **no era de órdenes**: era del alta de proveedor. Estaba dando de alta a
+Kaycol para poder emitir la orden.
+
+`Could not find the 'observaciones' column of 'proveedores'` — el formulario enviaba esa columna y
+no existía. PostgREST respondía 400 y no se guardaba nada.
+
+Al mirarlo aparecieron **otras dos pérdidas silenciosas en la misma pantalla**, peores que el fallo
+visible porque nadie las nota:
+
+- **El "Contacto Principal" no se guardaba.** Es obligatorio en el formulario —Richard escribió Omar
+  Vasquez, gerente general, con su correo y teléfono— y no iba a ninguna parte. El código lo decía:
+  *"Contacto principal — no almacenado en DB todavía"*. Ahora usa la columna `contacto`, que ya traía
+  el nombre de 114 proveedores migrados, más tres columnas nuevas para cargo, email y teléfono.
+- **De varias cuentas bancarias solo se guardaba la primera**, aunque la pantalla deje agregar más.
+  Ahora van todas a `cuentas_bancarias`, con las mismas claves que trajo la migración.
+
+Y en sentido contrario: **al editar solo se leían las columnas planas** `banco`/`cuenta_bancaria`,
+que tienen **6 proveedores de 136**. A los otros 114 les salía la sección de cuentas vacía aunque las
+tuvieran en el jsonb — y si guardaban, se quedaban sin ellas.
+
+Verificado con el rol de Richard: se creó un proveedor con contacto completo y dos cuentas, las dos
+quedaron en la base; al editar Master Tires (migrado) aparecen sus dos cuentas y el contacto de la
+notaría PROV-0101 sale con su nombre. Proveedor de prueba eliminado — siguen 136.
+
+Migración: `proveedores_observaciones_y_contacto`.
