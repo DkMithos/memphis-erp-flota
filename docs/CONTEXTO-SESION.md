@@ -1963,3 +1963,38 @@ No se firmó nada en la prueba: MM-001240 sigue en `enviada` y sin firmas.
 - El aviso de aprobación se crea **uno por orden para todo el tenant**, no uno por aprobador. Así que
   a William le llegará también el de una orden por debajo de S/ 10,000, que solo firman comprador y
   operaciones. Dirigir los avisos a personas es un cambio mayor: queda anotado, no colado.
+
+### Corrección (mismo día): el recorte es del PUESTO, no de William
+
+Kevin aclara que lo pedido va al **rol Gerencia**, no a una persona. Así que el alcance acotado se
+aplica al rol y afecta a los cuatro: **Guillermo, Miguel Zegarra, el consultor y William**.
+
+El rol aparte "Gerencia Operativa" se **eliminó** — sobraba. William volvió a Gerencia y el circuito
+de firmas vuelve a nombrar solo a `"Gerencia"`.
+
+**No hizo falta tocar código**: el mecanismo (`roles.solo_notifica_aprobaciones` y el filtro de la
+campanita) ya estaba hecho; solo cambió a qué rol se aplica. Se ajustaron los comentarios y el
+nombre de la prueba, que hablaban de William.
+
+#### Qué pierde Gerencia
+
+De `admin, biomédico, compras, contabilidad, CRM, fianzas, finanzas, flota, inventario, proveedores,
+proyectos` pasa a **compras, fianzas, proyectos y flota**. Y deja de aprobar en **finanzas** y en
+**flota**: solo firma órdenes.
+
+#### La consecuencia que hay que mirar
+
+**El tablero "Flujo Gerencia" (`/bi/gerencia`) exige `admin.ver`, así que deja de estar a su
+alcance.** Era su pantalla —margen por proyecto, rentabilidad y caja de toda la empresa— y ahora les
+responde "no tienes acceso".
+
+Es **coherente** con quitarles Finanzas (ese tablero enseña justo la caja que ya no deben ver), pero
+es una pérdida real y no la pidió nadie explícitamente. Devolverles `admin: ver` bastaría para
+recuperarlo; queda a decisión de Kevin.
+
+#### Verificado con el rol Gerencia
+
+Menú: Compras, Fianzas, Proyectos, Flota (+ Inicio, Dashboard, BI). Bloqueados por URL: `/admin`,
+`/bi/gerencia`, `/finanzas/caja-chica`, `/proveedores/directorio`. En la campanita, solo
+*"Aprobacion requerida: MM-001253"*. En MM-001240: **"Te toca firmar como Gerencia"**. No se firmó
+nada — la orden sigue `enviada` y sin firmas.
