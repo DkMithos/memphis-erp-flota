@@ -1853,3 +1853,35 @@ cargas masivas desde Excel no pasan por esa validación.
 Así que hoy: por pantalla no se puede pasar del saldo, por carga sí. Si la regla es de verdad, debe
 estar en la base; si la caja puede quedar en descubierto mientras llega la reposición, sobra en el
 frontend. Pendiente de Kevin.
+
+---
+
+## 2026-09-10 (X) — La caja puede quedar en descubierto, pero a propósito
+
+Carolina confirma que **sí debe poder registrar el gasto aunque no haya saldo**: el dinero se gasta
+antes de que llegue la reposición, y si no se puede anotar, el gasto se queda fuera del sistema —
+que es peor que una caja en negativo.
+
+**La regla no se quitó.** Deja de ser un muro y pasa a ser un aviso que hay que aceptar a propósito:
+
+1. Al teclear un monto mayor al saldo, el formulario avisa bajo el campo: *"Supera el saldo
+   (S/ 892.56): la caja quedará en descubierto. Se pedirá confirmación."*
+2. Al registrar se pregunta con las cifras — disponible, gasto y **con cuánto queda la caja**.
+   Cancelar no registra nada.
+3. Al confirmar, el aviso de éxito dice en cuánto quedó y que está **pendiente de reposición**.
+4. En el listado, una caja en descubierto se marca como tal, en vez de pintarse como "gastada al
+   80%" — que es otra cosa.
+
+El permiso viaja **explícito** hasta el store (`addGasto(..., { permitirDescubierto })`). Así el
+descubierto es siempre una decisión de quien registra, y no el efecto de haber borrado una
+validación: si mañana alguien llama a `addGasto` sin la opción, la regla sigue en pie.
+
+Verificado con el rol de Administración sobre el caso real (S/ 1,000 en CAJA 25 SOLES con S/ 892.56):
+cancelar no registró nada; confirmar dejó la caja en **S/ -107.44** y el listado la marcó "en
+descubierto". Gasto de prueba eliminado — la caja vuelve a 22 gastos y S/ 892.56.
+
+### Sigue pendiente
+
+Las cajas que ya estaban en negativo por las cargas desde Excel (el total de SOLES marca
+**S/ -7,235.13**) no se han revisado. Ahora que el descubierto es legítimo, conviene mirar cuáles
+esperan reposición de verdad y cuáles son un error de carga.
