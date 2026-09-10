@@ -1885,3 +1885,31 @@ descubierto". Gasto de prueba eliminado — la caja vuelve a 22 gastos y S/ 892.
 Las cajas que ya estaban en negativo por las cargas desde Excel (el total de SOLES marca
 **S/ -7,235.13**) no se han revisado. Ahora que el descubierto es legítimo, conviene mirar cuáles
 esperan reposición de verdad y cuáles son un error de carga.
+
+---
+
+## 2026-09-10 (XI) — Observaciones en la orden
+
+Richard no tenía dónde escribir las instrucciones para el proveedor al generar la orden.
+
+Lo llamativo: **todo lo demás ya existía**. La columna `observaciones` está en `ordenes_compra`,
+**730 de las 1,316 órdenes migradas de oc-system la traen**, y el PDF ya la imprimía bajo
+CONDICIONES. Lo único que faltaba era el campo para escribirla — y al crear la orden el código
+mandaba `observaciones: null` fijo.
+
+Resultado: las órdenes viejas tenían observaciones que nadie podía ver en pantalla, y las nuevas
+nacían sin poder tenerlas.
+
+- Campo **"Observaciones / Detalles"** en el formulario, junto a las condiciones, con la nota de que
+  sale impreso en el PDF.
+- Se guarda al crear y al editar. Si la cotización trae observaciones, se heredan como punto de
+  partida — es lo que el proveedor ya había puesto por escrito.
+- El **detalle de la orden** las muestra en su propia tarjeta: hasta ahora las 730 migradas solo se
+  veían imprimiendo el PDF.
+
+Probado de punta a punta con el rol de Compras: escritas al generar la orden, guardadas con sus
+saltos de línea, visibles en el detalle y presentes en el PDF junto a las tres firmas.
+
+**Cuidado tomado:** la cotización COT-0041 que estaba aprobada es la **real de Richard** (VENTYHOME,
+S/ 157,320.01, creada hoy 16:41). No se tocó — la prueba se hizo con una cotización propia
+(`QA-OBS-TEST`), y tanto ella como la orden generada se eliminaron después.
