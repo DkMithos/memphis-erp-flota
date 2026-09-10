@@ -26,6 +26,7 @@ import {
   TableRow,
 } from '../../ui/table';
 import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
+import { AdjuntosCotizacion } from './AdjuntosCotizacion';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useRoles } from '../../../lib/rbac/roles-store';
 import { useRequerimientosStore } from '../../../lib/compras/requerimientos-store';
@@ -372,6 +373,10 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
           </div>
         </CardContent>
       </Card>
+
+      {/* El documento del proveedor. Va antes de los items: es la fuente de
+          lo que viene debajo. */}
+      <AdjuntosCotizacion cotizacionDbId={(cotizacion as any)._dbId ?? undefined} />
 
       {/* Items */}
       <Card>
