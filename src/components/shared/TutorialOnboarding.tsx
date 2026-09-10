@@ -4,84 +4,125 @@
  * Se muestra cuando profiles.onboarding_completado = false.
  * Al completar, actualiza el flag en Supabase.
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Home, Truck, ShoppingCart, Users, Package,
   Stethoscope, BarChart3, Settings, ChevronRight, ChevronLeft,
-  CheckCircle2, X, Sparkles
+  CheckCircle2, X, Sparkles, Wallet, ShieldCheck, BookOpen, FolderKanban,
+  type LucideIcon,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useAuth } from '../../auth/AuthProvider';
+import { usePermissions } from '../../lib/rbac/usePermissions';
+import { modulosDelUsuario, enumerar } from '../../lib/rbac/modulos-visibles';
 import { supabase } from '../../lib/supabase/client';
 import { MemphisIconSVG, PLATFORM } from '../../lib/config/branding';
+
+/** Un ícono por módulo, para el paso que los enumera. */
+const ICONO_MODULO: Record<string, LucideIcon> = {
+  flota: Truck,
+  biomedico: Stethoscope,
+  compras: ShoppingCart,
+  proveedores: Users,
+  inventario: Package,
+  contabilidad: BookOpen,
+  fianzas: ShieldCheck,
+  finanzas: Wallet,
+  proyectos: FolderKanban,
+  crm: Users,
+  bi: BarChart3,
+};
 
 interface TutorialOnboardingProps {
   onComplete: () => void;
 }
 
-const STEPS = [
-  {
-    id: 'bienvenida',
-    title: `Bienvenido a ${PLATFORM.name}`,
-    subtitle: 'Tu sistema empresarial integrado',
-    description: `${PLATFORM.name} centraliza todos los procesos de tu empresa en una sola plataforma. Flota, Biomédico, Compras, Inventario, Finanzas y más — todo conectado.`,
-    icon: Sparkles,
-    color: 'text-amber-500',
-    tip: null,
-  },
-  {
-    id: 'home',
-    title: 'Pantalla de Inicio',
-    subtitle: 'Tu punto de partida diario',
-    description: 'Cada vez que inicies sesión verás esta pantalla con accesos rápidos a todos los módulos, actividad reciente y el estado del sistema.',
-    icon: Home,
-    color: 'text-blue-500',
-    tip: '💡 Usa los accesos rápidos para navegar sin pasar por el menú lateral.',
-  },
-  {
-    id: 'sidebar',
-    title: 'Menú de Navegación',
-    subtitle: 'Accede a todos los módulos',
-    description: 'El menú lateral contiene todos los módulos del sistema. Haz clic en cualquier módulo para expandir sus sub-secciones. El administrador puede habilitar o deshabilitar módulos según tu plan.',
-    icon: Settings,
-    color: 'text-purple-500',
-    tip: '💡 Los módulos se contraen automáticamente. Solo el módulo activo se expande.',
-  },
-  {
-    id: 'modulos',
-    title: 'Módulos Principales',
-    subtitle: 'Una plataforma, múltiples capacidades',
-    description: 'Navega entre Flota, Biomédico, Compras, Proveedores, Inventario, Finanzas, Proyectos y más. Cada módulo tiene su propio dashboard, listados y formularios.',
-    icon: Truck,
-    color: 'text-green-500',
-    tip: '💡 Usa la barra de búsqueda en el topbar para encontrar cualquier registro rápidamente.',
-    modules: [
-      { icon: Truck, label: 'Flota' },
-      { icon: Stethoscope, label: 'Biomédico' },
-      { icon: ShoppingCart, label: 'Compras' },
-      { icon: Users, label: 'Proveedores' },
-      { icon: Package, label: 'Inventario' },
-      { icon: BarChart3, label: 'BI & Reportes' },
-    ],
-  },
-  {
-    id: 'listo',
-    title: '¡Todo listo!',
-    subtitle: 'Comienza a usar el sistema',
-    description: `Has completado el recorrido inicial de ${PLATFORM.name}. Si tienes dudas, puedes encontrar ayuda en el menú de usuario o contactar a soporte.`,
-    icon: CheckCircle2,
-    color: 'text-green-500',
-    tip: null,
-  },
-];
+interface Paso {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  icon: LucideIcon;
+  color: string;
+  tip: string | null;
+  modules?: { icon: LucideIcon; label: string }[];
+}
+
+/**
+ * El recorrido se arma con los módulos que ESTE usuario puede abrir.
+ *
+ * Estaba escrito a mano y le prometía a todo el mundo Flota, Biomédico,
+ * Inventario y Finanzas. A quien solo tiene Compras, eso no le describe su
+ * sistema: le describe uno ajeno y le hace buscar menús que no va a encontrar.
+ */
+function construirPasos(modulos: { id: string; label: string }[]): Paso[] {
+  const nombres = enumerar(modulos.map(m => m.label));
+  const varios = modulos.length > 1;
+
+  return [
+    {
+      id: 'bienvenida',
+      title: `Bienvenido a ${PLATFORM.name}`,
+      subtitle: 'Tu sistema empresarial integrado',
+      description: modulos.length === 0
+        ? `${PLATFORM.name} centraliza los procesos de la empresa en una sola plataforma.`
+        : `${PLATFORM.name} centraliza los procesos de la empresa en una sola plataforma. Tu acceso ${varios ? 'incluye los módulos de' : 'es al módulo de'} ${nombres}.`,
+      icon: Sparkles,
+      color: 'text-amber-500',
+      tip: null,
+    },
+    {
+      id: 'home',
+      title: 'Pantalla de Inicio',
+      subtitle: 'Tu punto de partida diario',
+      description: 'Cada vez que inicies sesión verás esta pantalla, con accesos rápidos a tus módulos, la actividad reciente y tus notificaciones.',
+      icon: Home,
+      color: 'text-blue-500',
+      tip: '💡 Usa los accesos rápidos para navegar sin pasar por el menú lateral.',
+    },
+    {
+      id: 'sidebar',
+      title: 'Menú de Navegación',
+      subtitle: 'Todo lo tuyo, a la izquierda',
+      description: 'El menú lateral muestra los módulos a los que tienes acceso. Haz clic en cualquiera para desplegar sus secciones. Si necesitas alguno que no aparece, pídeselo al administrador del sistema.',
+      icon: Settings,
+      color: 'text-purple-500',
+      tip: '💡 Los módulos se contraen solos. Solo se queda abierto el que estás usando.',
+    },
+    {
+      id: 'modulos',
+      title: varios ? 'Tus módulos' : 'Tu módulo',
+      subtitle: modulos.length === 0 ? 'Todavía sin asignar' : 'Lo que tienes a mano',
+      description: modulos.length === 0
+        ? 'Tu cuenta aún no tiene módulos asignados. Escribe al administrador del sistema para que te dé acceso.'
+        : `Cada módulo trae su propio tablero, sus listados y sus formularios. ${varios ? 'Estos son los tuyos' : 'Este es el tuyo'}:`,
+      icon: modulos.length > 0 ? (ICONO_MODULO[modulos[0].id] ?? Truck) : Settings,
+      color: 'text-green-500',
+      tip: '💡 Usa el buscador de la barra superior para llegar a cualquier registro.',
+      modules: modulos.map(m => ({ icon: ICONO_MODULO[m.id] ?? Package, label: m.label })),
+    },
+    {
+      id: 'listo',
+      title: '¡Todo listo!',
+      subtitle: 'Comienza a usar el sistema',
+      description: `Has completado el recorrido inicial de ${PLATFORM.name}. Si tienes dudas, encontrarás ayuda en el menú de usuario o escribiendo a soporte.`,
+      icon: CheckCircle2,
+      color: 'text-green-500',
+      tip: null,
+    },
+  ];
+}
 
 export function TutorialOnboarding({ onComplete }: TutorialOnboardingProps) {
   const { user } = useAuth();
+  const { can, loading: permisosLoading } = usePermissions();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  const current = STEPS[step];
-  const isLast = step === STEPS.length - 1;
+  const pasos = useMemo(() => construirPasos(modulosDelUsuario(can)), [can]);
+
+  const current = pasos[step];
+  const isLast = step === pasos.length - 1;
   const isFirst = step === 0;
 
   const handleComplete = async () => {
@@ -107,6 +148,10 @@ export function TutorialOnboarding({ onComplete }: TutorialOnboardingProps) {
     onComplete();
   };
 
+  // Hasta saber qué puede ver, no se abre el recorrido: describiría un sistema
+  // que no es el suyo, que es justo lo que se vino a corregir.
+  if (permisosLoading) return null;
+
   return (
     // Overlay
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -130,7 +175,7 @@ export function TutorialOnboarding({ onComplete }: TutorialOnboardingProps) {
 
           {/* Barra de progreso */}
           <div className="flex gap-1 mb-5">
-            {STEPS.map((_, i) => (
+            {pasos.map((_, i) => (
               <div
                 key={i}
                 className={`h-1 flex-1 rounded-full transition-all duration-300 ${
@@ -150,14 +195,14 @@ export function TutorialOnboarding({ onComplete }: TutorialOnboardingProps) {
 
           {/* Textos */}
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-            Paso {step + 1} de {STEPS.length}
+            Paso {step + 1} de {pasos.length}
           </p>
           <h2 className="text-xl font-bold text-foreground mb-1">{current.title}</h2>
           <p className="text-sm text-primary font-medium mb-3">{current.subtitle}</p>
           <p className="text-sm text-muted-foreground leading-relaxed">{current.description}</p>
 
           {/* Grid de módulos (solo en paso 3) */}
-          {'modules' in current && current.modules && (
+          {current.modules && current.modules.length > 0 && (
             <div className="grid grid-cols-3 gap-2 mt-4">
               {current.modules.map((m) => (
                 <div key={m.label} className="flex flex-col items-center gap-1.5 bg-muted/50 rounded-xl p-3">
@@ -190,7 +235,7 @@ export function TutorialOnboarding({ onComplete }: TutorialOnboardingProps) {
           </Button>
 
           <span className="text-xs text-muted-foreground">
-            {step + 1} / {STEPS.length}
+            {step + 1} / {pasos.length}
           </span>
 
           {isLast ? (

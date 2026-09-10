@@ -17,9 +17,56 @@
  * notificaciones que se insertan desde los handlers. Se comparte una sola
  * suscripción con conteo de referencias.
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../supabase/client';
 import { useAuth } from '../../auth/AuthProvider';
+import { usePermissions, type Modulo, type Accion } from '../rbac/usePermissions';
+import { puedeVerRuta } from '../rbac/rutas';
+
+/**
+ * A qué módulo pertenece cada aviso.
+ *
+ * La tabla `notificaciones` no tiene destinatario: se guarda por tenant y la ve
+ * todo el mundo. Así, a Richard —Compras y Proveedores— le llegaban avisos de
+ * caja chica ("Aprobación requerida: GCC-2026-001") y el resumen de
+ * vencimientos de flota y biomédico. Aquí se filtra por el módulo del aviso.
+ *
+ * Un `entidad_tipo` que no esté en esta tabla se MUESTRA: lo que no se puede
+ * clasificar suele ser un aviso general del sistema, y callarlo es peor que
+ * enseñarlo. Si aparece un tipo nuevo de un módulo concreto, va en esta lista.
+ */
+const RUTA_DE_ENTIDAD: Record<string, string> = {
+  orden_compra: '/compras',
+  cotizacion: '/compras',
+  requerimiento: '/compras',
+  recepcion: '/compras',
+  factura_proveedor: '/compras',
+  proveedor: '/proveedores',
+  caja_chica: '/finanzas',
+  transaccion: '/finanzas',
+  presupuesto: '/finanzas',
+  orden_trabajo: '/flota',
+  vehiculo: '/flota',
+  // El resumen de vencimientos cuenta documentos y OTs de flota.
+  vencimientos: '/flota',
+  calibracion: '/biomedico',
+  equipo_biomedico: '/biomedico',
+  tarea: '/proyectos',
+  proyecto: '/proyectos',
+  carta_fianza: '/fianzas',
+  cliente: '/crm',
+  articulo: '/inventario',
+};
+
+/** ¿Le corresponde este aviso a quien lo está mirando? */
+export function puedeVerNotificacion(
+  entidadTipo: string | undefined,
+  can: (m: Modulo, a: Accion) => boolean,
+): boolean {
+  const ruta = entidadTipo ? RUTA_DE_ENTIDAD[entidadTipo] : undefined;
+  if (!ruta) return true; // sin módulo conocido: aviso general
+  return puedeVerRuta(ruta, can);
+}
 
 export interface Notificacion {
   id: string;
@@ -163,16 +210,23 @@ function suscribir(tenantId: string, oyente: Oyente): () => void {
 
 export function useNotifications() {
   const { tenantId } = useAuth();
-  const [notificaciones, setNotificaciones] = useState<Notificacion[]>(
+  const { can } = usePermissions();
+  const [todas, setTodas] = useState<Notificacion[]>(
     () => (tenantId ? estado(tenantId).datos : []),
+  );
+
+  // La caché es del tenant; lo que cada uno ve depende de sus módulos.
+  const notificaciones = useMemo(
+    () => todas.filter(n => puedeVerNotificacion(n.entidadTipo, can)),
+    [todas, can],
   );
 
   useEffect(() => {
     if (!tenantId) {
-      setNotificaciones([]);
+      setTodas([]);
       return;
     }
-    return suscribir(tenantId, setNotificaciones);
+    return suscribir(tenantId, setTodas);
   }, [tenantId]);
 
   const noLeidas = notificaciones.filter(n => !n.leida).length;
@@ -203,10 +257,13 @@ export function useNotifications() {
 
   const marcarTodasLeidas = useCallback(async () => {
     if (!tenantId) return;
-    await supabase.from('notificaciones').update({ leida: true })
-      .eq('tenant_id', tenantId).eq('leida', false);
-    emitir(tenantId, prev => prev.map(n => ({ ...n, leida: true })));
-  }, [tenantId]);
+    // Solo las suyas. Marcando por tenant, quien no ve caja chica le borraba a
+    // Carolina los avisos que ella todavía no había leído.
+    const ids = notificaciones.filter(n => !n.leida).map(n => n.id);
+    if (ids.length === 0) return;
+    await supabase.from('notificaciones').update({ leida: true }).in('id', ids);
+    emitir(tenantId, prev => prev.map(n => ids.includes(n.id) ? { ...n, leida: true } : n));
+  }, [tenantId, notificaciones]);
 
   return { notificaciones, noLeidas, marcarLeida, marcarTodasLeidas, pushNotificacion };
 }

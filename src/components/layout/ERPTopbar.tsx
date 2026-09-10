@@ -1,5 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { Bell, Search, Moon, Sun, Monitor, ChevronDown, LogOut, User, Settings, CheckCheck, Loader2, Languages } from 'lucide-react';
+import { usePermissions } from '../../lib/rbac/usePermissions';
+import { buscar } from '../../lib/shared/busqueda-global';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '../ui/button';
@@ -16,7 +18,6 @@ import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { useAuth } from '../../auth/AuthProvider';
 import { useNotifications } from '../../lib/shared/useNotifications';
-import { supabase } from '../../lib/supabase/client';
 
 interface SearchResult {
   tipo: string;
@@ -65,6 +66,7 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
 
   const { t, i18n } = useTranslation();
   const { signOut, user, tenantId } = useAuth();
+  const { can } = usePermissions();
   const { notificaciones, noLeidas, marcarLeida, marcarTodasLeidas } = useNotifications();
 
   const [query, setQuery] = useState('');
@@ -98,36 +100,16 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
       if (!tenantId) return;
       setSearching(true);
       try {
-        // Sanitizar: coma/paréntesis/comillas alteran la sintaxis de filtros .or() de
-        // PostgREST (inyección de filtro). Se eliminan antes de interpolar.
-        const qSafe = q.replace(/[,()"'\\%]/g, ' ').trim();
-        if (qSafe.length < 2) { setResults([]); setSearching(false); return; }
-        const term = `%${qSafe}%`;
-        const [ots, vehiculos, proyectos, clientes, articulos, proveedores, ordenes] = await Promise.all([
-          supabase.from('ordenes_trabajo').select('numero_ot,titulo').or(`titulo.ilike.${term},numero_ot.ilike.${term}`).limit(3),
-          supabase.from('vehiculos').select('codigo,placa,marca,modelo').or(`placa.ilike.${term},codigo.ilike.${term}`).limit(3),
-          supabase.from('proyectos').select('id,codigo,nombre').or(`nombre.ilike.${term},codigo.ilike.${term}`).limit(4),
-          supabase.from('clientes').select('codigo,razon_social').ilike('razon_social', term).limit(3),
-          supabase.from('articulos').select('codigo,nombre').ilike('nombre', term).limit(3),
-          supabase.from('proveedores').select('codigo,razon_social,ruc').or(`razon_social.ilike.${term},ruc.ilike.${term}`).limit(3),
-          supabase.from('ordenes_compra').select('numero,estado').ilike('numero', term).limit(3),
-        ]);
-        const res: SearchResult[] = [
-          ...(proyectos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Proyecto', label: `${r.codigo} — ${r.nombre}`, route: `/proyectos/360/${r.id}` })),
-          ...(ordenes.data ?? []).map((r: Record<string, string>) => ({ tipo: 'OC', label: `${r.numero} (${r.estado})`, route: `/compras/ordenes/${r.numero}` })),
-          ...(proveedores.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Proveedor', label: `${r.razon_social} — ${r.ruc}`, route: `/proveedores/directorio/${r.codigo}` })),
-          ...(ots.data ?? []).map((r: Record<string, string>) => ({ tipo: 'OT', label: `${r.numero_ot} — ${r.titulo}`, route: `/flota/mantenimientos/${r.numero_ot}` })),
-          ...(vehiculos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Vehículo', label: `${r.placa} — ${r.marca} ${r.modelo}`, route: `/flota/vehiculos/${r.codigo}` })),
-          ...(clientes.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Cliente', label: `${r.codigo} — ${r.razon_social}`, route: `/crm/clientes/${r.codigo}` })),
-          ...(articulos.data ?? []).map((r: Record<string, string>) => ({ tipo: 'Artículo', label: `${r.codigo} — ${r.nombre}`, route: `/inventario/articulos/${r.codigo}` })),
-        ];
-        setResults(res);
+        // Solo se consultan los módulos que este usuario puede abrir. Ver
+        // `busqueda-global.ts`: antes se preguntaba por vehículos, clientes y
+        // artículos aunque el usuario no tuviera esos módulos.
+        setResults(await buscar(q, can));
         setShowResults(true);
       } finally {
         setSearching(false);
       }
     }, 300);
-  }, [tenantId]);
+  }, [tenantId, can]);
 
   const handleResultClick = (route: string) => {
     onNavigate?.(route);
