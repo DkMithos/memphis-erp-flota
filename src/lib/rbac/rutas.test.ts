@@ -69,3 +69,37 @@ describe('Administración del sistema', () => {
     expect(puedeVerRuta('/admin/roles', GERENCIA)).toBe(false);
   });
 });
+
+describe('las pantallas de alta exigen crear, no ver', () => {
+  const soloLectura = (m: Modulo, a: Accion) => a === 'ver' || a === 'exportar';
+  const lecturaYAlta = (m: Modulo, a: Accion) => a === 'ver' || a === 'exportar' || a === 'crear';
+
+  it('Walter, con Compras en lectura, entra a la lista pero no al alta', () => {
+    expect(puedeVerRuta('/compras/ordenes', soloLectura)).toBe(true);
+    expect(puedeVerRuta('/compras/ordenes/nuevo', soloLectura)).toBe(false);
+  });
+
+  it('quien sí puede crear, entra', () => {
+    expect(puedeVerRuta('/compras/ordenes/nuevo', lecturaYAlta)).toBe(true);
+  });
+
+  it('el detalle de un registro sigue siendo ver, no crear', () => {
+    expect(puedeVerRuta('/compras/ordenes/MM-001240', soloLectura)).toBe(true);
+    expect(puedeVerRuta('/proyectos/360/abc', soloLectura)).toBe(true);
+  });
+
+  it('vale para todos los módulos, no solo compras', () => {
+    expect(puedeVerRuta('/crm/clientes/nuevo', soloLectura)).toBe(false);
+    expect(puedeVerRuta('/contabilidad/asientos/nuevo', soloLectura)).toBe(false);
+    expect(puedeVerRuta('/flota/vehiculos/nuevo', soloLectura)).toBe(false);
+    expect(puedeVerRuta('/proveedores/directorio/nuevo', soloLectura)).toBe(false);
+  });
+
+  it('recepciones mantiene su regla propia: la da quien recepciona', () => {
+    // Es la excepción documentada: Flota y Proyectos dan conformidad de
+    // mercadería sin tener el resto de Compras.
+    const recepcionista = (m: Modulo, a: Accion) => a === 'recepcionar';
+    expect(puedeVerRuta('/compras/recepciones/nuevo', recepcionista)).toBe(true);
+    expect(puedeVerRuta('/compras/recepciones/nuevo', soloLectura)).toBe(false);
+  });
+});

@@ -3,6 +3,7 @@
  * Vista principal del módulo Contabilidad con KPIs y alertas del período.
  */
 import { useMemo } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import {
   BookOpen, FileText, Receipt, AlertTriangle, CheckCircle2,
   Clock, Plus, ArrowRight, TrendingUp, ShieldCheck, Layers
@@ -83,9 +84,11 @@ export function ContabilidadDashboard({ onNavigate }: ContabilidadDashboardProps
           <Button variant="outline" size="sm" onClick={() => onNavigate('/contabilidad/asientos')}>
             Ver asientos
           </Button>
-          <Button size="sm" className="gap-2" onClick={() => onNavigate('/contabilidad/asientos/nuevo')}>
-            <Plus className="size-4" /> Nuevo Asiento
-          </Button>
+          <PermissionGuard modulo="contabilidad" accion="crear">
+            <Button size="sm" className="gap-2" onClick={() => onNavigate('/contabilidad/asientos/nuevo')}>
+              <Plus className="size-4" /> Nuevo Asiento
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 
@@ -119,9 +122,11 @@ export function ContabilidadDashboard({ onNavigate }: ContabilidadDashboardProps
               <AlertTriangle className="size-5 text-amber-500" />
               <p className="font-medium text-sm">No hay período contable abierto. Crea uno para registrar asientos.</p>
             </div>
-            <Button size="sm" onClick={() => onNavigate('/contabilidad/periodos')}>
-              Crear período
-            </Button>
+            <PermissionGuard modulo="contabilidad" accion="crear">
+              <Button size="sm" onClick={() => onNavigate('/contabilidad/periodos')}>
+                Crear período
+              </Button>
+            </PermissionGuard>
           </CardContent>
         </Card>
       )}
@@ -212,10 +217,12 @@ export function ContabilidadDashboard({ onNavigate }: ContabilidadDashboardProps
               <div className="text-center py-6 text-muted-foreground">
                 <BookOpen className="size-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Sin asientos registrados</p>
-                <Button variant="outline" size="sm" className="mt-2 gap-2 text-xs"
-                  onClick={() => onNavigate('/contabilidad/asientos/nuevo')}>
-                  <Plus className="size-3" /> Crear primer asiento
-                </Button>
+                <PermissionGuard modulo="contabilidad" accion="crear">
+                  <Button variant="outline" size="sm" className="mt-2 gap-2 text-xs"
+                    onClick={() => onNavigate('/contabilidad/asientos/nuevo')}>
+                    <Plus className="size-3" /> Crear primer asiento
+                  </Button>
+                </PermissionGuard>
               </div>
             ) : (
               <div className="space-y-1">

@@ -4,6 +4,7 @@
  * La carga masiva desde Excel llega en el siguiente incremento.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { Wrench, Search, Plus, X } from 'lucide-react';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -217,9 +218,11 @@ export function FlotaMantenimientos({ onNavigate: _onNavigate }: Props) {
               moneda: 'Moneda', costo: 'Costo', factura: 'Factura',
             }}
           />
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="size-4" /> Registrar mantenimiento
-          </Button>
+          <PermissionGuard modulo="flota" accion="crear">
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="size-4" /> Registrar mantenimiento
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 

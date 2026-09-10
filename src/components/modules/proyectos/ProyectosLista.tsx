@@ -3,6 +3,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import {
   Plus, Search, LayoutGrid, List, FolderKanban, Calendar,
   DollarSign, Users, AlertTriangle, ChevronRight, Pencil, Eye,
@@ -543,10 +544,12 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
               fechaInicio: 'Inicio', fechaFinEstimada: 'Fin estimado', fechaFinReal: 'Fin real',
             }}
           />
-          <Button onClick={abrirNuevo}>
-            <Plus className="size-4" />
-            Nuevo Proyecto
-          </Button>
+          <PermissionGuard modulo="proyectos" accion="crear">
+            <Button onClick={abrirNuevo}>
+              <Plus className="size-4" />
+              Nuevo Proyecto
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 
@@ -630,10 +633,12 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
           <FolderKanban className="size-12 mx-auto mb-3 opacity-30" />
           <p className="font-medium">No se encontraron proyectos</p>
           <p className="text-sm mt-1">Ajusta los filtros o crea un nuevo proyecto</p>
-          <Button className="mt-4" onClick={abrirNuevo}>
-            <Plus className="size-4" />
-            Crear Proyecto
-          </Button>
+          <PermissionGuard modulo="proyectos" accion="crear">
+            <Button className="mt-4" onClick={abrirNuevo}>
+              <Plus className="size-4" />
+              Crear Proyecto
+            </Button>
+          </PermissionGuard>
         </div>
       )}
 

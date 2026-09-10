@@ -3,6 +3,7 @@
  * Árbol jerárquico, búsqueda, inicialización y alta de cuentas personalizadas.
  */
 import { useState, useMemo } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { Layers, Search, Plus, RefreshCw, ChevronRight, ChevronDown, Zap, Eye, EyeOff } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -121,9 +122,11 @@ export function PlanCuentas() {
               <Zap className="size-3.5" />{inicializando ? 'Inicializando…' : 'Inicializar PCGE'}
             </Button>
           )}
-          <Button size="sm" onClick={() => setModalNueva(true)} className="gap-1.5">
-            <Plus className="size-3.5" /> Nueva Cuenta
-          </Button>
+          <PermissionGuard modulo="contabilidad" accion="crear">
+            <Button size="sm" onClick={() => setModalNueva(true)} className="gap-1.5">
+              <Plus className="size-3.5" /> Nueva Cuenta
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 

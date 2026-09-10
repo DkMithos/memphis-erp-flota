@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { Plus, Search, ArrowLeftRight } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -181,10 +182,12 @@ export function InventarioMovimientos({ onNavigate: _onNavigate }: Props) {
             <p className="text-muted-foreground mt-1">{movimientos.length} movimientos registrados</p>
           </div>
         </div>
-        <Button onClick={() => { setForm(FORM_EMPTY); setDialogNuevo(true); }}>
-          <Plus className="size-4" />
-          Registrar Movimiento
-        </Button>
+        <PermissionGuard modulo="inventario" accion="crear">
+          <Button onClick={() => { setForm(FORM_EMPTY); setDialogNuevo(true); }}>
+            <Plus className="size-4" />
+            Registrar Movimiento
+          </Button>
+        </PermissionGuard>
       </div>
 
       {/* Filtros */}

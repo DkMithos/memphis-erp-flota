@@ -3,6 +3,7 @@
  * Persistencia en Supabase — tabla riesgos_proyecto
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
@@ -143,10 +144,12 @@ export function ProyectosRiesgos({ onNavigate }: RiesgosProps) {
             <p className="text-sm text-muted-foreground">Identificación, análisis y mitigación de riesgos</p>
           </div>
         </div>
-        <Button onClick={() => setShowDialog(true)}>
-          <Plus className="size-4" />
-          Nuevo Riesgo
-        </Button>
+        <PermissionGuard modulo="proyectos" accion="crear">
+          <Button onClick={() => setShowDialog(true)}>
+            <Plus className="size-4" />
+            Nuevo Riesgo
+          </Button>
+        </PermissionGuard>
       </div>
 
       {/* KPIs — patrón Home */}
@@ -205,9 +208,11 @@ export function ProyectosRiesgos({ onNavigate }: RiesgosProps) {
             <div className="py-16 text-center">
               <Shield className="size-12 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">No hay riesgos registrados</p>
-              <Button size="sm" variant="outline" className="mt-3" onClick={() => setShowDialog(true)}>
-                Registrar primer riesgo
-              </Button>
+              <PermissionGuard modulo="proyectos" accion="crear">
+                <Button size="sm" variant="outline" className="mt-3" onClick={() => setShowDialog(true)}>
+                  Registrar primer riesgo
+                </Button>
+              </PermissionGuard>
             </div>
           ) : (
             <Table>

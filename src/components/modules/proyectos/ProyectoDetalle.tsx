@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import {
   ArrowLeft, FolderKanban, Plus, Pencil, Trash2, ChevronUp, ChevronDown, ChevronRight,
   Users, AlertTriangle, CheckCircle2, Clock, MoreVertical,
@@ -679,9 +680,11 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
         {/* ── TAB TAREAS (Kanban) ── */}
         <TabsContent value="tareas" className="mt-4">
           <div className="flex justify-end mb-3">
-            <Button size="sm" onClick={() => setTareaDialog({ open: true, estadoInicial: 'pendiente' })}>
-              <Plus className="size-3.5" /> Nueva Tarea
-            </Button>
+            <PermissionGuard modulo="proyectos" accion="crear">
+              <Button size="sm" onClick={() => setTareaDialog({ open: true, estadoInicial: 'pendiente' })}>
+                <Plus className="size-3.5" /> Nueva Tarea
+              </Button>
+            </PermissionGuard>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {KANBAN_COLS.map(col => {
@@ -757,9 +760,11 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
         {/* ── TAB FASES ── */}
         <TabsContent value="fases" className="mt-4">
           <div className="flex justify-end mb-3">
-            <Button size="sm" onClick={() => setFaseDialog({ open: true })}>
-              <Plus className="size-3.5" /> Nueva Fase
-            </Button>
+            <PermissionGuard modulo="proyectos" accion="crear">
+              <Button size="sm" onClick={() => setFaseDialog({ open: true })}>
+                <Plus className="size-3.5" /> Nueva Fase
+              </Button>
+            </PermissionGuard>
           </div>
           {proyecto.fases.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
@@ -879,9 +884,11 @@ export function ProyectoDetalle({ proyectoDbId, onBack }: Props) {
         {/* ── TAB EQUIPO ── */}
         <TabsContent value="equipo" className="mt-4">
           <div className="flex justify-end mb-3">
-            <Button size="sm" onClick={() => setMiembroDialog(true)}>
-              <Plus className="size-3.5" /> Agregar Miembro
-            </Button>
+            <PermissionGuard modulo="proyectos" accion="crear">
+              <Button size="sm" onClick={() => setMiembroDialog(true)}>
+                <Plus className="size-3.5" /> Agregar Miembro
+              </Button>
+            </PermissionGuard>
           </div>
           {proyecto.miembros.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">

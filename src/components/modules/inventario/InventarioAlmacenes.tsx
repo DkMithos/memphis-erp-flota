@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { Plus, Edit, Warehouse } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -141,10 +142,12 @@ export function InventarioAlmacenes({ onNavigate: _onNavigate }: Props) {
             <p className="text-muted-foreground mt-1">{almacenes.length} almacén(es) registrado(s)</p>
           </div>
         </div>
-        <Button onClick={abrirNuevo}>
-          <Plus className="size-4" />
-          Nuevo Almacén
-        </Button>
+        <PermissionGuard modulo="inventario" accion="crear">
+          <Button onClick={abrirNuevo}>
+            <Plus className="size-4" />
+            Nuevo Almacén
+          </Button>
+        </PermissionGuard>
       </div>
 
       {/* Cards */}

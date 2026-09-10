@@ -3,6 +3,7 @@
  * Persistencia en Supabase — tabla documentos_proyecto
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
@@ -135,10 +136,12 @@ export function ProyectosDocumentos({ onNavigate }: DocumentosProps) {
             <p className="text-sm text-muted-foreground">Repositorio de planos, contratos y documentación técnica</p>
           </div>
         </div>
-        <Button onClick={() => setShowDialog(true)}>
-          <Plus className="size-4" />
-          Nuevo Documento
-        </Button>
+        <PermissionGuard modulo="proyectos" accion="crear">
+          <Button onClick={() => setShowDialog(true)}>
+            <Plus className="size-4" />
+            Nuevo Documento
+          </Button>
+        </PermissionGuard>
       </div>
 
       <div className="flex items-center gap-3">
@@ -202,12 +205,14 @@ export function ProyectosDocumentos({ onNavigate }: DocumentosProps) {
                         >
                           <ExternalLink className="size-3" />Abrir
                         </Button>
-                        <Button
-                          size="sm" variant="ghost" className="h-6 px-2 text-xs text-red-500 hover:text-red-600"
-                          onClick={() => eliminar(d.id)}
-                        >
-                          <Trash2 className="size-3" />
-                        </Button>
+                        <PermissionGuard modulo="proyectos" accion="eliminar">
+                          <Button
+                            size="sm" variant="ghost" className="h-6 px-2 text-xs text-red-500 hover:text-red-600"
+                            onClick={() => eliminar(d.id)}
+                          >
+                            <Trash2 className="size-3" />
+                          </Button>
+                        </PermissionGuard>
                       </div>
                     </div>
                   </div>

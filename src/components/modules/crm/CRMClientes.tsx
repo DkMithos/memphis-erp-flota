@@ -3,6 +3,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import {
   Plus, Search, Eye, Pencil, Users, Building2, User, Landmark, Heart,
   ChevronRight, CheckCircle2, Target, Award,
@@ -185,9 +186,11 @@ export function CRMClientes({ onNavigate }: Props) {
             <p className="text-sm text-muted-foreground mt-1">Directorio y gestión de cuentas de clientes</p>
           </div>
         </div>
-        <Button onClick={openCrear}>
-          <Plus className="size-4" /> Nuevo Cliente
-        </Button>
+        <PermissionGuard modulo="crm" accion="crear">
+          <Button onClick={openCrear}>
+            <Plus className="size-4" /> Nuevo Cliente
+          </Button>
+        </PermissionGuard>
       </div>
 
       {/* KPIs */}
@@ -523,9 +526,11 @@ export function CRMClientes({ onNavigate }: Props) {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDetalleOpen(false)} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cerrar</Button>
-                <Button onClick={() => { setDetalleOpen(false); openEditar(clienteDetalle); }}>
-                  <Pencil className="size-3.5" /> Editar
-                </Button>
+                <PermissionGuard modulo="crm" accion="editar">
+                  <Button onClick={() => { setDetalleOpen(false); openEditar(clienteDetalle); }}>
+                    <Pencil className="size-3.5" /> Editar
+                  </Button>
+                </PermissionGuard>
               </DialogFooter>
             </>
           )}

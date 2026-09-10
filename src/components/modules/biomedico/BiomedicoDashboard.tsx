@@ -6,6 +6,7 @@
  * Próximas actividades: mantenimientos y calibraciones programados.
  */
 import { useMemo, useState, type CSSProperties } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import {
   Activity, AlertCircle, AlertTriangle, Calendar, CheckCircle2,
   Clock, FileText, Stethoscope, Wrench, XCircle, Plus,
@@ -199,9 +200,11 @@ export function BiomedicoDashboard({ onNavigate }: BiomedicoDashboardProps) {
           <Button variant="outline" size="sm" onClick={() => onNavigate?.('/biomedico/equipos')} className="hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
             Ver equipos
           </Button>
-          <Button size="sm" className="gap-2" onClick={() => onNavigate?.('/biomedico/mantenimientos/nuevo')}>
-            <Plus className="size-4" /> Nuevo mantenimiento
-          </Button>
+          <PermissionGuard modulo="biomedico" accion="crear">
+            <Button size="sm" className="gap-2" onClick={() => onNavigate?.('/biomedico/mantenimientos/nuevo')}>
+              <Plus className="size-4" /> Nuevo mantenimiento
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 
@@ -373,10 +376,12 @@ export function BiomedicoDashboard({ onNavigate }: BiomedicoDashboardProps) {
               <div className="text-center py-6 text-muted-foreground">
                 <FileText className="size-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Sin contratos activos</p>
-                <Button variant="outline" size="sm" className="mt-2 gap-2 text-xs hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
-                  onClick={() => onNavigate?.('/biomedico/contratos/nuevo')}>
-                  <Plus className="size-3" /> Registrar contrato
-                </Button>
+                <PermissionGuard modulo="biomedico" accion="crear">
+                  <Button variant="outline" size="sm" className="mt-2 gap-2 text-xs hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input"
+                    onClick={() => onNavigate?.('/biomedico/contratos/nuevo')}>
+                    <Plus className="size-3" /> Registrar contrato
+                  </Button>
+                </PermissionGuard>
               </div>
             ) : (
               <div className="space-y-2">

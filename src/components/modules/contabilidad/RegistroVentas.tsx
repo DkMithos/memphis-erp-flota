@@ -3,6 +3,7 @@
  * Lista de comprobantes emitidos por período con exportación PLE SUNAT.
  */
 import { useState, useMemo } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { FileText, Download, TrendingUp } from 'lucide-react';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -120,9 +121,11 @@ export function RegistroVentas({ onNavigate }: Props) {
             <div className="py-10 text-center space-y-2">
               <FileText className="size-10 mx-auto text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">Sin comprobantes de venta en este período.</p>
-              <Button size="sm" variant="outline" onClick={() => onNavigate('/contabilidad/comprobantes/nuevo')}>
-                Registrar comprobante
-              </Button>
+              <PermissionGuard modulo="contabilidad" accion="crear">
+                <Button size="sm" variant="outline" onClick={() => onNavigate('/contabilidad/comprobantes/nuevo')}>
+                  Registrar comprobante
+                </Button>
+              </PermissionGuard>
             </div>
           ) : (
             <>

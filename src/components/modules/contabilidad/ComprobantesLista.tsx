@@ -3,6 +3,7 @@
  * Facturas/boletas recibidas y emitidas con filtros y acciones.
  */
 import { useState, useMemo } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { toast } from 'sonner';
 import { Receipt, Plus, Search, Filter, CheckCircle2, XCircle, Clock, ArrowUpDown } from 'lucide-react';
 import { Card, CardContent } from '../../ui/card';
@@ -104,9 +105,11 @@ export function ComprobantesLista({ onNavigate }: Props) {
             modulo="contabilidad" nombre="comprobantes" hoja="Comprobantes"
             datos={paraExportar} headers={CAB_EXPORT} size="sm"
           />
-          <Button size="sm" onClick={() => onNavigate('/contabilidad/comprobantes/nuevo')} className="gap-1.5">
-            <Plus className="size-3.5" /> Nuevo Comprobante
-          </Button>
+          <PermissionGuard modulo="contabilidad" accion="crear">
+            <Button size="sm" onClick={() => onNavigate('/contabilidad/comprobantes/nuevo')} className="gap-1.5">
+              <Plus className="size-3.5" /> Nuevo Comprobante
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 
@@ -142,9 +145,11 @@ export function ComprobantesLista({ onNavigate }: Props) {
             <div className="py-12 text-center space-y-3">
               <Receipt className="size-10 mx-auto text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">Sin comprobantes</p>
-              <Button size="sm" onClick={() => onNavigate('/contabilidad/comprobantes/nuevo')} className="gap-1.5">
-                <Plus className="size-3.5" /> Registrar comprobante
-              </Button>
+              <PermissionGuard modulo="contabilidad" accion="crear">
+                <Button size="sm" onClick={() => onNavigate('/contabilidad/comprobantes/nuevo')} className="gap-1.5">
+                  <Plus className="size-3.5" /> Registrar comprobante
+                </Button>
+              </PermissionGuard>
             </div>
           ) : (
             <>
@@ -195,10 +200,12 @@ export function ComprobantesLista({ onNavigate }: Props) {
                   </div>
                   <div className="col-span-2 lg:col-span-1 flex justify-end">
                     {c.estado === 'activo' && (
-                      <Button variant="ghost" size="sm" onClick={() => handleAnular(c.id)}
-                        className="h-6 text-[10px] text-red-500 hover:text-red-600 px-2">
-                        Anular
-                      </Button>
+                      <PermissionGuard modulo="contabilidad" accion="editar">
+                        <Button variant="ghost" size="sm" onClick={() => handleAnular(c.id)}
+                          className="h-6 text-[10px] text-red-500 hover:text-red-600 px-2">
+                          Anular
+                        </Button>
+                      </PermissionGuard>
                     )}
                   </div>
                 </div>

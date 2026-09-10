@@ -3,6 +3,7 @@
  * Gestión de apertura, cierre y reapertura de períodos fiscales.
  */
 import { useState } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { toast } from 'sonner';
 import { Calendar, Plus, Lock, Unlock, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -59,9 +60,11 @@ export function PeriodosContables() {
           <h1 className="text-xl font-bold flex items-center gap-2"><Calendar className="size-5 text-primary" />Períodos Contables</h1>
           <p className="text-xs text-muted-foreground mt-0.5">{periodos.length} período(s) registrado(s)</p>
         </div>
-        <Button size="sm" onClick={() => setModalNuevo(true)} className="gap-1.5">
-          <Plus className="size-3.5" /> Nuevo Período
-        </Button>
+        <PermissionGuard modulo="contabilidad" accion="crear">
+          <Button size="sm" onClick={() => setModalNuevo(true)} className="gap-1.5">
+            <Plus className="size-3.5" /> Nuevo Período
+          </Button>
+        </PermissionGuard>
       </div>
 
       {periodoActual && (
@@ -96,9 +99,11 @@ export function PeriodosContables() {
             <div className="py-10 text-center space-y-3">
               <Calendar className="size-10 mx-auto text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">Sin períodos. Crea el primero para empezar.</p>
-              <Button size="sm" onClick={() => setModalNuevo(true)} className="gap-1.5">
-                <Plus className="size-3.5" /> Crear período
-              </Button>
+              <PermissionGuard modulo="contabilidad" accion="crear">
+                <Button size="sm" onClick={() => setModalNuevo(true)} className="gap-1.5">
+                  <Plus className="size-3.5" /> Crear período
+                </Button>
+              </PermissionGuard>
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -125,9 +130,11 @@ export function PeriodosContables() {
                       </Button>
                     )}
                     {p.estado === 'cerrado' && (
-                      <Button variant="outline" size="sm" onClick={() => handleReabrir(p.id)} className="gap-1 text-xs h-7">
-                        <Unlock className="size-3" /> Reabrir
-                      </Button>
+                      <PermissionGuard modulo="contabilidad" accion="editar">
+                        <Button variant="outline" size="sm" onClick={() => handleReabrir(p.id)} className="gap-1 text-xs h-7">
+                          <Unlock className="size-3" /> Reabrir
+                        </Button>
+                      </PermissionGuard>
                     )}
                   </div>
                 </div>

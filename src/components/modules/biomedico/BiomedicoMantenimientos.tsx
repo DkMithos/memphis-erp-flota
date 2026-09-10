@@ -5,6 +5,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import {
   Plus,
   Search,
@@ -117,10 +118,12 @@ export function BiomedicoMantenimientos({
             <Download className="size-4" />
             Exportar
           </Button>
-          <Button size="sm" onClick={onNavigateToNuevo}>
-            <Plus className="size-4" />
-            Nuevo Mantenimiento
-          </Button>
+          <PermissionGuard modulo="biomedico" accion="crear">
+            <Button size="sm" onClick={onNavigateToNuevo}>
+              <Plus className="size-4" />
+              Nuevo Mantenimiento
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 

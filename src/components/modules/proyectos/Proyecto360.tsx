@@ -17,6 +17,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import {
   ArrowLeft, Car, Wrench, ShoppingCart, DollarSign,
   Users, Calendar, MapPin, FileText,
@@ -408,9 +409,11 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
             </p>
           )}
         </div>
-        <Button variant="outline" size="sm" onClick={() => onNavigate(`/proyectos/detalle/${proyecto._dbId}`)}>
-          <FileText className="size-4 mr-1" /> Editar
-        </Button>
+        <PermissionGuard modulo="proyectos" accion="editar">
+          <Button variant="outline" size="sm" onClick={() => onNavigate(`/proyectos/detalle/${proyecto._dbId}`)}>
+            <FileText className="size-4 mr-1" /> Editar
+          </Button>
+        </PermissionGuard>
       </div>
 
       {/* ═══ KPIs Financieros Principales (responde a Gerencia) ═══ */}

@@ -3,6 +3,7 @@
  * Lista de flotas por proyecto con su contrato y consumo agregado.
  */
 import { useState } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { Layers, Truck, Bike, ArrowRight, Plus, Building2 } from 'lucide-react';
 import { Card, CardContent } from '../../ui/card';
 import { Badge } from '../../ui/badge';
@@ -82,9 +83,11 @@ export function FlotasLista({ onNavigate }: Props) {
             </p>
           </div>
         </div>
-        <Button onClick={() => setOpen(true)}>
-          <Plus className="size-4" /> Nueva Flota
-        </Button>
+        <PermissionGuard modulo="flota" accion="crear">
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="size-4" /> Nueva Flota
+          </Button>
+        </PermissionGuard>
       </div>
 
       <Card>

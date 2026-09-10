@@ -87,6 +87,12 @@ const EXCEPCIONES: { prefijo: string; requisitos: RequisitoRuta[] }[] = [
   },
 ];
 
+/** `/compras/ordenes/nuevo` sí; `/compras/ordenes/MM-001240` no. */
+export function esRutaDeAlta(ruta: string): boolean {
+  const segmentos = ruta.split('?')[0].split('/').filter(Boolean);
+  return segmentos[segmentos.length - 1] === 'nuevo';
+}
+
 /**
  * Qué se necesita para entrar a `ruta`.
  * - `[]` → libre para cualquiera con rol.
@@ -100,7 +106,18 @@ export function requisitosDeRuta(ruta: string): RequisitoRuta[] {
   if (exc) return exc.requisitos;
 
   const mod = MODULO_POR_PREFIJO.find(m => r === m.prefijo || r.startsWith(m.prefijo + '/'));
-  return mod ? [{ modulo: mod.modulo, accion: 'ver' }] : [];
+  if (!mod) return [];
+
+  // Las pantallas de alta exigen `crear`, no `ver`.
+  //
+  // Sin esto, `ver` valía por `crear` en todo el sistema: quien tenía un módulo
+  // en solo lectura —Walter en Compras, Gerencia en media docena— llegaba al
+  // formulario de alta escribiendo la ruta, y los botones tampoco preguntaban.
+  // Va aquí y no en cada pantalla porque así cubre también las rutas que nadie
+  // se acuerde de proteger.
+  if (esRutaDeAlta(r)) return [{ modulo: mod.modulo, accion: 'crear' }];
+
+  return [{ modulo: mod.modulo, accion: 'ver' }];
 }
 
 /** ¿Puede el usuario abrir esta ruta? `can` viene de usePermissions(). */

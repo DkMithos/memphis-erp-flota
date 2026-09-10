@@ -3,6 +3,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { Plus, Search, CheckCircle2, Clock, XCircle, Phone, Mail, MapPin, Users2, FileText, ArrowRight, CalendarClock, TrendingUp } from 'lucide-react';
 import { PageNav } from '../../shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -209,9 +210,11 @@ export function CRMActividades({ onNavigate: _onNavigate }: Props) {
             <p className="text-sm text-muted-foreground mt-1">Registro de llamadas, reuniones y seguimiento comercial</p>
           </div>
         </div>
-        <Button onClick={() => { setForm(FORM_EMPTY); setCrearOpen(true); }}>
-          <Plus className="size-4" /> Nueva Actividad
-        </Button>
+        <PermissionGuard modulo="crm" accion="crear">
+          <Button onClick={() => { setForm(FORM_EMPTY); setCrearOpen(true); }}>
+            <Plus className="size-4" /> Nueva Actividad
+          </Button>
+        </PermissionGuard>
       </div>
 
       {/* KPIs */}

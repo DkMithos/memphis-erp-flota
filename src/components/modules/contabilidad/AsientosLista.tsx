@@ -3,6 +3,7 @@
  * Libro Diario filtrable por período y estado, con vista de detalle.
  */
 import { useState, useMemo, useEffect } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { toast } from 'sonner';
 import { BookOpen, Plus, Search, Filter, CheckCircle2, Clock, XCircle, ChevronDown, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -123,9 +124,11 @@ function DetalleAsiento({ asiento, onNavigate, onBack }: { asiento: AsientoConta
 
       {asiento.estado === 'borrador' && (
         <div className="flex gap-2 justify-end">
-          <Button variant="outline" onClick={handleAnular} disabled={procesando} className="text-red-500 hover:text-red-600 gap-1.5">
-            <XCircle className="size-4" /> Anular
-          </Button>
+          <PermissionGuard modulo="contabilidad" accion="editar">
+            <Button variant="outline" onClick={handleAnular} disabled={procesando} className="text-red-500 hover:text-red-600 gap-1.5">
+              <XCircle className="size-4" /> Anular
+            </Button>
+          </PermissionGuard>
           <Button onClick={handleValidar} disabled={procesando || !asiento.balanceado} className="gap-1.5">
             <CheckCircle2 className="size-4" />{procesando ? 'Procesando…' : 'Validar Asiento'}
           </Button>
@@ -190,9 +193,11 @@ export function AsientosLista({ onNavigate, detalleNumero }: Props) {
             }}
             size="sm"
           />
-          <Button size="sm" onClick={() => onNavigate('/contabilidad/asientos/nuevo')} className="gap-1.5">
-            <Plus className="size-3.5" /> Nuevo Asiento
-          </Button>
+          <PermissionGuard modulo="contabilidad" accion="crear">
+            <Button size="sm" onClick={() => onNavigate('/contabilidad/asientos/nuevo')} className="gap-1.5">
+              <Plus className="size-3.5" /> Nuevo Asiento
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 
@@ -227,9 +232,11 @@ export function AsientosLista({ onNavigate, detalleNumero }: Props) {
             <div className="py-12 text-center space-y-3">
               <BookOpen className="size-10 mx-auto text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">Sin asientos{query ? ` para "${query}"` : ''}</p>
-              <Button size="sm" onClick={() => onNavigate('/contabilidad/asientos/nuevo')} className="gap-1.5">
-                <Plus className="size-3.5" /> Crear primer asiento
-              </Button>
+              <PermissionGuard modulo="contabilidad" accion="crear">
+                <Button size="sm" onClick={() => onNavigate('/contabilidad/asientos/nuevo')} className="gap-1.5">
+                  <Plus className="size-3.5" /> Crear primer asiento
+                </Button>
+              </PermissionGuard>
             </div>
           ) : (
             <>

@@ -5,6 +5,7 @@
  */
 
 import { useState } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import {
   ArrowLeft,
   Edit,
@@ -127,14 +128,18 @@ export function BiomedicoEquipoDetalle({
             <Download className="size-4" />
             Exportar
           </Button>
-          <Button variant="outline" size="sm" onClick={onNavigateToEditar}>
-            <Edit className="size-4" />
-            Editar
-          </Button>
-          <Button size="sm" onClick={onNavigateToNuevoMantenimiento}>
-            <Wrench className="size-4" />
-            Crear Mantenimiento
-          </Button>
+          <PermissionGuard modulo="biomedico" accion="editar">
+            <Button variant="outline" size="sm" onClick={onNavigateToEditar}>
+              <Edit className="size-4" />
+              Editar
+            </Button>
+          </PermissionGuard>
+          <PermissionGuard modulo="biomedico" accion="crear">
+            <Button size="sm" onClick={onNavigateToNuevoMantenimiento}>
+              <Wrench className="size-4" />
+              Crear Mantenimiento
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 
@@ -477,10 +482,12 @@ export function BiomedicoEquipoDetalle({
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Historial de Mantenimientos</CardTitle>
-                <Button size="sm" onClick={onNavigateToNuevoMantenimiento}>
-                  <Wrench className="size-4" />
-                  Nuevo Mantenimiento
-                </Button>
+                <PermissionGuard modulo="biomedico" accion="crear">
+                  <Button size="sm" onClick={onNavigateToNuevoMantenimiento}>
+                    <Wrench className="size-4" />
+                    Nuevo Mantenimiento
+                  </Button>
+                </PermissionGuard>
               </div>
             </CardHeader>
             <CardContent>

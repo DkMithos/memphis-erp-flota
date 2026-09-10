@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { Plus, Pencil, Trash2, FileCheck, DollarSign, CheckCircle2, Clock, AlertTriangle, XCircle } from 'lucide-react';
 import { Card, CardContent } from '../../ui/card';
 import { Badge } from '../../ui/badge';
@@ -159,9 +160,11 @@ export function ValorizacionesTab({ proyectoDbId, tenantId, fases, monedaProyect
       {/* Header + Add */}
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-sm">Hitos de Facturación</h3>
-        <Button size="sm" onClick={() => { setEditingVal(null); setDialogOpen(true); }}>
-          <Plus className="size-3.5" /> Nueva Valorización
-        </Button>
+        <PermissionGuard modulo="proyectos" accion="crear">
+          <Button size="sm" onClick={() => { setEditingVal(null); setDialogOpen(true); }}>
+            <Plus className="size-3.5" /> Nueva Valorización
+          </Button>
+        </PermissionGuard>
       </div>
 
       {/* Lista */}

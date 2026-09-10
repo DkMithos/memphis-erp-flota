@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { Car, Plus, Search, Eye, MapPin, X, CheckCircle2, PowerOff, Gauge, QrCode } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -120,10 +121,12 @@ export function VehiculosLista({ onNavigate }: VehiculosListaProps) {
             <QrCode className="size-4" />
             Imprimir QRs
           </Button>
-          <Button onClick={() => onNavigate('/flota/vehiculos/nuevo')}>
-            <Plus className="size-4" />
-            Nuevo Vehículo
-          </Button>
+          <PermissionGuard modulo="flota" accion="crear">
+            <Button onClick={() => onNavigate('/flota/vehiculos/nuevo')}>
+              <Plus className="size-4" />
+              Nuevo Vehículo
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 

@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { Plus, Trash2, Package, Wrench, DollarSign, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
@@ -206,10 +207,12 @@ export function AdicionalesTab({
         <div className="flex justify-end">
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetTrigger asChild>
-              <Button>
-                <Plus className="size-4" />
-                Agregar Adicional
-              </Button>
+              <PermissionGuard modulo="flota" accion="crear">
+                <Button>
+                  <Plus className="size-4" />
+                  Agregar Adicional
+                </Button>
+              </PermissionGuard>
             </SheetTrigger>
             <SheetContent className="sm:max-w-lg overflow-y-auto">
               <SheetHeader>
@@ -331,9 +334,11 @@ export function AdicionalesTab({
                 <Button variant="outline" onClick={() => setSheetOpen(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
                   Cancelar
                 </Button>
-                <Button onClick={handleAgregar}>
-                  Agregar
-                </Button>
+                <PermissionGuard modulo="flota" accion="crear">
+                  <Button onClick={handleAgregar}>
+                    Agregar
+                  </Button>
+                </PermissionGuard>
               </SheetFooter>
             </SheetContent>
           </Sheet>
@@ -478,13 +483,15 @@ export function AdicionalesTab({
              className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">
               Cancelar
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleEliminar}
-              disabled={motivoEliminacion.length < 30}
-            >
-              Eliminar
-            </Button>
+            <PermissionGuard modulo="flota" accion="eliminar">
+              <Button
+                variant="destructive"
+                onClick={handleEliminar}
+                disabled={motivoEliminacion.length < 30}
+              >
+                Eliminar
+              </Button>
+            </PermissionGuard>
           </DialogFooter>
         </DialogContent>
       </Dialog>

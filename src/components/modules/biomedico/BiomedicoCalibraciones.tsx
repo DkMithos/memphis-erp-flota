@@ -4,6 +4,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import {
   Plus,
   Search,
@@ -257,10 +258,12 @@ export function BiomedicoCalibraciones({ onNavigate }: Props) {
             </p>
           </div>
         </div>
-        <Button onClick={() => setDialogCrear(true)}>
-          <Plus className="size-4" />
-          Nueva Calibración
-        </Button>
+        <PermissionGuard modulo="biomedico" accion="crear">
+          <Button onClick={() => setDialogCrear(true)}>
+            <Plus className="size-4" />
+            Nueva Calibración
+          </Button>
+        </PermissionGuard>
       </div>
 
       {/* KPIs */}
@@ -521,14 +524,16 @@ export function BiomedicoCalibraciones({ onNavigate }: Props) {
                   </Button>
                 </>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-                onClick={() => handleEliminar(selectedCal)}
-              >
-                Eliminar
-              </Button>
+              <PermissionGuard modulo="biomedico" accion="eliminar">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => handleEliminar(selectedCal)}
+                >
+                  Eliminar
+                </Button>
+              </PermissionGuard>
             </DialogFooter>
           </DialogContent>
         </Dialog>

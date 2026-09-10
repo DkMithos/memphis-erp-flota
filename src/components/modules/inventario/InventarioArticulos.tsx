@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { Plus, Search, Eye, Edit, Package } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -234,10 +235,12 @@ export function InventarioArticulos({ onNavigate: _onNavigate }: Props) {
             <p className="text-muted-foreground mt-1">{articulos.length} artículos en catálogo</p>
           </div>
         </div>
-        <Button onClick={abrirNuevo}>
-          <Plus className="size-4" />
-          Nuevo Artículo
-        </Button>
+        <PermissionGuard modulo="inventario" accion="crear">
+          <Button onClick={abrirNuevo}>
+            <Plus className="size-4" />
+            Nuevo Artículo
+          </Button>
+        </PermissionGuard>
       </div>
 
       {/* Filtros */}
@@ -506,9 +509,11 @@ export function InventarioArticulos({ onNavigate: _onNavigate }: Props) {
           <div className="flex justify-end gap-2 mt-2">
             <Button variant="outline" onClick={() => setDialogDetalle(false)}>Cerrar</Button>
             {articuloSeleccionado && (
-              <Button onClick={() => { setDialogDetalle(false); abrirEditar(articuloSeleccionado); }}>
-                <Edit className="size-4" />Editar
-              </Button>
+              <PermissionGuard modulo="inventario" accion="editar">
+                <Button onClick={() => { setDialogDetalle(false); abrirEditar(articuloSeleccionado); }}>
+                  <Edit className="size-4" />Editar
+                </Button>
+              </PermissionGuard>
             )}
           </div>
         </DialogContent>

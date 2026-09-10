@@ -4,6 +4,7 @@
  * Cubre: garantías OEM, mantenimiento preventivo, correctivo, SLA, integral.
  */
 import { useState, useMemo } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { toast } from 'sonner';
 import {
   FileText, Plus, Search, AlertTriangle, CheckCircle2,
@@ -336,15 +337,17 @@ export function BiomedicoContratos({ onNavigate }: BiomedicoContratosProps) {
                               <RefreshCw className="size-3.5" />
                             </Button>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7"
-                            title="Editar"
-                            onClick={() => onNavigate(`/biomedico/contratos/${c.id}/editar`)}
-                          >
-                            <Edit className="size-3.5" />
-                          </Button>
+                          <PermissionGuard modulo="biomedico" accion="editar">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7"
+                              title="Editar"
+                              onClick={() => onNavigate(`/biomedico/contratos/${c.id}/editar`)}
+                            >
+                              <Edit className="size-3.5" />
+                            </Button>
+                          </PermissionGuard>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -382,9 +385,11 @@ export function BiomedicoContratos({ onNavigate }: BiomedicoContratosProps) {
               </div>
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" size="sm" onClick={() => setConfirmDelete(null)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
-                <Button variant="destructive" size="sm" onClick={() => handleDelete(confirmDelete)}>
-                  Eliminar
-                </Button>
+                <PermissionGuard modulo="biomedico" accion="eliminar">
+                  <Button variant="destructive" size="sm" onClick={() => handleDelete(confirmDelete)}>
+                    Eliminar
+                  </Button>
+                </PermissionGuard>
               </div>
             </CardContent>
           </Card>

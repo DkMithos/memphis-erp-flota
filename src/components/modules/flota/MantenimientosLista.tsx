@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { 
   Wrench,
   Plus,
@@ -209,11 +210,13 @@ export function MantenimientosLista({
           {/* CTA Nueva OT con dropdown por tipo */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button>
-                <Plus className="size-4" />
-                Nueva Orden de Trabajo
-                <ChevronDown className="size-4 ml-2" />
-              </Button>
+              <PermissionGuard modulo="flota" accion="crear">
+                <Button>
+                  <Plus className="size-4" />
+                  Nueva Orden de Trabajo
+                  <ChevronDown className="size-4 ml-2" />
+                </Button>
+              </PermissionGuard>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onNavigateToNueva('preventivo')}>

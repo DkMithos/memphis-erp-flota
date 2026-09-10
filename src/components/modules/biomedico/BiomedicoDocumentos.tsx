@@ -4,6 +4,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import {
   Plus,
   Search,
@@ -209,10 +210,12 @@ export function BiomedicoDocumentos({ onNavigate }: Props) {
             </p>
           </div>
         </div>
-        <Button onClick={() => setDialogAgregar(true)}>
-          <Plus className="size-4" />
-          Agregar Documento
-        </Button>
+        <PermissionGuard modulo="biomedico" accion="crear">
+          <Button onClick={() => setDialogAgregar(true)}>
+            <Plus className="size-4" />
+            Agregar Documento
+          </Button>
+        </PermissionGuard>
       </div>
 
       {/* Filtros */}

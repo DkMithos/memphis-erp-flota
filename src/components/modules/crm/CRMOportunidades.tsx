@@ -3,6 +3,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { Plus, Search, Eye, Pencil, ArrowRight, TrendingUp, DollarSign, Target, Trophy } from 'lucide-react';
 import { PageNav } from '../../shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -202,9 +203,11 @@ export function CRMOportunidades({ onNavigate }: Props) {
             <p className="text-sm text-muted-foreground mt-1">Pipeline de ventas y seguimiento de oportunidades</p>
           </div>
         </div>
-        <Button onClick={openCrear}>
-          <Plus className="size-4" /> Nueva Oportunidad
-        </Button>
+        <PermissionGuard modulo="crm" accion="crear">
+          <Button onClick={openCrear}>
+            <Plus className="size-4" /> Nueva Oportunidad
+          </Button>
+        </PermissionGuard>
       </div>
 
       {/* KPIs */}
@@ -484,9 +487,11 @@ export function CRMOportunidades({ onNavigate }: Props) {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDetalleOpen(false)}>Cerrar</Button>
-                <Button onClick={() => { setDetalleOpen(false); openEditar(opoDetalle); }}>
-                  <Pencil className="size-3.5" /> Editar
-                </Button>
+                <PermissionGuard modulo="crm" accion="editar">
+                  <Button onClick={() => { setDetalleOpen(false); openEditar(opoDetalle); }}>
+                    <Pencil className="size-3.5" /> Editar
+                  </Button>
+                </PermissionGuard>
               </DialogFooter>
             </>
           )}

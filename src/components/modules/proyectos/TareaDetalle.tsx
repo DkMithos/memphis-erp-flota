@@ -2,6 +2,7 @@
  * TareaDetalle — Vista de detalle y edición de una tarea de proyecto
  */
 import { useState, useMemo } from 'react';
+import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { ArrowLeft, Pencil, Trash2, Clock, Calendar, User, Flag, FolderKanban, CheckCircle2, ListChecks } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
@@ -137,9 +138,11 @@ export function TareaDetalle({ tareaDbId, onNavigate, onBack }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={handleEditOpen}>
-            <Pencil className="size-4" /> Editar
-          </Button>
+          <PermissionGuard modulo="proyectos" accion="editar">
+            <Button variant="outline" size="sm" onClick={handleEditOpen}>
+              <Pencil className="size-4" /> Editar
+            </Button>
+          </PermissionGuard>
           <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600" onClick={() => setDelOpen(true)}>
             <Trash2 className="size-4" />
           </Button>
@@ -304,7 +307,9 @@ export function TareaDetalle({ tareaDbId, onNavigate, onBack }: Props) {
           <p className="text-sm text-muted-foreground">Esta acción no se puede deshacer. La tarea "{tarea.titulo}" será eliminada permanentemente.</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDelOpen(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
-            <Button variant="destructive" onClick={handleDelete}>Eliminar</Button>
+            <PermissionGuard modulo="proyectos" accion="eliminar">
+              <Button variant="destructive" onClick={handleDelete}>Eliminar</Button>
+            </PermissionGuard>
           </DialogFooter>
         </DialogContent>
       </Dialog>
