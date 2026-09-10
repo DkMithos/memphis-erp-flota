@@ -1439,3 +1439,55 @@ En la pantalla de órdenes con un rol de Compras:
 
 También se recorrieron seis pantallas dentro de la sesión: **cero** consultas nuevas y cero
 apariciones de módulos ajenos.
+
+---
+
+## 2026-09-10 (II) — Barrido: dónde más se le mencionan módulos ajenos al usuario
+
+Tras arreglar el parpadeo del menú, Kevin pidió revisar si había más casos del mismo tipo. Los hay:
+**tres**, y salían todos de la misma causa — cada pantalla contestaba por su cuenta a "qué módulos
+tiene este usuario", y no coincidían.
+
+### 1. El tutorial de bienvenida (el que Kevin reportó)
+
+Estaba escrito a mano: *"Flota, Biomédico, Compras, Inventario, Finanzas y más"*, con una rejilla
+fija de seis módulos. A quien solo tiene Compras eso no le describe su sistema, le describe uno
+ajeno y le manda a buscar menús que no va a encontrar.
+
+Ahora se arma con sus módulos: *"Tu acceso incluye los módulos de Compras, Proveedores y BI &
+Reportería"*, la rejilla lista esos, y el paso del menú dice "los módulos a los que tienes acceso"
+en vez de "todos los módulos del sistema". No se abre hasta saber cuáles son — si no, diría "sin
+asignar".
+
+### 2. El buscador de la barra superior
+
+Consultaba **siete tablas para todo el mundo**: órdenes de trabajo, vehículos, proyectos, clientes,
+artículos, proveedores y órdenes de compra. A un rol de Compras le devolvía placas de vehículos,
+nombres de clientes y códigos de artículos — y enlaces que al pulsarlos contestaban "no tienes
+acceso". El dato ya se había enseñado en el propio resultado.
+
+Cada fuente declara ahora a qué pantalla lleva (`busqueda-global.ts`) y solo se consulta si el
+usuario puede abrirla. No se filtra el resultado: no se llega a pedir. Verificado en vivo — con el
+rol de Compras se consultan **dos** tablas, no siete.
+
+### 3. Las notificaciones
+
+`notificaciones` no tiene destinatario: es por tenant y la ve todo el mundo. A Compras le llegaba
+*"Aprobación requerida: GCC-2026-001"* (un gasto de caja chica) y el *"Resumen de vencimientos"* de
+flota y biomédico. Se filtran por el módulo del aviso (`RUTA_DE_ENTIDAD`). Un tipo de aviso
+desconocido **se muestra**: lo que no se puede clasificar suele ser general, y callarlo es peor.
+
+Y de paso una consecuencia operativa que nadie había notado: **"marcar todas leídas" marcaba por
+tenant**. Quien no ve caja chica le borraba a Carolina avisos que ella todavía no había leído. Ahora
+marca solo los que el usuario ve.
+
+### Lo que queda para no repetirlo
+
+`src/lib/rbac/modulos-visibles.ts` — **una sola respuesta** a "qué módulos ve este usuario"
+(el tenant lo tiene encendido **y** el usuario tiene permiso). Lo usan el tutorial y, con el mismo
+criterio, el menú, el buscador y las notificaciones.
+
+### Revisado y correcto
+
+Home (`useResumenHome`), Dashboard, los formularios de requerimiento y proveedor: ya consultaban
+permisos antes de mostrar o de pedir. No se tocaron.
