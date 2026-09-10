@@ -1812,3 +1812,44 @@ No se notaba porque los valores por defecto son razonables: parecía correcto, s
 la empresa había configurado. Las políticas ahora usan `auth_tenant_id()`, como el resto.
 
 Migración: `catalogos_rls_como_el_resto`.
+
+---
+
+## 2026-09-10 (IX) — "No me deja registrar el gasto" (CAJA 25 SOLES)
+
+### Carolina tenía razón: es el monto
+
+CAJA 25 SOLES tiene **S/ 892.56** disponibles y ella quería registrar **S/ 1,000**. La regla existe y
+vive en el frontend (`addGasto`, `finanzas-store`): no se registra un gasto mayor al saldo.
+
+Lo reproduje con su rol exacto: sale **"Error al registrar gasto"** y nada más.
+
+### Por qué no se entendía
+
+El error que lanza el store dice exactamente lo que pasa —*"Saldo insuficiente en caja CAJA 25
+SOLES. Disponible: 892.56, Gasto: 1000.00"*— pero el manejador lo tiraba a la basura:
+
+```js
+} catch { toast.error('Error al registrar gasto'); }
+```
+
+Un `catch` sin variable. Ni siquiera llegaba a la consola, por eso Kevin tampoco encontró nada al
+mirar. El registro de **ingresos**, en esta misma pantalla, ya lo hacía bien: pasa el mensaje como
+`description` del aviso. El de gastos era el único que se lo comía.
+
+### Qué se cambió (la regla no se tocó)
+
+- El motivo se muestra, con cifras.
+- El **saldo se ve antes de teclear**, debajo del campo de monto: *"Disponible en la caja:
+  S/ 892.56"*. Al pasarse cambia a rojo y dice la salida: *"Supera el saldo de la caja (S/ 892.56).
+  Registra primero un ingreso."*
+
+### Lo que hay que decidir
+
+La regla **solo está en el frontend**. En la base no hay nada que lo impida: ni restricción ni
+disparador. De hecho **ya hay cajas en negativo** —el total de SOLES marca S/ -7,235.13— porque las
+cargas masivas desde Excel no pasan por esa validación.
+
+Así que hoy: por pantalla no se puede pasar del saldo, por carga sí. Si la regla es de verdad, debe
+estar en la base; si la caja puede quedar en descubierto mientras llega la reposición, sobra en el
+frontend. Pendiente de Kevin.
