@@ -236,6 +236,12 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
 
   const selectedCaja = cajasChicas.find(c => c._dbId === selectedCajaId) ?? null;
 
+  /** El gasto que se está tecleando no cabe en lo que queda en la caja. */
+  const excedeSaldo = (() => {
+    const m = parseFloat(gastoForm.monto);
+    return !!selectedCaja && !isNaN(m) && m > selectedCaja.montoDisponible;
+  })();
+
   // Filtrado y orden viven en cajas-orden.ts para poder probarlos: abiertas
   // primero y orden natural, para que CAJA 2 no quede detrás de CAJA 10.
   const cajasFiltradas = useMemo(
@@ -666,7 +672,13 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
       setGastoForm(defaultGastoForm);
       setGastoProyectoId(null);
       setGastoCentroCostoId(null);
-    } catch { toast.error('Error al registrar gasto'); }
+    } catch (e) {
+      // El motivo importa: el más frecuente es que el gasto supera el saldo, y
+      // "Error al registrar gasto" a secas obliga a adivinarlo.
+      toast.error('No se pudo registrar el gasto', {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    }
     finally { setSaving(false); }
   };
 
@@ -1474,6 +1486,15 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                 onChange={e => setGastoForm(f => ({ ...f, monto: e.target.value }))}
                 className="mt-1"
               />
+              {/* El saldo, delante. No se puede gastar más de lo que hay en la
+                  caja, y enterarse al pulsar Registrar es tarde. */}
+              {selectedCaja && !gastoEditando && (
+                <p className={`text-xs mt-1 ${excedeSaldo ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+                  {excedeSaldo
+                    ? `Supera el saldo de la caja (${fmt(selectedCaja.montoDisponible, selectedCaja.moneda)}). Registra primero un ingreso.`
+                    : `Disponible en la caja: ${fmt(selectedCaja.montoDisponible, selectedCaja.moneda)}`}
+                </p>
+              )}
             </div>
             <div>
               <Label>Beneficiario</Label>
