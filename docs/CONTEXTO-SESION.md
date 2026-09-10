@@ -1563,3 +1563,52 @@ Verificado con los roles reales, no con supuestos:
 | Administración + Fianzas (Carolina) | Los cuatro botones de caja chica intactos |
 
 35 archivos, 146 pruebas en verde, build limpio, y el mismo número de errores de tipos que antes.
+
+---
+
+## 2026-09-10 (IV) — Accesos de Walter y adjunto de la cotización
+
+### Walter está bien
+
+| Módulo | Lo que puede |
+|---|---|
+| Contabilidad | crear, editar, exportar, ver (su módulo) |
+| Compras, Finanzas, Proveedores | **solo lectura** |
+
+Verificado en vivo con su rol: en Compras, Proveedores, Caja Chica y Transacciones no le queda un
+botón de escritura; en Contabilidad crea asientos y comprobantes. `/admin/usuarios`, `/bi/gerencia`,
+`/flota`, `/proyectos` y las rutas `/nuevo` de los módulos ajenos le responden "no tienes acceso".
+
+Que vea compras, proveedores y caja chica en lectura **es correcto para un contador**: son los
+documentos que tiene que asentar. No hay nada fuera de sitio.
+
+### El documento de la cotización
+
+Faltaba, sencillamente: el ERP guardaba los importes de la cotización pero no el papel del proveedor,
+que seguía viviendo en un correo o un WhatsApp.
+
+En el detalle de la cotización, **encima de los items** (es la fuente de lo que va debajo), aparece
+"Documento de la Cotización": adjuntar, abrir, descargar y quitar. Admite varios archivos — el
+proveedor suele mandar la propuesta y aparte la ficha técnica. Acepta PDF, foto, Excel y Word, hasta
+10 MB.
+
+Cuatro decisiones que no se ven:
+
+- **Nunca se guarda una URL.** El bucket es privado y se pide una firmada de cinco minutos al abrir.
+  Una URL guardada en la base sería un enlace público y permanente a un documento de la empresa.
+- **Si falla el registro en la base, se borra el archivo del bucket.** Es justo lo que no se hizo en
+  facturas-proveedores, donde quedó el XML huérfano `F001-00099001.xml`.
+- **El nombre se limpia para la ruta** (tildes, `°`, paréntesis) pero se guarda y se muestra el
+  original: "Cotización N° 18 (final).pdf" se ve así y se almacena como
+  `...-Cotizacion-N-18-final-.pdf`.
+- **Adjuntar y quitar piden permiso de Compras; ver y descargar bastan con `ver`.** Walter ve el
+  documento y se lo lleva, no lo cambia.
+
+Migración `cotizacion_archivos`: tabla, bucket y políticas de Storage por permiso, apoyadas en
+`auth_tiene_permiso()` — la función que ya existía para los cargos de fianzas.
+
+Probado de punta a punta: subida (con nombre acentuado), URL firmada que devuelve el PDF, lectura
+con el rol de Walter sin botones de escritura, y borrado que deja la tabla **y** el bucket en cero.
+
+**Queda por decidir:** hoy se adjunta desde el detalle, después de crear la cotización. Si Compras
+prefiere adjuntarlo dentro del formulario de alta, es un añadido pequeño.
