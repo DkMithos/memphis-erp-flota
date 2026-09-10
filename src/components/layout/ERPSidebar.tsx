@@ -85,6 +85,29 @@ interface ERPSidebarProps {
   currentRoute?: string;
 }
 
+/**
+ * Lo que se ve mientras se averigua qué módulos le tocan a este usuario.
+ *
+ * Es deliberado que no sea el menú completo ni el menú vacío: enseñar todo
+ * miente sobre lo que puede abrir, y enseñar nada parece un menú roto. Unas
+ * barras grises dicen "esto está por llegar" sin afirmar nada.
+ */
+function MenuCargando() {
+  return (
+    <div className="space-y-1" aria-hidden="true">
+      {Array.from({ length: 7 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 px-3 py-2">
+          <div className="size-5 rounded bg-muted animate-pulse" />
+          <div
+            className="h-3 rounded bg-muted animate-pulse"
+            style={{ width: `${55 + ((i * 13) % 35)}%` }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }: ERPSidebarProps) {
   const { t } = useTranslation();
   const { user, profile, tenantName, tenantLogoUrl } = useAuth();
@@ -439,7 +462,8 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4">
         <div className="px-3 space-y-1">
-          {navItems.filter(item => {
+          {permisosLoading && <MenuCargando />}
+          {!permisosLoading && navItems.filter(item => {
           if (item.id === 'home') return true; // siempre visible
           // 1) interruptor del tenant (módulo apagado para todos)
           if (item.id !== 'admin') {
@@ -447,9 +471,10 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
             const habilitado = cfg?.enabled ?? item.id === 'dashboard';
             if (!habilitado) return false;
           }
-          // 2) permiso del usuario. Mientras cargan los permisos no se oculta
-          //    nada, para no hacer parpadear el menú en cada refresco.
-          if (permisosLoading) return true;
+          // 2) permiso del usuario. Mientras no sepamos qué puede ver, NO se
+          //    enseña el menú completo: eso le mostraba a cada usuario módulos
+          //    que no puede abrir y luego se los quitaba de golpe. En su lugar
+          //    se pinta un esqueleto (más abajo).
           const rutas = [item.href, ...(item.subItems ?? []).map(si => si.href)]
             .filter(Boolean) as string[];
           return rutas.some(r => puedeVerRuta(r, can));
@@ -497,7 +522,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
 
               {item.subItems && expandedItems.includes(item.id) && (
                 <div className="ml-4 mt-1 space-y-1">
-                  {item.subItems.filter(si => permisosLoading || puedeVerRuta(si.href ?? '', can)).map((subItem) => (
+                  {item.subItems.filter(si => puedeVerRuta(si.href ?? '', can)).map((subItem) => (
                     <Button
                       key={subItem.href}
                       variant="ghost"
