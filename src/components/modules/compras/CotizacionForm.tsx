@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, Save, AlertCircle, Plus, Trash2, FileText } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { X, Save, AlertCircle, Plus, Trash2, FileText, Paperclip, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
@@ -19,6 +19,11 @@ import { useCotizacionesStore, type NuevaCotizacionInput, type ItemCotizacion } 
 import { useRequerimientosStore } from '../../../lib/compras/requerimientos-store';
 import { puedeCotizarRequerimiento } from '../../../lib/compras/requerimientos-config';
 import { heredarDelRequerimiento } from '../../../lib/compras/heredar-requerimiento';
+import {
+  subirArchivoCotizacion, tamanoLegible, TIPOS_ACEPTADOS, TAMANO_MAXIMO,
+} from '../../../lib/compras/cotizacion-archivos';
+import { AdjuntosCotizacion } from './AdjuntosCotizacion';
+import { useAuth } from '../../../auth/AuthProvider';
 import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
 import { SearchableSelect } from '../../shared/SearchableSelect';
 import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
@@ -78,6 +83,23 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Al dar de alta todavía no hay cotización a la que colgar el archivo, así
+  // que se guardan aquí y se suben en cuanto exista. En edición no hace falta:
+  // la cotización ya tiene id y se usa el panel de siempre.
+  const { tenantId, user } = useAuth();
+  const [porSubir, setPorSubir] = useState<File[]>([]);
+  const inputArchivo = useRef<HTMLInputElement>(null);
+
+  const elegirArchivos = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nuevos = Array.from(e.target.files ?? []);
+    const grandes = nuevos.filter(f => f.size > TAMANO_MAXIMO);
+    if (grandes.length > 0) {
+      toast.error(`${grandes.map(f => f.name).join(', ')}: el máximo son 10 MB`);
+    }
+    setPorSubir(prev => [...prev, ...nuevos.filter(f => f.size <= TAMANO_MAXIMO)]);
+    if (inputArchivo.current) inputArchivo.current.value = '';
+  };
 
   // Al llegar desde el requerimiento (?req=RQ-...) hay que heredar sus items.
   // Va en un efecto y no en el estado inicial porque el store carga DESPUÉS del
@@ -215,6 +237,29 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
         toast.success(enviar
           ? `Cotización ${nuevaCot.id} creada y enviada`
           : `Cotización ${nuevaCot.id} guardada como borrador`);
+
+        // Los adjuntos van después: hasta aquí no había cotización a la que
+        // colgarlos. Si alguno falla se dice cuál — la cotización ya está
+        // creada y el documento se puede adjuntar desde su pantalla.
+        const dbId = (nuevaCot as any)._dbId as string | undefined;
+        if (porSubir.length > 0 && dbId && tenantId) {
+          const fallidos: string[] = [];
+          for (const f of porSubir) {
+            const err = await subirArchivoCotizacion(dbId, tenantId, user?.id ?? null, f);
+            if (err) fallidos.push(f.name);
+          }
+          if (fallidos.length === 0) {
+            toast.success(porSubir.length === 1
+              ? 'Documento adjuntado'
+              : `${porSubir.length} documentos adjuntados`);
+          } else {
+            toast.error(
+              `No se pudo adjuntar ${fallidos.join(', ')}. ` +
+              `La cotización sí quedó guardada: adjúntalo desde su pantalla.`,
+            );
+          }
+        }
+
         onSuccess(nuevaCot.id);
       }
     } catch (error) {
@@ -632,6 +677,61 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
             </CardContent>
           </Card>
 
+          {/* Documento del proveedor */}
+          {isEditing ? (
+            <AdjuntosCotizacion cotizacionDbId={(cotizacionExistente as any)?._dbId ?? undefined} />
+          ) : (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Paperclip className="size-5" />
+                  Documento de la Cotización {porSubir.length > 0 && `(${porSubir.length})`}
+                </CardTitle>
+                <>
+                  <input
+                    ref={inputArchivo}
+                    type="file"
+                    multiple
+                    accept={TIPOS_ACEPTADOS}
+                    className="hidden"
+                    onChange={elegirArchivos}
+                  />
+                  <Button type="button" size="sm" variant="outline" onClick={() => inputArchivo.current?.click()}>
+                    <Upload className="size-4" />
+                    Adjuntar
+                  </Button>
+                </>
+              </CardHeader>
+              <CardContent>
+                {porSubir.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Adjunta el PDF que envió el proveedor. También vale una foto o el Excel.
+                    Se guardará junto con la cotización.
+                  </p>
+                ) : (
+                  <ul className="divide-y">
+                    {porSubir.map((f, i) => (
+                      <li key={`${f.name}-${i}`} className="flex items-center gap-3 py-2">
+                        <FileText className="size-4 text-muted-foreground shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate" title={f.name}>{f.name}</p>
+                          <p className="text-xs text-muted-foreground">{tamanoLegible(f.size)}</p>
+                        </div>
+                        <Button
+                          type="button" variant="ghost" size="icon" title="Quitar"
+                          className="text-red-500 hover:text-red-600"
+                          onClick={() => setPorSubir(prev => prev.filter((_, j) => j !== i))}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Términos y Observaciones */}
           <Card>
             <CardHeader>
@@ -686,6 +786,3 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
     </div>
   );
 }
-
-// Import useMemo
-import { useMemo } from 'react';

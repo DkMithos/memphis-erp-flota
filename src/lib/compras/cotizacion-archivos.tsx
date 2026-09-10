@@ -57,6 +57,46 @@ export function nombreParaRuta(nombre: string): string {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const tabla = () => supabase.from('cotizacion_archivos') as any;
 
+/**
+ * Sube un archivo y lo registra. Devuelve el error como texto, o null.
+ *
+ * Está fuera del hook porque el formulario de alta necesita subir **después**
+ * de crear la cotización, cuando ya hay un id pero no hay panel montado.
+ */
+export async function subirArchivoCotizacion(
+  cotizacionDbId: string,
+  tenantId: string,
+  userId: string | null,
+  archivo: File,
+): Promise<string | null> {
+  if (archivo.size > TAMANO_MAXIMO) {
+    return `"${archivo.name}" pesa ${tamanoLegible(archivo.size)}; el máximo es 10 MB`;
+  }
+
+  const ruta = `${tenantId}/${cotizacionDbId}/${Date.now()}-${nombreParaRuta(archivo.name)}`;
+
+  const { error: errSubida } = await supabase.storage
+    .from(BUCKET)
+    .upload(ruta, archivo, { contentType: archivo.type || undefined, upsert: false });
+  if (errSubida) return errSubida.message;
+
+  const { error } = await tabla().insert({
+    tenant_id: tenantId,
+    cotizacion_id: cotizacionDbId,
+    nombre: archivo.name,          // el nombre original, para enseñarlo tal cual
+    storage_path: ruta,
+    mime: archivo.type || null,
+    tamano_bytes: archivo.size,
+    subido_por: userId,
+  });
+  if (error) {
+    // Si no se pudo registrar, no dejar el archivo suelto en el bucket.
+    await supabase.storage.from(BUCKET).remove([ruta]);
+    return error.message;
+  }
+  return null;
+}
+
 export function useArchivosCotizacion(cotizacionDbId: string | undefined) {
   const { tenantId, user } = useAuth();
   const [archivos, setArchivos] = useState<ArchivoCotizacion[]>([]);
@@ -86,34 +126,9 @@ export function useArchivosCotizacion(cotizacionDbId: string | undefined) {
   /** Sube un archivo. Devuelve el error como texto, o null si fue bien. */
   const subir = useCallback(async (archivo: File): Promise<string | null> => {
     if (!cotizacionDbId || !tenantId) return 'No se pudo identificar la cotización';
-    if (archivo.size > TAMANO_MAXIMO) {
-      return `"${archivo.name}" pesa ${tamanoLegible(archivo.size)}; el máximo es 10 MB`;
-    }
-
-    const ruta = `${tenantId}/${cotizacionDbId}/${Date.now()}-${nombreParaRuta(archivo.name)}`;
-
-    const { error: errSubida } = await supabase.storage
-      .from(BUCKET)
-      .upload(ruta, archivo, { contentType: archivo.type || undefined, upsert: false });
-    if (errSubida) return errSubida.message;
-
-    const { error } = await tabla().insert({
-      tenant_id: tenantId,
-      cotizacion_id: cotizacionDbId,
-      nombre: archivo.name,          // el nombre original, para enseñarlo tal cual
-      storage_path: ruta,
-      mime: archivo.type || null,
-      tamano_bytes: archivo.size,
-      subido_por: user?.id ?? null,
-    });
-    if (error) {
-      // Si no se pudo registrar, no dejar el archivo suelto en el bucket.
-      await supabase.storage.from(BUCKET).remove([ruta]);
-      return error.message;
-    }
-
-    await recargar();
-    return null;
+    const error = await subirArchivoCotizacion(cotizacionDbId, tenantId, user?.id ?? null, archivo);
+    if (!error) await recargar();
+    return error;
   }, [cotizacionDbId, tenantId, user, recargar]);
 
   /** URL firmada de 5 minutos. `descargar` fuerza la descarga en vez de abrir. */
