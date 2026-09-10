@@ -27,6 +27,8 @@ import {
   TableRow,
 } from '../../ui/table';
 import { useCentrosCosto, type NuevoCentroCostoInput } from '../../../lib/centros-costo/centros-costo-store';
+import { useProyectos } from '../../../lib/proyectos/proyectos-store';
+import { BotonExportar } from '../../shared/BotonExportar';
 
 interface FormState {
   codigo: string;
@@ -39,6 +41,10 @@ const INITIAL_FORM: FormState = { codigo: '', nombre: '', descripcion: '' };
 export function CentrosCostoAdmin() {
   const { t } = useTranslation();
   const { centrosCosto, loading, crearCentroCosto, actualizarCentroCosto, toggleActivo } = useCentrosCosto();
+  const { proyectos } = useProyectos();
+  /** Nombre del proyecto al que cuelga el centro, o vacío si es de área. */
+  const nombreProyecto = (id: string | null) =>
+    id ? (proyectos.find(p => p._dbId === id)?.nombre ?? '(proyecto no encontrado)') : '';
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -126,10 +132,32 @@ export function CentrosCostoAdmin() {
             </p>
           </div>
         </div>
-        <Button onClick={openCreate} className="gap-2">
-          <Plus className="size-4" />
-          {t('common.create', 'Crear')}
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Operaciones pide el listado para revisarlo, y lo que revisan es a
+              qué proyecto cuelga cada centro. */}
+          <BotonExportar
+            modulo="admin"
+            nombre="centros-costo"
+            hoja="Centros de Costo"
+            datos={centrosCosto.map(cc => ({
+              codigo: cc.codigo,
+              nombre: cc.nombre,
+              descripcion: cc.descripcion ?? '',
+              proyecto: nombreProyecto(cc.proyectoId),
+              tipo: cc.proyectoId ? 'De proyecto' : 'De área',
+              estado: cc.activo ? 'Activo' : 'Inactivo',
+              creadoEn: cc.creadoEn?.slice(0, 10) ?? '',
+            }))}
+            headers={{
+              codigo: 'Código', nombre: 'Nombre', descripcion: 'Descripción',
+              proyecto: 'Proyecto', tipo: 'Tipo', estado: 'Estado', creadoEn: 'Creado',
+            }}
+          />
+          <Button onClick={openCreate} className="gap-2">
+            <Plus className="size-4" />
+            {t('common.create', 'Crear')}
+          </Button>
+        </div>
       </div>
 
       {/* Table */}

@@ -21,6 +21,7 @@ import {
   type TipoCatalogo,
   type ItemCatalogo,
 } from '../../../lib/shared/catalogos-store';
+import { BotonExportar } from '../../shared/BotonExportar';
 import { toast } from 'sonner';
 import { useConfirmAction } from '@/components/shared/ConfirmDialogProvider';
 
@@ -264,16 +265,45 @@ export function GestionCatalogos() {
       <PageNav />
 
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
-          <List className="size-6 text-black dark:text-primary" />
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-12 dark:bg-primary/10 rounded-lg flex items-center justify-center">
+            <List className="size-6 text-black dark:text-primary" />
+          </div>
+          <div>
+            <h3 className="text-2xl font-semibold">Catálogos Configurables</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Gestiona las listas desplegables usadas en formularios del sistema (unidades, condiciones de pago, bancos, etc.)
+            </p>
+          </div>
         </div>
-        <div>
-          <h3 className="text-2xl font-semibold">Catálogos Configurables</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gestiona las listas desplegables usadas en formularios del sistema (unidades, condiciones de pago, bancos, etc.)
-          </p>
-        </div>
+        {/* Se exportan TODOS los catálogos de golpe, no solo el que se está
+            viendo: para revisarlos hace falta la lista completa, y de uno en uno
+            saldrían veinte archivos. */}
+        <BotonExportar
+          modulo="admin"
+          nombre="catalogos"
+          hoja="Catálogos"
+          etiqueta="Exportar todo"
+          datos={[...items]
+            .sort((a, b) =>
+              (TIPO_CATALOGO_LABELS[a.tipo] ?? a.tipo).localeCompare(TIPO_CATALOGO_LABELS[b.tipo] ?? b.tipo)
+              || a.orden - b.orden
+              || a.label.localeCompare(b.label))
+            .map(i => ({
+              catalogo: TIPO_CATALOGO_LABELS[i.tipo] ?? i.tipo,
+              label: i.label,
+              key: i.key,
+              descripcion: i.descripcion ?? '',
+              estado: i.activo ? 'Activo' : 'Inactivo',
+              origen: i.esSistema ? 'Del sistema' : 'Agregado',
+              orden: i.orden,
+            }))}
+          headers={{
+            catalogo: 'Catálogo', label: 'Valor', key: 'Clave interna',
+            descripcion: 'Descripción', estado: 'Estado', origen: 'Origen', orden: 'Orden',
+          }}
+        />
       </div>
 
       {/* Selector de tipo — mobile friendly */}

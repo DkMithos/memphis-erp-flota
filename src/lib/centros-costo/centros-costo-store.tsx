@@ -20,6 +20,8 @@ export interface CentroCosto {
   descripcion: string | null;
   activo: boolean;
   creadoEn: string;
+  /** Proyecto al que pertenece, si es un centro de proyecto y no de área. */
+  proyectoId: string | null;
 }
 
 export interface NuevoCentroCostoInput {
@@ -60,6 +62,7 @@ function mapFromDB(row: CentroCostoDB): CentroCosto {
     descripcion: row.descripcion ?? null,
     activo: row.activo,
     creadoEn: row.creado_en,
+    proyectoId: (row as any).proyecto_id ?? null,
   };
 }
 

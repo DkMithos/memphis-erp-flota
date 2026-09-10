@@ -181,7 +181,7 @@ function mapFromDB(row: CotizacionWithRelations): Cotizacion {
     requerimientoId: row.requerimiento_id ?? '',
     proveedorId: row.proveedor_id,
     proveedorNombre: row.proveedor?.razon_social ?? '',
-    tipo: 'bienes' as TipoCotizacion, // DB doesn't store tipo — default
+    tipo: ((row as any).tipo ?? 'bienes') as TipoCotizacion,
     moneda: row.moneda as MonedaCotizacion,
     estado: row.estado as EstadoCotizacion,
     validezDias,
@@ -332,6 +332,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
       const { data: inserted, error: errCot } = await dbCotizaciones.create({
         tenant_id: tenantId,
         numero: nuevoCodigo,
+        tipo: input.tipo,
         requerimiento_id: input.requerimientoDbId || input.requerimientoId || null, // Prefer UUID (_dbId); fall back to display code
         proveedor_id: proveedorDbId,
         estado: estadoInicial,
@@ -410,8 +411,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
       // Estos cinco NO se enviaban: al corregir una cotización rechazada se
       // guardaban los importes pero el proveedor, el centro de costo y el
       // régimen de IGV se quedaban como estaban, sin decir nada.
-      // `tipo` (bienes/servicios) NO tiene columna en `cotizaciones`: se asume
-      // 'bienes' al leer. Enviarlo hace fallar el guardado entero.
+      if (input.tipo !== undefined) updatePayload.tipo = input.tipo;
       if (input.proveedorId !== undefined) updatePayload.proveedor_id = input.proveedorId ?? null;
       if (input.centroCostoId !== undefined) updatePayload.centro_costo_id = input.centroCostoId ?? null;
       if (input.regimenIgv !== undefined) updatePayload.regimen_igv = input.regimenIgv;
@@ -484,6 +484,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
               ...(input.validezDias !== undefined && { validezDias: input.validezDias }),
               ...(input.terminos !== undefined && { terminos: input.terminos?.trim() ?? null }),
               ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() ?? null }),
+              ...(input.tipo !== undefined && { tipo: input.tipo }),
               ...(input.proveedorId !== undefined && { proveedorId: input.proveedorId ?? null }),
               ...(input.proveedorNombre !== undefined && { proveedorNombre: input.proveedorNombre }),
               ...(input.centroCostoId !== undefined && { centroCostoId: input.centroCostoId ?? null }),
@@ -506,6 +507,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
               ...(input.validezDias !== undefined && { validezDias: input.validezDias }),
               ...(input.terminos !== undefined && { terminos: input.terminos?.trim() ?? null }),
               ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() ?? null }),
+              ...(input.tipo !== undefined && { tipo: input.tipo }),
               ...(input.proveedorId !== undefined && { proveedorId: input.proveedorId ?? null }),
               ...(input.proveedorNombre !== undefined && { proveedorNombre: input.proveedorNombre }),
               ...(input.centroCostoId !== undefined && { centroCostoId: input.centroCostoId ?? null }),
