@@ -206,6 +206,8 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
     else exportToPDF(nombre, `Caja Chica — ${proyectoNombre(filtroProyecto)}`, datos, headers);
   };
   const [showNuevaCaja, setShowNuevaCaja] = useState(false);
+  /** Nombres de cajas cuyo saldo ya viajó a otra: no se arrastra dos veces. */
+  const [saldosYaArrastrados, setSaldosYaArrastrados] = useState<Set<string>>(new Set());
   const [showNuevoGasto, setShowNuevoGasto] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -485,11 +487,49 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
     return { total };
   }, [gastosDeCaja, mesActual, anioActual]);
 
-  /** Cajas abiertas que pueden ceder su saldo a una nueva, por moneda. */
-  const cajasQueCedenSaldo = useMemo(
-    () => cajasChicas.filter(c => c.estado !== 'cerrada' && c.moneda === nuevaCajaForm.moneda),
-    [cajasChicas, nuevaCajaForm.moneda],
-  );
+  // Qué saldos ya viajaron a otra caja. Se relee cuando cambia el conjunto.
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      const { data } = await (supabase as any)
+        .from('ingresos_caja_chica')
+        .select('origen')
+        .eq('tipo', 'saldo_anterior');
+      if (!vivo) return;
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      setSaldosYaArrastrados(new Set(((data ?? []) as any[]).map(r => r.origen).filter(Boolean)));
+    })();
+    return () => { vivo = false; };
+  }, [refrescoIngresos, cajasChicas.length]);
+
+  /**
+   * Cajas que pueden ceder su saldo a una nueva, por moneda.
+   *
+   * Incluye las **cerradas** que todavía no lo cedieron: cerrar la caja y
+   * abrir la siguiente después es la secuencia natural de quien la lleva, y
+   * antes eso dejaba el saldo —o la deuda— sin a dónde ir. Un saldo se arrastra
+   * una sola vez, así que las ya cedidas quedan fuera.
+   */
+  const cajasQueCedenSaldo = useMemo(() => {
+    const correlativo = (nombre: string) =>
+      Number((nombre.match(/CAJA\s+(\d+)/i) ?? [])[1] ?? 0);
+
+    const deLaMoneda = cajasChicas.filter(c =>
+      c.moneda === nuevaCajaForm.moneda && !saldosYaArrastrados.has(c.nombre));
+
+    const abiertas = deLaMoneda.filter(c => c.estado !== 'cerrada');
+
+    // De las cerradas solo se ofrece la ÚLTIMA con saldo pendiente de arrastrar.
+    // Las demás son del histórico migrado —23 cajas de la época del Excel, con
+    // saldos ya liquidados fuera del sistema— y ofrecerlas invita a arrastrar
+    // por error una deuda de hace meses.
+    const ultimaCerrada = deLaMoneda
+      .filter(c => c.estado === 'cerrada' && Number(c.montoDisponible ?? 0) !== 0)
+      .sort((a, b) => correlativo(b.nombre) - correlativo(a.nombre))[0];
+
+    return ultimaCerrada ? [...abiertas, ultimaCerrada] : abiertas;
+  }, [cajasChicas, nuevaCajaForm.moneda, saldosYaArrastrados]);
   const cajaOrigen = cajasQueCedenSaldo.find(c => c._dbId === nuevaCajaForm.cajaOrigenId);
   const saldoQueArrastra = cajaOrigen?.montoDisponible ?? 0;
   const aperturaTotal = saldoQueArrastra + (parseFloat(nuevaCajaForm.montoAdicional) || 0);
@@ -507,8 +547,10 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
     }
     const adicional = parseFloat(nuevaCajaForm.montoAdicional) || 0;
     if (adicional < 0) { toast.error('El monto adicional no puede ser negativo'); return; }
-    if (aperturaTotal <= 0) {
-      toast.error('La caja quedaría en cero: elige una caja de origen con saldo o indica un monto');
+    // Abrir arrastrando solo una deuda es válido: es justo lo que hay que
+    // reflejar. Solo se rechaza si no hay NADA que mover.
+    if (saldoQueArrastra === 0 && adicional === 0) {
+      toast.error('No hay nada que abrir: elige una caja de origen con saldo o indica un monto');
       return;
     }
 
@@ -1392,15 +1434,21 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                   <SelectItem value="ninguna">Ninguna — empezar de cero</SelectItem>
                   {cajasQueCedenSaldo.map(c => (
                     <SelectItem key={c._dbId} value={c._dbId}>
-                      {c.nombre} — saldo {fmt(c.montoDisponible, c.moneda)}
+                      {c.nombre}
+                      {c.estado === 'cerrada' ? ' (cerrada)' : ''}
+                      {' — '}
+                      {Number(c.montoDisponible ?? 0) < 0 ? 'deuda ' : 'saldo '}
+                      {fmt(c.montoDisponible, c.moneda)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
                 {cajaOrigen
-                  ? `Se cerrará ${cajaOrigen.nombre} y su saldo pasa como primer movimiento de la nueva.`
-                  : 'Si eliges una, la caja nueva nace con su saldo y la anterior queda cerrada.'}
+                  ? (saldoQueArrastra < 0
+                      ? `La deuda de ${cajaOrigen.nombre} (${fmt(saldoQueArrastra, cajaOrigen.moneda)}) pasa como primer movimiento de la nueva.`
+                      : `${cajaOrigen.estado === 'cerrada' ? 'El saldo de' : 'Se cerrará'} ${cajaOrigen.nombre} y su saldo pasa como primer movimiento de la nueva.`)
+                  : 'Si eliges una, la caja nueva nace con su saldo —o con su deuda— y la anterior queda cerrada.'}
               </p>
             </div>
 
@@ -1421,8 +1469,12 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
             <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1">
               {cajaOrigen && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Saldo de {cajaOrigen.nombre}</span>
-                  <span className="tabular-nums">{fmt(saldoQueArrastra, nuevaCajaForm.moneda)}</span>
+                  <span className="text-muted-foreground">
+                    {saldoQueArrastra < 0 ? 'Deuda de ' : 'Saldo de '}{cajaOrigen.nombre}
+                  </span>
+                  <span className={`tabular-nums ${saldoQueArrastra < 0 ? 'text-red-600' : ''}`}>
+                    {fmt(saldoQueArrastra, nuevaCajaForm.moneda)}
+                  </span>
                 </div>
               )}
               <div className="flex justify-between">
@@ -1431,8 +1483,15 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
               </div>
               <div className="flex justify-between font-semibold border-t pt-1">
                 <span>Abre con</span>
-                <span className="tabular-nums">{fmt(aperturaTotal, nuevaCajaForm.moneda)}</span>
+                <span className={`tabular-nums ${aperturaTotal < 0 ? 'text-red-600' : ''}`}>
+                  {fmt(aperturaTotal, nuevaCajaForm.moneda)}
+                </span>
               </div>
+              {aperturaTotal < 0 && (
+                <p className="text-xs text-red-600 pt-1">
+                  La caja nueva nace en descubierto: arrastra más deuda que depósito.
+                </p>
+              )}
             </div>
 
             <div>

@@ -2038,3 +2038,54 @@ El estado `en_evaluacion` ya no bloquea, pero sigue sin haber **quién apruebe p
 `proveedores.aprobar` no está en ningún rol. Si Memphis quiere de verdad evaluar proveedores antes
 de comprarles, hay que decidir a qué puesto le toca. Si no, conviene que nazcan `activo` y retirar
 el estado, en vez de dejar una etiqueta que nadie mueve.
+
+---
+
+## La caja que cierra en rojo también deja herencia (2026-09-11)
+
+Carolina cerró CAJA 25 SOLES con **S/ -125.49** y quiso abrir la siguiente arrastrando esa deuda,
+igual que cuando queda saldo a favor. No pudo: la caja anterior no aparecía en la lista.
+
+### Qué lo impedía (dos cosas, y el signo no era ninguna)
+
+El arrastre ya tomaba `monto_disponible` **con su signo**, así que un negativo viajaba bien. Lo que
+fallaba era el camino hasta ahí:
+
+1. `fn_abrir_caja_chica` exigía que la caja de origen estuviera **abierta** (`La caja % ya está
+   cerrada`), y la interfaz filtraba las cerradas. Carolina cerró primero, como se debe hacer, y con
+   eso la caja desapareció de las opciones.
+2. El guardián `if arrastre + adicional <= 0 then raise 'La caja nueva quedaría en cero'` rechazaba
+   abrir arrastrando solo deuda.
+
+Y el movimiento se llamaba siempre "SALDO A FAVOR DE CAJA CHICA ANTERIOR", que con un negativo es
+justo lo contrario de lo que pasó.
+
+### Qué se cambió
+
+Migración `caja_chica_arrastra_tambien_la_deuda`:
+
+- Se acepta una caja de origen **cerrada**, siempre que su saldo no se haya cedido ya (se comprueba
+  con un `ingresos_caja_chica` de tipo `saldo_anterior` que la nombre como origen). Los nombres de
+  caja son únicos: 41 de 41.
+- Solo se rechaza cuando **no hay nada que mover**: `arrastre = 0 y depósito = 0`.
+- El movimiento se llama por lo que es: `DEUDA DE CAJA CHICA ANTERIOR (…)` o `SALDO A FAVOR…`.
+- La caja de origen se cierra solo si aún estaba abierta.
+
+En la interfaz (`FinanzasCajaChica.tsx`): la lista de origen ofrece las abiertas y **la última
+cerrada con saldo pendiente de arrastrar** —no las 23 del histórico migrado, que invitaban a
+arrastrar por error una deuda de hace meses—; la etiqueta distingue "deuda" de "saldo"; el resumen
+enseña la deuda en rojo y avisa "La caja nueva nace en descubierto" cuando la deuda supera al
+depósito.
+
+### Comprobado
+
+Abriendo desde CAJA 25 SOLES con S/ 5,000 de depósito: la caja nueva nació con **S/ 4,874.51**, su
+primer movimiento fue `DEUDA DE CAJA CHICA ANTERIOR (CAJA 25 SOLES)` por **-125.49**, CAJA 25 quedó
+intacta y ya no se ofrece por segunda vez. La caja de prueba se borró.
+
+### Pendiente
+
+Hay cajas antiguas que cerraron en rojo y nunca se arrastraron (CAJA 14: S/ -3,974.63; CAJA 15:
+S/ -3,259.77; CAJA 21: S/ -2,004.32; el total SOLES es S/ -8,253.18). Vienen de la carga del Excel y
+habría que revisar cuáles esperan reposición y cuáles son errores de carga. Mientras no se revisen,
+la lista de origen solo ofrece la última, así que no estorban.
