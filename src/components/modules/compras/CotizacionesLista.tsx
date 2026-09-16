@@ -77,7 +77,8 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
       const matchSearch = !searchTerm || 
         c.id.toLowerCase().includes(searchLower) ||
         c.proveedorNombre.toLowerCase().includes(searchLower) ||
-        c.requerimientoId.toLowerCase().includes(searchLower);
+        c.requerimientoId.toLowerCase().includes(searchLower) ||
+        (c.requerimientoNumero ?? '').toLowerCase().includes(searchLower);
 
       // Filtro por estado
       const matchEstado = filtroEstado === 'todos' || c.estado === filtroEstado;
@@ -99,7 +100,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
   const cotExport = useMemo(() => cotizacionesFiltradas.map((c: any) => ({
     numero: c.id,
     proveedor: c.proveedorNombre,
-    requerimiento: c.requerimientoId,
+    requerimiento: c.requerimientoNumero || c.requerimientoId,
     tipo: c.tipo === 'oc' ? 'OC' : c.tipo === 'os' ? 'OS' : (c.tipo ?? ''),
     estado: c.estado,
     moneda: c.moneda,
@@ -373,7 +374,7 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
                         >
                           <TableCell className="font-mono text-sm">{cot.id}</TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="font-mono">{cot.requerimientoId}</Badge>
+                            <Badge variant="outline" className="font-mono">{cot.requerimientoNumero || '—'}</Badge>
                           </TableCell>
                           <TableCell>
                             <div>

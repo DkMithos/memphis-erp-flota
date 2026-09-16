@@ -57,6 +57,13 @@ export interface Cotizacion {
   tipo: TipoCotizacion;
   moneda: MonedaCotizacion;
   estado: EstadoCotizacion;
+  /**
+   * Tarifario: cotización recurrente. Se aprueba una vez y de ella salen
+   * tantas órdenes como haga falta. Ver lib/compras/tarifario.ts.
+   */
+  esTarifario?: boolean;
+  /** Hasta cuándo vale el precio del tarifario ('YYYY-MM-DD'). */
+  tarifarioVigencia?: string | null;
 
   // Validez
   validezDias: number;
@@ -109,6 +116,9 @@ export interface NuevaCotizacionInput {
   proveedorId?: string | null;
   proveedorNombre: string;
   tipo: TipoCotizacion;
+  /** Marca la cotización como tarifario recurrente (mantenimientos de flota). */
+  esTarifario?: boolean;
+  tarifarioVigencia?: string | null;
   moneda: MonedaCotizacion;
   validezDias: number;
   items: Omit<ItemCotizacion, 'id' | '_dbId' | 'subtotal'>[];
@@ -186,6 +196,8 @@ function mapFromDB(row: CotizacionWithRelations): Cotizacion {
     proveedorId: row.proveedor_id,
     proveedorNombre: row.proveedor?.razon_social ?? '',
     tipo: ((row as any).tipo ?? 'bienes') as TipoCotizacion,
+    esTarifario: (row as any).es_tarifario ?? false,
+    tarifarioVigencia: (row as any).tarifario_vigencia ?? null,
     moneda: row.moneda as MonedaCotizacion,
     estado: row.estado as EstadoCotizacion,
     validezDias,
@@ -363,6 +375,8 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
         // `trg_cotizacion_proyecto` deriva el proyecto del centro de costo.
         centro_costo_id: input.centroCostoId ?? null,
         regimen_igv: input.regimenIgv ?? 'gravado',
+        es_tarifario: input.esTarifario ?? false,
+        tarifario_vigencia: input.tarifarioVigencia ?? null,
         creado_por: user.id,
         modificado_por: null,
         modificado_en: null,
@@ -429,6 +443,8 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
       if (input.proveedorId !== undefined) updatePayload.proveedor_id = input.proveedorId ?? null;
       if (input.centroCostoId !== undefined) updatePayload.centro_costo_id = input.centroCostoId ?? null;
       if (input.regimenIgv !== undefined) updatePayload.regimen_igv = input.regimenIgv;
+      if (input.esTarifario !== undefined) updatePayload.es_tarifario = input.esTarifario;
+      if (input.tarifarioVigencia !== undefined) updatePayload.tarifario_vigencia = input.tarifarioVigencia || null;
       if (input.requerimientoDbId !== undefined) updatePayload.requerimiento_id = input.requerimientoDbId;
       if (input.observaciones !== undefined) updatePayload.observaciones = input.observaciones?.trim() ?? null;
       if (input.validezDias !== undefined) {

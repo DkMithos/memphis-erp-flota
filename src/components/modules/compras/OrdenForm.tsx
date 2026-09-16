@@ -24,6 +24,7 @@ import { Checkbox } from '../../ui/checkbox';
 import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
 import { REGIMENES, tasaIgv, llevaIgv, etiquetaRegimen, esPersonaNatural, type RegimenIgv } from '../../../lib/compras/regimen-igv';
 import { useOrdenesStore, type NuevaOrdenInput } from '../../../lib/compras/ordenes-store';
+import { opcionesParaOrden, etiquetaVigencia } from '../../../lib/compras/tarifario';
 import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
 import { SearchableSelect } from '../../shared/SearchableSelect';
 import type { TipoCotizacion } from '../../../lib/compras/cotizaciones-config';
@@ -60,14 +61,45 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
   const { config: flujoConfig } = useFlujoAprobacion();
   const { cotizaciones } = useCotizacionesStore();
   /** Solo se ordena lo aprobado: es la decisión de con qué proveedor se compra. */
-  const cotizacionesAprobadas = useMemo(
-    () => cotizaciones.filter(c => c.estado === 'aprobada'),
-    [cotizaciones],
-  );
   const { proveedores } = useProveedorStore();
 
   const isEditing = Boolean(ordenId);
   const ordenExistente = isEditing ? obtenerOrdenPorId(ordenId!) : undefined;
+
+  const { ordenes } = useOrdenesStore();
+
+  /**
+   * Qué cotizaciones se pueden convertir en orden.
+   *
+   * Los TARIFARIOS van arriba y en su propio grupo: son acuerdos de precio que
+   * se aprueban una vez y de los que salen muchas órdenes —los mantenimientos
+   * de flota, sobre todo—, así que siguen disponibles por muchas órdenes que
+   * ya hayan generado.
+   *
+   * Las cotizaciones normales se usan una vez; las que ya tienen orden se
+   * retiran de la lista para no duplicar sin querer.
+   */
+  const yaConOrden = useMemo(
+    () => new Set(
+      ordenes
+        .filter(o => o.estado !== 'anulada' && (!ordenExistente || o.id !== ordenExistente.id))
+        .flatMap(o => {
+          const c = cotizaciones.find(x => x._dbId === o.cotizacionId || x.id === o.cotizacionId);
+          return c ? [c.id] : [];
+        }),
+    ),
+    [ordenes, cotizaciones, ordenExistente],
+  );
+
+  const { tarifarios, sueltas } = useMemo(
+    () => opcionesParaOrden(cotizaciones, yaConOrden),
+    [cotizaciones, yaConOrden],
+  );
+
+  const cotizacionesAprobadas = useMemo(
+    () => [...tarifarios, ...sueltas],
+    [tarifarios, sueltas],
+  );
 
   /** La cotización dice bienes/servicios; la orden, OC/OS. Es lo mismo dicho de otro modo. */
   const tipoDeCotizacion = (t: TipoCotizacion): TipoOrden => (t === 'servicios' ? 'os' : 'oc');
@@ -400,12 +432,19 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
               <SearchableSelect
                 value={cotizacionId || null}
                 onChange={(v) => { setCotizacionId(v ?? ''); clearError('cotizacionId'); }}
-                options={cotizacionesAprobadas.map(c => ({
-                  value: c.id,
-                  label: `${c.id} — ${c.proveedorNombre} — ${c.moneda === 'USD' ? '$' : 'S/'} ${c.total.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`,
-                }))}
-                placeholder="Seleccionar cotización aprobada"
-                emptyText="No hay cotizaciones aprobadas"
+                options={[
+                  ...tarifarios.map(c => ({
+                    value: c.id,
+                    label: `TARIFARIO · ${c.id} — ${c.proveedorNombre} — ${c.moneda === 'USD' ? '$' : 'S/'} ${c.total.toLocaleString('es-PE', { minimumFractionDigits: 2 })} (${etiquetaVigencia(c)})`,
+                    keywords: 'tarifario recurrente mantenimiento flota',
+                  })),
+                  ...sueltas.map(c => ({
+                    value: c.id,
+                    label: `${c.id} — ${c.proveedorNombre} — ${c.moneda === 'USD' ? '$' : 'S/'} ${c.total.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`,
+                  })),
+                ]}
+                placeholder="Seleccionar cotización o tarifario"
+                emptyText="No hay cotizaciones aprobadas sin orden"
               />
             )}
             {errors.cotizacionId && (

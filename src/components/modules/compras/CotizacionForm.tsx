@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
 import { Input } from '../../ui/input';
+import { Checkbox } from '../../ui/checkbox';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import {
@@ -140,6 +141,8 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
         centroCostoId: cotizacionExistente.centroCostoId ?? null,
         regimenIgv: cotizacionExistente.regimenIgv ?? 'gravado',
         tipo: cotizacionExistente.tipo,
+        esTarifario: cotizacionExistente.esTarifario ?? false,
+        tarifarioVigencia: cotizacionExistente.tarifarioVigencia ?? null,
         moneda: cotizacionExistente.moneda,
         validezDias: cotizacionExistente.validezDias,
         items: cotizacionExistente.items.map(({ id, subtotal, ...item }) => item),
@@ -562,6 +565,48 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Tarifario recurrente.
+                  Los mantenimientos de flota son siempre lo mismo y al mismo
+                  precio. Marcado aquí, este acuerdo se aprueba una vez y de él
+                  salen tantas órdenes como haga falta, sin repetir el trámite
+                  por cada vehículo. */}
+              <div className="rounded-md border p-3 space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <Checkbox
+                    checked={formData.esTarifario ?? false}
+                    onCheckedChange={(v: boolean | 'indeterminate') =>
+                      setFormData({ ...formData, esTarifario: v === true })}
+                  />
+                  <span className="text-sm">
+                    <span className="font-medium">Tarifario recurrente</span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">
+                      Precio acordado con el proveedor que se repite: mantenimientos de flota y
+                      similares. Se aprueba una vez y de él salen varias órdenes, sin levantar un
+                      requerimiento y una cotización cada vez.
+                    </span>
+                  </span>
+                </label>
+                {formData.esTarifario && (
+                  <div className="pl-7 space-y-1.5">
+                    <Label htmlFor="tarifarioVigencia" className="text-xs">
+                      Vale hasta (opcional)
+                    </Label>
+                    <Input
+                      id="tarifarioVigencia"
+                      type="date"
+                      className="max-w-[200px]"
+                      value={formData.tarifarioVigencia ?? ''}
+                      onChange={(e) =>
+                        setFormData({ ...formData, tarifarioVigencia: e.target.value || null })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Pasada esa fecha deja de ofrecerse para órdenes nuevas. Sin fecha, sigue
+                      vigente hasta que alguien lo retire.
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

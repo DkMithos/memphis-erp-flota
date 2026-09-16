@@ -67,7 +67,12 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
   const { obtenerRequerimientoPorId } = useRequerimientosStore();
   const { obtenerOrdenesPorCotizacion } = useOrdenesStore();
   const cotizacion = obtenerCotizacionPorId(cotizacionId);
-  const requerimiento = cotizacion ? obtenerRequerimientoPorId(cotizacion.requerimientoId) : undefined;
+  // `requerimientoId` es el UUID; el buscador del store trabaja con el número
+  // visible (RQ-00245). Se prueba con el número y se cae al UUID por si acaso.
+  const requerimiento = cotizacion
+    ? (obtenerRequerimientoPorId(cotizacion.requerimientoNumero || '')
+       ?? obtenerRequerimientoPorId(cotizacion.requerimientoId))
+    : undefined;
   // Las órdenes guardan el UUID de la cotización (cotizacion_id), no su número
   const ordenesAsociadas = cotizacion ? obtenerOrdenesPorCotizacion((cotizacion as any)._dbId ?? cotizacion.id) : [];
 
