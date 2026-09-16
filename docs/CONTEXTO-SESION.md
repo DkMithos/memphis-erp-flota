@@ -2216,3 +2216,43 @@ lleva gastado. El arreglo funcionó en producción.
 - La RLS es solo por tenant, no por módulo: el gate de módulos es la interfaz.
 - Cajas en negativo del histórico migrado (S/ -8.253,18 en soles).
 - Las 4 órdenes con IGV sin clasificar y las 15 con totales descuadrados.
+
+### Fianzas: ahora manda el Excel de Shirley (2026-09-16, tarde)
+
+Kevin dio la vuelta a la decisión del 03/09. Antes mandaba el ERP y
+`fianzas-excel` reescribía la hoja de SharePoint; ahora **Shirley trabaja su
+Excel y el sistema se actualiza** desde él.
+
+- Nueva Edge Function `fianzas-import` (Graph app-only, solo lectura). Botón
+  "Traer del Excel de Administración" en Fianzas → Exportar. Si entran cartas
+  nuevas, encadena la importación de cargos.
+- `fianzas-excel` **queda desactivada y devuelve 409**. No es limpieza: las dos
+  direcciones no pueden convivir, y esa función reescribe el rango entero — una
+  llamada suelta después de que Shirley editara le borraría el trabajo. La
+  implementación que escribía sigue en el commit f4f75019.
+- Resultado real: 11 fianzas, 60 cartas (5 nuevas), 63 cargos intactos, cero
+  problemas, e idempotente (la segunda pasada no crea nada).
+
+Lo que costó acertar, por si vuelve a tocarse:
+
+- **Los importes vienen en tres formatos** en el mismo archivo: peruano
+  (43.900.816,64), americano (2,444,470.39) y con apóstrofo (12´285,032.93), más
+  un error de tecleo real ("S/ 97.778.82"). La regla que acierta en todos: manda
+  el último separador; una o dos cifras detrás = decimal, tres = millares.
+- **El número de carta NO es único.** Shirley lo reutiliza al renovar
+  (15411-2407-2025-000 está dos veces). La identidad es número + fecha de inicio.
+- **`fin` y `fecha_renovacion` son columnas calculadas** (inicio + plazo − 1 y
+  − 6). No se pueden escribir. Coinciden con las fórmulas de Shirley, salvo en
+  las filas donde ella las puso a mano: ahí el ERP enseñará su fecha calculada.
+- **El porcentaje se guarda como fracción** (0,04), porque la pantalla multiplica
+  por cien. Guardar 4 hacía que el tablero pusiera "400%".
+- **Un mismo convenio puede estar en dos fianzas del ERP** (001-2025-OXI-GRL
+  está como "GORE LORETO BOMBEROS" y como "MAS SEGURIDAD BOMBEROS"). No se
+  reagrupa: mover cartas dejaría cargos colgando.
+- Nada se borra nunca. Lo que esté en el ERP y ya no figure en el Excel se avisa
+  y se queda.
+
+Pendiente menor detectado: hay roles duplicados de OTRO tenant en la tabla
+`roles` (Fianzas, Cargos Fianzas). Asignar uno de esos deja al usuario sin
+permisos, porque la RLS no los deja leer. Conviene retirarlos o filtrarlos en la
+pantalla de administración.

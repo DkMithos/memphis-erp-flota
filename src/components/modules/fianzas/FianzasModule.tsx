@@ -102,21 +102,55 @@ export function FianzasModule() {
   };
 
   /**
-   * Regenera la hoja de SharePoint con lo que hay en el ERP.
-   * El ERP manda (decisión de Kevin): el Excel es una copia de lectura.
+   * Trae al ERP lo que Shirley tenga hoy en su Excel de SharePoint.
+   *
+   * MANDA EL EXCEL (decisión de Kevin, 16/09/2026). Antes era al revés y el ERP
+   * reescribía la hoja; ahora Shirley trabaja su archivo y esto lo recoge. Las
+   * dos direcciones a la vez no pueden convivir: la última en pulsarse se
+   * llevaría por delante el trabajo de la otra.
+   *
+   * Nada se borra. Lo que esté en el ERP y ya no aparezca en el Excel se avisa,
+   * pero se queda.
    */
-  const actualizarExcel = async () => {
-    if (!puedeExportar) return;
+  const traerDelExcel = async () => {
+    if (!puedeEditar) return;
     setActualizandoExcel(true);
     try {
-      const { data, error } = await supabase.functions.invoke('fianzas-excel', { body: {} });
+      const { data, error } = await supabase.functions.invoke('fianzas-import', { body: {} });
       if (error) throw error;
-      const r = data as { ok?: boolean; error?: string; fianzas?: number; cartas?: number };
+      const r = data as {
+        ok?: boolean; error?: string;
+        fianzas_creadas?: number; fianzas_actualizadas?: number;
+        cartas_creadas?: number; cartas_actualizadas?: number;
+        solo_en_el_erp?: string[]; problemas?: string[];
+      };
       if (!r?.ok) throw new Error(r?.error ?? 'Respuesta inesperada');
-      toast.success(`Excel actualizado: ${r.fianzas} fianzas y ${r.cartas} cartas`);
+
+      const partes = [
+        `${r.cartas_creadas ?? 0} carta(s) nuevas`,
+        `${r.cartas_actualizadas ?? 0} actualizadas`,
+      ];
+      if (r.fianzas_creadas) partes.push(`${r.fianzas_creadas} fianza(s) nuevas`);
+      const sueltas = r.solo_en_el_erp?.length ?? 0;
+
+      if (r.problemas?.length) {
+        toast.warning('Se trajo lo que se pudo', {
+          description: r.problemas.slice(0, 3).join(' · '),
+          duration: 12000,
+        });
+      } else {
+        toast.success(partes.join(' · '), {
+          description: sueltas
+            ? `${sueltas} carta(s) están en el sistema y ya no figuran en el Excel; no se han borrado.`
+            : 'El Excel y el sistema dicen lo mismo.',
+          duration: 8000,
+        });
+      }
+      // Los cargos de SharePoint pueden colgar de cartas que acaban de entrar.
+      if ((r.cartas_creadas ?? 0) > 0 && puedeCrear) await importarCargos();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error desconocido';
-      toast.error('No se pudo actualizar el Excel. ' + msg, { duration: 10000 });
+      toast.error('No se pudo traer el Excel de fianzas. ' + msg, { duration: 10000 });
     } finally {
       setActualizandoExcel(false);
     }
@@ -414,12 +448,12 @@ export function FianzasModule() {
                   </div>
                 </div>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={actualizarExcel} disabled={actualizandoExcel}>
+              <DropdownMenuItem onClick={traerDelExcel} disabled={actualizandoExcel || !puedeEditar}>
                 <RefreshCw className={`size-4 ${actualizandoExcel ? 'animate-spin' : ''}`} />
                 <div>
-                  <div>{actualizandoExcel ? 'Actualizando…' : 'Actualizar Excel de SharePoint'}</div>
+                  <div>{actualizandoExcel ? 'Trayendo…' : 'Traer del Excel de Administración'}</div>
                   <div className="text-xs text-muted-foreground">
-                    Reescribe la hoja de Administración con lo que hay aquí
+                    Actualiza fianzas, cartas y cargos con lo que hay en la hoja de Shirley
                   </div>
                 </div>
               </DropdownMenuItem>
