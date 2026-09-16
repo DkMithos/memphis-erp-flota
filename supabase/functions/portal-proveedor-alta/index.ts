@@ -125,7 +125,7 @@ export default {
       .update({
         portal_habilitado: true,
         email_portal: emailReal,
-        portal_user_id: userId ?? linkRes.user?.id ?? null,
+        portal_user_id: userId ?? link.data?.user?.id ?? null,
       })
       .eq('id', prov.id);
 
@@ -134,7 +134,7 @@ export default {
       proveedor: { codigo: prov.codigo, razon_social: prov.razon_social, ruc: prov.ruc },
       login_ruc: prov.ruc,
       email_portal: emailReal,
-      enlace_contrasena: linkRes.properties?.action_link,
+      enlace_contrasena: link.data?.action_link ?? link.data?.properties?.action_link,
       mensaje: `Portal habilitado para ${prov.razon_social}. Envíe el enlace a ${emailReal} para que defina su contraseña (expira en 24h; puede regenerarlo con "reenviar").`,
     });
   }),

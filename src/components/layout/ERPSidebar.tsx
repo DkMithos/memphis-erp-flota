@@ -151,7 +151,8 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         { label: t('nav.sub.directorio'), href: '/proveedores/directorio' },
         { label: t('nav.sub.evaluaciones'), href: '/proveedores/evaluaciones' },
         { label: t('nav.sub.contratos'), href: '/proveedores/contratos' },
-        { label: t('nav.sub.talleres'), href: '/proveedores/talleres' }
+        { label: t('nav.sub.talleres'), href: '/proveedores/talleres' },
+        { label: 'Accesos al Portal', href: '/proveedores/portal' }
       ]
     },
     {

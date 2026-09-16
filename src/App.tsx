@@ -83,6 +83,7 @@ const ProveedorForm = lazyModulo(() => import('./components/modules/proveedores/
 const ProveedoresEvaluaciones = lazyModulo(() => import('./components/modules/proveedores/ProveedoresEvaluaciones').then(m => ({ default: m.ProveedoresEvaluaciones })));
 const ProveedoresContratos = lazyModulo(() => import('./components/modules/proveedores/ProveedoresContratos').then(m => ({ default: m.ProveedoresContratos })));
 const ProveedoresTalleres = lazyModulo(() => import('./components/modules/proveedores/ProveedoresTalleres').then(m => ({ default: m.ProveedoresTalleres })));
+const PortalAccesosLote = lazyModulo(() => import('./components/modules/proveedores/PortalAccesosLote').then(m => ({ default: m.PortalAccesosLote })));
 const GestionCategorias = lazyModulo(() => import('./components/modules/proveedores/GestionCategorias').then(m => ({ default: m.GestionCategorias })));
 
 // Proyectos
@@ -825,6 +826,7 @@ export default function App() {
       if (currentRoute === '/proveedores/contratos') return <ProveedoresContratos onNavigate={navigateTo} />;
       if (currentRoute === '/proveedores/talleres') return <ProveedoresTalleres onNavigate={navigateTo} />;
       if (currentRoute === '/proveedores/categorias') return <GestionCategorias />;
+      if (currentRoute === '/proveedores/portal') return <PortalAccesosLote />;
       return <Proveedores onNavigate={navigateTo} />;
     }
 
