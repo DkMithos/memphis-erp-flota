@@ -2089,3 +2089,130 @@ Hay cajas antiguas que cerraron en rojo y nunca se arrastraron (CAJA 14: S/ -3,9
 S/ -3,259.77; CAJA 21: S/ -2,004.32; el total SOLES es S/ -8,253.18). Vienen de la carga del Excel y
 habría que revisar cuáles esperan reposición y cuáles son errores de carga. Mientras no se revisen,
 la lista de origen solo ofrece la última, así que no estorban.
+
+---
+
+## Lote de once puntos (2026-09-16)
+
+Kevin trajo once anotaciones de una vez. Ocho quedaron cerradas, dos necesitan
+una decisión suya y una está bloqueada porque no encuentro la carpeta.
+
+### 1. Revisión de órdenes de Operaciones — HECHO
+
+Operaciones repasó las 1.097 órdenes migradas (`OCs_por_proyecto_revision.xlsx`,
+sitio TI) y anotó orden por orden. Se llevaron sus 52 decisiones al ERP: 16
+anulaciones, 7 duplicados de migración y 10 reasignaciones de proyecto.
+
+Los duplicados **no se borraron**, se anularon con el motivo escrito. El efecto
+sobre las cifras es el mismo y queda rastro. Borrarlos de verdad es decisión de
+Kevin.
+
+**Después del cambio, los ocho proyectos cuadran al céntimo con su archivo.** Lo
+único que difiere es, en cada proyecto, exactamente el importe de las órdenes
+emitidas después del 19/06/2026 — la fecha de corte del archivo.
+
+Aviso: el conector de SharePoint truncó la lectura en la fila 1.055 de 1.097. Las
+42 que faltan son todas "(SIN PROYECTO)" y suman S/ 319 mil en órdenes pequeñas,
+así que no afectan a ningún proyecto. Si se quieren revisar, hace falta el
+archivo en CSV.
+
+### 2. Requerimientos sin aprobación — HECHO
+
+Pedir algo no es comprarlo. La pantalla queda abierta a cualquiera con cuenta;
+quien no tiene `compras.ver` solo ve y abre **los suyos**. Fuera Aprobar y
+Rechazar. La generación de cotizaciones sigue pidiendo `compras.crear`.
+
+De paso se arregló un fallo vivo: el mapa de transiciones hablaba de estados
+inexistentes y no incluía `enviado`, así que editar un borrador y darle a
+"Guardar y Enviar" fallaba y lo dejaba en borrador.
+
+### 3. Mantenimientos de flota: los tarifarios — HECHO
+
+Un **tarifario** es una cotización que se aprueba una vez y de la que salen
+tantas órdenes como haga falta, con fecha opcional de vigencia. Se marca en el
+formulario de cotización y sale agrupado y rotulado en el selector de la orden.
+
+De paso, las cotizaciones normales que ya tienen orden desaparecen del selector:
+antes se ofrecían siempre, que es una invitación a duplicar.
+
+Técnico Flota (José Ramírez, Miguelangel) recibió `compras.ver/crear/editar`. **El
+RBAC no distingue "orden de mantenimiento" de "orden cualquiera"**: con esos
+permisos pueden generar cualquiera. El gasto sigue controlado por el flujo de
+montos.
+
+### 4. Módulo de documentación de Shirley — BLOQUEADO
+
+No se localiza la carpeta: el enlace es un token de compartir que el conector no
+resuelve, y buscándola por nombre en COMPRAS no aparece. Hace falta la ruta.
+Ver [ANALISIS-Flujo-Financiero-y-Documentos.md](ANALISIS-Flujo-Financiero-y-Documentos.md).
+
+### 5. Dashboard de compras y recuadros — HECHO
+
+`/compras` no era un tablero: montaba, redirigía a Requerimientos y enseñaba un
+spinner; por eso "se rompía". Ahora cuenta dónde está parado cada trámite.
+
+Los cuatro recuadros de Órdenes se calculaban siempre sobre las 1.321: filtrar
+por proyecto no movía un número. Ahora cuentan lo filtrado y dicen debajo sobre
+cuántas miden.
+
+### 6. Firmas en las órdenes — HECHO
+
+La firma se copia al aprobar. Quien aprobaba **antes** de registrar su rúbrica
+dejaba la aprobación sin imagen y no había forma de arreglarlo. Es lo que les
+pasó a Richard y Miguelangel. Se rellenaron las 11 aprobaciones en blanco (solo
+las vacías): 1808 de 1808 con firma. Además la rúbrica ahora se ve en pantalla,
+no solo en el PDF, y firmar sin rúbrica registrada avisa en el momento.
+
+### 7. Accesos de proveedores en lote — HECHO
+
+Nueva pantalla Proveedores → Accesos al Portal. Se marcan varios, se generan
+todos los enlaces y cada uno sale con su correo redactado; "Abrir en correo" abre
+Outlook con todo puesto. El envío lo sigue haciendo una persona.
+
+Y se encontró que **el repo tenía rota la Edge Function `portal-proveedor-alta`**
+(usaba `linkRes`, variable inexistente). Producción tenía la buena; el siguiente
+deploy desde el repo habría tumbado el alta de proveedores.
+
+### 8. El ICA duplicado — HECHO, y eran tres cosas
+
+1. El selector de proyecto escondía los que están **en liquidación**, que es justo
+   cuando aterrizan los últimos costos. GORE ICA es el único: no aparecía.
+2. El formulario pedía "Proyecto" y **la tabla no tenía dónde guardarlo**. Todo lo
+   que Compras elegía ahí se tiraba en silencio. Se añadieron las columnas y se
+   rellenaron (252 de 259 con centro de costo, 188 con proyecto).
+3. `GOREICAPNP` y `GICAPATRUL` apuntaban al mismo proyecto. Fusionados; sobrevive
+   GOREICAPNP renombrado a "GORE ICA - PNP (Patrulleros)".
+
+### 9. La plantilla presupuestal de Antonio — ANALIZADO
+
+Ver [ANALISIS-Presupuesto-Inicial-Proyecto.md](ANALISIS-Presupuesto-Inicial-Proyecto.md).
+Lo esencial: el `Cuadro resumen` del archivo **está roto** (31 `#¡REF!`), y el ERP
+ya tiene los importes de convenio exactos y el costo real calculable. Hacen falta
+tres respuestas de Antonio antes de construir.
+
+### 10. Flujo financiero — ANALIZADO, falta una decisión
+
+Los cinco archivos son dos capas: dos `BD *.xlsx` planas con cabecera idéntica
+(importables con un solo lector) y tres `Flujo *.xlsx` que son tablas dinámicas
+montadas encima (no hay que importarlas). El canal de sincronización con
+SharePoint ya existe y funciona. Falta que Kevin decida si el ERP **refleja** el
+Excel o **manda** sobre él.
+
+### 11. Co-autoría en los commits — HECHO
+
+Quitada del commit de caja chica y anotado en memoria que la regla manda aunque
+el entorno pida lo contrario.
+
+### Nota: la caja chica en rojo ya está en uso
+
+Carolina abrió CAJA 26 SOLES el 11/09 arrastrando los S/ -125,49 de la CAJA 25 y
+lleva gastado. El arreglo funcionó en producción.
+
+### Pendientes que siguen abiertos
+
+- Quién aprueba proveedores: `proveedores.aprobar` no lo tiene ningún rol.
+- Las notificaciones se crean una por documento para todo el tenant, no por
+  aprobador.
+- La RLS es solo por tenant, no por módulo: el gate de módulos es la interfaz.
+- Cajas en negativo del histórico migrado (S/ -8.253,18 en soles).
+- Las 4 órdenes con IGV sin clasificar y las 15 con totales descuadrados.
