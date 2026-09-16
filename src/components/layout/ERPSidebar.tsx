@@ -193,6 +193,12 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       ]
     },
     {
+      id: 'documentos',
+      label: t('nav.documentos', 'Documentos'),
+      icon: <FolderOpen className="size-5" />,
+      href: '/documentos'
+    },
+    {
       id: 'contabilidad',
       label: t('nav.contabilidad', 'Contabilidad'),
       icon: <BookOpen className="size-5" />,

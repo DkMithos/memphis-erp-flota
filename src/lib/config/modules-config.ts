@@ -20,6 +20,7 @@ export const MODULES_DEFAULT: ModuleConfig[] = [
   { id: 'inventario',  label: 'Inventario',      descripcion: 'Artículos, almacenes y movimientos',     enabled: false },
   { id: 'contabilidad',label: 'Contabilidad',    descripcion: 'Asientos, comprobantes y libros',        enabled: true },
   { id: 'fianzas',     label: 'Fianzas',         descripcion: 'Cartas fianza y sus renovaciones',      enabled: true },
+  { id: 'documentos',  label: 'Documentos',      descripcion: 'Carpetas de SharePoint, para mirar y descargar', enabled: true },
   { id: 'finanzas',    label: 'Finanzas',        descripcion: 'Transacciones, presupuestos y reportes', enabled: true },
   { id: 'proyectos',   label: 'Proyectos',       descripcion: 'Gestión de proyectos y tareas',          enabled: true },
   { id: 'crm',         label: 'CRM',             descripcion: 'Clientes, oportunidades y actividades',  enabled: false },

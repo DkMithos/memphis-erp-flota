@@ -30,6 +30,7 @@ export type Modulo =
   | 'proyectos'
   | 'contabilidad'
   | 'fianzas'
+  | 'documentos'
   | 'admin';
 
 export type Accion =

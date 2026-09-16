@@ -84,6 +84,7 @@ const ProveedoresEvaluaciones = lazyModulo(() => import('./components/modules/pr
 const ProveedoresContratos = lazyModulo(() => import('./components/modules/proveedores/ProveedoresContratos').then(m => ({ default: m.ProveedoresContratos })));
 const ProveedoresTalleres = lazyModulo(() => import('./components/modules/proveedores/ProveedoresTalleres').then(m => ({ default: m.ProveedoresTalleres })));
 const PortalAccesosLote = lazyModulo(() => import('./components/modules/proveedores/PortalAccesosLote').then(m => ({ default: m.PortalAccesosLote })));
+const Documentos = lazyModulo(() => import('./components/modules/Documentos').then(m => ({ default: m.Documentos })));
 const GestionCategorias = lazyModulo(() => import('./components/modules/proveedores/GestionCategorias').then(m => ({ default: m.GestionCategorias })));
 
 // Proyectos
@@ -829,6 +830,9 @@ export default function App() {
       if (currentRoute === '/proveedores/portal') return <PortalAccesosLote />;
       return <Proveedores onNavigate={navigateTo} />;
     }
+
+    // Documentos — carpetas de SharePoint, solo mirar y descargar
+    if (currentRoute.startsWith('/documentos')) return <Documentos />;
 
     // CRM
     if (currentRoute.startsWith('/crm')) {

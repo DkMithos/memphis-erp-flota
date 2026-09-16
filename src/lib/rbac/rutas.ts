@@ -42,6 +42,7 @@ const MODULO_POR_PREFIJO: { prefijo: string; modulo: Modulo }[] = [
   { prefijo: '/contabilidad', modulo: 'contabilidad' },
   { prefijo: '/finanzas', modulo: 'finanzas' },
   { prefijo: '/fianzas', modulo: 'fianzas' },
+  { prefijo: '/documentos', modulo: 'documentos' },
   { prefijo: '/proyectos', modulo: 'proyectos' },
   { prefijo: '/flota', modulo: 'flota' },
   { prefijo: '/biomedico', modulo: 'biomedico' },

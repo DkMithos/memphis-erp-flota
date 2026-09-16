@@ -2256,3 +2256,47 @@ Pendiente menor detectado: hay roles duplicados de OTRO tenant en la tabla
 `roles` (Fianzas, Cargos Fianzas). Asignar uno de esos deja al usuario sin
 permisos, porque la RLS no los deja leer. Conviene retirarlos o filtrarlos en la
 pantalla de administración.
+
+### Módulo Documentos: mirar y descargar carpetas de SharePoint (2026-09-16)
+
+Shirley pidió exactamente eso y nada más: ver los archivos del expediente OXI y
+poder bajárselos, sin enlazarlos con proyectos ni con órdenes.
+
+**Los archivos NO se copian al ERP.** La carpeta se lista en vivo contra Graph y,
+al descargar, Microsoft entrega un enlace de un solo uso que caduca solo.
+Copiarlos habría sido duplicar 96 MB y montar una sincronización que se queda
+vieja; así lo que se ve es lo que hay en Teams en ese momento. Una carpeta que
+alguien reordene en Teams se ve reordenada aquí sin tocar nada.
+
+- Módulo nuevo `documentos` (permisos `ver` y `exportar`), dado a Administración,
+  Fianzas, Compras y Contabilidad.
+- Tabla `documentos_carpetas`: qué carpetas se pueden mirar. La función resuelve
+  SIEMPRE contra esa lista, así nadie llega a un drive arbitrario pasando ids.
+- Edge Function `documentos-sharepoint` (listar / descargar / carpetas).
+- Pantalla con migas de pan, buscador y descarga directa.
+
+Dos cosas que costaron y conviene no repetir:
+
+1. **La raíz se direcciona por RUTA, no por id.** El id que se saca explorando a
+   mano (`014MUEHV…`) no le vale a Graph para pedir los hijos: contesta 400
+   "Invalid request". La ruta relativa sí. Las subcarpetas van por id sin
+   problema, porque esos ids salen de la propia respuesta de Graph.
+2. **La URL de descarga no se puede pedir con `$select`.** Es una anotación
+   (`@microsoft.graph.downloadUrl`) y Graph la deja fuera en cuanto seleccionas
+   campos, aunque la pidas por su nombre. Viene por defecto si no filtras.
+
+Comprobado bajando `Cuadro_Patrimonio_Memphis.xlsx`: 17 723 bytes, xlsx válido.
+
+Ese archivo, por cierto, merece mirada de gerencia: dice que de S/ 20 219 445 de
+patrimonio auditado hay S/ 3 293 689 comprometidos y **S/ 16 925 756 libres**. Es
+el techo real para aceptar nuevos proyectos OXI.
+
+### Respuestas de Antonio sobre el presupuesto (2026-09-16)
+
+- El cuadro resumen **no es referencia** (coherente: está roto, 31 `#¡REF!`).
+- El 10 % de consultoría va **sobre el importe del convenio**, mientras se
+  termina de definir.
+- La **ganancia por integración es un costo no realizado: no se emplea**.
+- El tipo de cambio es una **celda fija con protección**, referencia presupuestal.
+
+Con eso el cálculo queda cerrado y el presupuesto inicial se puede construir.
