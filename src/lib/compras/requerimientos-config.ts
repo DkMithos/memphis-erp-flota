@@ -19,7 +19,7 @@ export const DEBUG_REQUERIMIENTOS = import.meta.env.DEV;
 
 export type EstadoRequerimiento = 
   | 'borrador'     // Creado pero no enviado
-  | 'enviado'      // Enviado para aprobación
+  | 'enviado'      // En manos de Compras, listo para cotizar
   | 'aprobado'     // Aprobado, listo para OC
   | 'rechazado'    // Rechazado por gerencia
   | 'anulado';     // Anulado con motivo
@@ -243,11 +243,19 @@ export function puedeAnularRequerimiento(estado: EstadoRequerimiento): boolean {
 }
 
 /**
- * Verifica si un requerimiento puede aprobarse/rechazarse según su estado
+ * EL REQUERIMIENTO YA NO SE APRUEBA.
+ *
+ * Pedir algo no es comprarlo. El requerimiento solo dice "hace falta esto"; el
+ * dinero se compromete después, y ahí sí hay dos controles: la cotización se
+ * aprueba, y la orden pasa por el flujo de montos. Poner una tercera aprobación
+ * al principio solo servía para que el pedido se quedara esperando y para que
+ * cualquiera que necesitara algo tuviera que buscar quién se lo firmara.
+ *
+ * Los 19 requerimientos que quedaron en `aprobado` de la etapa anterior siguen
+ * siendo válidos: `aprobado` se conserva en el tipo y se cotiza igual que
+ * `enviado`. Simplemente ya no se llega a ese estado.
  */
-export function puedeRevisarRequerimiento(estado: EstadoRequerimiento): boolean {
-  return estado === 'enviado';
-}
+export const REQUERIMIENTO_SE_APRUEBA = false;
 
 /**
  * ¿Se le pueden pedir cotizaciones a este requerimiento?

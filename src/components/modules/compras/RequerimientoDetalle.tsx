@@ -38,7 +38,6 @@ import {
   CENTRO_COSTO_LABELS,
   puedeEditarRequerimiento,
   puedeAnularRequerimiento,
-  puedeRevisarRequerimiento,
   validarMotivoAnulacion,
   formatearMonto,
   formatearFecha
@@ -54,8 +53,6 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
   const { 
     obtenerRequerimientoPorId, 
     anularRequerimiento, 
-    aprobarRequerimiento,
-    rechazarRequerimiento,
     usuarioActual 
   } = useRequerimientosStore();
   // Permisos reales del usuario (RBAC), no el rol suelto de profiles
@@ -93,9 +90,6 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
   const [errorMotivo, setErrorMotivo] = useState('');
 
-  const [showRechazarDialog, setShowRechazarDialog] = useState(false);
-  const [motivoRechazo, setMotivoRechazo] = useState('');
-  const [errorRechazo, setErrorRechazo] = useState('');
 
   if (!requerimiento) {
     return (
@@ -114,10 +108,37 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
   const estadoConfig = REQUERIMIENTO_ESTADO_CONFIG[requerimiento.estado];
   const prioridadConfig = REQUERIMIENTO_PRIORIDAD_CONFIG[requerimiento.prioridad];
 
-  const puedeEditar = can('compras', 'editar') && puedeEditarRequerimiento(requerimiento.estado);
-  const puedeAnular = can('compras', 'eliminar') && puedeAnularRequerimiento(requerimiento.estado);
-  const puedeAprobar = can('compras', 'aprobar') && puedeRevisarRequerimiento(requerimiento.estado);
-  const puedeRechazar = can('compras', 'aprobar') && puedeRevisarRequerimiento(requerimiento.estado);
+  /**
+   * La pantalla de requerimientos está abierta a todo el mundo (cualquiera
+   * pide), pero quien no tiene `compras.ver` solo entra a los suyos. Sobre los
+   * propios sí manda: los edita y los anula sin depender de Compras.
+   */
+  const esMio =
+    (requerimiento.solicitanteEmail ?? '').toLowerCase() ===
+    (usuarioActual.email ?? '').toLowerCase();
+  const puedeAbrir = can('compras', 'ver') || esMio;
+
+  const puedeEditar =
+    (can('compras', 'editar') || esMio) && puedeEditarRequerimiento(requerimiento.estado);
+  const puedeAnular =
+    (can('compras', 'eliminar') || esMio) && puedeAnularRequerimiento(requerimiento.estado);
+  // Aquí iban Aprobar y Rechazar. El requerimiento ya no se aprueba: ver
+  // REQUERIMIENTO_SE_APRUEBA en requerimientos-config.
+
+  if (!puedeAbrir) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertTriangle className="size-4" />
+          <AlertDescription>
+            Este requerimiento lo levantó otra persona. Puedes ver los tuyos desde
+            Compras → Requerimientos.
+          </AlertDescription>
+        </Alert>
+        <PageNav />
+      </div>
+    );
+  }
 
   const handleAnular = async () => {
     const validacion = validarMotivoAnulacion(motivoAnulacion);
@@ -134,31 +155,6 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
     toast.success('Requerimiento anulado correctamente');
     setShowAnularDialog(false);
     setMotivoAnulacion('');
-  };
-
-  const handleAprobar = async () => {
-    const res = await aprobarRequerimiento(requerimientoId, usuarioActual.email);
-    if (!res.exito) {
-      toast.error(res.errores?.[0] ?? 'Error al aprobar el requerimiento');
-      return;
-    }
-    toast.success('Requerimiento aprobado correctamente');
-  };
-
-  const handleRechazar = async () => {
-    if (motivoRechazo.trim().length < 10) {
-      setErrorRechazo('El motivo debe tener al menos 10 caracteres');
-      return;
-    }
-
-    const res = await rechazarRequerimiento(requerimientoId, usuarioActual.email, motivoRechazo);
-    if (!res.exito) {
-      toast.error(res.errores?.[0] ?? 'Error al rechazar el requerimiento');
-      return;
-    }
-    toast.success('Requerimiento rechazado');
-    setShowRechazarDialog(false);
-    setMotivoRechazo('');
   };
 
   return (
@@ -188,18 +184,6 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
         </div>
 
         <div className="flex items-center gap-2">
-          {puedeRechazar && (
-            <Button variant="destructive" onClick={() => setShowRechazarDialog(true)}>
-              <XCircle className="size-4" />
-              Rechazar
-            </Button>
-          )}
-          {puedeAprobar && (
-            <Button variant="default" className="bg-green-600 hover:bg-green-700" onClick={handleAprobar}>
-              <CheckCircle className="size-4" />
-              Aprobar
-            </Button>
-          )}
           {puedeEditar && (
             <Button onClick={() => onNavigate?.(`/compras/requerimientos/${requerimientoId}/editar`)}>
               <Edit className="size-4" />
@@ -534,52 +518,6 @@ export function RequerimientoDetalle({ requerimientoId, onNavigate }: Requerimie
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialog de Rechazo */}
-      <AlertDialog open={showRechazarDialog} onOpenChange={setShowRechazarDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Rechazar Requerimiento</AlertDialogTitle>
-            <AlertDialogDescription>
-              El requerimiento será devuelto al solicitante con el motivo del rechazo.
-              Podrá ser corregido y reenviado.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-2 py-4">
-            <Label htmlFor="motivoRechazo">Motivo del Rechazo (mínimo 10 caracteres) *</Label>
-            <Textarea
-              id="motivoRechazo"
-              value={motivoRechazo}
-              onChange={(e) => {
-                setMotivoRechazo(e.target.value);
-                setErrorRechazo('');
-              }}
-              placeholder="Indique qué debe corregirse..."
-              rows={3}
-              className={errorRechazo ? 'border-red-500' : ''}
-            />
-            {errorRechazo && (
-              <p className="text-sm text-red-600 flex items-center gap-1">
-                <AlertTriangle className="size-3" />
-                {errorRechazo}
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              {motivoRechazo.length}/10 caracteres
-            </p>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setMotivoRechazo('');
-              setErrorRechazo('');
-            }}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleRechazar} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Rechazar Requerimiento
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

@@ -69,15 +69,24 @@ export const MANTENIMIENTO_BIO_TRANSITIONS: TransitionMap<string> = {
   cancelado: [], // estado final
 };
 
-/** Compras — Requerimientos */
+/**
+ * Compras — Requerimientos.
+ *
+ * Este mapa hablaba de estados que el sistema no usa ('pendiente', 'en_proceso',
+ * 'completado') y no incluía el que sí usa: 'enviado'. El efecto era que editar
+ * un borrador y darle a "Guardar y Enviar" fallaba con «no se puede cambiar de
+ * borrador a enviado» — el requerimiento se guardaba y se quedaba en borrador.
+ *
+ * Ya no hay aprobación: de 'enviado' no se sale más que anulando. 'aprobado' y
+ * 'rechazado' se conservan porque hay documentos de la etapa anterior en esos
+ * estados; a ellos no se llega desde 'enviado'.
+ */
 export const REQUERIMIENTO_TRANSITIONS: TransitionMap<string> = {
-  borrador: ['pendiente', 'anulado'],
-  pendiente: ['aprobado', 'rechazado', 'anulado'],
-  aprobado: ['en_proceso', 'anulado'],
-  en_proceso: ['completado', 'anulado'],
-  rechazado: ['borrador'], // puede corregirse
-  completado: [], // estado final
-  anulado: [], // estado final
+  borrador: ['enviado', 'anulado'],
+  enviado: ['anulado'],
+  aprobado: ['anulado'],            // histórico: ya no se llega aquí
+  rechazado: ['borrador', 'enviado', 'anulado'], // histórico: puede retomarse
+  anulado: [],                      // estado final
 };
 
 /** Compras — Cotizaciones */

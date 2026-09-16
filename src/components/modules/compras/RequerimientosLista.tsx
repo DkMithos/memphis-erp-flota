@@ -42,11 +42,26 @@ interface RequerimientosListaProps {
 }
 
 export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
-  const { requerimientos, usuarioActual } = useRequerimientosStore();
+  const { requerimientos: todos, usuarioActual } = useRequerimientosStore();
   // Permisos reales del usuario (RBAC), no el rol suelto de profiles
   const { can } = usePermissions();
   // Cada usuario descarga su propia data: se exige <modulo>.exportar
   const puedeExportar = can('compras', 'exportar');
+
+  /**
+   * Cualquiera puede levantar un requerimiento, tenga o no el módulo de
+   * Compras. Pero "levantar el mío" no es "leer los de toda la empresa": quien
+   * no tiene `compras.ver` solo ve los suyos. Se compara por correo, que es lo
+   * que guarda `solicitante_email`.
+   */
+  const veTodos = can('compras', 'ver');
+  const mio = (correo?: string | null) =>
+    (correo ?? '').toLowerCase() === (usuarioActual.email ?? '').toLowerCase();
+  const requerimientos = useMemo(
+    () => (veTodos ? todos : todos.filter(r => mio(r.solicitanteEmail))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [todos, veTodos, usuarioActual.email],
+  );
   
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -117,7 +132,9 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
       .reduce((sum, r) => sum + r.totalEstimado, 0)
   }), [requerimientos]);
 
-  const puedeCrear = can('compras', 'crear');
+  // Levantar un requerimiento no pide permiso de Compras: lo hace cualquiera
+  // con cuenta. El control del gasto está en la cotización y en la orden.
+  const puedeCrear = true;
 
   return (
     <div className="space-y-6">
@@ -132,7 +149,9 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
           <div>
             <h2>Requerimientos de Compra</h2>
             <p className="text-muted-foreground mt-1">
-              Gestión de solicitudes de compra y aprobaciones
+              {veTodos
+                ? 'Solicitudes de compra de toda la empresa'
+                : 'Tus solicitudes de compra'}
             </p>
           </div>
         </div>

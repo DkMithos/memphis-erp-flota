@@ -70,8 +70,12 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
         solicitanteNombre: requerimientoExistente.solicitanteNombre,
         solicitanteEmail: requerimientoExistente.solicitanteEmail,
         fechaRequerida: requerimientoExistente.fechaRequerida || '',
+        // Sin esto los dos selectores de imputación salían en blanco al editar,
+        // y quien guardaba creyendo que no tocaba nada los dejaba sin proyecto.
+        proyectoId: requerimientoExistente.proyectoId ?? null,
+        centroCostoId: requerimientoExistente.centroCostoId ?? null,
         items: requerimientoExistente.items.map(({ id, ...item }) => item)
-      });
+      } as Partial<NuevoRequerimientoInput>);
     }
   }, [isEditing, requerimientoExistente]);
 
@@ -179,7 +183,7 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
             onSuccess(requerimientoId);
             return;
           }
-          toast.success('Requerimiento actualizado y enviado para aprobación');
+          toast.success('Requerimiento actualizado y enviado a Compras');
         } else {
           toast.success('Requerimiento actualizado correctamente');
         }
@@ -199,7 +203,7 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
         }
         const nuevoReq = resCrear.requerimiento;
         toast.success(enviar
-          ? `Requerimiento ${nuevoReq.id} creado y enviado para aprobación`
+          ? `Requerimiento ${nuevoReq.id} creado y enviado a Compras`
           : `Requerimiento ${nuevoReq.id} guardado como borrador`);
         onSuccess(nuevoReq.id);
       }

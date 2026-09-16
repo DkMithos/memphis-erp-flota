@@ -1355,7 +1355,7 @@ export interface GastoCajaChicaDB {
 export interface ProyectoDB {
   id: string; tenant_id: string; codigo: string; nombre: string; descripcion?: string | null;
   tipo: 'interno' | 'cliente' | 'infraestructura' | 'mejora' | 'investigacion';
-  estado: 'planificacion' | 'en_ejecucion' | 'pausado' | 'completado' | 'cancelado';
+  estado: 'planificacion' | 'en_ejecucion' | 'pausado' | 'completado' | 'cancelado' | 'liquidacion';
   prioridad: 'baja' | 'media' | 'alta' | 'critica';
   fecha_inicio?: string | null; fecha_fin_estimada?: string | null; fecha_fin_real?: string | null;
   presupuesto?: number | null; costo_real?: number | null; moneda: string;

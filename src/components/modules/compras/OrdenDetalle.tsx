@@ -178,6 +178,13 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
       return;
     }
     setShowAprobarDialog(false);
+    if (res.sinRubrica) {
+      toast.warning('Firmaste, pero no tienes rúbrica registrada', {
+        description:
+          'La aprobación consta igual; en el PDF saldrá la línea en blanco. Sube tu firma en Perfil y quedará estampada.',
+        duration: 8000,
+      });
+    }
     // `errores` trae las etapas que faltan: la orden solo queda aprobada con
     // todas las firmas que su monto exige.
     const faltan = res.errores ?? [];
@@ -449,6 +456,31 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
                     );
                   })}
                 </div>
+
+                {/* La rúbrica, aquí mismo. Antes solo salía en el PDF, así que
+                    para comprobar que una orden estaba firmada había que
+                    exportarla — y si la firma no se había capturado, no había
+                    forma de enterarse desde la pantalla. */}
+                {aprobaciones.some(a => a.firma) && (
+                  <div className="flex flex-wrap gap-4 pt-2 border-t mt-2">
+                    {etapas.map(e => {
+                      const ap = aprobaciones.find(a => a.etapa === e);
+                      if (!ap?.firma) return null;
+                      return (
+                        <div key={`rubrica-${e}`} className="text-center">
+                          <img
+                            src={ap.firma}
+                            alt={`Firma de ${ap.aprobadoPorNombre || ap.aprobadoPorEmail || ''}`}
+                            className="h-10 mx-auto object-contain bg-white rounded px-1"
+                          />
+                          <div className="border-t border-current/40 mt-1 pt-0.5 text-[10px] opacity-80">
+                            {ETIQUETA_ETAPA[e]}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 <div className="flex items-center gap-1 pt-0.5">
                   {miEtapaPendiente
                     ? <><ShieldCheck className="size-3" /> <span>Te toca firmar como {ETIQUETA_ETAPA[miEtapaPendiente]}</span></>
@@ -554,7 +586,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
           </div>
           {orden.auditoria.modificadoPor && (
             <div>
-              <span className="text-muted-foreground">Modificado por:</span> {orden.auditoria.modificadoPor} el {orden.auditoria.modificadoEn && formatearFecha(orden.auditoria.modificadoEn)}
+              <span className="text-muted-foreground">Modificado por:</span> {nombreDe(orden.auditoria.modificadoPor)} el {orden.auditoria.modificadoEn && formatearFecha(orden.auditoria.modificadoEn)}
             </div>
           )}
           {orden.aprobadoPor && (

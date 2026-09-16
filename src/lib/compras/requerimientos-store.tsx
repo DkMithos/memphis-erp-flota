@@ -117,8 +117,6 @@ interface RequerimientoStoreContext {
   crearRequerimiento: (input: NuevoRequerimientoInput, estadoInicial?: EstadoRequerimiento) => Promise<CrudResult & { requerimiento?: Requerimiento }>;
   actualizarRequerimiento: (id: string, input: ActualizarRequerimientoInput) => Promise<CrudResult>;
   cambiarEstado: (id: string, nuevoEstado: EstadoRequerimiento) => Promise<CrudResult>;
-  aprobarRequerimiento: (id: string, aprobadoPor: string) => Promise<CrudResult>;
-  rechazarRequerimiento: (id: string, rechazadoPor: string, motivo: string) => Promise<CrudResult>;
   anularRequerimiento: (id: string, motivo: string) => Promise<CrudResult>;
   cargarRequerimientosIniciales: () => void;
   // Usuario actual derivado de auth
@@ -291,6 +289,11 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
         estado: estadoInicial,
         prioridad: input.prioridad,
         centro_costo: input.centroCosto,
+        // Las dos imputaciones se guardan de verdad. Antes el formulario pedía
+        // "Proyecto", el store leía `row.proyecto_id` y la columna no existía:
+        // lo que elegía Compras se perdía en silencio en cada requerimiento.
+        centro_costo_id: input.centroCostoId ?? null,
+        proyecto_id: input.proyectoId ?? null,
         fecha_requerida: input.fechaRequerida || null,
         moneda: input.moneda ?? 'PEN',
         solicitante_email: normalizeEmail(input.solicitanteEmail),
@@ -361,6 +364,8 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
       if (input.titulo !== undefined) updatePayload.titulo = input.titulo.trim();
       if (input.descripcion !== undefined) updatePayload.descripcion = input.descripcion.trim();
       if (input.centroCosto !== undefined) updatePayload.centro_costo = input.centroCosto;
+      if (input.centroCostoId !== undefined) updatePayload.centro_costo_id = input.centroCostoId;
+      if (input.proyectoId !== undefined) updatePayload.proyecto_id = input.proyectoId;
       if (input.prioridad !== undefined) updatePayload.prioridad = input.prioridad;
       if (input.fechaRequerida !== undefined) updatePayload.fecha_requerida = input.fechaRequerida || null;
 
@@ -501,97 +506,10 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
     [user, requerimientos]
   );
 
-  const aprobarRequerimiento = useCallback(
-    async (id: string, aprobadoPor: string): Promise<CrudResult> => {
-      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
-
-      const dbId = requerimientosRef.current.find(r => r.id === id)?._dbId;
-      if (!dbId) return { exito: false, errores: ['Requerimiento no encontrado'] };
-
-      const ahora = new Date().toISOString();
-      // `aprobado_por` es uuid. La pantalla venía mandando el CORREO del usuario
-      // y Postgres rechazaba el update entero con "invalid input syntax for type
-      // uuid", así que aprobar no hacía nada: el requerimiento se quedaba
-      // enviado. Se guarda el id de quien aprueba, que es lo que la columna pide.
-      const { error } = await dbRequerimientos.update(dbId, {
-        estado: 'aprobado' as EstadoRequerimiento,
-        aprobado_por: user.id,
-        aprobado_en: ahora,
-        modificado_por: user.id,
-        modificado_en: ahora,
-      });
-
-      if (error) {
-        console.error('[REQUERIMIENTOS] Error al aprobar:', error.message);
-        return { exito: false, errores: [error.message] };
-      }
-
-      setRequerimientos(prev =>
-        prev.map(r =>
-          r.id === id
-            ? {
-                ...r,
-                estado: 'aprobado' as EstadoRequerimiento,
-                aprobadoPor: user.id,
-                aprobadoEn: ahora,
-                auditoria: { ...r.auditoria, modificadoPor: user.id, modificadoEn: ahora },
-              }
-            : r
-        )
-      );
-
-      if (DEBUG_REQUERIMIENTOS) {
-        console.log('[REQ_APPROVED]', { id, aprobadoPor });
-      }
-
-      return { exito: true };
-    },
-    [user]
-  );
-
-  const rechazarRequerimiento = useCallback(
-    async (id: string, rechazadoPor: string, motivo: string): Promise<CrudResult> => {
-      if (!user) return { exito: false, errores: ['Sin sesión activa'] };
-
-      const dbId = requerimientosRef.current.find(r => r.id === id)?._dbId;
-      if (!dbId) return { exito: false, errores: ['Requerimiento no encontrado'] };
-
-      const ahora = new Date().toISOString();
-      const { error } = await dbRequerimientos.update(dbId, {
-        estado: 'rechazado' as EstadoRequerimiento,
-        motivo_rechazo: motivo.trim(),
-        modificado_por: user.id,
-        modificado_en: ahora,
-      });
-
-      if (error) {
-        console.error('[REQUERIMIENTOS] Error al rechazar:', error.message);
-        return { exito: false, errores: [error.message] };
-      }
-
-      setRequerimientos(prev =>
-        prev.map(r =>
-          r.id === id
-            ? {
-                ...r,
-                estado: 'rechazado' as EstadoRequerimiento,
-                rechazadoPor,
-                rechazadoEn: ahora,
-                motivoRechazo: motivo.trim(),
-                auditoria: { ...r.auditoria, modificadoPor: user.id, modificadoEn: ahora },
-              }
-            : r
-        )
-      );
-
-      if (DEBUG_REQUERIMIENTOS) {
-        console.log('[REQ_REJECTED]', { id, rechazadoPor });
-      }
-
-      return { exito: true };
-    },
-    [user]
-  );
+  // Aquí vivían aprobarRequerimiento y rechazarRequerimiento. El requerimiento
+  // ya no se aprueba: pedir algo no es comprarlo, y el gasto se controla en la
+  // cotización y en la orden. Ver REQUERIMIENTO_SE_APRUEBA en
+  // requerimientos-config. Los que quedaron en 'aprobado' siguen siendo válidos.
 
   const anularRequerimiento = useCallback(
     async (id: string, motivo: string): Promise<CrudResult> => {
@@ -648,8 +566,6 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
     crearRequerimiento,
     actualizarRequerimiento,
     cambiarEstado,
-    aprobarRequerimiento,
-    rechazarRequerimiento,
     anularRequerimiento,
     cargarRequerimientosIniciales,
     usuarioActual,

@@ -44,7 +44,10 @@ export interface Cotizacion {
   // Identificación — id = numero (COT-NNNN), _dbId = UUID interno
   id: string;
   _dbId: string;
+  /** UUID del requerimiento de origen (lo que guarda la columna). */
   requerimientoId: string;
+  /** Número visible del requerimiento (RQ-00245), para cruzarlo en pantalla. */
+  requerimientoNumero: string;
 
   // Proveedor
   proveedorId: string | null;
@@ -179,6 +182,7 @@ function mapFromDB(row: CotizacionWithRelations): Cotizacion {
     id: row.numero,
     _dbId: row.id,
     requerimientoId: row.requerimiento_id ?? '',
+    requerimientoNumero: (row as any).requerimiento?.numero ?? '',
     proveedorId: row.proveedor_id,
     proveedorNombre: row.proveedor?.razon_social ?? '',
     tipo: ((row as any).tipo ?? 'bienes') as TipoCotizacion,
@@ -274,7 +278,17 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
   );
 
   const obtenerCotizacionesPorRequerimiento = useCallback(
-    (requerimientoId: string) => cotizaciones.filter(c => c.requerimientoId === requerimientoId),
+    /**
+     * Acepta el UUID del requerimiento o su número visible (RQ-00245).
+     *
+     * `cotizaciones.requerimiento_id` guarda el UUID, pero la pantalla del
+     * requerimiento vive en una ruta con el número, y llamaba aquí con él. No
+     * coincidía nunca, así que un requerimiento ya cotizado se veía como si no
+     * tuviera ni una cotización — y encima ofrecía "Crear Primera Cotización".
+     */
+    (requerimientoId: string) => cotizaciones.filter(
+      c => c.requerimientoId === requerimientoId || c.requerimientoNumero === requerimientoId,
+    ),
     [cotizaciones]
   );
 

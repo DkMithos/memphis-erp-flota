@@ -18,8 +18,21 @@ export interface RequisitoRuta {
   accion: Accion;
 }
 
-/** Rutas visibles para cualquier usuario con sesión y rol, sin permiso extra. */
-const RUTAS_LIBRES = ['/home', '/', '', '/perfil', '/notificaciones', '/ayuda'];
+/**
+ * Rutas visibles para cualquier usuario con sesión y rol, sin permiso extra.
+ *
+ * Los REQUERIMIENTOS están aquí a propósito: pedir algo no es comprarlo, y
+ * quien necesita una llanta o un cartucho de tinta no tiene por qué tener el
+ * módulo de Compras. Lo que se controla es el gasto, y eso pasa después —
+ * la cotización se aprueba y la orden pasa por el flujo de montos.
+ *
+ * Ojo: esto abre la PANTALLA. Quien no tenga `compras.ver` solo verá sus
+ * propios requerimientos (ver `RequerimientosLista`).
+ */
+const RUTAS_LIBRES = [
+  '/home', '/', '', '/perfil', '/notificaciones', '/ayuda',
+  '/compras/requerimientos', '/compras/requerimientos/nuevo',
+];
 
 /** Prefijo de ruta → módulo, para la regla general. */
 const MODULO_POR_PREFIJO: { prefijo: string; modulo: Modulo }[] = [
@@ -40,6 +53,10 @@ const MODULO_POR_PREFIJO: { prefijo: string; modulo: Modulo }[] = [
  * por eso el orden importa: primero las más largas.
  */
 const EXCEPCIONES: { prefijo: string; requisitos: RequisitoRuta[] }[] = [
+  // Requerimientos: los levanta cualquiera (ver RUTAS_LIBRES). Va como excepción
+  // sin requisitos para que también valga para el detalle y la edición, que son
+  // rutas con id debajo del prefijo.
+  { prefijo: '/compras/requerimientos', requisitos: [] },
   // Dar conformidad de mercadería exige `recepcionar`; verlas basta con `ver`.
   { prefijo: '/compras/recepciones/nuevo', requisitos: [{ modulo: 'compras', accion: 'recepcionar' }] },
   // Recepciones: Compras, Técnico Flota y Proyectos (N35)

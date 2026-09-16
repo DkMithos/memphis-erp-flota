@@ -43,6 +43,8 @@ const ESTADO_PROYECTO_CONFIG: Record<Proyecto['estado'], { label: string; color:
   pausado:       { label: 'Pausado',        color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
   completado:    { label: 'Completado',     color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
   cancelado:     { label: 'Cancelado',      color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  // GORE ICA está aquí. Faltaba en el mapa, así que su badge salía vacío.
+  liquidacion:   { label: 'En Liquidación', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
 };
 
 const PRIORIDAD_CONFIG: Record<Tarea['prioridad'], { label: string; color: string }> = {

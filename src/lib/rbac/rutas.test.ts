@@ -103,3 +103,29 @@ describe('las pantallas de alta exigen crear, no ver', () => {
     expect(puedeVerRuta('/compras/recepciones/nuevo', soloLectura)).toBe(false);
   });
 });
+
+describe('cualquiera puede levantar un requerimiento', () => {
+  // Pedir algo no es comprarlo: el gasto se controla en la cotización y en la
+  // orden, así que la pantalla de requerimientos está abierta a todo el mundo.
+  const SOLO_FINANZAS = conPermisos(['finanzas.ver']);
+  const SIN_NADA = conPermisos([]);
+
+  it('quien solo tiene Finanzas entra a la lista y al alta', () => {
+    expect(puedeVerRuta('/compras/requerimientos', SOLO_FINANZAS)).toBe(true);
+    expect(puedeVerRuta('/compras/requerimientos/nuevo', SOLO_FINANZAS)).toBe(true);
+  });
+
+  it('el detalle de uno concreto también', () => {
+    expect(puedeVerRuta('/compras/requerimientos/RQ-00245', SIN_NADA)).toBe(true);
+  });
+
+  it('pero eso NO le abre el resto de Compras', () => {
+    expect(puedeVerRuta('/compras', SOLO_FINANZAS)).toBe(false);
+    expect(puedeVerRuta('/compras/ordenes', SOLO_FINANZAS)).toBe(false);
+  });
+
+  it('ni la creación de cotizaciones, que sigue siendo de Compras', () => {
+    expect(puedeVerRuta('/compras/cotizaciones/nuevo', SOLO_FINANZAS)).toBe(false);
+    expect(puedeVerRuta('/compras/cotizaciones/nuevo', COMPRAS)).toBe(true);
+  });
+});

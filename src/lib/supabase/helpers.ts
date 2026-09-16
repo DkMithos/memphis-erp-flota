@@ -406,16 +406,19 @@ export const dbRequerimientos = {
 // =============================================================================
 
 export const dbCotizaciones = {
+  // Se trae también el NÚMERO del requerimiento (RQ-00245), no solo su UUID:
+  // las pantallas trabajan con el número visible y sin él no podían cruzar una
+  // cotización con su requerimiento.
   list: () =>
     supabase
       .from("cotizaciones")
-      .select("*, proveedor:proveedores(razon_social, ruc), items:cotizacion_items(*)")
+      .select("*, proveedor:proveedores(razon_social, ruc), items:cotizacion_items(*), requerimiento:requerimientos_compra(numero)")
       .order("creado_en", { ascending: false }),
 
   getByNumero: (numero: string) =>
     supabase
       .from("cotizaciones")
-      .select("*, proveedor:proveedores(*), items:cotizacion_items(*)")
+      .select("*, proveedor:proveedores(*), items:cotizacion_items(*), requerimiento:requerimientos_compra(numero)")
       .eq("numero", numero)
       .single(),
 

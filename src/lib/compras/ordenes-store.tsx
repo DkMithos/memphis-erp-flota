@@ -149,6 +149,13 @@ export interface ActualizarOrdenInput extends Partial<NuevaOrdenInput> {}
 interface CrudResult {
   exito: boolean;
   errores?: string[];
+  /**
+   * Se firmó, pero esa persona no tiene rúbrica registrada, así que la
+   * aprobación queda sin imagen y en el PDF sale la línea en blanco. No es un
+   * error —la aprobación consta igual— pero hay que avisarlo en el momento:
+   * esperar a verlo en el PDF impreso es tarde.
+   */
+  sinRubrica?: boolean;
 }
 
 interface OrdenStoreContext {
@@ -696,6 +703,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
       const requeridas = etapasRequeridas(orden.total, orden.moneda as 'PEN' | 'USD', config);
       const faltan = requeridas.filter(e => !etapas.includes(e));
       const completa = faltan.length === 0;
+      const sinRubrica = !miFirma?.imagen;
 
       if (completa) {
         const { error } = await dbOrdenesCompra.update(dbId, {
@@ -717,7 +725,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
 
       // `errores` lleva las etapas que faltan: la pantalla lo usa para decir si
       // la orden ya quedó aprobada o a quién le toca firmar.
-      return { exito: true, errores: completa ? undefined : faltan };
+      return { exito: true, errores: completa ? undefined : faltan, sinRubrica };
     },
     [user, tenantId, profile]
   );

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateTransition, COTIZACION_TRANSITIONS } from './state-machine';
+import { validateTransition, isValidTransition, COTIZACION_TRANSITIONS, REQUERIMIENTO_TRANSITIONS } from './state-machine';
 
 const puede = (desde: string, hasta: string) =>
   validateTransition(desde, hasta, COTIZACION_TRANSITIONS, 'COT-0001').valid;
@@ -33,5 +33,23 @@ describe('el resto del circuito no cambia', () => {
 
   it('no se aprueba desde borrador: primero se presenta', () => {
     expect(puede('borrador', 'aprobada')).toBe(false);
+  });
+});
+
+describe('requerimientos: ya no se aprueban', () => {
+  it('un borrador se puede enviar — antes esto fallaba', () => {
+    expect(isValidTransition('borrador', 'enviado', REQUERIMIENTO_TRANSITIONS)).toBe(true);
+  });
+
+  it('de enviado no se pasa a aprobado: no hay aprobación', () => {
+    expect(isValidTransition('enviado', 'aprobado', REQUERIMIENTO_TRANSITIONS)).toBe(false);
+  });
+
+  it('de enviado solo se sale anulando', () => {
+    expect(isValidTransition('enviado', 'anulado', REQUERIMIENTO_TRANSITIONS)).toBe(true);
+  });
+
+  it('los rechazados de la etapa anterior se pueden retomar', () => {
+    expect(isValidTransition('rechazado', 'enviado', REQUERIMIENTO_TRANSITIONS)).toBe(true);
   });
 });

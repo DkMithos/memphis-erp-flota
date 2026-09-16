@@ -37,6 +37,7 @@ import {
 } from '../../../lib/compras/ordenes-config';
 import { convertirAMonedaBase, formatMontoBase } from '../../../lib/shared/currency-utils';
 import { useProyectos } from '../../../lib/proyectos/proyectos-store';
+import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
 import { exportToExcel, exportToPDF } from '../../../lib/shared/export-utils';
 
 interface OrdenesListaProps {
@@ -50,6 +51,17 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
   // Cada usuario descarga su propia data: se exige <modulo>.exportar
   const puedeExportar = can('compras', 'exportar');
   const { proyectos } = useProyectos();
+  const { cotizaciones } = useCotizacionesStore();
+
+  /**
+   * La orden guarda el UUID de su cotización, y la columna lo pintaba tal cual:
+   * "8dce2214-de32-4983-…" en vez de "COT-0041". Se traduce al número visible,
+   * que es lo que la gente busca y compara contra sus papeles.
+   */
+  const numeroCotizacion = useMemo(() => {
+    const porUuid = new Map(cotizaciones.map(c => [c._dbId, c.id]));
+    return (ref: string) => porUuid.get(ref) ?? ref;
+  }, [cotizaciones]);
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -88,7 +100,8 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
       const matchSearch = !searchTerm || 
         o.id.toLowerCase().includes(searchLower) ||
         o.proveedorNombre.toLowerCase().includes(searchLower) ||
-        o.cotizacionId.toLowerCase().includes(searchLower);
+        o.cotizacionId.toLowerCase().includes(searchLower) ||
+        numeroCotizacion(o.cotizacionId).toLowerCase().includes(searchLower);
 
       // Filtro por estado
       const matchEstado = filtroEstado === 'todos' || o.estado === filtroEstado;
@@ -104,7 +117,7 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
 
       return matchSearch && matchEstado && matchTipo && matchMoneda && matchProyecto;
     });
-  }, [ordenesPorTab, searchTerm, filtroEstado, filtroTipo, filtroMoneda, filtroProyecto]);
+  }, [ordenesPorTab, searchTerm, filtroEstado, filtroTipo, filtroMoneda, filtroProyecto, numeroCotizacion]);
 
   // Órdenes ordenadas (antes de paginar)
   const ordenesOrdenadas = useMemo(() => {
@@ -141,20 +154,38 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
     fecha: o.fechaEmision ? new Date(o.fechaEmision).toLocaleDateString('es-PE') : '',
   })), [ordenesOrdenadas]);
 
-  // Estadísticas
-  const stats = useMemo(() => ({
-    total: ordenes.length,
-    borradores: ordenes.filter(o => o.estado === 'borrador').length,
-    pendientes: ordenes.filter(o => o.estado === 'pendiente_aprobacion').length,
-    aprobadas: ordenes.filter(o => o.estado === 'aprobada').length,
-    enEjecucion: ordenes.filter(o => o.estado === 'en_ejecucion').length,
-    completas: ordenes.filter(o => o.estado === 'recepcion_completa').length,
-    anuladas: ordenes.filter(o => o.estado === 'anulada').length,
-    // Total convertido a PEN de órdenes aprobadas (todas las monedas)
-    totalAprobadoPEN: ordenes
-      .filter(o => o.estado === 'aprobada' || o.estado === 'en_ejecucion')
-      .reduce((sum, o) => sum + convertirAMonedaBase(o.total, o.moneda), 0)
-  }), [ordenes]);
+  /**
+   * LOS RECUADROS MIRAN LO QUE HAY EN PANTALLA.
+   *
+   * Antes se calculaban siempre sobre `ordenes` —las 590 y pico— así que
+   * filtrar por proyecto, por proveedor o por estado no movía ni un número:
+   * la tabla enseñaba doce órdenes y arriba seguía poniendo el total de la
+   * empresa. Para quien analiza, eso es peor que no tener recuadros.
+   *
+   * Ahora cuentan lo filtrado, y cuando hay filtro activo cada uno dice debajo
+   * sobre cuántas se está midiendo, para no perder la referencia del total.
+   */
+  const resumir = (lista: typeof ordenes) => ({
+    total: lista.length,
+    borradores: lista.filter(o => o.estado === 'borrador').length,
+    pendientes: lista.filter(o => o.estado === 'pendiente_aprobacion').length,
+    aprobadas: lista.filter(o => o.estado === 'aprobada').length,
+    enEjecucion: lista.filter(o => o.estado === 'en_ejecucion').length,
+    completas: lista.filter(o => o.estado === 'recepcion_completa').length,
+    anuladas: lista.filter(o => o.estado === 'anulada').length,
+    // Suma en soles de TODO lo que se está viendo, convirtiendo los dólares.
+    montoPEN: lista.reduce((sum, o) => sum + convertirAMonedaBase(o.total, o.moneda), 0),
+  });
+
+  // Global: alimenta las etiquetas de las pestañas, que deben seguir diciendo
+  // cuántas hay en cada una aunque estés filtrando dentro de una.
+  const stats = useMemo(() => resumir(ordenes), [ordenes]);
+  // De la vista: alimenta los cuatro recuadros.
+  const statsVista = useMemo(() => resumir(ordenesFiltradas), [ordenesFiltradas]);
+
+  const hayFiltro =
+    tabActual !== 'todas' || !!searchTerm || filtroEstado !== 'todos' ||
+    filtroTipo !== 'todos' || filtroMoneda !== 'todos' || filtroProyecto !== 'todos';
 
   const puedeCrear = can('compras', 'crear');
 
@@ -206,7 +237,7 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
         </div>
       </div>
 
-      {/* Stats KPI */}
+      {/* Stats KPI — cuentan lo que hay en pantalla, no el total de la empresa */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
@@ -214,8 +245,13 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
               <ShoppingBag className="size-5 text-white" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Total Órdenes</p>
-              <p className="text-2xl font-bold">{stats.total}</p>
+              <p className="text-xs text-muted-foreground">
+                {hayFiltro ? 'Órdenes filtradas' : 'Total Órdenes'}
+              </p>
+              <p className="text-2xl font-bold">{statsVista.total}</p>
+              {hayFiltro && (
+                <p className="text-[11px] text-muted-foreground">de {stats.total} en total</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -227,7 +263,10 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Pendientes</p>
-              <p className="text-2xl font-bold">{stats.pendientes}</p>
+              <p className="text-2xl font-bold">{statsVista.pendientes}</p>
+              {hayFiltro && (
+                <p className="text-[11px] text-muted-foreground">de {stats.pendientes} en total</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -239,7 +278,12 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">En Ejecución</p>
-              <p className="text-2xl font-bold">{stats.aprobadas + stats.enEjecucion}</p>
+              <p className="text-2xl font-bold">{statsVista.aprobadas + statsVista.enEjecucion}</p>
+              {hayFiltro && (
+                <p className="text-[11px] text-muted-foreground">
+                  de {stats.aprobadas + stats.enEjecucion} en total
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -250,8 +294,11 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
               <DollarSign className="size-5 text-white" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Total en Proceso</p>
-              <p className="text-2xl font-bold">{formatMontoBase(stats.totalAprobadoPEN)}</p>
+              <p className="text-xs text-muted-foreground">
+                {hayFiltro ? 'Monto filtrado' : 'Monto total'}
+              </p>
+              <p className="text-2xl font-bold">{formatMontoBase(statsVista.montoPEN)}</p>
+              <p className="text-[11px] text-muted-foreground">dólares convertidos a soles</p>
             </div>
           </CardContent>
         </Card>
@@ -432,7 +479,9 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="font-mono">{orden.cotizacionId}</Badge>
+                            <Badge variant="outline" className="font-mono">
+                              {numeroCotizacion(orden.cotizacionId)}
+                            </Badge>
                           </TableCell>
                           <TableCell>
                             <Badge className={estadoConfig.className}>
