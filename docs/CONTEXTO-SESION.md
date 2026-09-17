@@ -2357,3 +2357,16 @@ Antes había que pasar drive_id/item_id a mano. Ahora Compras: 1) elige el proye
 Probado end-to-end contra las funciones: carpetas → General (13 carpetas) → "0.0 PROYECTOS EN IDEA" muestra las .xlsx marcadas como Excel. La plantilla vive en COMPRAS/General/0.0 PROYECTOS EN IDEA/PLANTILLA PRESUPUESTAL - NUEVA.xlsx. Build de Vite OK. Cuentas QA eliminadas.
 
 Pendiente: confirmar con Antonio dónde queda el presupuesto OFICIAL de cada proyecto (hoy la plantilla ejemplo está en "PROYECTOS EN IDEA"); comprometido POR PARTIDA (las órdenes aún no se etiquetan por partida).
+
+## Flujo financiero nativo — primer incremento (2026-09-17)
+
+Objetivo de Kevin: dejar de usar el Excel y ver el flujo dentro del ERP. Esta primera capa REFLEJA (importa las BD y las muestra); la columna `fuente` deja el salto a MANDAR (crear/editar nativo) sin romper lo cargado.
+
+- Tabla `flujo_compromisos` (un compromiso por fila: CDC/centro de costo, concepto, proveedor, montos, mes vencimiento, estado, postergado, fuente, área).
+- Parser `flujo-import/flujo.ts` (ubica columnas POR NOMBRE — BD CONTA trae "Columna2" basura, BD TI no; meses español "mar-26"/"SET-26", importes peruanos, fechas dd/mm/yyyy, estados). 15 pruebas contra filas reales.
+- Edge Function `flujo-import`: navega el sitio FlujoFinanciero (carpeta uso='flujo'), importa por área (reemplaza lo de fuente='excel'), resuelve centro de costo y proveedor por nombre. Permiso finanzas.crear/editar.
+- Pantalla `/finanzas/flujo-financiero`: cifras (presupuestado/pagado/pendiente/postergados), tabla por mes de vencimiento y detalle filtrable, con botón Importar/actualizar (selector de SharePoint).
+
+Cargado real: BD CONTA (154 compromisos, 133/154 con centro de costo) y BD TI (52, 52/52). Presupuestado CONTA S/10,505,710.61 · TI S/53,498.58. Ubicación: sitio FlujoFinanciero/Flujo Financiero/Flujo Financiero/BD CONTA 2026.xlsx y BD TI 2026.xlsx.
+
+Pendiente: paso a MANDAR (crear/editar compromisos en el ERP, por área) cuando cada área vea su data; cruzar con órdenes/caja reales; las capas "Flujo *.xlsx" (tablas dinámicas) ya no se importan — las pinta el ERP.

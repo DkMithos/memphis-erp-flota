@@ -113,6 +113,7 @@ const FinanzasDashboard = lazyModulo(() => import('./components/modules/finanzas
 const FinanzasTransacciones = lazyModulo(() => import('./components/modules/finanzas/FinanzasTransacciones').then(m => ({ default: m.FinanzasTransacciones })));
 const FinanzasPresupuestosModule = lazyModulo(() => import('./components/modules/finanzas/FinanzasPresupuestosModule').then(m => ({ default: m.FinanzasPresupuestosModule })));
 const FinanzasCajaChica = lazyModulo(() => import('./components/modules/finanzas/FinanzasCajaChica').then(m => ({ default: m.FinanzasCajaChica })));
+const FlujoFinanciero = lazyModulo(() => import('./components/modules/finanzas/FlujoFinanciero').then(m => ({ default: m.FlujoFinanciero })));
 const FianzasModule = lazyModulo(() => import('./components/modules/fianzas/FianzasModule').then(m => ({ default: m.FianzasModule })));
 const FianzasCargos = lazyModulo(() => import('./components/modules/fianzas/FianzasCargos').then(m => ({ default: m.FianzasCargos })));
 import { FinanzasProvider } from './lib/finanzas/finanzas-store';
@@ -651,6 +652,7 @@ export default function App() {
       if (currentRoute === '/finanzas/cuentas-pagar') return <FinanzasTransacciones onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/caja-chica') return <FinanzasCajaChica onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/flujo-caja') return <FinanzasFlujoCaja onNavigate={navigateTo} />;
+      if (currentRoute === '/finanzas/flujo-financiero') return <FlujoFinanciero />;
       if (currentRoute === '/finanzas/reportes') return <FinanzasReportes onNavigate={navigateTo} />;
       return <FinanzasDashboard onNavigate={navigateTo} />;
     }
