@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 // Cliente EXCLUSIVO del portal (storageKey propio): la sesión del proveedor
 // nunca pisa la sesión del personal del ERP en el mismo navegador.
-import { portalSupabase as supabase } from '../../lib/supabase/portal-client';
+import { portalSupabase as supabase, errorEnlacePortal } from '../../lib/supabase/portal-client';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
@@ -80,7 +80,7 @@ const fmt = (monto: number, moneda: string) =>
 export function PortalProveedores({ route, onNavigate }: Props) {
   const [session, setSession] = useState<Session | null>(null);
   const [cargandoSesion, setCargandoSesion] = useState(true);
-  const [vista, setVista] = useState<'login' | 'clave' | 'dashboard'>('login');
+  const [vista, setVista] = useState<'login' | 'clave' | 'clave-vencida' | 'dashboard'>('login');
 
   // Login
   const [ruc, setRuc] = useState('');
@@ -108,6 +108,10 @@ export function PortalProveedores({ route, onNavigate }: Props) {
   const esProveedor = session?.user?.app_metadata?.tipo === 'proveedor';
   const enClave = route.startsWith('/portal/clave');
 
+  // El error del enlace (usado/vencido) se capturó en la carga del módulo del
+  // cliente, antes de que detectSessionInUrl borrara el hash. Ver portal-client.
+  const errorEnlace = errorEnlacePortal;
+
   // ── Sesión ──
   useEffect(() => {
     let mounted = true;
@@ -126,8 +130,11 @@ export function PortalProveedores({ route, onNavigate }: Props) {
 
   useEffect(() => {
     if (cargandoSesion) return;
-    if (session && esProveedor) setVista(enClave ? 'clave' : 'dashboard');
-    else setVista(enClave && session ? 'clave' : 'login');
+    if (session && esProveedor) { setVista(enClave ? 'clave' : 'dashboard'); return; }
+    // En /clave sin sesión: o el enlace traía un error (usado/vencido), o
+    // alguien entró a mano. En ambos casos NO es un login normal — se explica.
+    if (enClave && !session) { setVista('clave-vencida'); return; }
+    setVista('login');
   }, [cargandoSesion, session, esProveedor, enClave]);
 
   // ── Datos del proveedor (bajo RLS) ──
@@ -346,6 +353,43 @@ export function PortalProveedores({ route, onNavigate }: Props) {
               Cancelar
             </Button>
           )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // ── Vista: enlace de contraseña usado o vencido ──
+  // El proveedor llegó a /portal/clave pero el enlace ya no vale. Se le dice
+  // claramente qué pasó y qué hacer, en vez de mandarlo al login sin más.
+  if (vista === 'clave-vencida') {
+    const yaUsado = errorEnlace === 'otp_expired' || errorEnlace === 'access_denied';
+    return marco(
+      <Card className="max-w-md mx-auto">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <AlertTriangle className="size-5 text-amber-500" />
+            Enlace no válido
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm">
+            {yaUsado
+              ? 'Este enlace para crear tu contraseña ya se usó o venció. Cada enlace sirve una sola vez.'
+              : 'Para crear tu contraseña tienes que entrar desde el enlace que te envió Memphis Maquinarias.'}
+          </p>
+          <div className="rounded-md border bg-slate-50 dark:bg-muted/30 p-3 text-sm space-y-1.5">
+            <p className="font-medium">¿Qué hago ahora?</p>
+            <p className="text-muted-foreground">
+              Si <strong>ya creaste tu contraseña antes</strong>, ingresa con tu RUC y esa contraseña.
+            </p>
+            <p className="text-muted-foreground">
+              Si <strong>aún no la creaste</strong>, escríbele a tu comprador de Memphis y pídele que te
+              genere un enlace nuevo. El anterior deja de servir apenas se usa.
+            </p>
+          </div>
+          <Button className="w-full" onClick={() => { onNavigate('/portal'); setVista('login'); }}>
+            Ir a iniciar sesión
+          </Button>
         </CardContent>
       </Card>
     );

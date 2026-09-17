@@ -12,6 +12,22 @@ const anon = import.meta.env.VITE_SUPABASE_ANON_KEY!;
  * "cuenta pendiente de aprobación".
  * Este módulo solo se carga en rutas /portal (import lazy del componente).
  */
+/**
+ * El error del enlace de contraseña, capturado ANTES de crear el cliente.
+ *
+ * Un enlace de recuperación usado o vencido no trae tokens: trae
+ * `#error=...&error_code=otp_expired`. Pero `detectSessionInUrl` borra el hash
+ * en cuanto el cliente arranca, así que si se lee más tarde ya no está. Se lee
+ * aquí, en la carga del módulo, que ocurre antes de que el cliente pueda tocar
+ * la URL. Vale '' cuando el hash no traía error (enlace bueno o sin hash).
+ */
+export const errorEnlacePortal: string =
+  typeof window !== 'undefined'
+    ? (new URLSearchParams(window.location.hash.replace(/^#/, '')).get('error_code')
+       || new URLSearchParams(window.location.hash.replace(/^#/, '')).get('error')
+       || '')
+    : '';
+
 export const portalSupabase = createClient(url, anon, {
   auth: {
     persistSession: true,
