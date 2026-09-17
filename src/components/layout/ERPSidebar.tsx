@@ -240,6 +240,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         { label: t('nav.sub.tareas'), href: '/proyectos/tareas' },
         { label: t('nav.sub.cronograma'), href: '/proyectos/cronograma' },
         { label: t('nav.sub.valorizaciones'), href: '/proyectos/valorizaciones' },
+        { label: 'Presupuesto', href: '/proyectos/presupuesto' },
         { label: t('nav.sub.riesgos'), href: '/proyectos/riesgos' },
         { label: t('nav.sub.documentos'), href: '/proyectos/documentos' }
       ]

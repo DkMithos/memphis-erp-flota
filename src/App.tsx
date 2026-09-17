@@ -94,6 +94,7 @@ const Proyecto360 = lazyModulo(() => import('./components/modules/proyectos/Proy
 const ProyectosPanorama = lazyModulo(() => import('./components/modules/proyectos/ProyectosPanorama').then(m => ({ default: m.ProyectosPanorama })));
 const ProyectosExcelSync = lazyModulo(() => import('./components/modules/proyectos/ProyectosExcelSync').then(m => ({ default: m.ProyectosExcelSync })));
 const ProyectosTareasGlobal = lazyModulo(() => import('./components/modules/proyectos/ProyectosTareasGlobal').then(m => ({ default: m.ProyectosTareasGlobal })));
+const PresupuestoProyecto = lazyModulo(() => import('./components/modules/proyectos/PresupuestoProyecto').then(m => ({ default: m.PresupuestoProyecto })));
 const TareaDetalle = lazyModulo(() => import('./components/modules/proyectos/TareaDetalle').then(m => ({ default: m.TareaDetalle })));
 import { ProyectosProvider } from './lib/proyectos/proyectos-store';
 
@@ -612,6 +613,7 @@ export default function App() {
       }
       if (currentRoute === '/proyectos/cronograma') return <ProyectosCronograma onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/valorizaciones') return <ProyectosValorizaciones onNavigate={navigateTo} />;
+      if (currentRoute === '/proyectos/presupuesto') return <PresupuestoProyecto />;
       if (currentRoute === '/proyectos/riesgos') return <ProyectosRiesgos onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/documentos') return <ProyectosDocumentos onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/excel-sync') return <ProyectosExcelSync />;

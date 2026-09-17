@@ -2300,3 +2300,26 @@ el techo real para aceptar nuevos proyectos OXI.
 - El tipo de cambio es una **celda fija con protección**, referencia presupuestal.
 
 Con eso el cálculo queda cerrado y el presupuesto inicial se puede construir.
+
+## 2026-09-17 - Limpieza de riesgo cero + arranque del presupuesto de proyecto
+
+### Limpieza
+- Borrado PROV-TEST1 ("PORTAL TEST S.A.C.") y su cuenta de portal. Cero referencias en las 11 tablas con proveedor_id.
+- Los dos roles de otro tenant (Fianzas, Cargos Fianzas del tenant a0000000) NO se tocaron: dbRoles.list ya filtra por tenant, asi que no aparecen en la administracion de Memphis. Borrar datos de otro tenant seria lo contrario de "riesgo cero".
+
+### Presupuesto inicial de proyecto - PRIMER INCREMENTO
+Antonio cerro las dudas (base = importe del convenio; sin ganancia por integracion; TC fijo; el cuadro resumen del Excel no es referencia). Arrancado:
+- Esquema proyecto_presupuestos + proyecto_presupuesto_lineas (arbol de partidas). NO se tocan presupuestos/presupuesto_lineas de Finanzas (presupuesto operativo por categorias, otra cosa).
+- Parser supabase/functions/presupuesto-import/plantilla.ts, probado contra filas reales (15 pruebas). Peculiar: nivel 2 con coma ("1,1"=1.1) y profundos con punto; importes formato peruano; las partidas de nivel 1 traen totales AGREGADOS -> solo se suman las HOJAS.
+- Edge Function presupuesto-import: lee la plantilla de SharePoint y reemplaza el presupuesto. Auth proyectos.crear/editar. Tiene solo_leer.
+- Calculo del margen src/lib/proyectos/rendimiento.ts (10 pruebas): ingresos = convenio sin IGV; menos costo; menos consultoria 10%, contraprestacion 5%, venta CIPRL 4% (sobre el convenio); sin integracion. Es el "Cuadro resumen" roto, reconstruido limpio.
+- Pantalla Proyectos > Presupuesto: convenio, presupuestado, comprometido en ordenes (al TC fijo), % comprometido, desglose del margen "con el plan" vs "con lo comprometido", y arbol de partidas colapsable con rollups.
+
+CARGADO: GORE LORETO - BOMBEROS (04LORBOM25) desde PLANTILLA PRESUPUESTAL - NUEVA.xlsx. 406 lineas, 305 hojas, presupuestado S/ 25.553.222,63 sin IGV. Las 9 partidas y el UTF-8 cuadran exactos.
+
+OJO con la lectura del margen: a media ejecucion, lo comprometido < lo presupuestado y el margen "con lo comprometido" sale inflado. Por eso la pantalla muestra "% del presupuesto comprometido" (LORETO 62,2%) y la alarma roja salta cuando lo comprometido SUPERA lo presupuestado (el caso Amazonas).
+
+### Pendiente del presupuesto (siguiente incremento)
+- Selector de archivo (reusar el navegador de Documentos) para importar sin pasar drive/item a mano.
+- Confirmar con Antonio si PLANTILLA PRESUPUESTAL - NUEVA.xlsx es el presupuesto oficial de LORETO o solo el ejemplo, y donde estan los archivos por proyecto.
+- Comprometido POR PARTIDA (hoy es por proyecto): las ordenes no traen partida.
