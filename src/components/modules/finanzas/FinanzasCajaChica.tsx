@@ -27,7 +27,8 @@ import { SearchableSelect } from '../../shared/SearchableSelect';
 import { useAuth } from '@/auth/AuthProvider';
 import { useProyectos } from '@/lib/proyectos/proyectos-store';
 import { useCatalogos } from '@/lib/shared/catalogos-store';
-import { exportToExcel, exportToExcelMultiHoja, exportToPDF, exportCajaModeloExcel, type MovimientoCajaModelo } from '@/lib/shared/export-utils';
+import { exportToExcel, exportToExcelMultiHoja, exportToPDF, exportCajaModeloExcel } from '@/lib/shared/export-utils';
+import { prepararCajaModelo } from '@/lib/finanzas/caja-modelo';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -146,41 +147,28 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
   const proyectoNombre = (id: string) => proyectos.find(p => p._dbId === id)?.nombre ?? id;
 
 
-  /** Exporta la caja seleccionada en el MISMO formato del Excel de Administración (modelo). */
+  /**
+   * Exporta la caja seleccionada en el MISMO formato del Excel de Administración.
+   * El orden (saldo anterior, apertura, luego por registro), la numeración y
+   * los saldos los resuelve `prepararCajaModelo`; el Excel solo pinta.
+   */
   const exportarModeloCaja = async (caja: CajaChica) => {
     if (!puedeExportar) return;
     try {
       const [egr, ing] = await Promise.all([
         supabase.from('gastos_caja_chica')
-          .select('numero, centro_costo, categoria, comprobante_numero, beneficiario, descripcion, monto, fecha')
+          .select('numero, centro_costo, categoria, comprobante_tipo, comprobante_numero, beneficiario, descripcion, monto, fecha, creado_en')
           .eq('caja_id', caja._dbId),
         supabase.from('ingresos_caja_chica')
-          .select('numero, centro_costo, comprobante_tipo, comprobante_numero, origen, descripcion, monto, fecha, tipo')
+          .select('numero, tipo, centro_costo, comprobante_tipo, comprobante_numero, origen, descripcion, monto, fecha, creado_en')
           .eq('caja_id', caja._dbId),
       ]);
       if (egr.error) throw egr.error;
       if (ing.error) throw ing.error;
-      const movs: MovimientoCajaModelo[] = [
-        ...(ing.data ?? []).map((r: any) => ({
-          item: r.numero, centroCosto: r.centro_costo, tipoDoc: r.comprobante_tipo,
-          comprobante: r.comprobante_numero, razonSocial: r.origen,
-          descripcion: r.descripcion, ingreso: Number(r.monto), egreso: null, fecha: r.fecha,
-        })),
-        ...(egr.data ?? []).map((r: any) => ({
-          item: r.numero, centroCosto: r.centro_costo, tipoDoc: r.categoria,
-          comprobante: r.comprobante_numero, razonSocial: r.beneficiario,
-          descripcion: r.descripcion, ingreso: null, egreso: Number(r.monto), fecha: r.fecha,
-        })),
-      ];
-      // Orden del modelo: por ITEM numérico (correlativo original); fallback por fecha
-      movs.sort((a, b) => {
-        const na = Number(a.item), nb = Number(b.item);
-        if (!isNaN(na) && !isNaN(nb)) return na - nb;
-        return String(a.fecha ?? '').localeCompare(String(b.fecha ?? ''));
-      });
+      const modelo = prepararCajaModelo(ing.data ?? [], egr.data ?? []);
       await exportCajaModeloExcel(
         { nombre: caja.nombre, codigo: caja.id, responsable: caja.responsable, moneda: caja.moneda },
-        movs,
+        modelo,
       );
     } catch (e) {
       toast.error('No se pudo exportar la caja: ' + (e instanceof Error ? e.message : 'error'));

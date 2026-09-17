@@ -2370,3 +2370,14 @@ Objetivo de Kevin: dejar de usar el Excel y ver el flujo dentro del ERP. Esta pr
 Cargado real: BD CONTA (154 compromisos, 133/154 con centro de costo) y BD TI (52, 52/52). Presupuestado CONTA S/10,505,710.61 · TI S/53,498.58. Ubicación: sitio FlujoFinanciero/Flujo Financiero/Flujo Financiero/BD CONTA 2026.xlsx y BD TI 2026.xlsx.
 
 Pendiente: paso a MANDAR (crear/editar compromisos en el ERP, por área) cuando cada área vea su data; cruzar con órdenes/caja reales; las capas "Flujo *.xlsx" (tablas dinámicas) ya no se importan — las pinta el ERP.
+
+## Excel de caja chica: nuevo modelo de exportación (2026-09-17, urgente de Kevin)
+
+Cambios pedidos: 1) primer ítem = saldo de la caja anterior, 2) luego el depósito de apertura, 3) el resto por orden de REGISTRO (no por fecha de pago), 4) ítems numerados 1..N, 5) colores y formato del modelo de Administración (`Modelo caja chica 20251.xlsx`).
+
+- `src/lib/finanzas/caja-modelo.ts` (puro, 9 pruebas): clasifica saldo anterior / apertura (por tipo o por leyenda: las cajas viejas guardaron el arrastre como `apertura` "SALDO A FAVOR DE CAJA CHICA ANTERIOR"), ordena por `creado_en` y desempata por el correlativo del número (GCC-2026-007 → 7), numera y calcula el recuadro.
+- Reglas del recuadro: saldo inicial = arrastre positivo o 0 · ingresos = suma de la columna ingreso − saldo inicial (no se cuenta dos veces) · gastos = suma de egresos · saldo final = inicial + ingresos − gastos. Una DEUDA arrastrada sigue siendo ingreso negativo en el ítem 1 (como en el ERP): saldo inicial 0 y el cierre cuadra con `monto_disponible` (CAJA 26: −59.11).
+- `exportCajaModeloExcel` ahora usa **exceljs** (SheetJS gratuito no escribe estilos). `construirLibroCajaModelo` arma el libro (7 pruebas, incluye escribir y releer). Chunk `exceljs` aparte en Vite: solo se carga al exportar.
+- Hoja con el nombre de la caja; totales y saldos como fórmula con resultado cacheado.
+
+Verificado con la CAJA 26 real: 34 ítems, orden 1 deuda / 2 apertura / 3.. GCC-001…032, cierre −59.11.

@@ -5,6 +5,11 @@
  * v1.0.0
  */
 
+import type {
+  Workbook as ExcelWorkbook, Font as ExcelFont, Borders as ExcelBorders, Fill as ExcelFill,
+} from 'exceljs';
+import type { CajaModelo } from '../finanzas/caja-modelo';
+
 // ============================================================================
 // CSV EXPORT
 // ============================================================================
@@ -572,116 +577,191 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
 // EXPORT CAJA CHICA EN FORMATO MODELO (mismo layout que el Excel de Administración)
 // ============================================================================
 
-export interface MovimientoCajaModelo {
-  item: string | number;
-  centroCosto?: string | null;
-  tipoDoc?: string | null;
-  comprobante?: string | null;
-  razonSocial?: string | null;
-  descripcion?: string | null;
-  ingreso?: number | null;
-  egreso?: number | null;
-  fecha?: string | null; // ISO yyyy-mm-dd
+export interface CajaModeloCabecera {
+  nombre: string;
+  codigo: string;
+  responsable: string;
+  moneda: string;
+}
+
+// Los colores del Excel de Administración (ARGB), tal cual están en su modelo.
+const COLOR = {
+  gris: 'FFE7E6E6',        // recuadro "Saldo Inicial"
+  azul: 'FF9BC2E6',        // recuadro "Saldo Final"
+  verdeClaro: 'FFC6E0B4',  // cabecera de la tabla
+  verdeOscuro: 'FF375623', // fila "Total"
+  blanco: 'FFFFFFFF',
+} as const;
+
+/** Nombre de hoja válido para Excel: sin []:*?/\ y hasta 31 caracteres. */
+function nombreHojaExcel(nombre: string): string {
+  return nombre.replace(/[[\]*?/\\:]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 31) || 'Caja Chica';
+}
+
+/** Fecha ISO → Date a medianoche UTC, que Excel guarda como día entero. */
+function fechaExcel(iso: string | null): Date | null {
+  const m = String(iso ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) : null;
 }
 
 /**
- * Exporta UNA caja chica en el formato modelo del Excel de Administración:
- * cabecera Memphis + bloque Saldo Inicial/Ingresos/Gastos/Saldo Final +
- * tabla ITEM/CENTRO DE COSTO/TIPO DOC/COMPROBANTE/RAZÓN SOCIAL/DESCRIPCIÓN/
- * INGRESO/EGRESO/FECHA DE PAGO + fila Total + bloque de firma.
- * Se descarga como .xls (HTML compatible con Excel, conserva el layout).
+ * Arma el libro de UNA caja chica en el formato modelo de Administración,
+ * con su formato: títulos en negrita, recuadro de saldos (gris / azul),
+ * cabecera verde claro, bordes en toda la tabla, fila Total verde oscuro con
+ * letra blanca, y el pie de firma. Calibri 8, como el modelo.
+ *
+ * El orden de las filas, la numeración y los saldos vienen ya resueltos en
+ * `CajaModelo` (ver lib/finanzas/caja-modelo). Aquí solo se pinta.
+ *
+ * Totales y saldos van como FÓRMULA con su resultado guardado: Excel los
+ * recalcula si alguien toca un importe, y quien no recalcula ve el número.
  */
-export async function exportCajaModeloExcel(
-  caja: { nombre: string; codigo: string; responsable: string; moneda: string },
-  movimientos: MovimientoCajaModelo[],
-): Promise<void> {
-  const XLSX = await import('xlsx');
+export async function construirLibroCajaModelo(
+  caja: CajaModeloCabecera,
+  modelo: CajaModelo,
+): Promise<ExcelWorkbook> {
+  const { Workbook } = await import('exceljs');
+  const wb = new Workbook();
+  wb.creator = 'Memphis ERP';
+  const ws = wb.addWorksheet(nombreHojaExcel(caja.nombre));
 
-  const fmtMoneda = caja.moneda === 'USD' ? '"$" #,##0.00' : '"S/" #,##0.00';
+  const esUsd = caja.moneda === 'USD';
+  const fmtMoneda = esUsd ? '"$" #,##0.00' : '"S/" #,##0.00';
   const fmtFecha = 'dd/mm/yyyy';
-  const enLetras = caja.moneda === 'USD' ? 'Dólares' : 'Soles';
+  const mon = esUsd ? 'USD' : 'PEN';
+  const enLetras = esUsd ? 'Dólares' : 'Soles';
 
-  const num = (n?: number | null) => (n === null || n === undefined ? null : Number(n));
-  const fecha = (iso?: string | null) => {
-    if (!iso) return null;
-    const d = new Date(String(iso).slice(0, 10) + 'T00:00:00');
-    return Number.isNaN(d.getTime()) ? null : d;
+  const fuente = (extra: Partial<ExcelFont> = {}): Partial<ExcelFont> => ({ name: 'Calibri', size: 8, ...extra });
+  const borde: Partial<ExcelBorders> = {
+    top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' },
   };
+  const relleno = (argb: string): ExcelFill => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
 
-  const totIng = movimientos.reduce((t, m) => t + (m.ingreso ?? 0), 0);
-  const totEgr = movimientos.reduce((t, m) => t + (m.egreso ?? 0), 0);
-  const saldo = Math.round((totIng - totEgr) * 100) / 100;
-
-  // Diseño del Excel de Administración: cabecera + recuadro de saldos a la
-  // derecha, la tabla de 9 columnas, la fila de totales y el pie de firma.
-  const aoa: (string | number | Date | null)[][] = [
-    ['MEMPHIS MAQUINARIAS SAC', null, null, null, null, null, null, null, null],
-    ['DETALLE DE CAJA CHICA', null, null, null, null, null, 'Saldo Inicial', null, null],
-    [`(Expresado en ${enLetras})`, null, null, null, null, null, 'Ingresos', totIng, null],
-    [`N° DE CAJA: ${caja.codigo}`, null, null, null, null, null, 'Gastos', totEgr, null],
-    [`RESPONSABLE: ${caja.responsable}`, null, null, null, null, null, 'Saldo Final', saldo, null],
-    [null, null, null, null, null, null, null, null, null],
-    ['ITEM', 'CENTRO DE COSTO', 'TIPO DOC', 'COMPROBANTE', 'RAZÓN SOCIAL',
-     'DESCRIPCIÓN', `INGRESO ${caja.moneda}`, `EGRESO ${caja.moneda}`, 'FECHA DE PAGO'],
+  ws.columns = [
+    { width: 11.6 }, { width: 23.4 }, { width: 18.3 }, { width: 13.3 }, { width: 24.1 },
+    { width: 39.3 }, { width: 13 }, { width: 13 }, { width: 11.6 },
   ];
 
-  const FILA_CABECERA = aoa.length - 1;      // 0-based, la fila de títulos
-  const PRIMERA_FILA = aoa.length;           // donde arrancan los movimientos
+  // Títulos (A1:A5)
+  [
+    'MEMPHIS MAQUINARIAS SAC',
+    'DETALLE DE CAJA CHICA',
+    `(Expresado en ${enLetras})`,
+    `N° DE CAJA: ${caja.codigo}`,
+    `RESPONSABLE: ${caja.responsable}`,
+  ].forEach((t, i) => {
+    const c = ws.getCell(i + 1, 1);
+    c.value = t;
+    c.font = fuente({ bold: true });
+  });
 
-  for (const m of movimientos) {
-    aoa.push([
-      // El ITEM y el comprobante son códigos: van como texto para no perder
-      // ceros a la izquierda ni acabar en notación científica.
-      m.item === null || m.item === undefined ? null : String(m.item),
-      m.centroCosto ?? null,
-      m.tipoDoc ?? null,
-      m.comprobante ? String(m.comprobante) : null,
-      m.razonSocial ?? null,
-      m.descripcion ?? null,
-      num(m.ingreso),
-      num(m.egreso),
-      fecha(m.fecha),
-    ]);
+  // Tabla
+  const CAB = 7;
+  const PRIMERA = 8;
+  const ULTIMA = PRIMERA + modelo.filas.length - 1;      // < PRIMERA si no hay filas
+  const TOTAL = PRIMERA + modelo.filas.length;
+
+  ['ITEM', 'CENTRO DE COSTO', 'TIPO DOC', 'COMPROBANTE', 'RAZÓN SOCIAL', 'DESCRIPCIÓN',
+    `Ingreso ${mon}`, `Egreso ${mon}`, 'FECHA DE PAGO'].forEach((h, i) => {
+    const c = ws.getCell(CAB, i + 1);
+    c.value = h;
+    c.font = fuente({ bold: true });
+    c.fill = relleno(COLOR.verdeClaro);
+    c.border = borde;
+    c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+  });
+
+  modelo.filas.forEach((f, idx) => {
+    const r = PRIMERA + idx;
+    const valores: (string | number | Date | null)[] = [
+      f.item, f.centroCosto, f.tipoDoc, f.comprobante, f.razonSocial, f.descripcion,
+      f.ingreso, f.egreso, fechaExcel(f.fecha),
+    ];
+    valores.forEach((v, i) => {
+      const c = ws.getCell(r, i + 1);
+      c.value = v ?? null;
+      c.font = fuente();
+      c.border = borde;
+    });
+    ws.getCell(r, 1).alignment = { horizontal: 'center' };
+    ws.getCell(r, 7).numFmt = fmtMoneda;
+    ws.getCell(r, 8).numFmt = fmtMoneda;
+    ws.getCell(r, 9).numFmt = fmtFecha;
+  });
+
+  // Fila Total: verde oscuro, letra blanca en negrita, suma de cada columna.
+  const totalIngresoCol = Math.round(modelo.filas.reduce((t, f) => t + (f.ingreso ?? 0), 0) * 100) / 100;
+  for (let col = 1; col <= 9; col++) {
+    const c = ws.getCell(TOTAL, col);
+    c.value = col === 1 ? 'Total' : null;
+    c.font = fuente({ bold: true, color: { argb: COLOR.blanco } });
+    c.fill = relleno(COLOR.verdeOscuro);
+    c.border = borde;
   }
+  ws.getCell(TOTAL, 1).alignment = { horizontal: 'center' };
+  const hayFilas = modelo.filas.length > 0;
+  ws.getCell(TOTAL, 7).value = hayFilas
+    ? { formula: `SUM(G${PRIMERA}:G${ULTIMA})`, result: totalIngresoCol }
+    : 0;
+  ws.getCell(TOTAL, 8).value = hayFilas
+    ? { formula: `SUM(H${PRIMERA}:H${ULTIMA})`, result: modelo.gastos }
+    : 0;
+  ws.getCell(TOTAL, 7).numFmt = fmtMoneda;
+  ws.getCell(TOTAL, 8).numFmt = fmtMoneda;
 
-  const FILA_TOTAL = aoa.length;
-  aoa.push(['Total', null, null, null, null, null, totIng, totEgr, null]);
-  aoa.push([null, null, null, null, null, null, null, null, null]);
-  aoa.push([null, '______________________________', null, null, null, null, null, null, null]);
-  aoa.push([null, 'FIRMA DEL RESPONSABLE', null, null, null, null, null, null, null]);
-  aoa.push([null, `NOMBRE: ${caja.responsable}`, null, null, null, null, null, null, null]);
-
-  const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: true });
-
-  // Formato de importes y fechas. Se aplica a la celda, no al texto, así que
-  // el valor sigue siendo un número que Excel puede sumar.
-  const marca = (fila: number, col: number, z: string) => {
-    const ref = XLSX.utils.encode_cell({ r: fila, c: col });
-    const celda = (ws as Record<string, any>)[ref];
-    if (celda && celda.v !== null && celda.v !== undefined) celda.z = z;
+  // Recuadro de saldos (G2:H5)
+  const recuadro = (fila: number, etiqueta: string, valor: number | { formula: string; result: number },
+    opts: { fill?: string; bold?: boolean } = {}) => {
+    const g = ws.getCell(fila, 7);
+    const h = ws.getCell(fila, 8);
+    g.value = etiqueta;
+    h.value = valor;
+    for (const c of [g, h]) {
+      c.font = fuente({ bold: opts.bold ?? false });
+      c.border = borde;
+      if (opts.fill) c.fill = relleno(opts.fill);
+    }
+    h.numFmt = fmtMoneda;
   };
-  for (let r = PRIMERA_FILA; r < FILA_TOTAL; r++) {
-    marca(r, 6, fmtMoneda);
-    marca(r, 7, fmtMoneda);
-    marca(r, 8, fmtFecha);
-  }
-  for (const r of [2, 3, 4]) marca(r, 7, fmtMoneda);   // recuadro de saldos
-  marca(FILA_TOTAL, 6, fmtMoneda);
-  marca(FILA_TOTAL, 7, fmtMoneda);
+  recuadro(2, 'Saldo Inicial', modelo.saldoInicial, { fill: COLOR.gris });
+  recuadro(3, 'Ingresos', { formula: `G${TOTAL}-H2`, result: modelo.ingresos });
+  recuadro(4, 'Gastos', { formula: `H${TOTAL}`, result: modelo.gastos });
+  recuadro(5, 'Saldo Final', { formula: 'H2+H3-H4', result: modelo.saldoFinal }, { fill: COLOR.azul, bold: true });
 
-  ws['!cols'] = [
-    { wch: 6 }, { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 34 },
-    { wch: 46 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
-  ];
-  ws['!autofilter'] = {
-    ref: XLSX.utils.encode_range({
-      s: { c: 0, r: FILA_CABECERA }, e: { c: 8, r: FILA_TOTAL - 1 },
-    }),
-  };
-  // La cabecera queda fija al desplazarse: son cajas de cientos de movimientos.
-  (ws as Record<string, any>)['!freeze'] = { xSplit: 0, ySplit: PRIMERA_FILA };
+  // Pie de firma
+  const PIE = TOTAL + 2;
+  ['_______________________________', 'FIRMA DEL RESPONSABLE', `NOMBRE: ${caja.responsable}`, 'CARGO:']
+    .forEach((t, i) => {
+      const c = ws.getCell(PIE + i, 2);
+      c.value = t;
+      c.font = fuente();
+    });
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Caja Chica');
-  XLSX.writeFile(wb, `${caja.nombre.replace(/\s+/g, '_')}_${caja.codigo}.xlsx`);
+  // Cabecera fija y filtros: son cajas de cientos de movimientos.
+  ws.views = [{ state: 'frozen', xSplit: 0, ySplit: CAB }];
+  ws.autoFilter = { from: { row: CAB, column: 1 }, to: { row: Math.max(ULTIMA, CAB), column: 9 } };
+
+  return wb;
+}
+
+function descargarBlob(nombreArchivo: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = nombreArchivo;
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/** Descarga el Excel de una caja chica en el modelo de Administración. */
+export async function exportCajaModeloExcel(caja: CajaModeloCabecera, modelo: CajaModelo): Promise<void> {
+  const wb = await construirLibroCajaModelo(caja, modelo);
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  descargarBlob(`${caja.nombre.replace(/\s+/g, '_')}_${caja.codigo}.xlsx`, blob);
 }

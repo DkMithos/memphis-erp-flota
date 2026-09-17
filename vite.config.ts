@@ -66,6 +66,7 @@
           manualChunks(id: string) {
             if (!id.includes('node_modules')) return undefined;
             if (/[\\/](recharts|d3-[^\\/]+)[\\/]/.test(id)) return 'charts';
+            if (/[\\/]exceljs[\\/]/.test(id)) return 'exceljs'; // solo se carga al exportar la caja
             if (id.includes('@supabase')) return 'supabase';
             if (/[\\/](i18next|react-i18next)[\\/]/.test(id)) return 'i18n';
             if (id.includes('@radix-ui') || /[\\/](lucide-react|cmdk|sonner|vaul|embla-carousel)[\\/]/.test(id)) return 'ui-vendor';
