@@ -13,7 +13,23 @@ interface Body {
 }
 
 const DOMINIO_ALIAS = 'proveedores.memphismaquinarias.com';
-const REDIRECT_CLAVE = 'https://erp.memphismaquinarias.com/portal/clave';
+// El proveedor recibe un CÓDIGO OPACO de Memphis (no el link de recovery de
+// GoTrue, que los bots de previsualización quemaban con el primer GET). Esta
+// página es HTML estático: bajarla no consume nada. La invitación solo se
+// consume cuando una persona envía su contraseña (ver portal-fijar-clave).
+const INVITACION_BASE = 'https://erp.memphismaquinarias.com/portal/invitacion';
+const INVITACION_HORAS = 72;
+
+// Código opaco de alta entropía (32 bytes → base64url) y su hash sha256 (hex).
+// En la BD solo se guarda el hash; el código en claro viaja únicamente al staff.
+function nuevoCodigo(): string {
+  const b = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function sha256hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map(x => x.toString(16).padStart(2, '0')).join('');
+}
 
 // GoTrue Admin API por REST directo (errores legibles; el wrapper los oculta)
 const SECRET = Deno.env.get('SUPABASE_SECRET_KEY')
@@ -109,24 +125,36 @@ export default {
       userId = created.data?.id ?? null;
     }
 
-    // 6. Enlace de un solo uso para fijar contraseña (lo envía el staff al email real)
-    const link = await gotrueAdmin('/generate_link', 'POST', {
-      type: 'recovery',
-      email: alias,
-      redirect_to: REDIRECT_CLAVE,
+    if (!userId) {
+      return Response.json({ error: 'No se pudo determinar la cuenta del proveedor' }, { status: 500 });
+    }
+
+    // 6. Invitación opaca de un solo uso para fijar contraseña. Se invalidan las
+    // invitaciones anteriores no usadas (al reenviar, solo vale la última).
+    await ctx.supabaseAdmin.from('portal_invitaciones')
+      .update({ consumida_en: new Date().toISOString() })
+      .eq('proveedor_id', prov.id).is('consumida_en', null);
+
+    const codigo = nuevoCodigo();
+    const codeHash = await sha256hex(codigo);
+    const expira = new Date(Date.now() + INVITACION_HORAS * 3600_000).toISOString();
+    const { error: eInvit } = await ctx.supabaseAdmin.from('portal_invitaciones').insert({
+      tenant_id: callerTenant,
+      proveedor_id: prov.id,
+      portal_user_id: userId,
+      code_hash: codeHash,
+      email_destino: emailReal,
+      expira_en: expira,
+      creada_por: userRes?.user?.id ?? null,
     });
-    if (!link.ok) {
-      console.error('[portal-alta] generateLink error:', link.status, JSON.stringify(link.data));
-      return Response.json({ error: `Cuenta lista pero no se pudo generar el enlace (HTTP ${link.status}): ${link.data?.msg ?? JSON.stringify(link.data)}` }, { status: 500 });
+    if (eInvit) {
+      console.error('[portal-alta] insert invitacion error:', JSON.stringify(eInvit));
+      return Response.json({ error: `Cuenta lista pero no se pudo generar el enlace: ${eInvit.message}` }, { status: 500 });
     }
 
     // 7. Marcar habilitado y guardar metadatos
     await ctx.supabaseAdmin.from('proveedores')
-      .update({
-        portal_habilitado: true,
-        email_portal: emailReal,
-        portal_user_id: userId ?? link.data?.user?.id ?? null,
-      })
+      .update({ portal_habilitado: true, email_portal: emailReal, portal_user_id: userId })
       .eq('id', prov.id);
 
     return Response.json({
@@ -134,8 +162,8 @@ export default {
       proveedor: { codigo: prov.codigo, razon_social: prov.razon_social, ruc: prov.ruc },
       login_ruc: prov.ruc,
       email_portal: emailReal,
-      enlace_contrasena: link.data?.action_link ?? link.data?.properties?.action_link,
-      mensaje: `Portal habilitado para ${prov.razon_social}. Envíe el enlace a ${emailReal} para que defina su contraseña (expira en 24h; puede regenerarlo con "reenviar").`,
+      enlace_contrasena: `${INVITACION_BASE}?code=${codigo}`,
+      mensaje: `Portal habilitado para ${prov.razon_social}. Envíe el enlace a ${emailReal} para que defina su contraseña (vence en ${INVITACION_HORAS}h; puede regenerarlo con "reenviar"). El enlace no se gasta al previsualizarlo: solo cuando el proveedor crea su contraseña.`,
     });
   }),
 };

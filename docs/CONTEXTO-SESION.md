@@ -2323,3 +2323,24 @@ OJO con la lectura del margen: a media ejecucion, lo comprometido < lo presupues
 - Selector de archivo (reusar el navegador de Documentos) para importar sin pasar drive/item a mano.
 - Confirmar con Antonio si PLANTILLA PRESUPUESTAL - NUEVA.xlsx es el presupuesto oficial de LORETO o solo el ejemplo, y donde estan los archivos por proyecto.
 - Comprometido POR PARTIDA (hoy es por proyecto): las ordenes no traen partida.
+
+
+## Enlace del portal: causa raíz del "usado o vencido" y arreglo (2026-09-17)
+
+**Problema (Kevin):** se genera un enlace de contraseña, se comparte al proveedor SIN abrirlo, y al proveedor le sale "Enlace no válido - ya se usó o venció".
+
+**Causa raíz (reproducida de punta a punta):** el enlace era un link `recovery` de GoTrue
+(`/auth/v1/verify?token=…`), de UN SOLO USO, que se consume con el PRIMER GET.
+- GET #1 (bot de previsualización de WhatsApp/Teams/Outlook Safe Links) → 303 con `#access_token=…`: consume el token.
+- GET #2 (el humano) → 303 con `#error=access_denied&error_code=otp_expired` (idéntico a la captura del compañero).
+Es decir: el previsualizador del mensajero quema el enlace antes de que la persona haga clic.
+
+**Arreglo:** enlace OPACO de Memphis, inerte ante GET.
+- Nueva tabla `portal_invitaciones` (code_hash sha256, expira_en 72h, consumida_en). Solo se guarda el hash.
+- `portal-proveedor-alta` (v5): en vez del link de GoTrue, genera `…/portal/invitacion?code=<opaco>` e invalida invitaciones previas no usadas.
+- Nueva Edge Function pública `portal-fijar-clave`: `verificar` (no consume) y `fijar` (fija la clave por Admin API y consume). El proveedor elige su clave; Memphis nunca la ve.
+- Frontend `PortalProveedores`: vista `invitacion` que valida el código (POST, no lo dispara un bot) y muestra el formulario de contraseña.
+
+**Verificado:** verificar dos veces NO consume; fijar consume; el proveedor entra con RUC + su nueva clave. Build de Vite OK. Cuentas y proveedor de QA eliminados por completo.
+
+**Nota:** los enlaces GoTrue ya enviados (antiguos) siguen cayendo en la pantalla "Enlace no válido"; para esos, regenerar con "reenviar" (ya sale el enlace nuevo opaco). El arreglo del frontend entra al desplegar en Vercel; las Edge Functions ya están en producción.

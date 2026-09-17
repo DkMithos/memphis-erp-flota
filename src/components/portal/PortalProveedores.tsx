@@ -80,7 +80,7 @@ const fmt = (monto: number, moneda: string) =>
 export function PortalProveedores({ route, onNavigate }: Props) {
   const [session, setSession] = useState<Session | null>(null);
   const [cargandoSesion, setCargandoSesion] = useState(true);
-  const [vista, setVista] = useState<'login' | 'clave' | 'clave-vencida' | 'dashboard'>('login');
+  const [vista, setVista] = useState<'login' | 'clave' | 'clave-vencida' | 'invitacion' | 'dashboard'>('login');
 
   // Login
   const [ruc, setRuc] = useState('');
@@ -93,6 +93,14 @@ export function PortalProveedores({ route, onNavigate }: Props) {
   const [clave2, setClave2] = useState('');
   const [claveMsg, setClaveMsg] = useState('');
   const [guardandoClave, setGuardandoClave] = useState(false);
+
+  // Invitación (enlace opaco /portal/invitacion?code=…): verificación y estado
+  const [invitCargando, setInvitCargando] = useState(true);
+  const [invitOk, setInvitOk] = useState(false);
+  const [invitMotivo, setInvitMotivo] = useState('');      // 'invalida'|'usada'|'vencida'
+  const [invitRazon, setInvitRazon] = useState('');
+  const [invitRuc, setInvitRuc] = useState('');
+  const [invitListo, setInvitListo] = useState(false);     // contraseña ya fijada
 
   // Datos
   const [razonSocial, setRazonSocial] = useState('');
@@ -107,6 +115,15 @@ export function PortalProveedores({ route, onNavigate }: Props) {
 
   const esProveedor = session?.user?.app_metadata?.tipo === 'proveedor';
   const enClave = route.startsWith('/portal/clave');
+  const enInvitacion = route.startsWith('/portal/invitacion');
+  const codeInvit = new URLSearchParams(route.split('?')[1] ?? '').get('code') ?? '';
+
+  const fnUrl = (fn: string) => `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${fn}`;
+  const fnHeaders = {
+    apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+    'Content-Type': 'application/json',
+  } as const;
 
   // El error del enlace (usado/vencido) se capturó en la carga del módulo del
   // cliente, antes de que detectSessionInUrl borrara el hash. Ver portal-client.
@@ -129,13 +146,45 @@ export function PortalProveedores({ route, onNavigate }: Props) {
   }, []);
 
   useEffect(() => {
+    // La invitación (enlace opaco) manda sobre todo: es una página sin sesión
+    // donde el proveedor recién crea su contraseña.
+    if (enInvitacion) { setVista('invitacion'); return; }
     if (cargandoSesion) return;
     if (session && esProveedor) { setVista(enClave ? 'clave' : 'dashboard'); return; }
     // En /clave sin sesión: o el enlace traía un error (usado/vencido), o
     // alguien entró a mano. En ambos casos NO es un login normal — se explica.
     if (enClave && !session) { setVista('clave-vencida'); return; }
     setVista('login');
-  }, [cargandoSesion, session, esProveedor, enClave]);
+  }, [cargandoSesion, session, esProveedor, enClave, enInvitacion]);
+
+  // Verifica el código de invitación al abrir la página. Es un POST: un bot que
+  // solo baja el HTML no lo dispara, y aunque lo hiciera, 'verificar' no consume
+  // nada — el código se gasta solo al FIJAR la contraseña.
+  useEffect(() => {
+    if (!enInvitacion) return;
+    let vivo = true;
+    setInvitCargando(true);
+    (async () => {
+      if (!codeInvit) { if (vivo) { setInvitOk(false); setInvitMotivo('invalida'); setInvitCargando(false); } return; }
+      try {
+        const res = await fetch(fnUrl('portal-fijar-clave'), {
+          method: 'POST', headers: fnHeaders,
+          body: JSON.stringify({ accion: 'verificar', code: codeInvit }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!vivo) return;
+        setInvitOk(!!data.ok);
+        setInvitMotivo(data.motivo ?? '');
+        setInvitRazon(data.razon_social ?? '');
+        setInvitRuc(data.ruc ?? '');
+      } catch {
+        if (vivo) { setInvitOk(false); setInvitMotivo('error'); }
+      } finally {
+        if (vivo) setInvitCargando(false);
+      }
+    })();
+    return () => { vivo = false; };
+  }, [enInvitacion, codeInvit]);
 
   // ── Datos del proveedor (bajo RLS) ──
   const cargarDatos = useCallback(async () => {
@@ -204,6 +253,35 @@ export function PortalProveedores({ route, onNavigate }: Props) {
     setClave1(''); setClave2('');
     onNavigate('/portal');
     setVista('dashboard');
+  };
+
+  // Fija la contraseña desde la invitación opaca. Aquí SÍ se consume el código.
+  const fijarClaveInvitacion = async () => {
+    setClaveMsg('');
+    if (clave1.length < 8) { setClaveMsg('La contraseña debe tener al menos 8 caracteres'); return; }
+    if (clave1 !== clave2) { setClaveMsg('Las contraseñas no coinciden'); return; }
+    setGuardandoClave(true);
+    try {
+      const res = await fetch(fnUrl('portal-fijar-clave'), {
+        method: 'POST', headers: fnHeaders,
+        body: JSON.stringify({ accion: 'fijar', code: codeInvit, password: clave1 }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!data.ok) {
+        if (data.motivo === 'usada' || data.motivo === 'vencida' || data.motivo === 'invalida') {
+          setInvitOk(false); setInvitMotivo(data.motivo);
+        } else {
+          setClaveMsg(data.error ?? 'No se pudo guardar la contraseña. Inténtalo de nuevo.');
+        }
+        return;
+      }
+      setClave1(''); setClave2('');
+      setInvitListo(true);
+    } catch {
+      setClaveMsg('No se pudo conectar. Revisa tu internet e inténtalo de nuevo.');
+    } finally {
+      setGuardandoClave(false);
+    }
   };
 
   const salir = async () => {
@@ -312,6 +390,81 @@ export function PortalProveedores({ route, onNavigate }: Props) {
       <main className="max-w-5xl mx-auto px-4 py-8">{contenido}</main>
     </div>
   );
+
+  // ── Vista: invitación (enlace opaco para crear la contraseña) ──
+  // Va primero: no depende de la sesión (el proveedor aún no la tiene) y no debe
+  // confundirse con la orientación al personal interno.
+  if (vista === 'invitacion') {
+    if (invitCargando) {
+      return marco(<p className="text-center text-muted-foreground py-16">Validando tu enlace…</p>);
+    }
+    if (invitListo) {
+      return marco(
+        <Card className="max-w-md mx-auto">
+          <CardContent className="pt-6 text-center space-y-4">
+            <CheckCircle2 className="size-10 mx-auto text-green-600" />
+            <div>
+              <p className="font-medium">¡Contraseña creada!</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Ya puedes ingresar al portal con tu RUC {invitRuc && <strong>{invitRuc}</strong>} y tu nueva contraseña.
+              </p>
+            </div>
+            <Button className="w-full" onClick={() => { onNavigate('/portal'); setVista('login'); }}>
+              Ir a iniciar sesión
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+    if (!invitOk) {
+      const texto = invitMotivo === 'usada'
+        ? 'Este enlace ya se usó para crear una contraseña. Si fuiste tú, ingresa con tu RUC y esa contraseña.'
+        : invitMotivo === 'vencida'
+        ? 'Este enlace venció. Pídele a tu comprador de Memphis que te genere uno nuevo.'
+        : 'Este enlace no es válido. Revisa que lo hayas copiado completo, o pídele a tu comprador de Memphis uno nuevo.';
+      return marco(
+        <Card className="max-w-md mx-auto">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-500" /> Enlace no válido
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm">{texto}</p>
+            <Button className="w-full" onClick={() => { onNavigate('/portal'); setVista('login'); }}>
+              Ir a iniciar sesión
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+    return marco(
+      <Card className="max-w-md mx-auto">
+        <CardHeader>
+          <CardTitle className="text-lg">Crea tu contraseña</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            {invitRazon ? <>Bienvenido, <strong>{invitRazon}</strong>. </> : null}
+            Define la contraseña con la que entrarás al portal.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="mb-1.5 block">Nueva contraseña (mínimo 8 caracteres)</Label>
+            <Input type="password" value={clave1} onChange={e => setClave1(e.target.value)} />
+          </div>
+          <div>
+            <Label className="mb-1.5 block">Repite la contraseña</Label>
+            <Input type="password" value={clave2} onChange={e => setClave2(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && fijarClaveInvitacion()} />
+          </div>
+          {claveMsg && <p className="text-sm text-red-600">{claveMsg}</p>}
+          <Button className="w-full" onClick={fijarClaveInvitacion} disabled={guardandoClave}>
+            {guardandoClave ? 'Guardando…' : 'Crear contraseña'}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (cargandoSesion) {
     return marco(<p className="text-center text-muted-foreground py-16">Cargando…</p>);
