@@ -2344,3 +2344,16 @@ Es decir: el previsualizador del mensajero quema el enlace antes de que la perso
 **Verificado:** verificar dos veces NO consume; fijar consume; el proveedor entra con RUC + su nueva clave. Build de Vite OK. Cuentas y proveedor de QA eliminados por completo.
 
 **Nota:** los enlaces GoTrue ya enviados (antiguos) siguen cayendo en la pantalla "Enlace no válido"; para esos, regenerar con "reenviar" (ya sale el enlace nuevo opaco). El arreglo del frontend entra al desplegar en Vercel; las Edge Functions ya están en producción.
+
+## Selector de archivo para importar presupuesto (2026-09-17)
+
+Antes había que pasar drive_id/item_id a mano. Ahora Compras: 1) elige el proyecto, 2) navega el árbol de SharePoint de COMPRAS (el mismo de Teams) y 3) pincha la plantilla .xlsx. Todo dentro del ERP.
+
+- `documentos_carpetas.uso` ('documentos' | 'presupuesto') separa la carpeta de Shirley de la raíz de presupuestos. Registrada la raíz "Proyectos (COMPRAS)" → ruta_relativa 'General', mismo drive de COMPRAS.
+- `documentos-sharepoint` (v4): filtra uso='documentos' (Shirley sigue viendo solo lo suyo).
+- `presupuesto-import` (v2): acciones `carpetas` y `listar` (navegación, gobernada por permiso de Proyectos, devuelve drive_id + esExcel) además de `importar`.
+- Frontend: `ImportarPresupuestoDialog` (selector proyecto + navegador SharePoint) y botón "Importar presupuesto" en la pantalla de Presupuesto.
+
+Probado end-to-end contra las funciones: carpetas → General (13 carpetas) → "0.0 PROYECTOS EN IDEA" muestra las .xlsx marcadas como Excel. La plantilla vive en COMPRAS/General/0.0 PROYECTOS EN IDEA/PLANTILLA PRESUPUESTAL - NUEVA.xlsx. Build de Vite OK. Cuentas QA eliminadas.
+
+Pendiente: confirmar con Antonio dónde queda el presupuesto OFICIAL de cada proyecto (hoy la plantilla ejemplo está en "PROYECTOS EN IDEA"); comprometido POR PARTIDA (las órdenes aún no se etiquetan por partida).

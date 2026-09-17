@@ -5,15 +5,24 @@
  * SharePoint (la de Antonio). El equipo sigue costeando en Excel, que es donde
  * saben trabajar, y sube el archivo cuando está cerrado; esto lo trae al ERP.
  *
- * Reemplaza el presupuesto del proyecto por completo (borra líneas y vuelve a
- * cargar): la plantilla es la verdad, no se hacen mezclas raras. El parseo —qué
- * es hoja, cómo se numeran los niveles, los importes en tres formatos— vive en
- * `plantilla.ts`, probado contra filas reales.
+ * Además de importar, deja NAVEGAR el árbol de proyectos de COMPRAS para elegir
+ * la plantilla sin tener que averiguar el drive_id/item_id a mano. Compras entra,
+ * busca la carpeta del proyecto, elige el Excel y listo. La navegación se limita
+ * a las carpetas raíz dadas de alta con uso='presupuesto' (nadie pide un drive
+ * arbitrario pasando ids).
  *
- * Entrada: { proyecto_id, drive_id, item_id }. La hoja se lee con Graph
- * app-only (Files.Read.All), el mismo permiso que las demás funciones de Excel.
+ * Reemplaza el presupuesto del proyecto por completo (borra líneas y vuelve a
+ * cargar): la plantilla es la verdad. El parseo vive en `plantilla.ts`, probado
+ * contra filas reales.
+ *
+ * Acciones:
+ *   { accion:'carpetas' }                              → raíces disponibles
+ *   { accion:'listar', carpeta_id?, item_id? }         → navegar carpetas/archivos
+ *   { accion:'importar', proyecto_id, drive_id, item_id, solo_leer? }
+ *   (sin accion, con proyecto_id+drive_id+item_id → importar, por compatibilidad)
  *
  * Auth: usuario del tenant con `proyectos.crear` o `proyectos.editar`.
+ * Graph: app-only, solo lectura (`Files.Read.All`).
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -48,7 +57,7 @@ async function graph(token: string, url: string): Promise<any> {
   const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
   if (!r.ok) {
     if (r.status === 403) throw new Error('Microsoft rechazó la lectura (403). Falta Files.Read.All.')
-    if (r.status === 404) throw new Error('El archivo ya no existe en SharePoint.')
+    if (r.status === 404) throw new Error('El archivo o la carpeta ya no existe en SharePoint.')
     throw new Error(`Graph ${r.status}: ${(await r.text().catch(() => '')).slice(0, 300)}`)
   }
   return r.json()
@@ -91,8 +100,68 @@ export default {
       .data?.some((r: { nombre: string }) => r.nombre === 'Administrador') ?? false
     if (!esAdmin && !puede) return json({ error: 'Hace falta permiso para editar Proyectos' }, 403)
 
-    let cuerpo: { proyecto_id?: string; drive_id?: string; item_id?: string; solo_leer?: boolean }
+    let cuerpo: {
+      accion?: string; proyecto_id?: string; drive_id?: string; item_id?: string
+      carpeta_id?: string; solo_leer?: boolean
+    }
     try { cuerpo = await req.json() } catch { cuerpo = {} }
+    const accion = cuerpo.accion ?? (cuerpo.proyecto_id ? 'importar' : 'listar')
+
+    // ── Navegación de SharePoint (raíces uso='presupuesto') ──
+    if (accion === 'carpetas' || accion === 'listar') {
+      const { data: carpetas } = await admin
+        .from('documentos_carpetas')
+        .select('id, nombre, descripcion, drive_id, item_id, ruta, ruta_relativa')
+        .eq('tenant_id', tenantId).eq('activo', true).eq('uso', 'presupuesto')
+        .order('orden')
+
+      if (accion === 'carpetas') {
+        return json({
+          ok: true,
+          carpetas: (carpetas ?? []).map(({ id, nombre, descripcion, ruta }) => ({ id, nombre, descripcion, ruta })),
+        })
+      }
+
+      const raiz = (carpetas ?? []).find(c => c.id === cuerpo.carpeta_id) ?? (carpetas ?? [])[0]
+      if (!raiz) return json({ error: 'No hay ninguna carpeta de presupuestos configurada' }, 404)
+
+      try {
+        const token = await getAppToken()
+        // La RAÍZ se direcciona por ruta relativa (el id explorado a mano da 400).
+        // Las SUBCARPETAS van por su id, que sale de la propia respuesta de Graph.
+        const base = `https://graph.microsoft.com/v1.0/drives/${raiz.drive_id}`
+        const destino = cuerpo.item_id
+          ? `${base}/items/${cuerpo.item_id}`
+          : raiz.ruta_relativa
+            ? `${base}/root:/${raiz.ruta_relativa.split('/').map(encodeURIComponent).join('/')}:`
+            : `${base}/items/${raiz.item_id}`
+        const hijos = await graph(token,
+          `${destino}/children?$select=id,name,size,folder,file,lastModifiedDateTime&$top=800`)
+
+        const items = (hijos.value ?? []).map((i: any) => ({
+          id: i.id,
+          nombre: i.name,
+          esCarpeta: Boolean(i.folder),
+          elementos: i.folder?.childCount ?? null,
+          tamano: i.size ?? null,
+          esExcel: /\.(xlsx|xlsm)$/i.test(i.name ?? ''),
+          modificado: i.lastModifiedDateTime ?? null,
+        }))
+        items.sort((a: any, b: any) =>
+          Number(b.esCarpeta) - Number(a.esCarpeta) || a.nombre.localeCompare(b.nombre, 'es'))
+
+        return json({
+          ok: true,
+          carpeta: { id: raiz.id, nombre: raiz.nombre, ruta: raiz.ruta, drive_id: raiz.drive_id },
+          en_raiz: !cuerpo.item_id,
+          items,
+        })
+      } catch (e) {
+        return json({ error: e instanceof Error ? e.message : String(e) }, 500)
+      }
+    }
+
+    // ── Importar ──
     if (!cuerpo.proyecto_id || !cuerpo.drive_id || !cuerpo.item_id) {
       return json({ error: 'Faltan datos: proyecto_id, drive_id, item_id' }, 400)
     }

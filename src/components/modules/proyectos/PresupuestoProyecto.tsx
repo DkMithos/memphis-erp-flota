@@ -19,6 +19,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { SearchableSelect } from '../../shared/SearchableSelect';
+import { ImportarPresupuestoDialog } from './ImportarPresupuestoDialog';
 import { supabase } from '../../../lib/supabase/client';
 import {
   calcularMargen, aSoles, margenLegible, PARAMETROS_DEFECTO,
@@ -59,30 +60,32 @@ export function PresupuestoProyecto() {
   const [cargando, setCargando] = useState(true);
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
 
-  // Presupuestos existentes (uno por proyecto).
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from('proyecto_presupuestos')
-        .select('id, proyecto_id, tipo_cambio, cui, proyecto:proyectos(codigo, nombre, monto_contrato, monto_adenda)')
-        .order('actualizado_en', { ascending: false });
-      const filas = (data ?? []).map((r: Record<string, unknown>): PresupuestoCab => {
-        const p = r.proyecto as Record<string, unknown> | null;
-        return {
-          id: r.id as string,
-          proyectoId: r.proyecto_id as string,
-          codigo: (p?.codigo as string) ?? '',
-          nombreProyecto: (p?.nombre as string) ?? '',
-          convenio: Number(p?.monto_contrato ?? 0) + Number(p?.monto_adenda ?? 0),
-          tipoCambio: Number(r.tipo_cambio ?? 3.4),
-          cui: (r.cui as string) ?? null,
-        };
-      });
-      setCabs(filas);
-      setSeleccion(s => s ?? filas[0]?.id ?? null);
-      setCargando(false);
-    })();
+  // Presupuestos existentes (uno por proyecto). `preferirProyecto` deja
+  // seleccionado el proyecto recién importado.
+  const cargarPresupuestos = useCallback(async (preferirProyecto?: string) => {
+    const { data } = await supabase
+      .from('proyecto_presupuestos')
+      .select('id, proyecto_id, tipo_cambio, cui, proyecto:proyectos(codigo, nombre, monto_contrato, monto_adenda)')
+      .order('actualizado_en', { ascending: false });
+    const filas = (data ?? []).map((r: Record<string, unknown>): PresupuestoCab => {
+      const p = r.proyecto as Record<string, unknown> | null;
+      return {
+        id: r.id as string,
+        proyectoId: r.proyecto_id as string,
+        codigo: (p?.codigo as string) ?? '',
+        nombreProyecto: (p?.nombre as string) ?? '',
+        convenio: Number(p?.monto_contrato ?? 0) + Number(p?.monto_adenda ?? 0),
+        tipoCambio: Number(r.tipo_cambio ?? 3.4),
+        cui: (r.cui as string) ?? null,
+      };
+    });
+    setCabs(filas);
+    const preferida = preferirProyecto ? filas.find(f => f.proyectoId === preferirProyecto)?.id : undefined;
+    setSeleccion(s => preferida ?? s ?? filas[0]?.id ?? null);
+    setCargando(false);
   }, []);
+
+  useEffect(() => { void cargarPresupuestos(); }, [cargarPresupuestos]);
 
   const cab = useMemo(() => cabs.find(c => c.id === seleccion) ?? null, [cabs, seleccion]);
 
@@ -176,14 +179,20 @@ export function PresupuestoProyecto() {
             Lo presupuestado en la plantilla contra lo comprometido en órdenes.
           </p>
         </div>
-        <div className="w-full max-w-sm">
-          <SearchableSelect
-            value={seleccion}
-            onChange={setSeleccion}
-            options={cabs.map(c => ({ value: c.id, label: `${c.codigo} — ${c.nombreProyecto}` }))}
-            placeholder="Elegir proyecto"
-            emptyText="No hay proyectos con presupuesto cargado"
-            nullable={false}
+        <div className="flex items-center gap-2 w-full max-w-xl justify-end flex-wrap">
+          <div className="w-full max-w-sm">
+            <SearchableSelect
+              value={seleccion}
+              onChange={setSeleccion}
+              options={cabs.map(c => ({ value: c.id, label: `${c.codigo} — ${c.nombreProyecto}` }))}
+              placeholder="Elegir proyecto"
+              emptyText="No hay proyectos con presupuesto cargado"
+              nullable={false}
+            />
+          </div>
+          <ImportarPresupuestoDialog
+            proyectoIdInicial={cab?.proyectoId ?? null}
+            onImportado={(proyectoId) => cargarPresupuestos(proyectoId)}
           />
         </div>
       </div>

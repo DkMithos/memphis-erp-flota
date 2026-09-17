@@ -113,7 +113,7 @@ export default {
     const { data: carpetas } = await admin
       .from('documentos_carpetas')
       .select('id, nombre, descripcion, drive_id, item_id, ruta, ruta_relativa')
-      .eq('tenant_id', tenantId).eq('activo', true)
+      .eq('tenant_id', tenantId).eq('activo', true).eq('uso', 'documentos')
       .order('orden')
 
     if (accion === 'carpetas') {
