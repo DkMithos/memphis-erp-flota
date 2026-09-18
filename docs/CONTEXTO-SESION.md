@@ -2381,3 +2381,16 @@ Cambios pedidos: 1) primer ítem = saldo de la caja anterior, 2) luego el depós
 - Hoja con el nombre de la caja; totales y saldos como fórmula con resultado cacheado.
 
 Verificado con la CAJA 26 real: 34 ítems, orden 1 deuda / 2 apertura / 3.. GCC-001…032, cierre −59.11.
+
+
+## Export de proveedores: ahora con TODA la información (2026-09-18)
+
+El botón "Exportar" del directorio bajaba un CSV de 9 columnas (código, razón social, RUC, tipo, estado, email, teléfono, distrito, departamento) y se dejaba fuera casi todo. Les pedían el resto: cuentas bancarias, observaciones, contacto, datos tributarios, etc.
+
+- `src/lib/proveedores/export-proveedores.ts` (puro + `exportarProveedoresCompleto`): arma un .xlsx con dos hojas.
+  - **Proveedores** (37 columnas): código, RUC, razón social, nombre comercial, tipo, categorías, estado, condición, calificación, régimen IGV, domiciliado, contacto (nombre/cargo/email/teléfono), email/teléfono/alt, país/departamento/dirección, primera cuenta (banco/cuenta/CCI/moneda/tipo) + "Todas las cuentas" concatenadas, detracción (sí/tasa/código), retención, suspensión de 4ta y hasta, observaciones, creado/modificado.
+  - **Cuentas bancarias** (una fila por cuenta): código, RUC, razón social, banco, número, CCI, moneda, tipo. Para procesar las múltiples cuentas estructuradas.
+- Respeta los filtros/búsqueda del directorio (exporta lo filtrado).
+- Reutiliza `exportToExcelMultiHoja`: RUC/cuenta/CCI van como TEXTO (no se convierten a número ni pierden ceros).
+- 8 pruebas (precedencia jsonb sobre cuenta plana, concatenación, Sí/No, categoría desconocida, hoja de cuentas). Verificado con 10 proveedores reales (cuentas múltiples, DETRACCIONES BN, CCIs con espacios/guiones): 21 cuentas, monedas resueltas, cuentas vacías filtradas. Total real: 136 proveedores.
+- `ProveedoresDirectorio.handleExportar` ahora llama al export completo (antes `exportToCSV` de 9 columnas).

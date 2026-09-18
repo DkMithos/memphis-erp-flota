@@ -25,7 +25,7 @@ import { useProveedorStore } from '../../../lib/proveedores/proveedores-store';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useAuth } from '../../../auth/AuthProvider';
 import { usePagination } from '../../../lib/shared/usePagination';
-import { exportToCSV } from '../../../lib/shared/export-utils';
+import { exportarProveedoresCompleto } from '../../../lib/proveedores/export-proveedores';
 import {
   PROVEEDOR_ESTADO_CONFIG,
   PROVEEDOR_CONDICION_CONFIG,
@@ -42,7 +42,7 @@ interface ProveedoresDirectorioProps {
 }
 
 export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps) {
-  const { proveedores, aprobarProveedor, rechazarProveedor } = useProveedorStore();
+  const { proveedores, categorias: categoriasConfig, aprobarProveedor, rechazarProveedor } = useProveedorStore();
   // Permisos reales del usuario (RBAC), no el rol suelto de profiles
   const { can } = usePermissions();
   // Cada usuario descarga su propia data: se exige <modulo>.exportar
@@ -99,20 +99,15 @@ export function ProveedoresDirectorio({ onNavigate }: ProveedoresDirectorioProps
 
   const puedeCrear = can('proveedores', 'crear');
 
-  const handleExportar = () => {
-
+  const handleExportar = async () => {
     if (!puedeExportar) return;
-    exportToCSV(`proveedores-${new Date().toISOString().slice(0, 10)}`, proveedoresFiltrados, {
-      id: 'Código',
-      razonSocial: 'Razón Social',
-      ruc: 'RUC',
-      tipo: 'Tipo',
-      estado: 'Estado',
-      email: 'Email',
-      telefono: 'Teléfono',
-      distrito: 'Distrito',
-      departamento: 'Departamento',
-    } as any);
+    try {
+      // Exporta TODA la información (contacto, cuentas bancarias, datos
+      // tributarios, observaciones…), respetando los filtros aplicados.
+      await exportarProveedoresCompleto(proveedoresFiltrados, categoriasConfig);
+    } catch (e) {
+      toast.error('No se pudo exportar el directorio: ' + (e instanceof Error ? e.message : 'error'));
+    }
   };
 
   return (
