@@ -10,8 +10,13 @@
  * pruebas del repo importen el mismo código que corre en producción.
  */
 
-/** Igual que en la plantilla de presupuesto: decide el decimal por el último
- * separador (1–2 cifras detrás → decimal, 3 → millares). " -   " → null. */
+/**
+ * Número en formato peruano: la COMA es el decimal y el PUNTO el millar.
+ *   "184.121,00" → 184121 · "43152,256" → 43152.256 (¡3 decimales!) ·
+ *   "12.691,84" → 12691.84 · "5242620" → 5242620 · " -   " → null.
+ * Si trae los dos separadores, el ÚLTIMO manda (así también aguanta formato
+ * gringo "1,048,524.276"). " -   " y celdas sin dígitos → null.
+ */
 export function numeroPeru(entrada: unknown): number | null {
   if (entrada === null || entrada === undefined) return null;
   if (typeof entrada === 'number') return Number.isFinite(entrada) ? entrada : null;
@@ -26,15 +31,23 @@ export function numeroPeru(entrada: unknown): number | null {
   s = s.replace(/^[-(]|\)$/g, '');
   if (!/\d/.test(s)) return null;
 
-  const corte = Math.max(s.lastIndexOf('.'), s.lastIndexOf(','));
-  let entero = s, dec = '';
-  if (corte !== -1) {
-    const cola = s.slice(corte + 1);
-    if (/^\d{1,2}$/.test(cola)) { entero = s.slice(0, corte); dec = cola; }
+  const tienePunto = s.includes('.');
+  const tieneComa = s.includes(',');
+  let limpio: string;
+  if (tienePunto && tieneComa) {
+    // El separador que aparezca de último es el decimal; el otro, de millares.
+    const dec = s.lastIndexOf('.') > s.lastIndexOf(',') ? '.' : ',';
+    const mil = dec === '.' ? ',' : '.';
+    limpio = s.split(mil).join('').replace(dec, '.');
+  } else if (tieneComa) {
+    // Solo comas: decimal peruano. Varias comas (raro, millares gringos) → se quitan.
+    limpio = s.split(',').length > 2 ? s.split(',').join('') : s.replace(',', '.');
+  } else {
+    // Solo puntos: millares peruanos, salvo un único punto con 1–2 cifras (decimal).
+    const p = s.split('.');
+    limpio = (p.length === 2 && p[1].length <= 2) ? s : p.join('');
   }
-  entero = entero.replace(/[.,]/g, '');
-  if (!/^\d+$/.test(entero)) return null;
-  const n = Number(dec ? `${entero}.${dec}` : entero);
+  const n = Number(limpio);
   if (!Number.isFinite(n)) return null;
   return negativo ? -n : n;
 }
@@ -55,14 +68,15 @@ const MESES: Record<string, number> = {
 };
 
 /**
- * Mes español "mar-26" / "SET-26" / "ene-27" → fecha del primer día del mes en
- * ISO ("2026-03-01"). Devuelve '' si no reconoce el mes.
+ * Mes español abreviado o completo → primer día del mes en ISO.
+ *   "mar-26", "SET-26", "ene-27", "Octubre-25", "Setiembre-25" → "AAAA-MM-01".
+ * Basta con las 3 primeras letras del mes ("octubre"→"oct"). '' si no cuadra.
  */
 export function mesEspanol(entrada: unknown): string {
   const s = normaliza(entrada as string);
-  const m = s.match(/^([a-z]{3})[\s\-\/.]*?(\d{2,4})$/);
+  const m = s.match(/^([a-z]{3,})[\s\-\/.]*?(\d{2,4})$/);
   if (!m) return '';
-  const mes = MESES[m[1]];
+  const mes = MESES[m[1].slice(0, 3)];
   if (!mes) return '';
   let anio = Number(m[2]);
   if (anio < 100) anio += 2000;
@@ -81,10 +95,17 @@ export function fechaDMY(entrada: unknown): string {
   return `${anio}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
-/** 'S/'→PEN · 'US$'/'$'/USD→USD · vacío→'PEN' (la mayoría es soles). */
+/** Una fecha (ISO o dd/mm/aaaa) → primer día de SU mes. '' si no cuadra. */
+export function mesDeFecha(entrada: unknown): string {
+  const s = texto(entrada);
+  const iso = /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : fechaDMY(s);
+  return iso ? `${iso.slice(0, 7)}-01` : '';
+}
+
+/** '$'/'US$'/'USD'/'Dólar'→USD · 'S/'/'Soles'/vacío→PEN (la mayoría es soles). */
 export function moneda(bruto: unknown): string {
   const s = texto(bruto).toUpperCase();
-  if (/US\$|USD|D[OÓ]LAR/.test(s)) return 'USD';
+  if (/\$|USD|D[OÓ]LAR/.test(s)) return 'USD';
   return 'PEN';
 }
 
@@ -170,6 +191,100 @@ export function leerCompromisos(celdas: unknown[][]): LineaFlujo[] {
       observaciones: texto(val(f, 'observaciones')),
       fila: r + 1,
     });
+  }
+  return lineas;
+}
+
+/** Una LineaFlujo con todo en blanco salvo lo que se pase. */
+function nueva(fila: number, p: Partial<LineaFlujo>): LineaFlujo {
+  return {
+    cdc: '', concepto: '', categoria: '', proveedor: '', moneda: 'PEN', tc: null,
+    mesVencimiento: '', montoEjecutado: null, montoPresupuestado: null, montoPagado: null,
+    fechaPagado: '', estadoPago: '', mesProgramado: '', postergado: null, momento: '',
+    observaciones: '', fila, ...p,
+  };
+}
+
+/**
+ * "Flujo de proyectos" — hoja plana "BASE DE DATOS" con cabecera propia:
+ * CÓDIGO · CDC · CATEGORIA · CONCEPTO · PROVEEDOR · MONEDA · TC · FECHA DE
+ * VENCIMIENTO · MES DE VENCIMIENTO · TOTAL SOLES · PAGADO · MONTO PAGADO ·
+ * POSTERGADO … El monto del flujo es TOTAL SOLES; el mes sale de la fecha de
+ * vencimiento (o del texto del mes, que viene con nombre completo).
+ */
+export function leerProyectos(celdas: unknown[][]): LineaFlujo[] {
+  const iCab = filaCabecera(celdas);
+  if (iCab === -1) return [];
+  const col = mapaColumnas(celdas[iCab]);
+  const val = (f: unknown[], n: string): unknown => (n in col ? f[col[n]] : undefined);
+
+  const lineas: LineaFlujo[] = [];
+  for (let r = iCab + 1; r < celdas.length; r++) {
+    const f = celdas[r];
+    const cdc = texto(val(f, 'cdc'));
+    const concepto = texto(val(f, 'concepto'));
+    if (!cdc && !concepto) continue;
+    if (!cdc && /^total/i.test(concepto)) continue;   // fila de totales suelta
+
+    lineas.push(nueva(r + 1, {
+      cdc, concepto,
+      categoria: texto(val(f, 'categoria')),
+      proveedor: texto(val(f, 'proveedor')),
+      moneda: moneda(val(f, 'moneda')),
+      tc: numeroPeru(val(f, 'tc')),
+      mesVencimiento: mesDeFecha(val(f, 'fecha de vencimiento')) || mesEspanol(val(f, 'mes de vencimiento')),
+      montoPresupuestado: numeroPeru(val(f, 'total soles')),
+      montoPagado: numeroPeru(val(f, 'monto pagado')),
+      fechaPagado: fechaDMY(val(f, 'fecha de pago')),
+      estadoPago: estadoPago(val(f, 'pagado')),
+      mesProgramado: mesDeFecha(val(f, 'mes de programacion')) || mesEspanol(val(f, 'mes de programacion')),
+      postergado: numeroPeru(val(f, 'postergado')),
+    }));
+  }
+  return lineas;
+}
+
+/**
+ * "Flujo Administración" — MATRIZ por meses. La hoja "Base de datos" trae
+ * CDC · CONCEPTO · CATEGORIA · Deuda Vencida · <mes1> · <mes2> … y una fila por
+ * concepto con el monto programado de cada mes. Se DESDOBLA: cada celda con
+ * monto (concepto × mes) es un compromiso de ese mes; "Deuda Vencida" es un
+ * compromiso ya vencido (sin mes).
+ */
+export function leerAdministracion(celdas: unknown[][]): LineaFlujo[] {
+  const iCab = filaCabecera(celdas);
+  if (iCab === -1) return [];
+  const cab = celdas[iCab];
+  const col = mapaColumnas(cab);
+  const iCdc = col['cdc'];
+  const iConc = col['concepto'];
+  const iCat = 'categoria' in col ? col['categoria'] : -1;
+  const iDeuda = 'deuda vencida' in col ? col['deuda vencida'] : -1;
+
+  // Columnas cuyo encabezado es un mes ("Ago-25", "May-27").
+  const meses: { i: number; mes: string }[] = [];
+  cab.forEach((c, i) => { const m = mesEspanol(c as string); if (m) meses.push({ i, mes: m }); });
+  if (meses.length === 0) return [];
+
+  const lineas: LineaFlujo[] = [];
+  for (let r = iCab + 1; r < celdas.length; r++) {
+    const f = celdas[r];
+    const concepto = texto(f[iConc]);
+    if (!concepto) continue;                       // filas de sección o en blanco
+    const cdc = texto(f[iCdc]);
+    const categoria = iCat >= 0 ? texto(f[iCat]) : '';
+
+    if (iDeuda >= 0) {
+      const d = numeroPeru(f[iDeuda]);
+      if (d && d !== 0) {
+        lineas.push(nueva(r + 1, { cdc, concepto, categoria, montoPresupuestado: d, estadoPago: 'VENCIDO', observaciones: 'Deuda vencida' }));
+      }
+    }
+    for (const { i, mes } of meses) {
+      const monto = numeroPeru(f[i]);
+      if (monto === null || monto === 0) continue;
+      lineas.push(nueva(r + 1, { cdc, concepto, categoria, mesVencimiento: mes, montoPresupuestado: monto }));
+    }
   }
   return lineas;
 }

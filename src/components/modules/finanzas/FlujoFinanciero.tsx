@@ -1,18 +1,19 @@
 /**
- * FLUJO FINANCIERO — lo que hoy vive en las BD de Excel (BD CONTA, BD TI…), ya
- * dentro del ERP. Reemplaza las tablas dinámicas: se guarda la base y el ERP
- * pinta las vistas — por área, por mes de vencimiento, pagado contra pendiente y
- * lo postergado, que es la columna que avisa de los atascos.
+ * FLUJO FINANCIERO — lo que hoy vive en las BD de Excel (Contabilidad, TI,
+ * Administración, Proyectos), ya dentro del ERP. Reemplaza las tablas dinámicas:
+ * se guarda la base normalizada (un compromiso por fila) y el ERP pinta el flujo
+ * de forma HORIZONTAL, concepto/CDC × meses, que es como se lee un flujo.
  *
- * De momento REFLEJA el Excel (se importa y se muestra); más adelante puede pasar
- * a MANDAR (crear/editar los compromisos aquí). La columna `fuente` ya distingue
- * lo importado de lo nativo, así que ese salto no rompe lo cargado.
+ * Un flujo mezcla salidas y entradas: los importes positivos son EGRESOS (lo que
+ * hay que pagar) y los negativos, INGRESOS (p. ej. la CIPRL que financia el
+ * proyecto). El neto por mes es la posición de caja de ese mes.
+ *
+ * Cada usuario ve SOLO su área (lo filtra la RLS); Carolina y los administradores
+ * ven todas.
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Waves, Wallet, CheckCircle2, Clock, AlertTriangle, Search,
-} from 'lucide-react';
+import { Waves, ArrowDownCircle, ArrowUpCircle, Scale, CheckCircle2, Search, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Input } from '../../ui/input';
@@ -24,34 +25,31 @@ interface Compromiso {
   id: string;
   area: string;
   cdc: string | null;
+  categoria: string | null;
   concepto: string | null;
   proveedor: string | null;
   moneda: string | null;
   tc: number | null;
   mesVencimiento: string | null;   // 'YYYY-MM-01'
-  presupuestado: number;
+  monto: number;                    // firmado: + egreso, − ingreso
   pagado: number;
   estado: string | null;
   postergado: number | null;
-  observaciones: string | null;
 }
 
 const soles = (n: number) =>
   `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+/** Monto para celdas: vacío si es cero. */
+const celda = (n: number) => (Math.abs(n) < 0.005 ? '' : soles(n));
 
-/** Nombre bonito del área (los datos guardan el código en mayúsculas). */
 const ETIQUETA_AREA: Record<string, string> = {
-  CONTABILIDAD: 'Contabilidad',
-  TI: 'TI',
-  ADMINISTRACION: 'Administración',
-  PROYECTOS: 'Proyectos',
+  CONTABILIDAD: 'Contabilidad', TI: 'TI', ADMINISTRACION: 'Administración', PROYECTOS: 'Proyectos',
 };
 const etiquetaArea = (a: string) => ETIQUETA_AREA[a] ?? a;
 
 const MES_ABR = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-/** 'YYYY-MM-01' → "mar-26". '' cuando no hay. */
-const mesLabel = (iso: string | null): string => {
-  if (!iso) return '—';
+const mesLabel = (iso: string): string => {
+  if (iso === 'sin-fecha') return 'Sin fecha';
   const [a, m] = iso.split('-');
   return `${MES_ABR[Number(m) - 1] ?? '?'}-${a.slice(2)}`;
 };
@@ -64,14 +62,24 @@ function badgeEstado(estado: string | null): { label: string; variant: 'default'
   const e = (estado ?? '').toUpperCase();
   if (e.includes('PAGADO')) return { label: 'Pagado', variant: 'default' };
   if (e.includes('SALDO A FAVOR')) return { label: 'Saldo a favor', variant: 'secondary' };
+  if (e.includes('VENCIDO')) return { label: 'Vencido', variant: 'destructive' };
   if (e.includes('PENDIENTE')) return { label: 'Pendiente', variant: 'destructive' };
   return { label: estado || '—', variant: 'outline' };
 }
+
+type Agrupador = 'cdc' | 'categoria' | 'concepto';
+const AGRUPADORES: { key: Agrupador; label: string }[] = [
+  { key: 'cdc', label: 'Centro de costo' },
+  { key: 'categoria', label: 'Categoría' },
+  { key: 'concepto', label: 'Concepto' },
+];
+const TOPE_FILAS = 60;   // la matriz muestra las filas de mayor peso; el resto, en el detalle
 
 export function FlujoFinanciero() {
   const [filas, setFilas] = useState<Compromiso[]>([]);
   const [cargando, setCargando] = useState(true);
   const [area, setArea] = useState<string>('TODAS');
+  const [agrupador, setAgrupador] = useState<Agrupador>('cdc');
   const [busqueda, setBusqueda] = useState('');
   const [soloPendientes, setSoloPendientes] = useState(false);
 
@@ -79,74 +87,78 @@ export function FlujoFinanciero() {
     setCargando(true);
     const { data } = await supabase
       .from('flujo_compromisos')
-      .select('id, area, cdc, concepto, proveedor, moneda, tc, mes_vencimiento, monto_presupuestado, monto_pagado, estado_pago, postergado, observaciones')
+      .select('id, area, cdc, categoria, concepto, proveedor, moneda, tc, mes_vencimiento, monto_presupuestado, monto_pagado, estado_pago, postergado')
       .order('mes_vencimiento', { ascending: true });
     setFilas((data ?? []).map((r: Record<string, unknown>): Compromiso => ({
       id: r.id as string,
       area: (r.area as string) ?? '',
       cdc: (r.cdc as string) ?? null,
+      categoria: (r.categoria as string) ?? null,
       concepto: (r.concepto as string) ?? null,
       proveedor: (r.proveedor as string) ?? null,
       moneda: (r.moneda as string) ?? 'PEN',
       tc: r.tc as number | null,
       mesVencimiento: (r.mes_vencimiento as string) ?? null,
-      presupuestado: Number(r.monto_presupuestado ?? 0),
+      monto: Number(r.monto_presupuestado ?? 0),
       pagado: Number(r.monto_pagado ?? 0),
       estado: (r.estado_pago as string) ?? null,
       postergado: r.postergado as number | null,
-      observaciones: (r.observaciones as string) ?? null,
     })));
     setCargando(false);
   };
   useEffect(() => { void cargar(); }, []);
 
-  const areas = useMemo(
-    () => Array.from(new Set(filas.map(f => f.area).filter(Boolean))).sort(),
-    [filas],
-  );
+  const areas = useMemo(() => Array.from(new Set(filas.map(f => f.area).filter(Boolean))).sort(), [filas]);
+  const porArea = useMemo(() => (area === 'TODAS' ? filas : filas.filter(f => f.area === area)), [filas, area]);
 
-  const porArea = useMemo(
-    () => (area === 'TODAS' ? filas : filas.filter(f => f.area === area)),
-    [filas, area],
-  );
-
+  // Cifras: egresos (positivos), ingresos (negativos en valor absoluto), neto, pagado.
   const total = useMemo(() => {
-    let presupuestado = 0, pagado = 0, pendiente = 0, postergados = 0;
+    let egresos = 0, ingresos = 0, pagado = 0, postergados = 0;
     for (const f of porArea) {
-      presupuestado += aSoles(f.presupuestado, f.moneda, f.tc);
+      const v = aSoles(f.monto, f.moneda, f.tc);
+      if (v >= 0) egresos += v; else ingresos += -v;
       pagado += aSoles(f.pagado, f.moneda, f.tc);
-      if ((f.estado ?? '').toUpperCase().includes('PENDIENTE')) pendiente += aSoles(f.presupuestado, f.moneda, f.tc);
       if ((f.postergado ?? 0) > 0) postergados++;
     }
-    return { presupuestado, pagado, pendiente, postergados };
+    return { egresos, ingresos, neto: egresos - ingresos, pagado, postergados };
   }, [porArea]);
 
-  // Por mes de vencimiento.
-  const porMes = useMemo(() => {
-    const mapa = new Map<string, { presupuestado: number; pagado: number; pendiente: number; postergados: number }>();
-    for (const f of porArea) {
-      const k = f.mesVencimiento ?? 'sin-fecha';
-      const a = mapa.get(k) ?? { presupuestado: 0, pagado: 0, pendiente: 0, postergados: 0 };
-      a.presupuestado += aSoles(f.presupuestado, f.moneda, f.tc);
-      a.pagado += aSoles(f.pagado, f.moneda, f.tc);
-      if ((f.estado ?? '').toUpperCase().includes('PENDIENTE')) a.pendiente += aSoles(f.presupuestado, f.moneda, f.tc);
-      if ((f.postergado ?? 0) > 0) a.postergados++;
-      mapa.set(k, a);
-    }
-    return Array.from(mapa.entries())
-      .sort(([a], [b]) => (a === 'sin-fecha' ? 1 : b === 'sin-fecha' ? -1 : a.localeCompare(b)));
+  // Meses presentes, ordenados (la última columna es "Sin fecha").
+  const meses = useMemo(() => {
+    const set = new Set<string>();
+    porArea.forEach(f => set.add(f.mesVencimiento ?? 'sin-fecha'));
+    return Array.from(set).sort((a, b) => (a === 'sin-fecha' ? 1 : b === 'sin-fecha' ? -1 : a.localeCompare(b)));
   }, [porArea]);
+
+  // Matriz: filas = agrupador, columnas = meses, celda = neto (en soles).
+  const matriz = useMemo(() => {
+    const clave = (f: Compromiso) =>
+      (agrupador === 'cdc' ? f.cdc : agrupador === 'categoria' ? f.categoria : f.concepto) || '—';
+    const grupos = new Map<string, { total: number; mes: Map<string, number> }>();
+    const totalMes = new Map<string, number>();
+    for (const f of porArea) {
+      const g = clave(f);
+      const k = f.mesVencimiento ?? 'sin-fecha';
+      const v = aSoles(f.monto, f.moneda, f.tc);
+      const gg = grupos.get(g) ?? { total: 0, mes: new Map() };
+      gg.total += v; gg.mes.set(k, (gg.mes.get(k) ?? 0) + v);
+      grupos.set(g, gg);
+      totalMes.set(k, (totalMes.get(k) ?? 0) + v);
+    }
+    const orden = Array.from(grupos.entries()).sort((a, b) => Math.abs(b[1].total) - Math.abs(a[1].total));
+    return { orden, totalMes, nGrupos: grupos.size };
+  }, [porArea, agrupador]);
 
   const detalle = useMemo(() => {
     const t = busqueda.trim().toLowerCase();
     return porArea.filter(f => {
       if (soloPendientes && !(f.estado ?? '').toUpperCase().includes('PENDIENTE')) return false;
       if (!t) return true;
-      return `${f.cdc ?? ''} ${f.concepto ?? ''} ${f.proveedor ?? ''}`.toLowerCase().includes(t);
+      return `${f.cdc ?? ''} ${f.categoria ?? ''} ${f.concepto ?? ''} ${f.proveedor ?? ''}`.toLowerCase().includes(t);
     });
   }, [porArea, busqueda, soloPendientes]);
 
-  const maxMes = useMemo(() => Math.max(1, ...porMes.map(([, v]) => v.presupuestado)), [porMes]);
+  const montoColor = (n: number) => (n < -0.005 ? 'text-blue-600' : n > 0.005 ? '' : 'text-muted-foreground');
 
   return (
     <div className="space-y-6">
@@ -156,7 +168,7 @@ export function FlujoFinanciero() {
             <Waves className="size-6" /> Flujo financiero
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            Compromisos de pago por área y mes, importados de las BD de Excel (BD CONTA, BD TI…).
+            Compromisos por área y mes. Positivo = egreso (a pagar); negativo (azul) = ingreso, como la CIPRL.
           </p>
         </div>
         <ImportarFlujoDialog onImportado={cargar} />
@@ -172,75 +184,101 @@ export function FlujoFinanciero() {
 
       {filas.length === 0 && !cargando ? (
         <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
-          Todavía no hay nada cargado. Usa <strong>Importar / actualizar</strong> para traer una BD (BD CONTA, BD TI…) desde SharePoint.
+          Todavía no hay nada cargado. Usa <strong>Importar / actualizar</strong> para traer una BD desde SharePoint.
         </CardContent></Card>
       ) : (
         <>
           {/* Cifras */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Card><CardContent className="p-4">
-              <p className="text-xs text-muted-foreground flex items-center gap-1"><Wallet className="size-3.5" /> Presupuestado</p>
-              <p className="text-xl font-bold">{soles(total.presupuestado)}</p>
+              <p className="text-xs text-muted-foreground flex items-center gap-1"><ArrowUpCircle className="size-3.5 text-red-500" /> Egresos programados</p>
+              <p className="text-xl font-bold">{soles(total.egresos)}</p>
+            </CardContent></Card>
+            <Card><CardContent className="p-4">
+              <p className="text-xs text-muted-foreground flex items-center gap-1"><ArrowDownCircle className="size-3.5 text-blue-600" /> Ingresos programados</p>
+              <p className="text-xl font-bold">{soles(total.ingresos)}</p>
+            </CardContent></Card>
+            <Card><CardContent className="p-4">
+              <p className="text-xs text-muted-foreground flex items-center gap-1"><Scale className="size-3.5" /> Neto (egresos − ingresos)</p>
+              <p className={`text-xl font-bold ${total.neto < 0 ? 'text-blue-600' : ''}`}>{soles(total.neto)}</p>
             </CardContent></Card>
             <Card><CardContent className="p-4">
               <p className="text-xs text-muted-foreground flex items-center gap-1"><CheckCircle2 className="size-3.5 text-green-600" /> Pagado</p>
               <p className="text-xl font-bold">{soles(total.pagado)}</p>
-            </CardContent></Card>
-            <Card><CardContent className="p-4">
-              <p className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="size-3.5 text-amber-500" /> Pendiente</p>
-              <p className="text-xl font-bold">{soles(total.pendiente)}</p>
-            </CardContent></Card>
-            <Card className={total.postergados > 0 ? 'border-amber-400 dark:border-amber-800' : ''}><CardContent className="p-4">
-              <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="size-3.5 text-amber-500" /> Postergados</p>
-              <p className="text-xl font-bold">{total.postergados}</p>
-              <p className="text-[11px] text-muted-foreground">compromisos corridos de mes</p>
+              {total.postergados > 0 && (
+                <p className="text-[11px] text-amber-600 flex items-center gap-1 mt-0.5">
+                  <AlertTriangle className="size-3" /> {total.postergados} compromisos postergados
+                </p>
+              )}
             </CardContent></Card>
           </div>
 
-          {/* Por mes de vencimiento */}
+          {/* Matriz horizontal: agrupador × meses */}
           <Card>
-            <CardHeader><CardTitle className="text-base">Por mes de vencimiento</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between gap-3 flex-wrap">
+              <CardTitle className="text-base">Flujo por mes</CardTitle>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground mr-1">Agrupar por:</span>
+                {AGRUPADORES.map(a => (
+                  <Button key={a.key} variant={agrupador === a.key ? 'default' : 'outline'} size="sm" onClick={() => setAgrupador(a.key)}>
+                    {a.label}
+                  </Button>
+                ))}
+              </div>
+            </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="text-sm border-collapse">
                 <thead className="text-xs text-muted-foreground border-b">
                   <tr>
-                    <th className="text-left font-medium px-4 py-2">Mes</th>
-                    <th className="text-right font-medium px-4 py-2">Presupuestado</th>
-                    <th className="text-right font-medium px-4 py-2">Pagado</th>
-                    <th className="text-right font-medium px-4 py-2">Pendiente</th>
-                    <th className="text-right font-medium px-4 py-2">Postergados</th>
-                    <th className="px-4 py-2 w-40"></th>
+                    <th className="text-left font-medium px-3 py-2 sticky left-0 bg-card z-10 min-w-[220px]">
+                      {AGRUPADORES.find(a => a.key === agrupador)?.label}
+                    </th>
+                    {meses.map(m => (
+                      <th key={m} className="text-right font-medium px-3 py-2 whitespace-nowrap">{mesLabel(m)}</th>
+                    ))}
+                    <th className="text-right font-medium px-3 py-2 whitespace-nowrap border-l">Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {porMes.map(([k, v]) => (
-                    <tr key={k}>
-                      <td className="px-4 py-1.5 font-medium">{mesLabel(k === 'sin-fecha' ? null : k)}</td>
-                      <td className="text-right px-4 tabular-nums">{soles(v.presupuestado)}</td>
-                      <td className="text-right px-4 tabular-nums text-green-700">{soles(v.pagado)}</td>
-                      <td className="text-right px-4 tabular-nums text-amber-700">{soles(v.pendiente)}</td>
-                      <td className="text-right px-4 tabular-nums">{v.postergados || ''}</td>
-                      <td className="px-4 py-1.5">
-                        <div className="h-2 rounded bg-muted overflow-hidden">
-                          <div className="h-full bg-primary/70" style={{ width: `${Math.round((v.presupuestado / maxMes) * 100)}%` }} />
-                        </div>
-                      </td>
+                  {matriz.orden.slice(0, TOPE_FILAS).map(([g, v]) => (
+                    <tr key={g} className="hover:bg-accent/20">
+                      <td className="px-3 py-1.5 sticky left-0 bg-card z-10 max-w-[280px] truncate" title={g}>{g}</td>
+                      {meses.map(m => {
+                        const n = v.mes.get(m) ?? 0;
+                        return <td key={m} className={`text-right px-3 py-1.5 tabular-nums whitespace-nowrap ${montoColor(n)}`}>{celda(n)}</td>;
+                      })}
+                      <td className={`text-right px-3 py-1.5 tabular-nums whitespace-nowrap font-semibold border-l ${montoColor(v.total)}`}>{celda(v.total)}</td>
                     </tr>
                   ))}
-                  {porMes.length === 0 && (
-                    <tr><td colSpan={6} className="text-center py-6 text-muted-foreground">Sin datos</td></tr>
+                  {matriz.orden.length === 0 && (
+                    <tr><td colSpan={meses.length + 2} className="text-center py-6 text-muted-foreground">Sin datos</td></tr>
                   )}
                 </tbody>
+                {matriz.orden.length > 0 && (
+                  <tfoot>
+                    <tr className="border-t-2 font-semibold bg-muted/40">
+                      <td className="px-3 py-2 sticky left-0 bg-muted/40 z-10">Neto del mes</td>
+                      {meses.map(m => {
+                        const n = matriz.totalMes.get(m) ?? 0;
+                        return <td key={m} className={`text-right px-3 py-2 tabular-nums whitespace-nowrap ${montoColor(n)}`}>{celda(n)}</td>;
+                      })}
+                      <td className={`text-right px-3 py-2 tabular-nums whitespace-nowrap border-l ${montoColor(total.neto)}`}>{soles(total.neto)}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </CardContent>
+            {matriz.nGrupos > TOPE_FILAS && (
+              <p className="text-xs text-muted-foreground px-4 py-2 border-t">
+                Se muestran los {TOPE_FILAS} de mayor peso de {matriz.nGrupos}. Agrupa por centro de costo o usa el buscador de abajo para el resto.
+              </p>
+            )}
           </Card>
 
           {/* Detalle */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-3 flex-wrap">
-              <CardTitle className="text-base">
-                Compromisos ({detalle.length})
-              </CardTitle>
+              <CardTitle className="text-base">Detalle ({detalle.length})</CardTitle>
               <div className="flex items-center gap-2 flex-wrap">
                 <Button variant={soloPendientes ? 'default' : 'outline'} size="sm" onClick={() => setSoloPendientes(v => !v)}>
                   Solo pendientes
@@ -259,7 +297,7 @@ export function FlujoFinanciero() {
                     <th className="text-left font-medium px-4 py-2">CDC</th>
                     <th className="text-left font-medium px-4 py-2">Concepto</th>
                     <th className="text-left font-medium px-4 py-2">Vence</th>
-                    <th className="text-right font-medium px-4 py-2">Presupuestado</th>
+                    <th className="text-right font-medium px-4 py-2">Monto</th>
                     <th className="text-right font-medium px-4 py-2">Pagado</th>
                     <th className="text-left font-medium px-4 py-2">Estado</th>
                     <th className="text-right font-medium px-4 py-2">Posterg.</th>
@@ -268,7 +306,7 @@ export function FlujoFinanciero() {
                 <tbody className="divide-y">
                   {cargando ? (
                     <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">Cargando…</td></tr>
-                  ) : detalle.map(f => {
+                  ) : detalle.slice(0, 400).map(f => {
                     const b = badgeEstado(f.estado);
                     const mon = f.moneda === 'USD' ? 'US$ ' : '';
                     return (
@@ -279,8 +317,8 @@ export function FlujoFinanciero() {
                           {f.concepto ?? '—'}
                           {f.proveedor && f.proveedor !== f.cdc ? <span className="text-xs text-muted-foreground"> · {f.proveedor}</span> : null}
                         </td>
-                        <td className="px-4 py-1.5">{mesLabel(f.mesVencimiento)}</td>
-                        <td className="text-right px-4 tabular-nums">{mon}{f.presupuestado.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-4 py-1.5">{mesLabel(f.mesVencimiento ?? 'sin-fecha')}</td>
+                        <td className={`text-right px-4 tabular-nums ${f.monto < 0 ? 'text-blue-600' : ''}`}>{mon}{f.monto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td className="text-right px-4 tabular-nums">{f.pagado ? `${mon}${f.pagado.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}</td>
                         <td className="px-4 py-1.5"><Badge variant={b.variant}>{b.label}</Badge></td>
                         <td className="text-right px-4 tabular-nums">{f.postergado ? f.postergado : ''}</td>
@@ -292,6 +330,9 @@ export function FlujoFinanciero() {
                   )}
                 </tbody>
               </table>
+              {detalle.length > 400 && (
+                <p className="text-xs text-muted-foreground px-4 py-2 border-t">Se muestran 400 de {detalle.length}. Afina con el buscador.</p>
+              )}
             </CardContent>
           </Card>
         </>

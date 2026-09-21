@@ -20,7 +20,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { leerCompromisos, resumen, type LineaFlujo } from './flujo.ts'
+import { leerCompromisos, leerProyectos, leerAdministracion, resumen, type LineaFlujo } from './flujo.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -61,7 +61,7 @@ const norm = (s: unknown): string =>
   String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
 
 // Alias de centros de costo con nombre distinto entre la BD y el ERP.
-const ALIAS_CC: Record<string, string> = { database: 'base de datos' }
+const ALIAS_CC: Record<string, string> = { database: 'base de datos', ofcentral: 'oficina central' }
 
 /**
  * Área canónica a partir del nombre del archivo:
@@ -110,7 +110,7 @@ export default {
     type P = { modulo?: string; accion?: string }
     const puede = permisoFilas.some((r) => {
       const p = r.permisos as P | P[] | null
-      const ok = (x: P) => x?.modulo === 'finanzas' && (x?.accion === 'crear' || x?.accion === 'editar')
+      const ok = (x: P) => x?.modulo === 'finanzas' && (x?.accion === 'crear' || x?.accion === 'editar' || x?.accion === 'flujo')
       return Array.isArray(p) ? p.some(ok) : ok(p ?? {})
     })
     const esAdmin = (await admin.from('roles').select('nombre').in('id', rolIds))
@@ -186,16 +186,25 @@ export default {
 
       const hojas = await graph(token,
         `https://graph.microsoft.com/v1.0/drives/${cuerpo.drive_id}/items/${cuerpo.item_id}/workbook/worksheets?$select=name,id`)
-      // La base es la primera hoja (la que arranca por "BD ..."); si no, la 1.ª.
+      // La hoja base depende del archivo: Contabilidad/TI la nombran "BD ..."; el
+      // de Administración y el de Proyectos la nombran "Base de datos".
       const lista = hojas.value ?? []
-      const hoja = lista.find((h: any) => /^bd\b/i.test(h.name ?? '')) ?? lista[0]
+      const esBD = (h: any) => /^bd\b/i.test(h.name ?? '')
+      const esBaseDatos = (h: any) => norm(h.name ?? '').includes('base de datos')
+      const hoja = (area === 'CONTABILIDAD' || area === 'TI')
+        ? (lista.find(esBD) ?? lista[0])
+        : (lista.find(esBaseDatos) ?? lista.find(esBD) ?? lista[0])
       if (!hoja) return json({ error: 'El archivo no tiene hojas' }, 422)
       const rango = await graph(token,
         `https://graph.microsoft.com/v1.0/drives/${cuerpo.drive_id}/items/${cuerpo.item_id}` +
         `/workbook/worksheets/${encodeURIComponent(hoja.id)}/usedRange?$select=text`)
       const celdas: string[][] = rango.text ?? []
 
-      const lineas = leerCompromisos(celdas)
+      // Cada archivo tiene su estructura: Administración es una matriz por mes,
+      // Proyectos una plana con otra cabecera, Contabilidad/TI la común.
+      const lineas = area === 'ADMINISTRACION' ? leerAdministracion(celdas)
+        : area === 'PROYECTOS' ? leerProyectos(celdas)
+        : leerCompromisos(celdas)
       if (lineas.length === 0) return json({ error: 'No se reconoció la cabecera (CDC / CONCEPTO) ni filas' }, 422)
       const res = resumen(lineas)
 

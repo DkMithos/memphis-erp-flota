@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 // Se prueba el MISMO módulo que corre en la Edge Function.
 import {
-  numeroPeru, mesEspanol, fechaDMY, moneda, estadoPago, leerCompromisos, resumen,
+  numeroPeru, mesEspanol, mesDeFecha, fechaDMY, moneda, estadoPago,
+  leerCompromisos, leerProyectos, leerAdministracion, resumen,
 } from '../../../supabase/functions/flujo-import/flujo';
 
 describe('numeroPeru (formato peruano de las BD)', () => {
@@ -20,6 +21,18 @@ describe('numeroPeru (formato peruano de las BD)', () => {
     expect(numeroPeru('2,5')).toBe(2.5);
     expect(numeroPeru('1')).toBe(1);
   });
+  it('importes de Proyectos con 3 decimales (coma decimal peruana)', () => {
+    expect(numeroPeru('43152,256')).toBe(43152.256);
+    expect(numeroPeru('1048524,276')).toBe(1048524.276);
+    expect(numeroPeru('12.691,84')).toBe(12691.84);
+    expect(numeroPeru('275965,5')).toBe(275965.5);
+    expect(numeroPeru('5242620')).toBe(5242620);
+  });
+  it('punto suelto: millar si son 3 cifras, decimal si 1–2', () => {
+    expect(numeroPeru('12.691')).toBe(12691);      // millar peruano
+    expect(numeroPeru('1.048.524')).toBe(1048524);
+    expect(numeroPeru('4728.02')).toBe(4728.02);   // decimal gringo suelto
+  });
 });
 
 describe('mesEspanol', () => {
@@ -32,9 +45,22 @@ describe('mesEspanol', () => {
     expect(mesEspanol('SET-26')).toBe('2026-09-01');
     expect(mesEspanol('Dic-25')).toBe('2025-12-01');
   });
+  it('nombre completo del mes (Proyectos) por sus 3 primeras letras', () => {
+    expect(mesEspanol('Octubre-25')).toBe('2025-10-01');
+    expect(mesEspanol('Setiembre-25')).toBe('2025-09-01');
+    expect(mesEspanol('Enero-27')).toBe('2027-01-01');
+  });
   it('vacío o basura → ""', () => {
     expect(mesEspanol('')).toBe('');
     expect(mesEspanol('no es mes')).toBe('');
+  });
+});
+
+describe('mesDeFecha', () => {
+  it('de una fecha dd/mm/aaaa o ISO al primer día del mes', () => {
+    expect(mesDeFecha('15/10/2025')).toBe('2025-10-01');
+    expect(mesDeFecha('2026-03-19')).toBe('2026-03-01');
+    expect(mesDeFecha('')).toBe('');
   });
 });
 
@@ -53,6 +79,8 @@ describe('moneda y estado', () => {
   it('moneda', () => {
     expect(moneda('S/')).toBe('PEN');
     expect(moneda('US$')).toBe('USD');
+    expect(moneda('$')).toBe('USD');       // Proyectos usa "$" a secas
+    expect(moneda('Soles')).toBe('PEN');
     expect(moneda('')).toBe('PEN');
   });
   it('estado en mayúsculas', () => {
@@ -131,6 +159,69 @@ describe('leerCompromisos — BD TI (sin Columna2, con USD)', () => {
     expect(l.tc).toBe(3.75);
     expect(l.montoPagado).toBe(1280.3);
     expect(l.fechaPagado).toBe('2026-08-20');
+  });
+});
+
+// Flujo de proyectos: hoja plana "BASE DE DATOS" con cabecera propia.
+const CAB_PROY = [
+  'CÓDIGO', 'CDC', 'CATEGORIA', 'CONCEPTO', 'PROVEEDOR', 'CANTIDAD', 'MONEDA', 'PU', 'TOTAL', 'TC',
+  'METODO DE PAGO', 'FECHA INICIO', 'DIAS DE CREDITO', 'FECHA DE VENCIMIENTO', 'MES DE VENCIMIENTO',
+  'TOTAL SOLES', 'PRESUPUESTADO', 'MES DE PROGRAMACION', 'POSTERGADO', 'PAGADO', 'FECHA DE PAGO',
+  'MONTO PAGADO', 'OC', 'FACTURA',
+];
+const FILA_PROY = [
+  '01.01.01.353', 'GHUANUCOPNP', 'SEGUROS', 'CUOTA 3 Poliza 3D', 'RIMAC', '1', '$', '5869', '5869', '3,45',
+  'CREDITO', '15/09/2025', '30', '15/10/2025', 'Octubre-25', '20248,05', '0', '', '4', 'PENDIENTE', '', '', '', '',
+];
+
+describe('leerProyectos — cabecera propia, monto = TOTAL SOLES, mes de la fecha', () => {
+  const l = leerProyectos([CAB_PROY, FILA_PROY])[0];
+  it('mapea la fila real', () => {
+    expect(l.cdc).toBe('GHUANUCOPNP');
+    expect(l.concepto).toBe('CUOTA 3 Poliza 3D');
+    expect(l.categoria).toBe('SEGUROS');
+    expect(l.proveedor).toBe('RIMAC');
+    expect(l.moneda).toBe('USD');
+    expect(l.tc).toBe(3.45);
+    expect(l.mesVencimiento).toBe('2025-10-01');   // de FECHA DE VENCIMIENTO 15/10/2025
+    expect(l.montoPresupuestado).toBe(20248.05);   // TOTAL SOLES
+    expect(l.estadoPago).toBe('PENDIENTE');
+    expect(l.postergado).toBe(4);
+  });
+});
+
+// Flujo Administración: matriz por meses.
+const CAB_ADMIN = ['CDC', 'CONCEPTO', 'CATEGORIA', 'Deuda Vencida', 'Ago-25', 'Set-25', 'Oct-25'];
+const FILAS_ADMIN = [
+  [' OFCENTRAL ', 'Alquiler de Oficina', 'Oficina gastos básico', '', '', ' 10.402,50 ', ' 10.402,50 '],
+  [' OFCENTRAL ', 'Mantenimiento Oficina', 'Oficina gastos básico', ' 3.026,38 ', ' 2.396,15 ', '', ''],
+  ['', 'GASTOS OFICINA', '', '', '', '', ''],   // fila de sección: sin montos
+];
+
+describe('leerAdministracion — desdobla la matriz por meses', () => {
+  const lineas = leerAdministracion([CAB_ADMIN, ...FILAS_ADMIN]);
+
+  it('cada celda con monto es un compromiso de ese mes', () => {
+    const alq = lineas.filter(l => l.concepto === 'Alquiler de Oficina');
+    expect(alq.map(l => [l.mesVencimiento, l.montoPresupuestado])).toEqual([
+      ['2025-09-01', 10402.5], ['2025-10-01', 10402.5],
+    ]);
+    expect(alq[0].cdc).toBe('OFCENTRAL');
+    expect(alq[0].categoria).toBe('Oficina gastos básico');
+  });
+
+  it('la deuda vencida es un compromiso vencido sin mes', () => {
+    const mant = lineas.filter(l => l.concepto === 'Mantenimiento Oficina');
+    const deuda = mant.find(l => l.estadoPago === 'VENCIDO')!;
+    expect(deuda.montoPresupuestado).toBe(3026.38);
+    expect(deuda.mesVencimiento).toBe('');
+    expect(deuda.observaciones).toBe('Deuda vencida');
+    // y su mes de agosto
+    expect(mant.some(l => l.mesVencimiento === '2025-08-01' && l.montoPresupuestado === 2396.15)).toBe(true);
+  });
+
+  it('las filas de sección no generan nada', () => {
+    expect(lineas.some(l => l.concepto === 'GASTOS OFICINA')).toBe(false);
   });
 });
 

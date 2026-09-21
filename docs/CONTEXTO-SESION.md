@@ -2409,3 +2409,19 @@ Kevin: "cada usuario debe ver lo suyo, excepto Carolina que ve todo"; renombrar 
 **Pendiente (siguiente tanda): importar Administración y Proyectos + vista horizontal.**
 Los archivos tienen otra estructura: "Flujo Administración" es una MATRIZ por meses (concepto × Ago-25…May-27, sin pagado); "Flujo de proyectos" es plano con otra cabecera (CÓDIGO/CDC/CATEGORIA/CONCEPTO/PROVEEDOR/CANTIDAD/MONEDA/PU/TOTAL/TC/FECHA VENCIMIENTO/TOTAL SOLES).
 Recomendación (aprobada en criterio por Kevin: "los flujos son horizontales por mes"): normalizar al MISMO store `flujo_compromisos` (desdoblando la matriz de Admin: cada mes con monto → un compromiso) y AÑADIR a la pantalla la vista HORIZONTAL concepto × meses. Así todo queda conectado (cruza con órdenes/caja/proveedores) y se lee como un flujo.
+
+
+## Flujo financiero: Administración y Proyectos + vista horizontal (2026-09-21)
+
+Se importan las 4 áreas y la pantalla se reorganiza como un flujo horizontal (concepto/CDC × meses).
+
+- **Lectores nuevos** en `flujo-import/flujo.ts`:
+  - `leerAdministracion`: la hoja "Base de datos" es una MATRIZ por meses; se DESDOBLA (cada celda concepto×mes con monto = un compromiso). "Deuda Vencida" = compromiso vencido sin mes.
+  - `leerProyectos`: hoja "BASE DE DATOS" con cabecera propia (TOTAL SOLES como monto, mes de la FECHA DE VENCIMIENTO, PAGADO como estado, meses con nombre completo).
+  - El índice elige hoja (BD… vs "Base de datos") y lector según el área.
+- **Bug clave arreglado**: `numeroPeru` no leía importes con 3 decimales ("1048524,276" salía como mil millones). Ahora: coma = decimal, punto = millar; si hay ambos, manda el último. `mesEspanol` acepta nombre completo ("Octubre-25"); nuevo `mesDeFecha`.
+- **Un flujo mezcla signos**: positivo = egreso (a pagar), negativo = ingreso (CIPRL/financiamiento). Proyectos: egresos S/ 88.6M, ingresos S/ 123.6M.
+- **Pantalla nueva**: cifras Egresos/Ingresos/Neto/Pagado; **matriz horizontal** agrupable por Centro de costo / Categoría / Concepto × meses, con neto por mes (fila "Neto del mes") y negativos en azul; detalle filtrable debajo.
+- Cargado real: CONTABILIDAD 154, TI 52, ADMINISTRACION 383, PROYECTOS 1399 (1988 compromisos, 4 áreas). 23 pruebas del parser (incl. 3 decimales, matriz de Admin, Proyectos).
+
+Nota: OFCENTRAL de Administración no cruza con un centro de costo del ERP (no existe "Oficina Central" con ese nombre); el CDC queda como texto. Algunas fechas de Proyectos vienen sucias (año 2000/2028) y generan columnas extra en la matriz.
