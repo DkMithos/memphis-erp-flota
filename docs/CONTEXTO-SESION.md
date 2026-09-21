@@ -2438,3 +2438,16 @@ Pedidos de Kevin: emparejar OFCENTRAL→Oficina Central; esconder fechas sucias;
 - `finanzas.flujo` también habilita importar (para que el dueño del área refresque).
 
 Pendiente/nota: OFCENTRAL 11 filas de Admin sin CDC no cruzan (no traen centro). Las fechas sucias siguen en la BD; solo se ocultan en pantalla.
+
+
+## Flujo financiero: Administración lee la BD plana con pagado/pendiente (2026-09-21)
+
+Kevin: "en Administración sí veo una columna de pagado/pendiente; revisa todas las hojas de ambos archivos".
+
+- **Hallazgo**: el archivo de Administración tiene una hoja **"BD ADMIN"** plana con la misma cabecera común que Contabilidad/TI (CDC, CONCEPTO, MES VENCIMIENTO, MONTO PAGADO, **PAGADO/PENDIENTE**, MES PAGADO…). Antes se leía la hoja matricial "Base de datos" con `leerAdministracion` y se perdía el estado, la fecha de pago y el detalle por compromiso.
+- **Cambio**: Administración ahora usa `leerCompromisos` sobre **BD ADMIN** igual que las demás áreas; solo Proyectos conserva su cabecera propia (`leerProyectos`). `leerAdministracion` queda como utilidad sin uso en el dispatch.
+- **usedRange(valuesOnly=true)**: BD ADMIN arrastra columnas fantasma hasta la XFD que reventaban el límite de celdas de Graph con el `usedRange` normal (`RangeExceedsLimit`). `valuesOnly` recorta al bloque real de datos.
+- **fechaISO / mesFlexible** en `flujo.ts`: MES VENCIMIENTO y MES PAGADO pueden venir como fecha (`2025-08-01`) o como texto de mes (`ago-25`); se aceptan ambos y la fecha de pago se guarda completa.
+- **Reimportadas las 4 áreas** (edge `flujo-import` v7): ADMINISTRACION 1053 (640 pagadas / 412 pendientes, 31 meses, 638 con fecha de pago, CC 1052/1053), PROYECTOS 1399, CONTABILIDAD 154, TI 52. Commit `d32f6141`. 26 pruebas del parser.
+
+Nota: los proveedores de Administración no cruzan con el directorio (`proveedores_reconocidos=0`) porque los nombres del Excel no coinciden con `razon_social`; el nombre queda como texto. La fecha de pago de Proyectos casi siempre viene vacía en el Excel (solo 69 filas).
