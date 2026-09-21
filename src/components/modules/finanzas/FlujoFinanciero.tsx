@@ -110,11 +110,21 @@ export function FlujoFinanciero() {
 
   const cargar = async () => {
     setCargando(true);
-    const { data } = await supabase
-      .from('flujo_compromisos')
-      .select('id, area, cdc, categoria, concepto, proveedor, moneda, tc, mes_vencimiento, monto_presupuestado, monto_pagado, estado_pago, postergado, observaciones, fuente')
-      .order('mes_vencimiento', { ascending: true });
-    setFilas((data ?? []).map((r: Record<string, unknown>): Compromiso => ({
+    // Se trae TODO por páginas: Supabase devuelve máximo 1000 filas por consulta,
+    // y como vienen ordenadas por mes, sin paginar se perdían los meses recientes.
+    const TAM = 1000;
+    const data: Record<string, unknown>[] = [];
+    for (let desde = 0; ; desde += TAM) {
+      const { data: pagina, error } = await supabase
+        .from('flujo_compromisos')
+        .select('id, area, cdc, categoria, concepto, proveedor, moneda, tc, mes_vencimiento, monto_presupuestado, monto_pagado, estado_pago, postergado, observaciones, fuente')
+        .order('mes_vencimiento', { ascending: true })
+        .range(desde, desde + TAM - 1);
+      if (error || !pagina || pagina.length === 0) break;
+      data.push(...pagina);
+      if (pagina.length < TAM) break;
+    }
+    setFilas(data.map((r: Record<string, unknown>): Compromiso => ({
       id: r.id as string,
       area: (r.area as string) ?? '',
       cdc: (r.cdc as string) ?? null,
