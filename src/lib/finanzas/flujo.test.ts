@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 // Se prueba el MISMO módulo que corre en la Edge Function.
 import {
-  numeroPeru, mesEspanol, mesDeFecha, fechaDMY, moneda, estadoPago,
+  numeroPeru, mesEspanol, mesDeFecha, fechaISO, fechaDMY, moneda, estadoPago,
   leerCompromisos, leerProyectos, leerAdministracion, resumen,
 } from '../../../supabase/functions/flujo-import/flujo';
 
@@ -61,6 +61,39 @@ describe('mesDeFecha', () => {
     expect(mesDeFecha('15/10/2025')).toBe('2025-10-01');
     expect(mesDeFecha('2026-03-19')).toBe('2026-03-01');
     expect(mesDeFecha('')).toBe('');
+  });
+});
+
+describe('fechaISO', () => {
+  it('acepta dd/mm/aaaa y también fecha ya-ISO (BD ADMIN)', () => {
+    expect(fechaISO('29/10/2025')).toBe('2025-10-29');
+    expect(fechaISO('2025-10-29 00:00:00')).toBe('2025-10-29');
+    expect(fechaISO('')).toBe('');
+  });
+});
+
+// BD ADMIN: tabla plana con la cabecera común, pero las fechas pueden venir
+// como fecha (no "ago-25"). El parser común debe leerlas igual.
+describe('leerCompromisos — BD ADMIN con fechas y pagado/pendiente', () => {
+  const CAB = [
+    'CDC', 'CONCEPTO', 'CATEGORIA', 'PROVEEDOR', 'MONEDA', 'TC', 'MES VENCIMIENTO',
+    'MONTO EJECUTADO', 'MONTO PRESUPUESTADO', 'DETRACCIÓN', 'RETENCIÓN', 'MONTO PAGADO',
+    'MES PAGADO', 'PAGADO/PENDIENTE', 'MES PROGRAMADO', 'POSTERGADO', 'MOMENTO', 'OBSERVACIONES',
+  ];
+  const FILA = [
+    'ALQUILER DE SOCIOS', 'Alquiler de Vivienda', 'Alquiler', 'Inmobiliaria Golf', '$', '3,4',
+    '2025-08-01', '8.072,25', '8.072,25', '0,1', '-', '7.290,25',
+    '2025-10-29', 'PAGADO', '2025-08-01', '0', 'Puede esperar', 'E001-317',
+  ];
+  const l = leerCompromisos([CAB, FILA])[0];
+  it('lee el mes de vencimiento aunque venga como fecha', () => {
+    expect(l.mesVencimiento).toBe('2025-08-01');
+  });
+  it('lee la moneda, el pagado y el estado', () => {
+    expect(l.moneda).toBe('USD');
+    expect(l.montoPagado).toBe(7290.25);
+    expect(l.estadoPago).toBe('PAGADO');
+    expect(l.fechaPagado).toBe('2025-10-29');
   });
 });
 

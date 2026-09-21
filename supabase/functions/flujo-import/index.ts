@@ -20,7 +20,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { leerCompromisos, leerProyectos, leerAdministracion, resumen, type LineaFlujo } from './flujo.ts'
+import { leerCompromisos, leerProyectos, resumen, type LineaFlujo } from './flujo.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -186,25 +186,26 @@ export default {
 
       const hojas = await graph(token,
         `https://graph.microsoft.com/v1.0/drives/${cuerpo.drive_id}/items/${cuerpo.item_id}/workbook/worksheets?$select=name,id`)
-      // La hoja base depende del archivo: Contabilidad/TI la nombran "BD ..."; el
-      // de Administración y el de Proyectos la nombran "Base de datos".
+      // La hoja base: Contabilidad, TI y Administración usan la tabla plana
+      // "BD ..." (con pagado/pendiente); Proyectos usa "Base de datos".
       const lista = hojas.value ?? []
       const esBD = (h: any) => /^bd\b/i.test(h.name ?? '')
       const esBaseDatos = (h: any) => norm(h.name ?? '').includes('base de datos')
-      const hoja = (area === 'CONTABILIDAD' || area === 'TI')
-        ? (lista.find(esBD) ?? lista[0])
-        : (lista.find(esBaseDatos) ?? lista.find(esBD) ?? lista[0])
+      const hoja = area === 'PROYECTOS'
+        ? (lista.find(esBaseDatos) ?? lista.find(esBD) ?? lista[0])
+        : (lista.find(esBD) ?? lista.find(esBaseDatos) ?? lista[0])
       if (!hoja) return json({ error: 'El archivo no tiene hojas' }, 422)
+      // `valuesOnly=true` recorta el rango a las celdas con datos: hay hojas
+      // (p. ej. BD ADMIN) con columnas fantasma hasta la XFD que, con el
+      // usedRange normal, revientan el límite de celdas de Graph.
       const rango = await graph(token,
         `https://graph.microsoft.com/v1.0/drives/${cuerpo.drive_id}/items/${cuerpo.item_id}` +
-        `/workbook/worksheets/${encodeURIComponent(hoja.id)}/usedRange?$select=text`)
+        `/workbook/worksheets/${encodeURIComponent(hoja.id)}/usedRange(valuesOnly=true)?$select=text`)
       const celdas: string[][] = rango.text ?? []
 
-      // Cada archivo tiene su estructura: Administración es una matriz por mes,
-      // Proyectos una plana con otra cabecera, Contabilidad/TI la común.
-      const lineas = area === 'ADMINISTRACION' ? leerAdministracion(celdas)
-        : area === 'PROYECTOS' ? leerProyectos(celdas)
-        : leerCompromisos(celdas)
+      // Proyectos tiene cabecera propia; Contabilidad, TI y Administración usan
+      // la tabla plana común (BD …) con la columna PAGADO/PENDIENTE.
+      const lineas = area === 'PROYECTOS' ? leerProyectos(celdas) : leerCompromisos(celdas)
       if (lineas.length === 0) return json({ error: 'No se reconoció la cabecera (CDC / CONCEPTO) ni filas' }, 422)
       const res = resumen(lineas)
 

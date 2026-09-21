@@ -102,6 +102,18 @@ export function mesDeFecha(entrada: unknown): string {
   return iso ? `${iso.slice(0, 7)}-01` : '';
 }
 
+/** Fecha completa en ISO desde dd/mm/aaaa o desde ya-ISO ("2025-10-29 00:00:00"). */
+export function fechaISO(entrada: unknown): string {
+  const s = texto(entrada);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  return fechaDMY(s);
+}
+
+/** Mes (primer día) desde texto de mes ("ago-25") o desde una fecha. '' si no. */
+export function mesFlexible(entrada: unknown): string {
+  return mesEspanol(entrada) || mesDeFecha(entrada);
+}
+
 /** '$'/'US$'/'USD'/'Dólar'→USD · 'S/'/'Soles'/vacío→PEN (la mayoría es soles). */
 export function moneda(bruto: unknown): string {
   const s = texto(bruto).toUpperCase();
@@ -179,13 +191,13 @@ export function leerCompromisos(celdas: unknown[][]): LineaFlujo[] {
       proveedor: texto(val(f, 'proveedor')),
       moneda: moneda(val(f, 'moneda')),
       tc: numeroPeru(val(f, 'tc')),
-      mesVencimiento: mesEspanol(val(f, 'mes vencimiento')),
+      mesVencimiento: mesFlexible(val(f, 'mes vencimiento')),
       montoEjecutado: numeroPeru(val(f, 'monto ejecutado')),
       montoPresupuestado: numeroPeru(val(f, 'monto presupuestado')),
       montoPagado: numeroPeru(val(f, 'monto pagado')),
-      fechaPagado: fechaDMY(val(f, 'mes pagado')),
+      fechaPagado: fechaISO(val(f, 'mes pagado')),
       estadoPago: estadoPago(val(f, 'pagado/pendiente')),
-      mesProgramado: mesEspanol(val(f, 'mes programado')),
+      mesProgramado: mesFlexible(val(f, 'mes programado')),
       postergado: numeroPeru(val(f, 'postergado')),
       momento: texto(val(f, 'momento')),
       observaciones: texto(val(f, 'observaciones')),
@@ -235,7 +247,7 @@ export function leerProyectos(celdas: unknown[][]): LineaFlujo[] {
       mesVencimiento: mesDeFecha(val(f, 'fecha de vencimiento')) || mesEspanol(val(f, 'mes de vencimiento')),
       montoPresupuestado: numeroPeru(val(f, 'total soles')),
       montoPagado: numeroPeru(val(f, 'monto pagado')),
-      fechaPagado: fechaDMY(val(f, 'fecha de pago')),
+      fechaPagado: fechaISO(val(f, 'fecha de pago')),
       estadoPago: estadoPago(val(f, 'pagado')),
       mesProgramado: mesDeFecha(val(f, 'mes de programacion')) || mesEspanol(val(f, 'mes de programacion')),
       postergado: numeroPeru(val(f, 'postergado')),
