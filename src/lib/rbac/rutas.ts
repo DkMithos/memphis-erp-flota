@@ -78,6 +78,17 @@ const EXCEPCIONES: { prefijo: string; requisitos: RequisitoRuta[] }[] = [
       { modulo: 'fianzas', accion: 'ver' },
     ],
   },
+  // Flujo financiero: cada usuario ve SU área (Contabilidad, Proyectos,
+  // Administración). Por eso tiene permiso propio `finanzas.flujo` y no exige
+  // `finanzas.ver` — así Proyectos (mcastaneda) entra sin abrirle todo Finanzas.
+  // Quien ya ve todo Finanzas también entra. El filtro por área lo hace la RLS.
+  {
+    prefijo: '/finanzas/flujo-financiero',
+    requisitos: [
+      { modulo: 'finanzas', accion: 'flujo' },
+      { modulo: 'finanzas', accion: 'ver' },
+    ],
+  },
   // Admin: cada pantalla pide su permiso fino
   { prefijo: '/admin/usuarios', requisitos: [{ modulo: 'admin', accion: 'gestionar_usuarios' }] },
   { prefijo: '/admin/roles', requisitos: [{ modulo: 'admin', accion: 'gestionar_roles' }] },

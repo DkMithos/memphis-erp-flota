@@ -39,6 +39,15 @@ interface Compromiso {
 const soles = (n: number) =>
   `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+/** Nombre bonito del área (los datos guardan el código en mayúsculas). */
+const ETIQUETA_AREA: Record<string, string> = {
+  CONTABILIDAD: 'Contabilidad',
+  TI: 'TI',
+  ADMINISTRACION: 'Administración',
+  PROYECTOS: 'Proyectos',
+};
+const etiquetaArea = (a: string) => ETIQUETA_AREA[a] ?? a;
+
 const MES_ABR = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 /** 'YYYY-MM-01' → "mar-26". '' cuando no hay. */
 const mesLabel = (iso: string | null): string => {
@@ -157,7 +166,7 @@ export function FlujoFinanciero() {
       <div className="flex items-center gap-2 flex-wrap">
         <Button variant={area === 'TODAS' ? 'default' : 'outline'} size="sm" onClick={() => setArea('TODAS')}>Todas</Button>
         {areas.map(a => (
-          <Button key={a} variant={area === a ? 'default' : 'outline'} size="sm" onClick={() => setArea(a)}>{a}</Button>
+          <Button key={a} variant={area === a ? 'default' : 'outline'} size="sm" onClick={() => setArea(a)}>{etiquetaArea(a)}</Button>
         ))}
       </div>
 
@@ -264,7 +273,7 @@ export function FlujoFinanciero() {
                     const mon = f.moneda === 'USD' ? 'US$ ' : '';
                     return (
                       <tr key={f.id}>
-                        <td className="px-4 py-1.5"><Badge variant="outline">{f.area}</Badge></td>
+                        <td className="px-4 py-1.5"><Badge variant="outline">{etiquetaArea(f.area)}</Badge></td>
                         <td className="px-4 py-1.5 text-xs">{f.cdc ?? '—'}</td>
                         <td className="px-4 py-1.5 max-w-[280px] truncate" title={f.concepto ?? ''}>
                           {f.concepto ?? '—'}

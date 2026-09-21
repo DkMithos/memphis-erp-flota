@@ -2394,3 +2394,18 @@ El botón "Exportar" del directorio bajaba un CSV de 9 columnas (código, razón
 - Reutiliza `exportToExcelMultiHoja`: RUC/cuenta/CCI van como TEXTO (no se convierten a número ni pierden ceros).
 - 8 pruebas (precedencia jsonb sobre cuenta plana, concatenación, Sí/No, categoría desconocida, hoja de cuentas). Verificado con 10 proveedores reales (cuentas múltiples, DETRACCIONES BN, CCIs con espacios/guiones): 21 cuentas, monedas resueltas, cuentas vacías filtradas. Total real: 136 proveedores.
 - `ProveedoresDirectorio.handleExportar` ahora llama al export completo (antes `exportToCSV` de 9 columnas).
+
+
+## Flujo financiero: acceso por área + Conta→Contabilidad (2026-09-21)
+
+Kevin: "cada usuario debe ver lo suyo, excepto Carolina que ve todo"; renombrar Conta→Contabilidad; faltan Administración y Proyectos.
+
+**Hecho en esta tanda (acceso + nombre):**
+- Renombrado el área `CONTA`→`CONTABILIDAD` (datos + etiquetas de pantalla + derivación del importador).
+- **Permiso propio** `finanzas.flujo`: la ruta `/finanzas/flujo-financiero` ya no exige `finanzas.ver`, así Proyectos (Miguelangel) entra solo al flujo sin abrirle todo Finanzas. Otorgado a los roles Contabilidad, Administración y Proyectos (excepción en rutas.ts; el filtro real por área lo hace la RLS). 3 pruebas nuevas.
+- **RLS por área** en `flujo_compromisos`: funciones `flujo_ve_todo_actual()` y `flujo_puede_ver(area)` (SECURITY DEFINER). Cada rol ve su área (Contabilidad↔Walter, Administración↔Shirley, Proyectos↔Miguelangel); **ven todo** los Administradores y quien esté en `flujo_ve_todo` (Carolina). TI = solo ve-todo (no hay rol TI). Verificado: Carolina/Kevin ven las 4; Miguelangel solo Proyectos; Shirley solo Administración; Walter solo Contabilidad; Gerencia nada.
+- `areaDeNombre` del importador ahora canoniza: BD CONTA→CONTABILIDAD, BD TI→TI, Flujo Administración→ADMINISTRACION, Flujo de proyectos→PROYECTOS.
+
+**Pendiente (siguiente tanda): importar Administración y Proyectos + vista horizontal.**
+Los archivos tienen otra estructura: "Flujo Administración" es una MATRIZ por meses (concepto × Ago-25…May-27, sin pagado); "Flujo de proyectos" es plano con otra cabecera (CÓDIGO/CDC/CATEGORIA/CONCEPTO/PROVEEDOR/CANTIDAD/MONEDA/PU/TOTAL/TC/FECHA VENCIMIENTO/TOTAL SOLES).
+Recomendación (aprobada en criterio por Kevin: "los flujos son horizontales por mes"): normalizar al MISMO store `flujo_compromisos` (desdoblando la matriz de Admin: cada mes con monto → un compromiso) y AÑADIR a la pantalla la vista HORIZONTAL concepto × meses. Así todo queda conectado (cruza con órdenes/caja/proveedores) y se lee como un flujo.

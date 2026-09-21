@@ -63,9 +63,20 @@ const norm = (s: unknown): string =>
 // Alias de centros de costo con nombre distinto entre la BD y el ERP.
 const ALIAS_CC: Record<string, string> = { database: 'base de datos' }
 
-/** Deriva el área del nombre del archivo: "BD CONTA 2026.xlsx" → "CONTA". */
+/**
+ * Área canónica a partir del nombre del archivo:
+ *   "BD CONTA 2026.xlsx"        → CONTABILIDAD
+ *   "BD TI 2026.xlsx"           → TI
+ *   "Flujo Administración.xlsx" → ADMINISTRACION
+ *   "Flujo de proyectos.xlsx"   → PROYECTOS
+ */
 function areaDeNombre(nombre: string): string {
-  const m = norm(nombre).match(/bd\s+([a-z]+)/)
+  const n = norm(nombre)
+  if (/bd\s+conta|contabilidad/.test(n)) return 'CONTABILIDAD'
+  if (/bd\s+ti|\bti\b/.test(n)) return 'TI'
+  if (/administraci/.test(n)) return 'ADMINISTRACION'
+  if (/proyecto/.test(n)) return 'PROYECTOS'
+  const m = n.match(/bd\s+([a-z]+)/)
   return m ? m[1].toUpperCase() : ''
 }
 

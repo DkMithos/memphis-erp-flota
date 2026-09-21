@@ -42,6 +42,7 @@ export type Accion =
   | 'exportar'
   | 'recepcionar'
   | 'cargos'
+  | 'flujo'
   | 'gestionar_usuarios'
   | 'gestionar_roles';
 

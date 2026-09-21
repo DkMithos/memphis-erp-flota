@@ -20,6 +20,23 @@ const COMPRAS = conPermisos(['compras.ver', 'compras.crear', 'compras.recepciona
 const CONTABILIDAD = conPermisos(['compras.ver', 'contabilidad.ver', 'finanzas.ver', 'proveedores.ver']);
 const GERENCIA = conPermisos(['admin.ver', 'compras.ver', 'finanzas.ver', 'proyectos.ver', 'flota.ver']);
 
+describe('Flujo financiero — permiso propio por área', () => {
+  const SOLO_FLUJO = conPermisos(['finanzas.flujo', 'proyectos.ver']);   // Miguelangel (Proyectos)
+  it('entra con finanzas.flujo, sin abrirle el resto de Finanzas', () => {
+    expect(puedeVerRuta('/finanzas/flujo-financiero', SOLO_FLUJO)).toBe(true);
+    expect(puedeVerRuta('/finanzas', SOLO_FLUJO)).toBe(false);
+    expect(puedeVerRuta('/finanzas/transacciones', SOLO_FLUJO)).toBe(false);
+    expect(puedeVerRuta('/finanzas/caja-chica', SOLO_FLUJO)).toBe(false);
+  });
+  it('quien ya ve todo Finanzas también entra', () => {
+    expect(puedeVerRuta('/finanzas/flujo-financiero', CONTABILIDAD)).toBe(true);
+  });
+  it('no entra quien no tiene ni finanzas.ver ni finanzas.flujo', () => {
+    const SOLO_PROYECTOS = conPermisos(['proyectos.ver', 'compras.ver']);
+    expect(puedeVerRuta('/finanzas/flujo-financiero', SOLO_PROYECTOS)).toBe(false);
+  });
+});
+
 describe('Flujo Gerencia', () => {
   it('lo abren gerencia y administración de sistemas', () => {
     expect(puedeVerRuta('/bi/gerencia', GERENCIA)).toBe(true);
