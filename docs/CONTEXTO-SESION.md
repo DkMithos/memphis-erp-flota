@@ -2425,3 +2425,16 @@ Se importan las 4 áreas y la pantalla se reorganiza como un flujo horizontal (c
 - Cargado real: CONTABILIDAD 154, TI 52, ADMINISTRACION 383, PROYECTOS 1399 (1988 compromisos, 4 áreas). 23 pruebas del parser (incl. 3 decimales, matriz de Admin, Proyectos).
 
 Nota: OFCENTRAL de Administración no cruza con un centro de costo del ERP (no existe "Oficina Central" con ese nombre); el CDC queda como texto. Algunas fechas de Proyectos vienen sucias (año 2000/2028) y generan columnas extra en la matriz.
+
+
+## Flujo financiero: CRUD nativo, filtros, paginación, OFCENTRAL (2026-09-21)
+
+Pedidos de Kevin: emparejar OFCENTRAL→Oficina Central; esconder fechas sucias; paginación; poder crear/editar/borrar; filtros de año/mes/estado.
+
+- **OFCENTRAL** ahora cruza: el centro de costo existe con código OFCENTRAL pero nombre "Gastos Oficina Central". El importador ahora resuelve el CDC contra el **CÓDIGO** del centro de costo (no solo el nombre). Reimportadas las 4 áreas: Contabilidad 154/154, Administración 372/383 (antes 0), TI 52/52, Proyectos 885.
+- **CRUD nativo** (fuente='erp', sobrevive a reimportaciones): botón "Nuevo compromiso" + diálogo `CompromisoFlujoDialog` (área, CDC con datalist de centros, concepto, categoría, proveedor, tipo egreso/ingreso, monto firmado, moneda/TC, mes, estado, pagado, postergado, observaciones). Editar/borrar por fila para filas manuales; las de Excel son de solo lectura (badge "Excel").
+- **RLS de escritura por área** (`flujo_comp_wr` → `flujo_puede_ver(area)`): verificado que un usuario de Contabilidad crea en su área y queda BLOQUEADO (403) en Proyectos. La importación sigue por service role.
+- **Filtros**: año, mes, estado (con "Limpiar"). **Fechas sucias ocultas**: se muestran solo años 2025–2027 (los 2000/2028 basura del Excel de Proyectos quedan fuera por ahora). **Paginación** del detalle (25 por página).
+- `finanzas.flujo` también habilita importar (para que el dueño del área refresque).
+
+Pendiente/nota: OFCENTRAL 11 filas de Admin sin CDC no cruzan (no traen centro). Las fechas sucias siguen en la BD; solo se ocultan en pantalla.

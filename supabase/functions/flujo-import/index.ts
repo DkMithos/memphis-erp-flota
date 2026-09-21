@@ -61,7 +61,7 @@ const norm = (s: unknown): string =>
   String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
 
 // Alias de centros de costo con nombre distinto entre la BD y el ERP.
-const ALIAS_CC: Record<string, string> = { database: 'base de datos', ofcentral: 'oficina central' }
+const ALIAS_CC: Record<string, string> = { database: 'base de datos' }
 
 /**
  * Área canónica a partir del nombre del archivo:
@@ -210,12 +210,18 @@ export default {
 
       // Mapas de resolución: centro de costo y proveedor por nombre.
       const [{ data: ccs }, { data: provs }] = await Promise.all([
-        admin.from('centros_costo').select('id, nombre').eq('tenant_id', tenantId),
+        admin.from('centros_costo').select('id, nombre, codigo').eq('tenant_id', tenantId),
         admin.from('proveedores').select('id, razon_social').eq('tenant_id', tenantId),
       ])
-      const ccPorNombre = new Map((ccs ?? []).map((c: any) => [norm(c.nombre), c.id as string]))
+      // El CDC del flujo es el CÓDIGO del centro de costo (GHUANUCOPNP, OFCENTRAL…);
+      // se acepta también por nombre por si alguno viniera así.
+      const ccPorClave = new Map<string, string>()
+      for (const c of (ccs ?? []) as any[]) {
+        if (c.codigo) ccPorClave.set(norm(c.codigo), c.id as string)
+        if (c.nombre && !ccPorClave.has(norm(c.nombre))) ccPorClave.set(norm(c.nombre), c.id as string)
+      }
       const provPorNombre = new Map((provs ?? []).map((p: any) => [norm(p.razon_social), p.id as string]))
-      const resolverCC = (cdc: string) => ccPorNombre.get(norm(cdc)) ?? ccPorNombre.get(ALIAS_CC[norm(cdc)] ?? '') ?? null
+      const resolverCC = (cdc: string) => ccPorClave.get(norm(cdc)) ?? ccPorClave.get(ALIAS_CC[norm(cdc)] ?? '') ?? null
       const resolverProv = (nombre: string) => provPorNombre.get(norm(nombre)) ?? null
 
       let ccMatch = 0, provMatch = 0
