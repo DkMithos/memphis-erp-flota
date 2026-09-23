@@ -26,7 +26,11 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { leerCabecera, leerLineas, totales } from './plantilla.ts'
+import { leerCabecera, leerLineas, totales, type LineaPlantilla } from './plantilla.ts'
+import {
+  esProFor004, filaTabla, leerCabeceraProFor004, leerLineasProFor004, origenDeDireccion,
+  type LineaProFor004,
+} from './profor004.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -53,8 +57,14 @@ async function getAppToken(): Promise<string> {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-async function graph(token: string, url: string): Promise<any> {
+async function graph(token: string, url: string, intento = 1): Promise<any> {
   const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+  // Graph devuelve 502/503/504 sueltos al abrir sesiones de Excel grandes
+  // (visto con el PRO-FOR-004 de Huánuco): se reintenta un par de veces.
+  if ([502, 503, 504].includes(r.status) && intento < 3) {
+    await new Promise(res => setTimeout(res, 1500 * intento))
+    return graph(token, url, intento + 1)
+  }
   if (!r.ok) {
     if (r.status === 403) throw new Error('Microsoft rechazó la lectura (403). Falta Files.Read.All.')
     if (r.status === 404) throw new Error('El archivo o la carpeta ya no existe en SharePoint.')
@@ -173,18 +183,44 @@ export default {
 
     try {
       const token = await getAppToken()
-      const hojas = await graph(token,
-        `https://graph.microsoft.com/v1.0/drives/${cuerpo.drive_id}/items/${cuerpo.item_id}/workbook/worksheets?$select=name,id`)
-      // La plantilla es la primera hoja ("Plantilla Presupuesto").
-      const hoja = (hojas.value ?? [])[0]
-      if (!hoja) return json({ error: 'El archivo no tiene hojas' }, 422)
-      const rango = await graph(token,
-        `https://graph.microsoft.com/v1.0/drives/${cuerpo.drive_id}/items/${cuerpo.item_id}` +
-        `/workbook/worksheets/${encodeURIComponent(hoja.id)}/usedRange?$select=text`)
-      const celdas: string[][] = rango.text ?? []
+      const base = `https://graph.microsoft.com/v1.0/drives/${cuerpo.drive_id}/items/${cuerpo.item_id}`
+      const [meta, hojas] = await Promise.all([
+        graph(token, `${base}?$select=name`),
+        graph(token, `${base}/workbook/worksheets?$select=name,id`),
+      ])
+      const nombreArchivo: string = meta?.name ?? ''
 
-      const cab = leerCabecera(celdas)
-      const lineas = leerLineas(celdas)
+      // La tabla no siempre está en la primera hoja ("Presu. BASE", "02FLUVIALES",
+      // "Presupuesto 3ton actual"…): se toma la primera hoja que tenga la
+      // cabecera ITEM | DESCRIPCION, mirando solo sus primeras 80 filas.
+      let hoja: { id: string; name: string } | null = null
+      for (const h of (hojas.value ?? []).slice(0, 12)) {
+        const cabe = await graph(token,
+          `${base}/workbook/worksheets/${encodeURIComponent(h.id)}/range(address='A1:M80')?$select=values`)
+        if (filaTabla(cabe.values ?? []) !== -1) { hoja = h; break }
+      }
+      if (!hoja) return json({ error: 'Ninguna hoja tiene la tabla ITEM | DESCRIPCION del presupuesto' }, 422)
+
+      // valuesOnly evita el RangeExceedsLimit de hojas con formato hasta la fila 1 048 576.
+      const rango = await graph(token,
+        `${base}/workbook/worksheets/${encodeURIComponent(hoja.id)}/usedRange(valuesOnly=true)?$select=address,values,formulas`)
+      const valores: unknown[][] = rango.values ?? []
+      const formulas: unknown[][] = rango.formulas ?? []
+
+      // Dos formatos: la plantilla-v1 (columnas sin/con IGV, moneda explícita) y
+      // el PRO-FOR-004 de Operaciones (precios con IGV, moneda en la fórmula).
+      const formato = esProFor004(valores) ? 'pro-for-004' : 'plantilla-v1'
+      let cab: ReturnType<typeof leerCabeceraProFor004> | ReturnType<typeof leerCabecera>
+      let lineas: (LineaPlantilla | LineaProFor004)[]
+      if (formato === 'pro-for-004') {
+        const origen = origenDeDireccion(rango.address)
+        const c = leerCabeceraProFor004(valores, origen)
+        cab = c
+        lineas = leerLineasProFor004(valores, formulas, c, origen)
+      } else {
+        cab = leerCabecera(valores)
+        lineas = leerLineas(valores)
+      }
       const t = totales(lineas)
       if (lineas.length === 0) {
         return json({ error: 'No se encontraron partidas en la plantilla' }, 422)
@@ -193,6 +229,9 @@ export default {
       const tc = cab.tipoCambio ?? 3.4
       const resumen = {
         proyecto: proyecto.codigo,
+        formato,
+        hoja: hoja.name,
+        archivo: nombreArchivo,
         cabecera: cab,
         lineas: lineas.length,
         hojas: t.hojas,
@@ -202,7 +241,7 @@ export default {
       }
       if (cuerpo.solo_leer) return json({ ok: true, solo_leer: true, ...resumen })
 
-      // Reemplazo total: el presupuesto del proyecto es lo que diga la plantilla.
+      // La cabecera se actualiza; las partidas, más abajo, por código.
       const { data: cabeza, error: eCab } = await admin.from('proyecto_presupuestos').upsert({
         tenant_id: tenantId,
         proyecto_id: proyecto.id,
@@ -211,8 +250,11 @@ export default {
         importe_ejecucion: cab.importeEjecucion,
         importe_referencial: cab.importeReferencial,
         tipo_cambio: tc,
+        tipo_cambio_final: 'tipoCambioFinal' in cab ? cab.tipoCambioFinal : null,
         plazo_dias: cab.plazoDias,
         estado: 'vigente',
+        formato,
+        archivo_origen: nombreArchivo ? `${nombreArchivo} · hoja ${hoja.name}` : null,
         creado_por: user.id,
         actualizado_en: new Date().toISOString(),
       }, { onConflict: 'tenant_id,proyecto_id' }).select('id').single()
@@ -240,6 +282,14 @@ export default {
         proveedor_nota: l.proveedorNota || null,
         orden: l.orden,
         vigente: true,
+        // Bloque FINAL y forma de pago: solo el PRO-FOR-004 los trae.
+        forma_pago: 'formaPago' in l ? l.formaPago || null : null,
+        moneda_final: 'monedaFinal' in l ? l.monedaFinal || null : null,
+        precio_unitario_final: 'precioUnitarioFinal' in l ? l.precioUnitarioFinal : null,
+        total_final: 'totalFinal' in l ? l.totalFinal : null,
+        proveedor_final: 'proveedorFinal' in l ? l.proveedorFinal || null : null,
+        forma_pago_final: 'formaPagoFinal' in l ? l.formaPagoFinal || null : null,
+        fila_excel: 'filaExcel' in l ? l.filaExcel : null,
       }))
       // En tandas: son cientos de líneas.
       for (let i = 0; i < filas.length; i += 200) {

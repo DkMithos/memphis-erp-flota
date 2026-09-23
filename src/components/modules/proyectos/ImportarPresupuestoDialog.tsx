@@ -37,9 +37,12 @@ interface Miga { id: string | null; nombre: string; }
 interface Resultado {
   ok: boolean;
   proyecto?: string;
+  formato?: 'plantilla-v1' | 'pro-for-004';
+  hoja?: string;
   lineas?: number;
   hojas?: number;
   total_presupuestado_sin_igv?: number;
+  total_presupuestado_con_igv?: number;
   cabecera?: { proyecto?: string; cui?: string; plazoDias?: number | null };
   error?: string;
 }
@@ -163,8 +166,12 @@ export function ImportarPresupuestoDialog({ proyectoIdInicial, onImportado }: Pr
                 <p className="font-medium">Presupuesto cargado para {resultado.proyecto}</p>
                 <p className="text-muted-foreground mt-1">
                   {resultado.lineas} líneas ({resultado.hojas} partidas de gasto) ·
-                  presupuestado {soles(resultado.total_presupuestado_sin_igv ?? 0)} sin IGV
+                  presupuestado {soles(resultado.total_presupuestado_con_igv ?? 0)} con IGV
                   {resultado.cabecera?.cui ? ` · CUI ${resultado.cabecera.cui}` : ''}
+                </p>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {resultado.formato === 'pro-for-004' ? 'Formato PRO-FOR-004 de Operaciones' : 'Plantilla presupuestal v1'}
+                  {resultado.hoja ? ` · hoja «${resultado.hoja}»` : ''}
                 </p>
               </div>
             </div>
@@ -186,7 +193,8 @@ export function ImportarPresupuestoDialog({ proyectoIdInicial, onImportado }: Pr
                 nullable={false}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Si el proyecto ya tenía presupuesto, se reemplaza por completo con esta plantilla.
+                Vale la plantilla v1 o el PRO-FOR-004 de Operaciones (se reconoce solo). Si el proyecto ya
+                tenía presupuesto, las partidas se actualizan por su código y las que ya no están quedan retiradas.
               </p>
             </div>
 

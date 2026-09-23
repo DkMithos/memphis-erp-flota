@@ -2677,3 +2677,12 @@ respaldo cuando decolecta falla (probado: 2022-09-01 = 3.847), sin pisar valores
 con el TC anterior guardado en `tipo_cambio_migracion`. Efecto: el gasto USD pasa de S/ 89.4 M a S/ 96.0 M (+7.3 %); `costo_real` se
 recalculó solo (triggers) y 138 compromisos del flujo se alinearon al nuevo TC. PresupuestoProyecto ahora compara con IGV en los dos lados
 y valora cada OC al TC con que nació (la misma regla que `proyecto_financiero()`).
+
+**El importador ya entiende el PRO-FOR-004 (`presupuesto-import` v5):** `profor004.ts` (parser sin Deno, 21 pruebas en
+`presupuesto-profor004.test.ts`), detección automática del formato (PRECIO T. + Proveedor en la fila ITEM), búsqueda de la hoja con la
+tabla (no siempre es la primera), lectura de `values` + `formulas` con `usedRange(valuesOnly=true)`, reintento ante 502/503/504 de Graph,
+y guarda `formato`, `archivo_origen · hoja`, `tipo_cambio_final` y el bloque FINAL. Probado de punta a punta con usuario QA temporal
+(borrado) sobre los archivos reales de SharePoint: Muni Cusco 77 hojas / 6,235,200.80, Huánuco 50 / 6,804,736.57, CUSCO FINAL 45 /
+11,406,420.67 en la hoja "Presu. BASE" — idénticos al parser de Python. La raíz `uso='presupuesto'` (COMPRAS/General) **es** la carpeta
+"General - PROYECTOS" de OneDrive (mismo drive), así que Operaciones ya navega a sus archivos desde ImportarPresupuestoDialog.
+En "0.0 PROYECTOS EN IDEA" hay PRO-FOR-004 sin proyecto en el ERP: Ayacucho, COER Loreto, Bomberos Cusco (2 versiones), renting.
