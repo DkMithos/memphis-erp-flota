@@ -151,6 +151,35 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
       });
   }, []);
 
+  // Ejecución del presupuesto por partida (v_partida_ejecucion): el gasto que
+  // hace match con el presupuesto inicial. Vacío si el proyecto no tiene
+  // partidas cargadas o ninguna orden lleva partida todavía.
+  interface PartidaEjec { item: string; descripcion: string; presupuestado: number; comprometido: number; saldo: number; sobregirada: boolean }
+  const [partidasEjec, setPartidasEjec] = useState<PartidaEjec[]>([]);
+  useEffect(() => {
+    let cancelado = false;
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    (supabase as any).from('v_partida_ejecucion')
+      .select('item, descripcion, presupuestado, comprometido, saldo, sobregirada')
+      .eq('proyecto_id', proyectoDbId).eq('vigente', true)
+      .then(({ data }: { data: Record<string, unknown>[] | null }) => {
+        if (cancelado) return;
+        setPartidasEjec((data ?? []).map(r => ({
+          item: r.item as string, descripcion: (r.descripcion as string) ?? '',
+          presupuestado: Number(r.presupuestado ?? 0), comprometido: Number(r.comprometido ?? 0),
+          saldo: Number(r.saldo ?? 0), sobregirada: Boolean(r.sobregirada),
+        })));
+      });
+    return () => { cancelado = true; };
+  }, [proyectoDbId]);
+  const partidasResumen = useMemo(() => {
+    const presupuestado = partidasEjec.reduce((s, p) => s + p.presupuestado, 0);
+    const conPartida = partidasEjec.reduce((s, p) => s + p.comprometido, 0);
+    const sobregiradas = partidasEjec.filter(p => p.sobregirada).length;
+    const top = [...partidasEjec].filter(p => p.comprometido > 0).sort((a, b) => b.comprometido - a.comprometido).slice(0, 6);
+    return { presupuestado, conPartida, sobregiradas, top, n: partidasEjec.length };
+  }, [partidasEjec]);
+
   const proyecto = proyectos.find(p => p._dbId === proyectoDbId);
 
   // ── Pagination state ──
@@ -667,6 +696,43 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
               </div>
             </CardContent>
           </Card>
+
+          {/* 3b) Presupuesto por partidas: el gasto contra el plan inicial */}
+          {partidasResumen.n > 0 && (
+            <Card className={partidasResumen.sobregiradas > 0 ? 'border-red-300 dark:border-red-900' : ''}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2"><Wallet className="size-4" /> Presupuesto por partidas</span>
+                  <Button variant="ghost" size="sm" onClick={() => onNavigate('/proyectos/presupuesto')}>Ver partidas</Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div><p className="text-xs text-muted-foreground">Presupuestado (sin IGV)</p><p className="font-semibold">{fmt(partidasResumen.presupuestado, 'PEN')}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Comprometido con partida</p><p className="font-semibold text-amber-600">{fmt(partidasResumen.conPartida, 'PEN')}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Partidas sobregiradas</p><p className={`font-semibold ${partidasResumen.sobregiradas > 0 ? 'text-red-600' : 'text-green-600'}`}>{partidasResumen.sobregiradas} de {partidasResumen.n}</p></div>
+                </div>
+                {partidasResumen.top.length > 0 ? (
+                  <div className="divide-y text-sm">
+                    {partidasResumen.top.map(p => (
+                      <div key={p.item} className="flex items-center gap-2 py-1">
+                        <span className="text-xs text-muted-foreground w-14 shrink-0 tabular-nums">{p.item}</span>
+                        <span className="flex-1 min-w-0 truncate" title={p.descripcion}>{p.descripcion}</span>
+                        <span className="tabular-nums text-amber-600 whitespace-nowrap">{fmt(p.comprometido, 'PEN')}</span>
+                        <span className={`tabular-nums w-24 text-right whitespace-nowrap ${p.sobregirada ? 'text-red-600 font-semibold' : 'text-muted-foreground'}`}>
+                          {p.sobregirada ? '−' : ''}{fmt(Math.abs(p.saldo), 'PEN')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Ninguna orden lleva partida todavía: se asigna en cada ítem del requerimiento y viaja a la cotización y a la orden.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* 4) Utilidad = Valor Modificado − Gastos (compras + caja) */}
           <Card>

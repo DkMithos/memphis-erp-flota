@@ -42,6 +42,8 @@ export interface ItemOrden {
   descuento: number;
   /** Neto: cantidad * precioUnitario - descuento */
   subtotal: number;
+  /** Partida del presupuesto del proyecto (heredada de la cotización). */
+  partidaId?: string | null;
 }
 
 export interface Orden {
@@ -227,6 +229,7 @@ function mapFromDB(row: OrdenWithRelations): Orden {
     precioUnitario: item.precio_unitario,
     descuento: (item as any).descuento ?? 0,
     subtotal: item.precio_total,
+    partidaId: (item as any).partida_id ?? null,
   }));
 
   // Derive estado mapping: DB states differ from frontend states
@@ -486,6 +489,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         cantidad: item.cantidad,
         precio_unitario: item.precioUnitario,
         descuento: (item as any).descuento ?? 0,
+        partida_id: (item as any).partidaId ?? null,
       }));
       const { data: itemsData, error: errItems } = await supabase
         .from('orden_items')
@@ -568,6 +572,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
           cantidad: item.cantidad,
           precio_unitario: item.precioUnitario,
           descuento: (item as any).descuento ?? 0,
+          partida_id: (item as any).partidaId ?? null,
         }));
         const { data: newItemsData } = await supabase
           .from('orden_items')
@@ -587,6 +592,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
               precioUnitario: dbItem.precio_unitario,
               descuento: (dbItem as any).descuento ?? 0,
               subtotal: dbItem.precio_total,
+              partidaId: (dbItem as any).partida_id ?? null,
             }));
             const { subtotal, impuestos, total } = calcularTotales(newItems);
             return {

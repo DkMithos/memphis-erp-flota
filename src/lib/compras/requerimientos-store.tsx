@@ -37,6 +37,8 @@ export interface ItemRequerimiento {
   unidad: string;
   precioEstimado: number;
   comentario: string | null;
+  /** Partida del presupuesto del proyecto a la que se imputa (viaja a la cotización y a la OC). */
+  partidaId?: string | null;
 }
 
 export interface Requerimiento {
@@ -145,6 +147,7 @@ function mapFromDB(row: RequerimientoWithItems): Requerimiento {
     cantidad: item.cantidad,
     unidad: item.unidad,
     precioEstimado: item.costo_estimado_unitario,
+    partidaId: (item as any).partida_id ?? null,
     comentario: item.observaciones,
   }));
 
@@ -322,6 +325,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
         unidad: item.unidad,
         cantidad: item.cantidad,
         costo_estimado_unitario: item.precioEstimado,
+        partida_id: (item as any).partidaId ?? null,
         observaciones: item.comentario ?? null,
       }));
       const { data: itemsData, error: errItems } = await supabase
@@ -388,6 +392,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
           unidad: item.unidad,
           cantidad: item.cantidad,
           costo_estimado_unitario: item.precioEstimado,
+        partida_id: (item as any).partidaId ?? null,
           observaciones: item.comentario ?? null,
         }));
         const { data: newItemsData } = await supabase
@@ -406,6 +411,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
               cantidad: dbItem.cantidad,
               unidad: dbItem.unidad,
               precioEstimado: dbItem.costo_estimado_unitario,
+              partidaId: (dbItem as any).partida_id ?? null,
               comentario: dbItem.observaciones,
             }));
             return {

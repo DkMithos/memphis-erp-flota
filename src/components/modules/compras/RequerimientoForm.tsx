@@ -29,6 +29,10 @@ import { toast } from 'sonner';
 import { ProyectoSelector } from '../../shared/ProyectoSelector';
 import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
 import { useCentrosCosto } from '../../../lib/centros-costo/centros-costo-store';
+import { supabase } from '../../../lib/supabase/client';
+
+/** Partida hoja del presupuesto del proyecto, para imputar cada ítem. */
+interface PartidaOpcion { id: string; item: string; descripcion: string; presupuestado: number }
 
 interface RequerimientoFormProps {
   requerimientoId?: string; // Si existe, es edición
@@ -57,6 +61,31 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Partidas del presupuesto del proyecto al que se imputa (por proyecto elegido
+  // o por el proyecto del centro de costo). Si el proyecto tiene presupuesto
+  // cargado, cada ítem debe decir contra qué partida va: así el gasto hace
+  // match con el presupuesto inicial desde el primer paso de la cadena.
+  const proyectoImputado = (formData as any).proyectoId
+    ?? (centrosCosto.find(c => ((c as any)._dbId ?? (c as any).id) === (formData as any).centroCostoId) as any)?.proyectoId
+    ?? null;
+  const [partidas, setPartidas] = useState<PartidaOpcion[]>([]);
+  useEffect(() => {
+    if (!proyectoImputado) { setPartidas([]); return; }
+    let cancelado = false;
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    (supabase as any).from('v_partidas_proyecto')
+      .select('partida_id, item, descripcion, presupuestado')
+      .eq('proyecto_id', proyectoImputado).order('orden')
+      .then(({ data }: { data: Record<string, unknown>[] | null }) => {
+        if (cancelado) return;
+        setPartidas((data ?? []).map(r => ({
+          id: r.partida_id as string, item: r.item as string,
+          descripcion: (r.descripcion as string) ?? '', presupuestado: Number(r.presupuestado ?? 0),
+        })));
+      });
+    return () => { cancelado = true; };
+  }, [proyectoImputado]);
 
   // Cargar datos si es edición
   useEffect(() => {
@@ -582,6 +611,27 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
                             className="bg-muted"
                           />
                         </div>
+
+                        {partidas.length > 0 && (
+                          <div className="md:col-span-2 space-y-2">
+                            <Label>Partida del presupuesto</Label>
+                            <select
+                              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                              value={item.partidaId ?? ''}
+                              onChange={(e) => actualizarItem(idx, 'partidaId' as any, e.target.value || null)}
+                            >
+                              <option value="">— Sin partida (no se controla contra el presupuesto) —</option>
+                              {partidas.map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.item} · {p.descripcion} · {formatearMonto(p.presupuestado)}
+                                </option>
+                              ))}
+                            </select>
+                            <p className="text-xs text-muted-foreground">
+                              Viaja a la cotización y a la orden: el gasto se compara contra esta partida.
+                            </p>
+                          </div>
+                        )}
 
                         <div className="md:col-span-2 space-y-2">
                           <Label>Comentarios</Label>

@@ -30,9 +30,17 @@ describe('la cotización no obliga a teclear otra vez lo pedido', () => {
     }));
 
     expect(h.items).toEqual([
-      { descripcion: 'Llanta 295/80 R22.5', cantidad: 4, unidad: 'UND', precioUnitario: 1200 },
-      { descripcion: 'Cámara', cantidad: 2, unidad: 'JGO', precioUnitario: 90 },
+      { descripcion: 'Llanta 295/80 R22.5', cantidad: 4, unidad: 'UND', precioUnitario: 1200, partidaId: null },
+      { descripcion: 'Cámara', cantidad: 2, unidad: 'JGO', precioUnitario: 90, partidaId: null },
     ]);
+  });
+
+  it('la partida del presupuesto viaja con el ítem (así la OC hace match con el plan)', () => {
+    const h = heredarDelRequerimiento(req({
+      items: [item({ partidaId: 'partida-1.1.1' }), item({ descripcion: 'Sin partida' })],
+    }));
+    expect(h.items[0].partidaId).toBe('partida-1.1.1');
+    expect(h.items[1].partidaId).toBeNull();
   });
 
   it('el precio estimado entra como precio de partida', () => {

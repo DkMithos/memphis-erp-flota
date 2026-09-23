@@ -218,8 +218,10 @@ export default {
       }, { onConflict: 'tenant_id,proyecto_id' }).select('id').single()
       if (eCab || !cabeza) return json({ error: `No se pudo guardar la cabecera: ${eCab?.message}` }, 500)
 
-      await admin.from('proyecto_presupuesto_lineas').delete().eq('presupuesto_id', cabeza.id)
-
+      // Las partidas se ACTUALIZAN por su código (1.2.3), no se borran: los
+      // ítems de requerimientos, cotizaciones y órdenes apuntan a ellas
+      // (partida_id) y una versión nueva de la plantilla no puede romper ese
+      // enlace. Lo que ya no está en la plantilla queda como no vigente.
       const filas = lineas.map(l => ({
         tenant_id: tenantId,
         presupuesto_id: cabeza.id,
@@ -237,12 +239,19 @@ export default {
         total_con_igv: l.totalConIgv,
         proveedor_nota: l.proveedorNota || null,
         orden: l.orden,
+        vigente: true,
       }))
       // En tandas: son cientos de líneas.
       for (let i = 0; i < filas.length; i += 200) {
-        const { error } = await admin.from('proyecto_presupuesto_lineas').insert(filas.slice(i, i + 200))
+        const { error } = await admin.from('proyecto_presupuesto_lineas')
+          .upsert(filas.slice(i, i + 200), { onConflict: 'presupuesto_id,item' })
         if (error) return json({ error: `Error al cargar líneas: ${error.message}`, ...resumen }, 500)
       }
+      const codigos = lineas.map(l => l.item)
+      const { error: eVig } = await admin.from('proyecto_presupuesto_lineas')
+        .update({ vigente: false }).eq('presupuesto_id', cabeza.id)
+        .not('item', 'in', `(${codigos.map(c => `"${c.replace(/"/g, '')}"`).join(',')})`)
+      if (eVig) return json({ error: `Error al marcar partidas retiradas: ${eVig.message}`, ...resumen }, 500)
 
       return json({ ok: true, ...resumen })
     } catch (e) {

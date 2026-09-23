@@ -58,6 +58,9 @@ export function PresupuestoProyecto() {
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [lineas, setLineas] = useState<LineaPresu[]>([]);
   const [comprometido, setComprometido] = useState<number>(0);
+  // Ejecución por partida hoja (v_partida_ejecucion): lo comprometido en órdenes
+  // que llevan partida asignada. Es el "match" del gasto con el presupuesto.
+  const [ejec, setEjec] = useState<Map<string, { comprometido: number; solicitado: number; saldo: number; sobregirada: boolean; ordenes: number }>>(new Map());
   const [cargando, setCargando] = useState(true);
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
 
@@ -93,14 +96,22 @@ export function PresupuestoProyecto() {
   // Líneas del presupuesto + comprometido en órdenes del proyecto.
   const cargarDetalle = useCallback(async (c: PresupuestoCab) => {
     setCargando(true);
-    const [{ data: ls }, { data: ocs }] = await Promise.all([
+    const [{ data: ls }, { data: ocs }, { data: ej }] = await Promise.all([
       supabase.from('proyecto_presupuesto_lineas')
         .select('item, nivel, es_hoja, descripcion, unidad, cantidad, moneda, total_sin_igv, total_con_igv, proveedor_nota, orden')
         .eq('presupuesto_id', c.id).order('orden'),
       supabase.from('ordenes_compra')
         .select('total, moneda, estado')
         .eq('proyecto_id', c.proyectoId),
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      (supabase as any).from('v_partida_ejecucion')
+        .select('item, comprometido, solicitado, saldo, sobregirada, ordenes')
+        .eq('proyecto_id', c.proyectoId),
     ]);
+    setEjec(new Map(((ej ?? []) as Record<string, unknown>[]).map(r => [r.item as string, {
+      comprometido: Number(r.comprometido ?? 0), solicitado: Number(r.solicitado ?? 0),
+      saldo: Number(r.saldo ?? 0), sobregirada: Boolean(r.sobregirada), ordenes: Number(r.ordenes ?? 0),
+    }])));
     setLineas((ls ?? []).map((r: Record<string, unknown>): LineaPresu => ({
       item: r.item as string,
       nivel: r.nivel as number,
@@ -145,11 +156,15 @@ export function PresupuestoProyecto() {
   // Árbol: las partidas de nivel 1 con sus hijos colapsables.
   const conHijos = useMemo(() => {
     // Total presupuestado por prefijo (suma de hojas cuyo item empieza por el prefijo).
-    const totalDe = (prefijo: string) => lineas
-      .filter(l => l.esHoja && (l.item === prefijo || l.item.startsWith(prefijo + '.')))
-      .reduce((s, l) => s + (l.totalSinIgv ?? 0), 0);
-    return { totalDe };
-  }, [lineas]);
+    const hojasDe = (prefijo: string) => lineas
+      .filter(l => l.esHoja && (l.item === prefijo || l.item.startsWith(prefijo + '.')));
+    const totalDe = (prefijo: string) => hojasDe(prefijo).reduce((s, l) => s + (l.totalSinIgv ?? 0), 0);
+    // Comprometido con partida asignada, agregado hacia arriba por prefijo.
+    const compDe = (prefijo: string) => hojasDe(prefijo).reduce((s, l) => s + (ejec.get(l.item)?.comprometido ?? 0), 0);
+    const sobregiradasDe = (prefijo: string) => hojasDe(prefijo).filter(l => ejec.get(l.item)?.sobregirada).length;
+    const conPartida = Array.from(ejec.values()).reduce((s, e) => s + e.comprometido, 0);
+    return { totalDe, compDe, sobregiradasDe, conPartida };
+  }, [lineas, ejec]);
 
   const alternar = (item: string) => setAbiertas(prev => {
     const s = new Set(prev);
@@ -302,10 +317,31 @@ export function PresupuestoProyecto() {
 
           {/* Árbol de partidas */}
           <Card>
-            <CardHeader><CardTitle className="text-base">Partidas del presupuesto</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Partidas del presupuesto</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Presupuestado · <span className="text-amber-700 dark:text-amber-400">comprometido con partida</span> · saldo.
+                {' '}Con partida asignada: {soles(conHijos.conPartida)} de {soles(comprometido)} comprometidos
+                {comprometido > 0 && conHijos.conPartida < comprometido * 0.999 && (
+                  <> — el resto son órdenes sin partida (anteriores a este control o creadas sin elegirla en el requerimiento)</>
+                )}.
+              </p>
+            </CardHeader>
             <CardContent className="p-0">
+              <div className="flex items-center gap-2 px-4 py-1.5 text-[11px] text-muted-foreground border-b">
+                <span className="w-4 shrink-0" /><span className="w-14 shrink-0">Ítem</span><span className="flex-1">Partida</span>
+                <span className="w-28 text-right shrink-0">Presupuestado</span>
+                <span className="w-28 text-right shrink-0">Comprometido</span>
+                <span className="w-28 text-right shrink-0">Saldo</span>
+              </div>
               <div className="divide-y">
-                {lineas.filter(visible).map(l => (
+                {lineas.filter(visible).map(l => {
+                  const e = l.esHoja ? ejec.get(l.item) : undefined;
+                  const comp = l.esHoja ? (e?.comprometido ?? 0) : conHijos.compDe(l.item);
+                  const pres = conHijos.totalDe(l.item);
+                  const saldo = pres - comp;
+                  const rojo = l.esHoja ? Boolean(e?.sobregirada) : conHijos.sobregiradasDe(l.item) > 0;
+                  return (
                   <div
                     key={l.item}
                     className={`flex items-center gap-2 px-4 py-2 ${l.nivel === 1 ? 'bg-muted/30 font-medium' : ''}`}
@@ -326,11 +362,16 @@ export function PresupuestoProyecto() {
                         </span>
                       )}
                     </span>
-                    <span className="text-sm tabular-nums shrink-0">
-                      {soles(conHijos.totalDe(l.item))}
+                    <span className="text-sm tabular-nums shrink-0 w-28 text-right">{soles(pres)}</span>
+                    <span className={`text-sm tabular-nums shrink-0 w-28 text-right ${comp > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                      {comp > 0 ? soles(comp) : '—'}
+                    </span>
+                    <span className={`text-sm tabular-nums shrink-0 w-28 text-right ${rojo ? 'text-red-600 font-semibold' : 'text-muted-foreground'}`} title={rojo ? 'Comprometido por encima de lo presupuestado' : undefined}>
+                      {comp > 0 ? soles(saldo) : ''}
                     </span>
                   </div>
-                ))}
+                  );
+                })}
                 {lineas.length === 0 && !cargando && (
                   <p className="px-4 py-6 text-sm text-muted-foreground text-center">Sin partidas.</p>
                 )}

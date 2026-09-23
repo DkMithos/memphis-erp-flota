@@ -2601,3 +2601,29 @@ cuando la sepa? En CIPRL se paga al proveedor cuando la empresa cobra el CIPRL d
   bloque "Sin fecha de vencimiento" con edición en línea, badges estimada / desfase de factura.
 
 Datos: 24 OC CIPRL (2 vivas post go-live: AMAZONAS, LORETO Bomberos), 126 "según lo acordado". Vencido sigue en S/ 29.6 M.
+
+
+## Bloque 2 ejecutado — El presupuesto como origen (2026-09-23)
+
+Principio de Kevin: "todo nace del presupuesto; requerimientos, cotizaciones, compras… deben hacer match con el presupuesto inicial;
+hay cosas no amarradas a un proyecto".
+
+**Migración `bloque2_partidas_en_la_cadena_de_compras`:**
+- Partidas **estables**: índice único `(presupuesto_id, item)` + `vigente`. `presupuesto-import` v3 hace **upsert por código** (1.2.3) en
+  vez de borrar y reinsertar; lo que desaparece de la plantilla queda `vigente=false` (así los ítems enlazados no pierden su partida).
+- `partida_id` (partida del proyecto) y `presupuesto_linea_id` (línea de presupuesto de ÁREA por CDC, para lo no-proyecto) en
+  `requerimiento_items`, `cotizacion_items` y `orden_items`.
+- Vistas `v_partidas_proyecto` (hojas vigentes, para selectores) y `v_partida_ejecucion` (por partida hoja: presupuestado, solicitado
+  en requerimientos, comprometido en OC aprobadas/recibidas, saldo, % y `sobregirada`; en soles sin IGV como la plantilla).
+
+**Cadena:** el requerimiento fija la partida por ítem (selector en RequerimientoForm cuando el proyecto elegido —o el del CDC— tiene
+partidas) → `heredarDelRequerimiento` la lleva a la cotización → la OC la hereda de la cotización (OrdenForm ya no la pierde al mapear
+ítems). Stores de las tres entidades leen/escriben `partida_id`.
+
+**Pantallas:** PresupuestoProyecto muestra por partida (y agregado por prefijo) Presupuestado · Comprometido con partida · Saldo, en rojo
+las sobregiradas, y cuánto de lo comprometido total lleva partida. Proyecto 360 gana el bloque "Presupuesto por partidas" (top comprometidas,
+sobregiradas, enlace a partidas).
+
+**Estado de datos:** partidas cargadas solo en **1 de 11** proyectos (305 hojas); 0 ítems de OC con partida todavía (el control empieza
+con los requerimientos nuevos). Pendiente Operaciones: subir la plantilla de Antonio de los otros 10 proyectos (ImportarPresupuestoDialog).
+Pendiente (2b): UI para líneas de presupuesto de área; "crear proyecto desde el presupuesto"; alerta al aprobar una OC que sobregira su partida.
