@@ -45,6 +45,7 @@ import { useEquiposStore } from '../../../lib/biomedico/equipos-store';
 import { calcSaldoPreventivo } from '../../../lib/flota/vehiculos-config';
 import { useTipoCambio } from '../../../lib/shared/tipo-cambio-store';
 import { supabase } from '../../../lib/supabase/client';
+import { FlujoCajaMensual } from '../finanzas/FlujoCajaMensual';
 import {
   calcularFinancieroProyecto,
   colorEjecucion,
@@ -697,6 +698,9 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
 
         {/* ══════ Tab: Finanzas ══════ */}
         <TabsContent value="finanzas" className="space-y-4">
+          {/* Caja del proyecto: cobros − pagos por mes, real vs previsto */}
+          <FlujoCajaMensual proyectoId={proyectoDbId} atras={6} adelante={6} compacto />
+
           {/* Contrato + Adendas */}
           <Card>
             <CardHeader className="pb-2">

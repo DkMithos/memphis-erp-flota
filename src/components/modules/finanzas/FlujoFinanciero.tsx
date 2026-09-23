@@ -4,9 +4,12 @@
  * se guarda la base normalizada (un compromiso por fila) y el ERP pinta el flujo
  * de forma HORIZONTAL, concepto/CDC × meses, que es como se lee un flujo.
  *
- * Un flujo mezcla salidas y entradas: los importes positivos son EGRESOS (lo que
- * hay que pagar) y los negativos, INGRESOS (p. ej. la CIPRL que financia el
- * proyecto). El neto por mes es la posición de caja de ese mes.
+ * Un flujo se lee así: INGRESOS (cobros: CIPRL, valorizaciones) menos EGRESOS
+ * (pagos) = NETO del mes, y el SALDO acumulado arrastra desde el saldo inicial
+ * de caja que fija Finanzas. Ningún monto lleva signo: el sentido (pagar /
+ * cobrar) dice la columna. En cada columna, REAL (ya ocurrió, en el mes en que
+ * se pagó o cobró) va separado de PREVISTO (comprometido por OC/factura o
+ * proyectado, en el mes en que vence). Eso lo calcula la base (flujo_caja).
  *
  * Además de reflejar el Excel (fuente='excel'), cada área puede crear/editar/
  * borrar sus compromisos aquí (fuente='erp'); eso sobrevive a las reimportaciones
@@ -29,6 +32,7 @@ import { toast } from 'sonner';
 import { ImportarFlujoDialog } from './ImportarFlujoDialog';
 import { CompromisoFlujoDialog, type CompromisoEdit } from './CompromisoFlujoDialog';
 import { useTipoCambio } from '../../../lib/shared/tipo-cambio-store';
+import { FlujoCajaMensual } from './FlujoCajaMensual';
 
 interface Compromiso {
   id: string;
@@ -175,6 +179,7 @@ export function FlujoFinanciero() {
     return true;
   }), [filas, area, anio, mesFiltro, estadoFiltro]);
 
+  // Neto = ingresos − egresos (lo que entra menos lo que sale), como en cualquier flujo.
   const total = useMemo(() => {
     let egresos = 0, ingresos = 0, pagado = 0, postergados = 0;
     for (const f of datos) {
@@ -183,7 +188,7 @@ export function FlujoFinanciero() {
       pagado += aSoles(f.pagado, f.moneda, f.tc, tcHoy);
       if ((f.postergado ?? 0) > 0) postergados++;
     }
-    return { egresos, ingresos, neto: egresos - ingresos, pagado, postergados };
+    return { egresos, ingresos, neto: ingresos - egresos, pagado, postergados };
   }, [datos, tcHoy]);
 
   const meses = useMemo(() => {
@@ -200,8 +205,8 @@ export function FlujoFinanciero() {
     for (const f of datos) {
       const g = clave(f);
       const k = f.mesVencimiento ?? 'sin-fecha';
-      // La matriz es un flujo neto: lo por cobrar resta (y se pinta en azul).
-      const v = (f.sentido === 'cobrar' ? -1 : 1) * aSoles(f.monto, f.moneda, f.tc, tcHoy);
+      // La matriz es un flujo neto: lo que entra suma (azul) y lo que sale resta.
+      const v = (f.sentido === 'cobrar' ? 1 : -1) * aSoles(f.monto, f.moneda, f.tc, tcHoy);
       const gg = grupos.get(g) ?? { total: 0, mes: new Map() };
       gg.total += v; gg.mes.set(k, (gg.mes.get(k) ?? 0) + v);
       grupos.set(g, gg);
@@ -221,7 +226,7 @@ export function FlujoFinanciero() {
   const totalPaginas = Math.max(1, Math.ceil(detalle.length / POR_PAGINA));
   const paginado = detalle.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
-  const montoColor = (n: number) => (n < -0.005 ? 'text-blue-600' : n > 0.005 ? '' : 'text-muted-foreground');
+  const montoColor = (n: number) => (n > 0.005 ? 'text-blue-600' : n < -0.005 ? 'text-red-700' : 'text-muted-foreground');
 
   const aEdicion = (f: Compromiso): CompromisoEdit => ({
     id: f.id, area: f.area, cdc: f.cdc, categoria: f.categoria, concepto: f.concepto,
@@ -249,7 +254,8 @@ export function FlujoFinanciero() {
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">
             Compromisos por área y mes. Cada uno tiene sentido <b>pagar</b> (egreso) o <b>cobrar</b> (ingreso, p. ej. la CIPRL);
-            los montos ya no llevan signo. En la matriz lo por cobrar resta y va en azul: cada celda es el neto del mes.
+            los montos no llevan signo. Arriba, el flujo de caja: ingresos − egresos = neto, con saldo acumulado y lo real separado
+            de lo previsto. En la matriz lo que entra suma (azul) y lo que sale resta (rojo).
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -299,19 +305,22 @@ export function FlujoFinanciero() {
             )}
           </div>
 
-          {/* Cifras */}
+          {/* Flujo de caja: ingresos − egresos = neto, saldo acumulado, real vs previsto */}
+          <FlujoCajaMensual area={area === 'TODAS' ? null : area} />
+
+          {/* Cifras del filtro */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Card><CardContent className="p-4">
-              <p className="text-xs text-muted-foreground flex items-center gap-1"><ArrowUpCircle className="size-3.5 text-red-500" /> Egresos programados</p>
-              <p className="text-xl font-bold">{soles(total.egresos)}</p>
-            </CardContent></Card>
-            <Card><CardContent className="p-4">
-              <p className="text-xs text-muted-foreground flex items-center gap-1"><ArrowDownCircle className="size-3.5 text-blue-600" /> Ingresos programados</p>
+              <p className="text-xs text-muted-foreground flex items-center gap-1"><ArrowDownCircle className="size-3.5 text-blue-600" /> Ingresos (cobrar)</p>
               <p className="text-xl font-bold">{soles(total.ingresos)}</p>
             </CardContent></Card>
             <Card><CardContent className="p-4">
-              <p className="text-xs text-muted-foreground flex items-center gap-1"><Scale className="size-3.5" /> Neto (egresos − ingresos)</p>
-              <p className={`text-xl font-bold ${total.neto < 0 ? 'text-blue-600' : ''}`}>{soles(total.neto)}</p>
+              <p className="text-xs text-muted-foreground flex items-center gap-1"><ArrowUpCircle className="size-3.5 text-red-500" /> Egresos (pagar)</p>
+              <p className="text-xl font-bold">{soles(total.egresos)}</p>
+            </CardContent></Card>
+            <Card><CardContent className="p-4">
+              <p className="text-xs text-muted-foreground flex items-center gap-1"><Scale className="size-3.5" /> Neto (ingresos − egresos)</p>
+              <p className={`text-xl font-bold ${total.neto < 0 ? 'text-red-700' : 'text-blue-600'}`}>{soles(total.neto)}</p>
             </CardContent></Card>
             <Card><CardContent className="p-4">
               <p className="text-xs text-muted-foreground flex items-center gap-1"><CheckCircle2 className="size-3.5 text-green-600" /> Pagado</p>

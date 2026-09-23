@@ -2792,3 +2792,33 @@ legado (solo la referencia `transacciones.cuenta_id`).
 
 **Lo que muestra hoy:** 0 asientos en todos los proyectos porque no hay facturas en el ERP (misma decisión de adopción de Compras /
 portal de proveedores). El mecanismo ya no depende de nadie.
+
+
+## Bloque 6 ejecutado — Flujo de caja correcto + Proyecto 360 completo (2026-09-23)
+
+Migraciones `bloque6_flujo_de_caja_correcto` y `bloque6_cxc_valorizacion_sin_duplicar_excel`. Respuesta al punto 6 de Kevin ("el Excel
+mezcla montos con signo; ¿cómo debe ser un flujo correcto?"):
+
+- **La regla:** ingresos (cobros) − egresos (pagos) = neto del mes; saldo acumulado desde un **saldo inicial de caja** que fija
+  Finanzas (`saldo_caja_inicial` + `saldo_caja_fecha` en `parametros_financieros`, RPC `fijar_saldo_caja`; hoy 0 → **Finanzas debe
+  fijarlo**). Ningún monto lleva signo: el sentido pagar/cobrar decide la columna.
+- **Real vs previsto:** `v_flujo_mensual` ubica cada compromiso en su mes — lo pagado/cobrado en el mes en que ocurrió (`fecha_pagado`,
+  o vencimiento si el Excel no trae fecha: 989 de 1,808 pagados no la traen), lo pendiente (comprometido por OC/factura/valorización o
+  proyectado) en el mes en que vence; marca vencidos (sin contar CIPRL con fecha estimada). Excluye 3 filas con fecha basura (año 2000).
+- **`flujo_caja(desde, hasta, area?, proyecto?)`**: por mes ingresos real/previsto, egresos real/previsto, neto, saldo acumulado (arrastra
+  lo ocurrido desde el saldo inicial aunque no esté en el rango), egresos vencidos, conteos. Empresa = arranca del saldo de caja; área o
+  proyecto = arranca en 0 (caja del proyecto: cobrado − pagado).
+- **UI:** `FlujoCajaMensual` (tabla meses × Ingresos [real/previsto] / Egresos [real/previsto] / Neto / Saldo, navegación por trimestres,
+  edición del saldo inicial con finanzas.editar) arriba del Flujo financiero, filtrable por área; en **Proyecto 360 → Finanzas** la caja
+  del proyecto (−6/+6 meses). En FlujoFinanciero se corrigió el signo: neto = ingresos − egresos; en la matriz lo que entra suma (azul)
+  y lo que sale resta (rojo). Antes decía "neto = egresos − ingresos".
+- **Fix de duplicado:** las valorizaciones pagadas entraban al flujo como cobro real del ERP **además** del cobro que ya trae el Excel
+  (LORETO: 16.54 M dos veces). Ahora, mientras el Excel sea la fuente de cobros reales, una valorización pagada no crea CxC si el Excel
+  ya tiene ese cobro (mismo proyecto, monto ±1 %, sola o agrupada con las demás pagadas del proyecto: Huánuco 2.5 M + 2.23 M = una fila
+  de 4,726,500); y el cobro se fecha con la valorización, no con "hoy" (migración `bloque6_cxc_valorizacion_duplicado_agrupado`).
+  Quedan como cobro real del ERP solo las 2 de MUNI CUSCO (4.0 M + 2.01 M), que el Excel no trae como filas de cobro.
+
+**Lo que muestra hoy (empresa, jun–dic 2026):** ingresos reales 69.1 M (CIPRL/valorizaciones del Excel), egresos reales 66.3 M,
+previsto por cobrar 76.1 M (oct–nov), previsto por pagar 75.6 M, vencido sin pagar 22.5 M; saldo acumulado negativo (−60 M a dic) porque
+el saldo inicial está en 0 y el Excel trae egresos 2025–2026 sin sus ingresos correspondientes: **el saldo solo tendrá sentido cuando
+Finanzas fije el saldo de caja inicial y el flujo tenga todos los cobros**.
