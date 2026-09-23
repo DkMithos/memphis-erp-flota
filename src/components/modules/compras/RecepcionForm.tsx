@@ -29,6 +29,8 @@ interface ItemRecibidoForm {
   cantidadRecibida: number;
   unidad: string;
   observacionItem: string;
+  /** Ítem de la OC del que sale esta línea (para valorar lo recibido). */
+  ordenItemId: string | null;
 }
 
 export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFormProps) {
@@ -56,7 +58,8 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
           cantidadOrdenada: item.cantidad,
           cantidadRecibida: item.cantidad, // Por defecto, recibe todo
           unidad: item.unidad,
-          observacionItem: ''
+          observacionItem: '',
+          ordenItemId: item._dbId ?? null,
         }))
       );
       // La dimensión se hereda de la orden: la recepción es de esa compra, no
@@ -141,7 +144,8 @@ export function RecepcionForm({ ordenIdParam, onCancel, onSuccess }: RecepcionFo
           // aunque llegara todo. El formulario ya la tiene: es la de la orden.
           cantidadPedida: item.cantidadOrdenada,
           unidad: item.unidad,
-          observacionItem: item.observacionItem.trim() || null
+          observacionItem: item.observacionItem.trim() || null,
+          ordenItemId: item.ordenItemId,
         })),
         estado,
         observaciones: observaciones.trim() || undefined,

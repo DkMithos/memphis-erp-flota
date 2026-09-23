@@ -31,6 +31,8 @@ export interface ItemRecibido {
   cantidadRecibida: number;
   unidad: string;
   observacionItem: string | null;
+  /** Ítem de la OC que se recibe: con él la base valora lo recibido al precio de la orden. */
+  ordenItemId?: string | null;
 }
 
 export interface Recepcion {
@@ -129,6 +131,7 @@ function mapFromDB(row: RecepcionWithRelations): Recepcion {
     cantidadRecibida: item.cantidad_recibida,
     unidad: item.unidad,
     observacionItem: item.observaciones,
+    ordenItemId: (item as any).orden_item_id ?? null,
   }));
 
   const conforme = row.estado === 'conforme';
@@ -306,6 +309,7 @@ export function RecepcionStoreProvider({ children }: { children: React.ReactNode
         cantidad_recibida: item.cantidadRecibida,
         conforme,
         observaciones: item.observacionItem ?? null,
+        orden_item_id: item.ordenItemId ?? null,
       }));
       const { data: itemsData, error: errItems } = await supabase
         .from('recepcion_items')
@@ -376,6 +380,7 @@ export function RecepcionStoreProvider({ children }: { children: React.ReactNode
           cantidad_recibida: item.cantidadRecibida,
           conforme,
           observaciones: item.observacionItem ?? null,
+          orden_item_id: item.ordenItemId ?? null,
         }));
         const { data: newItemsData } = await supabase
           .from('recepcion_items')
@@ -393,6 +398,7 @@ export function RecepcionStoreProvider({ children }: { children: React.ReactNode
               cantidadRecibida: dbItem.cantidad_recibida,
               unidad: dbItem.unidad,
               observacionItem: dbItem.observaciones,
+              ordenItemId: (dbItem as any).orden_item_id ?? null,
             }));
             const estado = input.estado ?? r.estado;
             return {

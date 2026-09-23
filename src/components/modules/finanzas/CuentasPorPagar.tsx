@@ -235,16 +235,16 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
     const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n;
   });
 
+  // El pago ya no es un check: nace una transacción de Finanzas (egreso pagado,
+  // enlazada a la factura/OC) y la base cierra el compromiso y la factura.
   const marcarPagado = async (f: Cxp) => {
-    if (!window.confirm(`¿Marcar como pagado "${f.concepto ?? ''}" por ${f.moneda === 'USD' ? 'US$' : 'S/'} ${f.pendiente.toLocaleString('es-PE')}?`)) return;
+    if (!window.confirm(`¿Registrar el pago de "${f.concepto ?? ''}" por ${f.moneda === 'USD' ? 'US$' : 'S/'} ${f.pendiente.toLocaleString('es-PE')} con fecha de hoy?`)) return;
     setMarcando(f.id);
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-    const { error } = await (supabase as any).from('flujo_compromisos').update({
-      estado_pago: 'PAGADO', monto_pagado: f.monto, fecha_pagado: hoyISO(), origen: 'real',
-    }).eq('id', f.id);
+    const { error } = await (supabase as any).rpc('registrar_pago_compromiso', { p_compromiso: f.id, p_fecha: hoyISO() });
     setMarcando(null);
-    if (error) { toast.error('No se pudo marcar: ' + error.message); return; }
-    toast.success('Marcado como pagado');
+    if (error) { toast.error('No se pudo registrar el pago: ' + error.message); return; }
+    toast.success('Pago registrado en Finanzas (transacción creada)');
     void cargar();
   };
 

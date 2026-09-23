@@ -172,6 +172,38 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
       });
     return () => { cancelado = true; };
   }, [proyectoDbId]);
+  // La cadena completa (proyecto_cadena): presupuesto → comprometido → recibido
+  // → facturado → pagado, y valorizado → cobrado. En soles con IGV, como el
+  // presupuesto de Operaciones. Es la respuesta a "¿cómo va este proyecto?".
+  interface Cadena {
+    presupuesto: number; comprometido: number; ordenes: number;
+    recepcionado: number; recepciones: number; ordenesConRecepcion: number;
+    facturado: number; facturadoEnTramite: number; facturas: number;
+    pagado: number; porPagar: number; porPagarVencido: number; pagos: number;
+    valorizado: number; valorizaciones: number; cobrado: number; porCobrar: number; cobradoRegistrado: number;
+  }
+  const [cadena, setCadena] = useState<Cadena | null>(null);
+  useEffect(() => {
+    let cancelado = false;
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    (supabase as any).rpc('proyecto_cadena', { p_proyecto: proyectoDbId })
+      .then(({ data }: { data: Record<string, unknown>[] | null }) => {
+        if (cancelado) return;
+        const r = data?.[0];
+        if (!r) { setCadena(null); return; }
+        const n = (k: string) => Number(r[k] ?? 0);
+        setCadena({
+          presupuesto: n('presupuesto'), comprometido: n('comprometido'), ordenes: n('ordenes'),
+          recepcionado: n('recepcionado'), recepciones: n('recepciones'), ordenesConRecepcion: n('ordenes_con_recepcion'),
+          facturado: n('facturado'), facturadoEnTramite: n('facturado_en_tramite'), facturas: n('facturas'),
+          pagado: n('pagado'), porPagar: n('por_pagar'), porPagarVencido: n('por_pagar_vencido'), pagos: n('pagos'),
+          valorizado: n('valorizado'), valorizaciones: n('valorizaciones'), cobrado: n('cobrado'), porCobrar: n('por_cobrar'),
+          cobradoRegistrado: n('cobrado_registrado'),
+        });
+      });
+    return () => { cancelado = true; };
+  }, [proyectoDbId]);
+
   const partidasResumen = useMemo(() => {
     const presupuestado = partidasEjec.reduce((s, p) => s + p.presupuestado, 0);
     const conPartida = partidasEjec.reduce((s, p) => s + p.comprometido, 0);
@@ -549,6 +581,58 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
           <span>Techo: {fmt(presupuesto, proyecto.moneda)}</span>
         </div>
       </div>
+
+      {/* ═══ La cadena del proyecto ═══ */}
+      {cadena && (() => {
+        const pct = (v: number, base: number) => base > 0 ? Math.min(100, Math.round(v / base * 100)) : 0;
+        const pasos: { titulo: string; monto: number; base: number; nota: string; color: string }[] = [
+          { titulo: 'Presupuesto', monto: cadena.presupuesto, base: cadena.presupuesto, nota: 'plan de Operaciones', color: 'bg-slate-400' },
+          { titulo: 'Comprometido', monto: cadena.comprometido, base: cadena.presupuesto, nota: `${cadena.ordenes} OC aprobadas`, color: 'bg-amber-500' },
+          { titulo: 'Recepcionado', monto: cadena.recepcionado, base: cadena.comprometido, nota: cadena.recepciones > 0 ? `${cadena.recepciones} recepciones · ${cadena.ordenesConRecepcion} OC` : 'sin recepciones registradas', color: 'bg-sky-500' },
+          { titulo: 'Facturado', monto: cadena.facturado, base: cadena.comprometido, nota: cadena.facturas > 0 ? `${cadena.facturas} facturas${cadena.facturadoEnTramite > 0 ? ` · ${fmt(cadena.facturadoEnTramite, 'PEN')} en trámite` : ''}` : 'sin facturas en el ERP', color: 'bg-violet-500' },
+          { titulo: 'Pagado', monto: cadena.pagado, base: cadena.comprometido, nota: `por pagar ${fmt(cadena.porPagar, 'PEN')}${cadena.porPagarVencido > 0 ? ` · vencido ${fmt(cadena.porPagarVencido, 'PEN')}` : ''}`, color: 'bg-emerald-600' },
+        ];
+        return (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">La cadena del proyecto</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                En soles con IGV, como el presupuesto de Operaciones; dólares al TC SUNAT de cada documento.
+                Pagado y por pagar salen de Cuentas por pagar (Excel + ERP).
+              </p>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-5 gap-3">
+              {pasos.map(p => (
+                <div key={p.titulo} className="space-y-1">
+                  <p className="text-xs text-muted-foreground">{p.titulo}</p>
+                  <p className="text-base font-semibold tabular-nums">{fmt(p.monto, 'PEN')}</p>
+                  <div className="h-1.5 rounded bg-muted overflow-hidden"><div className={`h-full ${p.color}`} style={{ width: `${pct(p.monto, p.base)}%` }} /></div>
+                  <p className="text-[11px] text-muted-foreground">{p.nota}</p>
+                </div>
+              ))}
+              <div className="md:col-span-5 grid grid-cols-1 md:grid-cols-3 gap-3 border-t pt-3 mt-1">
+                <div>
+                  <p className="text-xs text-muted-foreground">Valorizado al cliente</p>
+                  <p className="text-base font-semibold tabular-nums">{fmt(cadena.valorizado, 'PEN')}</p>
+                  <p className="text-[11px] text-muted-foreground">{cadena.valorizaciones} valorizaciones presentadas o aprobadas</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Cobrado</p>
+                  <p className="text-base font-semibold tabular-nums text-emerald-700">{fmt(cadena.cobrado, 'PEN')}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {Math.abs(cadena.cobradoRegistrado - cadena.cobrado) > 1 ? `Excel de Operaciones: ${fmt(cadena.cobradoRegistrado, 'PEN')}` : 'coincide con el Excel de Operaciones'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Por cobrar</p>
+                  <p className={`text-base font-semibold tabular-nums ${cadena.porCobrar > 0 ? 'text-amber-700' : ''}`}>{fmt(cadena.porCobrar, 'PEN')}</p>
+                  <p className="text-[11px] text-muted-foreground">valorizaciones aún no cobradas (CxC)</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* ═══ Tabs ═══ */}
       <Tabs defaultValue="finanzas" className="space-y-4">

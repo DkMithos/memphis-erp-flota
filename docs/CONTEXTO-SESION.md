@@ -2701,3 +2701,32 @@ En "0.0 PROYECTOS EN IDEA" hay PRO-FOR-004 sin proyecto en el ERP: Ayacucho, COE
   el proyecto nace en idea (tipo cliente, OxI, planificación) con el CUI y el total con IGV del Excel como `presupuesto`; un proyecto
   existente SIN presupuesto en el ERP también lo toma del Excel (uno que ya lo tiene lo conserva: esa cifra la manda Operaciones).
   En ImportarPresupuestoDialog: pestaña "Existente / Proyecto nuevo".
+
+
+## Bloque 3 ejecutado — La cadena por proyecto: recepción valorada, pago enlazado, valorización = CxC (2026-09-23)
+
+Migraciones `bloque3_cadena_por_proyecto`, `bloque3_cadena_ajustes_pago_y_proyectado`, `bloque3_flujo_no_pierde_proyecto_sin_cdc`.
+
+- **Recepción valorada**: `recepcion_items.orden_item_id` (RecepcionForm lo manda; si falta, la base casa por descripción dentro de la OC),
+  `precio_unitario` (de la OC) y `valor_recibido` = cantidad × precio (trigger). Vista `v_oc_recepcion` (pedido, recibido, % por OC).
+- **El pago es una transacción**: `transacciones.comprobante_id / orden_compra_id / compromiso_id / valorizacion_id`. Al insertar hereda
+  proyecto/CDC del documento, encuentra el compromiso (factura → OC → valorización) y calcula `monto_soles` al TC SUNAT.
+  `recalc_pago_compromiso()`: lo pagado del compromiso = Σ transacciones pagadas (convierte moneda), estado PAGADO / PARCIAL / PENDIENTE,
+  y cierra la factura (`estado_flujo='pagada'`) o la valorización (`pagada` + fecha). Anular o borrar la transacción lo revierte.
+  Lo que trae el Excel o "marcar pagado" antiguo NO se toca mientras no tenga transacciones.
+  RPC `registrar_pago_compromiso(compromiso, fecha, monto?, cuenta?, referencia?)` (finanzas.editar | finanzas.flujo): crea la
+  transacción TRX-AAAA-NNNN y el disparador hace el resto. **Cuentas por pagar → "Pagado" ahora registra el pago en Finanzas**.
+- **La valorización es una cuenta por cobrar**: `flujo_compromisos.valorizacion_id`; presentada/aprobada → compromiso `cobrar`
+  (comprometido; vence aprobación + `dias_cobro_valorizacion` (30) o presentación + 45), facturada/pagada → real; pagada → PAGADO.
+  Las 16 valorizaciones existentes entraron a la CxC (5 pagadas S/ 27.3 M, 5 presentadas S/ 32.4 M; 6 pendientes no cuentan).
+  Fix de paso: `set_flujo_proyecto_from_cc` borraba el proyecto de un compromiso sin CDC; ahora el CDC solo lo añade.
+- **`proyecto_cadena(uuid)`** (y bloque "La cadena del proyecto" en Proyecto 360): presupuesto → comprometido (OC aprobadas) →
+  recepcionado → facturado (+ en trámite) → pagado / por pagar / vencido (del modelo CxP, sin lo proyectado), y valorizado → cobrado →
+  por cobrar (+ `cobrado_registrado` del Excel de Operaciones para contraste). Soles con IGV, dólares al TC de cada documento.
+- QA en base (todo limpiado): pago parcial S/ 1,681 sobre US$ 1,000 → PARCIAL 500; + US$ 500 → PAGADO; anulada → PARCIAL; borrada →
+  PENDIENTE. Valorización aprobada → CxC vence aprob+30; cobro por transacción → valorización pagada y CxC PAGADO.
+
+**Lo que muestra hoy la cadena (datos reales):** recepcionado = 0 y facturado = 0 en todos los proyectos (nadie registra recepciones ni
+suben facturas: es la decisión Compras/Operaciones pendiente); LORETO Bomberos: pagado S/ 34.2 M según el Excel (128 filas PAGADO) con
+comprometido en ERP S/ 15.2 M — el Excel de Proyectos trae pagos que no están como OC en el ERP (migración parcial del sistema anterior
+o pagos sin OC); cobrado por valorizaciones 16.54 M ≈ Excel 16.54 M. MUNI CUSCO: valorizado 7.06 M, cobrado 6.01 M (Excel 6.01 M).
