@@ -111,6 +111,7 @@ interface ComprobantesContextValue {
   error: string | null;
   crearComprobante: (input: NuevoComprobanteInput) => Promise<ComprobantePago>;
   anularComprobante: (id: string) => Promise<CrudResult>;
+  contabilizar: (id: string) => Promise<CrudResult>;
   obtenerPorId: (id: string) => ComprobantePago | undefined;
   obtenerPorPeriodo: (periodo: string) => ComprobantePago[];
   pendientesContabilizar: ComprobantePago[];
@@ -290,70 +291,27 @@ export function ComprobantesProvider({ children }: { children: ReactNode }) {
     const { error: e2 } = await supabase.from('comprobantes_detalle').insert(detDB);
     if (e2) console.warn('[comprobantes] error al insertar detalles:', e2.message);
 
-    // Insertar en registro_compras o registro_ventas
-    const periodo = periodoToString(
-      new Date(input.fechaEmision).getFullYear(),
-      new Date(input.fechaEmision).getMonth() + 1,
-    );
-    if (input.direccion === 'recibido') {
-      const { count } = await supabase
-        .from('registro_compras')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .eq('periodo', periodo);
-      await supabase.from('registro_compras').insert({
-        tenant_id: tenantId,
-        periodo,
-        correlativo: (count ?? 0) + 1,
-        fecha_emision: input.fechaEmision,
-        fecha_vencimiento: input.fechaVencimiento ?? null,
-        tipo_comprobante: input.tipo,
-        serie: input.serie,
-        numero: input.numero,
-        tipo_doc_identidad: '6',
-        ruc_proveedor: input.rucEmisor ?? null,
-        razon_social_proveedor: input.razonSocialEmisor ?? 'SIN NOMBRE',
-        base_imponible_gravada: opGravada,
-        igv: totalIgv,
-        base_imponible_no_gravada: opExonerada + opInafecta,
-        importe_total: total,
-        moneda: input.moneda ?? 'PEN',
-        tipo_cambio: input.tipoCambio ?? 1,
-        comprobante_id: cab.id,
-      });
-    } else {
-      const { count } = await supabase
-        .from('registro_ventas')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .eq('periodo', periodo);
-      await supabase.from('registro_ventas').insert({
-        tenant_id: tenantId,
-        periodo,
-        correlativo: (count ?? 0) + 1,
-        fecha_emision: input.fechaEmision,
-        tipo_comprobante: input.tipo,
-        serie: input.serie,
-        numero: input.numero,
-        tipo_doc_identidad_cliente: '6',
-        doc_identidad_cliente: input.rucReceptor ?? null,
-        razon_social_cliente: input.razonSocialReceptor ?? null,
-        base_imponible_gravada: opGravada,
-        igv: totalIgv,
-        base_imponible_exonerada: opExonerada,
-        base_imponible_inafecta: opInafecta,
-        exportacion: opExportacion,
-        importe_total: total,
-        moneda: input.moneda ?? 'PEN',
-        tipo_cambio: input.tipoCambio ?? 1,
-        comprobante_id: cab.id,
-      });
-    }
-
-    const nuevo = mapFromDB(cab);
+    // El registro de compras/ventas y el asiento los escribe la base al
+    // contabilizar (contabilizar_comprobante): una emitida se contabiliza al
+    // nacer; una recibida cuando Compras la da por conforme (o a mano, abajo).
+    // Antes el cliente insertaba el registro con un correlativo por conteo y
+    // nadie generaba el asiento. Se relee para traer asiento_id/contabilizado.
+    const { data: fresco } = await supabase.from('comprobantes_pago').select('*').eq('id', cab.id).maybeSingle();
+    const nuevo = mapFromDB(fresco ?? cab);
     setComprobantes(prev => [nuevo, ...prev]);
     return nuevo;
   }, [tenantId, user]);
+
+  // Contabilizar a mano (Contabilidad): genera asiento con el centro de costo del
+  // proyecto en las líneas y la fila del registro de compras/ventas.
+  const contabilizar = useCallback(async (id: string): Promise<CrudResult> => {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const { data: asientoId, error: err } = await (supabase as any).rpc('contabilizar_comprobante_rpc', { p_id: id });
+    if (err) return { ok: false, error: err.message };
+    if (!asientoId) return { ok: false, error: 'El comprobante no está activo o ya fue anulado' };
+    setComprobantes(prev => prev.map(c => c.id === id ? { ...c, contabilizado: true, asientoId: asientoId as string } : c));
+    return { ok: true };
+  }, []);
 
   const anularComprobante = useCallback(async (id: string): Promise<CrudResult> => {
     const { error: err } = await supabase
@@ -379,7 +337,7 @@ export function ComprobantesProvider({ children }: { children: ReactNode }) {
   const pendientesContabilizar = comprobantes.filter(c => !c.contabilizado && c.estado === 'activo');
 
   return (
-    <ComprobantesCtx.Provider value={{ comprobantes, loading, error, crearComprobante, anularComprobante, obtenerPorId, obtenerPorPeriodo, pendientesContabilizar, recargar: cargar }}>
+    <ComprobantesCtx.Provider value={{ comprobantes, loading, error, crearComprobante, anularComprobante, contabilizar, obtenerPorId, obtenerPorPeriodo, pendientesContabilizar, recargar: cargar }}>
       {children}
     </ComprobantesCtx.Provider>
   );

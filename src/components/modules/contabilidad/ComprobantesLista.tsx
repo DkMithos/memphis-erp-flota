@@ -33,7 +33,19 @@ function fmt(n: number) {
 }
 
 export function ComprobantesLista({ onNavigate }: Props) {
-  const { comprobantes, loading, anularComprobante } = useComprobantesStore();
+  const { comprobantes, loading, anularComprobante, contabilizar } = useComprobantesStore();
+  const [contabilizando, setContabilizando] = useState<string | null>(null);
+
+  // Genera el asiento (con el centro de costo del proyecto en las líneas) y la
+  // fila del registro de compras/ventas. Lo normal es que salga solo (emitida al
+  // nacer, recibida al quedar conforme); esto es para lo que quedó pendiente.
+  async function handleContabilizar(id: string) {
+    setContabilizando(id);
+    const r = await contabilizar(id);
+    setContabilizando(null);
+    if (r.ok) toast.success('Asiento generado y registro actualizado');
+    else toast.error(r.error ?? 'No se pudo contabilizar');
+  }
   const confirmAction = useConfirmAction();
   const [query, setQuery]                 = useState('');
   const [filtroDireccion, setFiltroDireccion] = useState('todos');
@@ -198,7 +210,18 @@ export function ComprobantesLista({ onNavigate }: Props) {
                       {c.estado}
                     </Badge>
                   </div>
-                  <div className="col-span-2 lg:col-span-1 flex justify-end">
+                  <div className="col-span-2 lg:col-span-1 flex justify-end gap-1">
+                    {c.estado === 'activo' && !c.contabilizado && (
+                      <PermissionGuard modulo="contabilidad" accion="crear">
+                        <Button variant="ghost" size="sm" onClick={() => handleContabilizar(c.id)} disabled={contabilizando === c.id}
+                          className="h-6 text-[10px] text-primary px-2" title="Generar asiento y registro">
+                          {contabilizando === c.id ? '…' : 'Contabilizar'}
+                        </Button>
+                      </PermissionGuard>
+                    )}
+                    {c.estado === 'activo' && c.contabilizado && (
+                      <span className="text-[10px] text-emerald-700 flex items-center gap-0.5" title="Con asiento contable"><CheckCircle2 className="size-3" /> asiento</span>
+                    )}
                     {c.estado === 'activo' && (
                       <PermissionGuard modulo="contabilidad" accion="editar">
                         <Button variant="ghost" size="sm" onClick={() => handleAnular(c.id)}

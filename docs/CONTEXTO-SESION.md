@@ -2758,3 +2758,37 @@ Migraciones `bloque4_kardex_automatico_desde_recepcion` y `bloque4_rpc_movimient
 **Pendiente de decisión (Compras/Operaciones):** registrar TODAS las recepciones en el ERP; sin eso el kardex y "recepcionado" siguen en
 cero aunque el mecanismo ya funcione. Los artículos nacidos de la OC quedan como "suministro / sin categoría": Inventario los puede
 reclasificar después.
+
+
+## Bloque 5 ejecutado — Contable por proyecto (2026-09-23)
+
+Migraciones `bloque5_contable_por_proyecto` y `bloque5_fix_tc_transaccion_usd`. La contabilidad estaba **vacía** (0 cuentas, 0
+periodos, 0 asientos, 0 registros; el store escribía el registro de compras con correlativo por conteo y nadie generaba asientos).
+Ojo: el plan real es la tabla `plan_cuentas` (PCGE, tipos activo/pasivo/patrimonio/ingreso/gasto/costo/orden); `cuentas_contables` es
+legado (solo la referencia `transacciones.cuenta_id`).
+
+- **PCGE sembrado en la base**: `pcge_sembrar(tenant)` (212 cuentas, misma lista que `fiscal-peru.ts`, con `cuenta_padre_codigo`).
+- **Configuración por empresa** `contabilidad_config` (`cta_cfg(tenant, clave)` con defaults): `contabilizar_al` = conforme |
+  recibida | manual; cuentas 603 (bienes con recepción) / 639 (servicios) / 40111 IGV / 4212 proveedores / 1212 clientes / 7041 ventas /
+  1041-1042 bancos. **Decisión pendiente de Contabilidad:** confirmar cuentas y momento (hoy: recibida → al quedar conforme; emitida → al nacer).
+- **Periodo automático** `periodo_contable_para(tenant, fecha)`: abre el mes si no existe; si está cerrado, no deja contabilizar ahí.
+- **`asiento_crear(...)`**: cabecera AST-AAAA-NNNNNN validada + líneas balanceadas (jsonb), cuenta por código, **CDC en cada línea**.
+- **Factura → asiento + registro** (`contabilizar_comprobante`, trigger en `comprobantes_pago`): recibida → Debe 603/639 base (CDC del
+  comprobante o del proyecto) + Debe 40111 IGV, Haber 4212 total; emitida → Debe 1212, Haber 7041 + 40111; nota de crédito (07) invierte;
+  dólares al TC del comprobante o SUNAT del día; centavos de redondeo van a la base. Inserta la fila de `registro_compras`/`registro_ventas`
+  (correlativo máx+1 por periodo) o le pone el `asiento_id` si ya existía. Anular la factura anula asiento y registro.
+  RPC `contabilizar_comprobante_rpc` (contabilidad.crear|editar) y botón **Contabilizar** en Comprobantes para lo pendiente.
+- **Pago/cobro → asiento de tesorería** (trigger en `transacciones`): egreso pagado con factura contabilizada → Debe 4212 / Haber 1041
+  (1042 en USD) en soles; ingreso → Debe banco / Haber 1212. Anular la transacción anula el asiento. Sin factura contabilizada no se
+  genera (no hay 42/12 que cancelar; el cobro de una valorización sin factura emitida queda solo en CxC).
+  Fix de paso: `transacciones.tipo_cambio` tiene DEFAULT 1 → una transacción USD quedaba con `monto_soles = monto`; ahora TC ≤ 1 en USD
+  = tomar SUNAT del día.
+- **Vistas** `v_contable_cdc` (por CDC y mes: gasto 6x, ingreso 7x, IGV neto, saldos 42/12) y `v_contable_proyecto`; `proyecto_cadena()`
+  gana `contable_gasto`, `contable_ingreso`, `contable_resultado`, `asientos`; Proyecto 360 muestra la fila "Contablemente".
+- QA en base (limpiado): factura USD 1,000+IGV conforme sobre OC real → AST-2026-000001 (639 3,362.00 / 40111 605.16 / 4212 3,967.16, las
+  tres líneas con CDC, TC 3.362), registro de compras 202609 corr 1; pago → AST-000002 (4212/1042); venta emitida S/ 295,000 →
+  1212/7041/40111 con CDC + registro de ventas; `v_contable_proyecto` gasto 3,362 / ingreso 250,000; anulación → asientos y registro
+  anulados. Queda abierto el periodo **Septiembre 2026** y el plan de 212 cuentas.
+
+**Lo que muestra hoy:** 0 asientos en todos los proyectos porque no hay facturas en el ERP (misma decisión de adopción de Compras /
+portal de proveedores). El mecanismo ya no depende de nadie.

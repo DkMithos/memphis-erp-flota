@@ -182,6 +182,7 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
     pagado: number; porPagar: number; porPagarVencido: number; pagos: number;
     valorizado: number; valorizaciones: number; cobrado: number; porCobrar: number; cobradoRegistrado: number;
     inventario: number; inventarioItems: number; inventarioEntradas: number; inventarioSalidas: number;
+    contableGasto: number; contableIngreso: number; contableResultado: number; asientos: number;
   }
   const [cadena, setCadena] = useState<Cadena | null>(null);
   useEffect(() => {
@@ -202,6 +203,7 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
           cobradoRegistrado: n('cobrado_registrado'),
           inventario: n('inventario'), inventarioItems: n('inventario_items'),
           inventarioEntradas: n('inventario_entradas'), inventarioSalidas: n('inventario_salidas'),
+          contableGasto: n('contable_gasto'), contableIngreso: n('contable_ingreso'), contableResultado: n('contable_resultado'), asientos: n('asientos'),
         });
       });
     return () => { cancelado = true; };
@@ -639,6 +641,28 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
                   <p className="text-xs text-muted-foreground">Por cobrar</p>
                   <p className={`text-base font-semibold tabular-nums ${cadena.porCobrar > 0 ? 'text-amber-700' : ''}`}>{fmt(cadena.porCobrar, 'PEN')}</p>
                   <p className="text-[11px] text-muted-foreground">valorizaciones aún no cobradas (CxC)</p>
+                </div>
+              </div>
+              <div className="md:col-span-5 grid grid-cols-1 md:grid-cols-4 gap-3 border-t pt-3 mt-1">
+                <div className="md:col-span-4">
+                  <p className="text-xs text-muted-foreground">Contablemente (asientos con el centro de costo del proyecto)</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Gasto contabilizado (6x)</p>
+                  <p className="text-base font-semibold tabular-nums">{fmt(cadena.contableGasto, 'PEN')}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Ingreso contabilizado (7x)</p>
+                  <p className="text-base font-semibold tabular-nums">{fmt(cadena.contableIngreso, 'PEN')}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Resultado contable</p>
+                  <p className={`text-base font-semibold tabular-nums ${cadena.contableResultado < 0 ? 'text-red-600' : 'text-emerald-700'}`}>{fmt(cadena.contableResultado, 'PEN')}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Asientos</p>
+                  <p className="text-base font-semibold tabular-nums">{cadena.asientos}</p>
+                  <p className="text-[11px] text-muted-foreground">{cadena.asientos === 0 ? 'nada contabilizado: sin facturas en el ERP' : 'facturas y pagos, sin IGV'}</p>
                 </div>
               </div>
             </CardContent>
