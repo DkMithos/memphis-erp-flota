@@ -2451,3 +2451,62 @@ Kevin: "en Administración sí veo una columna de pagado/pendiente; revisa todas
 - **Reimportadas las 4 áreas** (edge `flujo-import` v7): ADMINISTRACION 1053 (640 pagadas / 412 pendientes, 31 meses, 638 con fecha de pago, CC 1052/1053), PROYECTOS 1399, CONTABILIDAD 154, TI 52. Commit `d32f6141`. 26 pruebas del parser.
 
 Nota: los proveedores de Administración no cruzan con el directorio (`proveedores_reconocidos=0`) porque los nombres del Excel no coinciden con `razon_social`; el nombre queda como texto. La fecha de pago de Proyectos casi siempre viene vacía en el Excel (solo 69 filas).
+
+
+## PENDIENTES CONSOLIDADOS PARA GERENCIA (2026-09-23)
+
+Gerencia pidió el diagrama "as is" del ERP para evaluar mejoras (entregado como HTML/PDF sin login en
+`Downloads/ERP-Memphis-Mapa-AsIs-y-Propuesta.*`; artifact privado https://claude.ai/artifact/LmVk5r3cZsqDv4qdf4JFxi).
+Luego pidió que, al elegir un proyecto, el ERP responda toda la cadena (presupuesto → gasto → saldo → facturado →
+pagado → recepcionado → inventario → contable → rentabilidad) y "qué se debe pagar cada mes". **Meta: que todos los
+módulos conversen.** Auditoría completa en `docs/AUDITORIA-Proyecto360-CxP.md`. Esta sección es la lista maestra.
+
+### A. Propuesta del "as is" — 8 iniciativas (estado: pendiente de decisión/priorización de Gerencia)
+1. **Flujo Financiero nativo** (dejar el Excel) — bajo. Falta: paridad con el Excel, export, mapear proveedores; **Finanzas** fija corte.
+2. **Consolidar PEN/USD** — bajo/medio. Falta: tabla de TC + job diario SUNAT/SBS (hoy TC manual y por navegador); **Finanzas/Conta** política de TC.
+3. **Compras → Inventario (kardex automático)** — alto. Falta: catálogo de artículos, `articulo_id` en ítems, trigger recepción→movimiento, valorización; **Gerencia** enciende, **Finanzas/Conta** qué se inventaría.
+4. **Contratos y fianzas con alertas** — medio. Falta: contrato de proyecto como entidad, vigencias, reglas en `notif-scheduler`, bandeja; **Legal** define umbrales/custodia.
+5. **CRM + radar SEACE → Proyectos** — alto. Falta: integración SEACE/OCDS, scoring, oportunidad ganada → proyecto, clientes-entidades; **Comercial/Gerencia**.
+6. **Conciliación OC ↔ recepción ↔ factura ↔ pago** — medio/alto. Falta: pago↔comprobante, match con tolerancias, bandeja de diferencias, detracciones/retenciones, registro de compras automático; **Conta/Finanzas**.
+7. **Adopción única + IA embebida** — bajo/medio. Falta: exports que reemplacen Excel paralelos, capacitación; IA en pausa por créditos; **Gerencia**.
+8. **Notificaciones en tiempo real y móvil (PWA)** — medio. Falta: tabla+bandeja con Realtime, manifest/service worker, vistas de campo; **Gerencia/Operaciones**.
+
+**Cuellos de botella transversales:** (a) datos maestros limpios (proveedores, artículos, clientes-entidades); (b) las decisiones por área
+(Gerencia, Legal, Comercial, Finanzas, Contabilidad, todas — detalladas en el as is); (c) capacidad de desarrollo (un solo frente).
+
+### B. Proyecto 360 + cuentas por pagar por mes — qué falta (auditoría 2026-09-23)
+**Veredicto:** el modelo soporta ~80 % de la cadena; la data se corta en "OC aprobada" (0 recepciones, 0 facturas de proveedor, 0 pagos,
+0 asientos, 0 inventario en el ERP). El enlace OC→proyecto está completo (las 354 OC sin proyecto son de área).
+
+**Bloque 0 — correcciones ANTES de encender nada:**
+- Bug `proyecto-financiero.ts:139`: filtra estados de OC inexistentes (`recibida`); los reales son `recibida_parcial/total`. Hoy 0 impacto
+  (no hay OC recibidas); al recepcionar, las OC recibidas saldrían del gasto real.
+- `recepciones-store.tsx:303` graba `cantidad_pedida = cantidad_recibida`.
+- `proyectos.costo_real` nunca se actualiza (siempre 0) y lo usan ProyectoDetalle y ProyectosValorizaciones ("Valorizado").
+- Tres definiciones de "gasto" y dos de "margen" → una función TS + una vista SQL versionada + definición oficial.
+- TC 3.40 hardcoded en `proyecto-financiero.ts:236,254`.
+- Desfase migraciones↔prod: `transacciones.proyecto_id` y `presupuesto_lineas.proyecto_id` están en el repo pero NO en prod; y `v_gerencia_*`,
+  `v_oc_saldo_facturacion`, `v_bi_movimientos`, RPC `proyectos_financiero_resumen`/`proyectos_gasto_por_anio`, tablas `comprobantes_pago`,
+  `flujo_compromisos`, `proyecto_presupuestos` y trigger `trg_oc_proyecto` existen en prod sin SQL en el repo.
+
+**Bloque 1 — CxP por mes:** vencimiento en OC derivado de `condiciones_pago` (~90 % lo trae en texto: "CRÉDITO 30 DÍAS" 794, "90" 84, "60" 42,
+contado 160) + campo editable + estado de pago; OC aprobada → compromiso automático (`cxp_compromisos` de PLAN-CxP o `flujo_compromisos`
+con `orden_id`); portal llena `fecha_vencimiento` de factura; vista unificada CxP por mes y pantalla real en `/finanzas/cuentas-pagar`
+(hoy abre Transacciones, 0 filas).
+**Bloque 2 — cerrar la cadena por proyecto:** recepciones siempre + precio/enlace a ítem de OC; facturas por proyecto (+ `orden_compra_id`
+en registro manual); pagos con `proyecto_id`/`comprobante_id`/`orden_id` y monto/fecha; cobros: valorización ↔ factura de venta,
+`proyecto_id` en `registro_ventas`, cobrado transaccional.
+**Bloque 3 — presupuesto por partidas:** partidas cargadas solo en 1/11 proyectos (406 líneas); `partida_id` en OC/ítems; saldo por partida.
+**Bloque 4 — inventario por proyecto:** catálogo, `articulo_id`, recepción → kardex, dimensión proyecto/almacén.
+**Bloque 5 — contable por proyecto:** contabilización automática desde comprobantes con CDC en líneas; registros automáticos; reporte por CDC/proyecto.
+**Bloque 6 — Proyecto 360 completo:** mostrar valorizado/cobrado/pendiente de cobro (ya se calculan), facturado, pagado, recepcionado,
+inventario, contable, flujo de caja del proyecto, compromisos por mes.
+
+**Decisiones nuevas que esto exige:** definición oficial de gasto real y margen (Finanzas+Gerencia); política de TC (Finanzas); momento de
+contabilización y tolerancias 3-way (Contabilidad); registrar TODAS las recepciones y portal de facturas obligatorio (Compras/Operaciones);
+presupuesto por partidas al abrir proyecto y encender Inventario (Gerencia).
+
+### C. Otros pendientes vigentes (ya listados antes, se mantienen)
+- Autonomía: programar `flujo-import`, `fianzas-import`, `gps-sync` y reactivar `excel-sync` (cron existe: solo `notif-scheduler` corre a diario);
+  TC automático (FASE 3); reportes ejecutivos "push" por Teams/correo (requiere KPIs definidos por Gerencia).
+- Flujo financiero: 515 compromisos sin CDC; proveedores de Administración no cruzan con el directorio; fechas sucias de Proyectos ocultas, no limpiadas.
