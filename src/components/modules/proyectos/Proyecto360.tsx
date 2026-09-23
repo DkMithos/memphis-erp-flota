@@ -181,6 +181,7 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
     facturado: number; facturadoEnTramite: number; facturas: number;
     pagado: number; porPagar: number; porPagarVencido: number; pagos: number;
     valorizado: number; valorizaciones: number; cobrado: number; porCobrar: number; cobradoRegistrado: number;
+    inventario: number; inventarioItems: number; inventarioEntradas: number; inventarioSalidas: number;
   }
   const [cadena, setCadena] = useState<Cadena | null>(null);
   useEffect(() => {
@@ -199,6 +200,8 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
           pagado: n('pagado'), porPagar: n('por_pagar'), porPagarVencido: n('por_pagar_vencido'), pagos: n('pagos'),
           valorizado: n('valorizado'), valorizaciones: n('valorizaciones'), cobrado: n('cobrado'), porCobrar: n('por_cobrar'),
           cobradoRegistrado: n('cobrado_registrado'),
+          inventario: n('inventario'), inventarioItems: n('inventario_items'),
+          inventarioEntradas: n('inventario_entradas'), inventarioSalidas: n('inventario_salidas'),
         });
       });
     return () => { cancelado = true; };
@@ -610,7 +613,16 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
                   <p className="text-[11px] text-muted-foreground">{p.nota}</p>
                 </div>
               ))}
-              <div className="md:col-span-5 grid grid-cols-1 md:grid-cols-3 gap-3 border-t pt-3 mt-1">
+              <div className="md:col-span-5 grid grid-cols-1 md:grid-cols-4 gap-3 border-t pt-3 mt-1">
+                <div>
+                  <p className="text-xs text-muted-foreground">En inventario (kardex)</p>
+                  <p className="text-base font-semibold tabular-nums">{fmt(cadena.inventario, 'PEN')}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {cadena.inventarioItems > 0
+                      ? `${cadena.inventarioItems} artículos · entró ${fmt(cadena.inventarioEntradas, 'PEN')} · salió ${fmt(cadena.inventarioSalidas, 'PEN')} (sin IGV)`
+                      : 'nada recibido en almacén todavía'}
+                  </p>
+                </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Valorizado al cliente</p>
                   <p className="text-base font-semibold tabular-nums">{fmt(cadena.valorizado, 'PEN')}</p>

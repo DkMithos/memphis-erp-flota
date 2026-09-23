@@ -2730,3 +2730,31 @@ Migraciones `bloque3_cadena_por_proyecto`, `bloque3_cadena_ajustes_pago_y_proyec
 suben facturas: es la decisión Compras/Operaciones pendiente); LORETO Bomberos: pagado S/ 34.2 M según el Excel (128 filas PAGADO) con
 comprometido en ERP S/ 15.2 M — el Excel de Proyectos trae pagos que no están como OC en el ERP (migración parcial del sistema anterior
 o pagos sin OC); cobrado por valorizaciones 16.54 M ≈ Excel 16.54 M. MUNI CUSCO: valorizado 7.06 M, cobrado 6.01 M (Excel 6.01 M).
+
+
+## Bloque 4 ejecutado — Kardex automático desde la recepción (2026-09-23)
+
+Migraciones `bloque4_kardex_automatico_desde_recepcion` y `bloque4_rpc_movimiento_manual_y_fix_permiso_pago`. Principio de Kevin:
+"el kardex debe ser automático". El módulo Inventario estaba vacío (0 artículos, 0 almacenes, 0 movimientos).
+
+- **La recepción conforme ES la entrada**: trigger en `recepcion_items` → `kardex_entrada_recepcion_item()`. El artículo sale del ítem
+  de la OC (`orden_items.articulo_id`), del ítem de recepción, o **nace solo** (`articulo_para_item`: busca por nombre; si no existe crea
+  `ART-NNNN`, tipo suministro, unidad tal cual de la OC — se quitó el check de unidades —, `origen='oc'`). El almacén es el de la
+  recepción o el general (`almacen_por_defecto` crea "Almacén general" ALM-001 si no hay). El movimiento lleva proyecto, OC, recepción,
+  ítem, precio de la OC, moneda, TC y `costo_total_soles`.
+- **Una sola puerta**: `kardex_registrar()` numera (MOV-AAAA-NNNN), calcula stock anterior/nuevo, actualiza `articulos.stock_actual` y
+  `stock_almacen` **por artículo × almacén × proyecto** (índice único con proyecto). El store de Inventario ya no numera ni suma en el
+  cliente: llama al RPC `registrar_movimiento_inventario` (inventario.crear|editar, valida stock) y relee.
+- **Reversión**: anular la recepción (`estado='rechazado'`) o borrar un ítem genera la salida por devolución y marca la entrada
+  `revertido`; reactivarla vuelve a generar la entrada. Editar una recepción (el store borra y reinserta ítems) queda cubierto.
+- **Salidas** (consumo, entrega al proyecto/cliente): a mano en Inventario → Movimientos, ahora con selector de proyecto.
+- **`v_stock_proyecto`** (cantidad neta valorada al costo promedio de sus entradas, soles sin IGV) y `proyecto_cadena()` gana
+  `inventario`, `inventario_items`, `inventario_entradas`, `inventario_salidas`; Proyecto 360 muestra "En inventario (kardex)".
+- **Fix Bloque 3**: `registrar_pago_compromiso` usaba `tiene_permiso()` (no existe); el helper real es `auth_tiene_permiso()`.
+- QA en base (limpiado): recepción de la OC MM-000878 (USD, TC 3.436) → 2 entradas, 2 artículos creados, almacén general creado,
+  `v_stock_proyecto` 4 und / S/ 29,205, cadena recepcionado S/ 34,462 con IGV e inventario S/ 29,205 sin IGV; salida de 1 → 3 und;
+  anulación → 2 reversos. Queda creado el almacén **ALM-001 "Almacén general"** (útil como defecto).
+
+**Pendiente de decisión (Compras/Operaciones):** registrar TODAS las recepciones en el ERP; sin eso el kardex y "recepcionado" siguen en
+cero aunque el mecanismo ya funcione. Los artículos nacidos de la OC quedan como "suministro / sin categoría": Inventario los puede
+reclasificar después.

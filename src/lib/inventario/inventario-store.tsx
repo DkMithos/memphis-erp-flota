@@ -5,6 +5,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { dbArticulos, dbAlmacenes, dbCategoriasInventario, dbMovimientos } from '../supabase/helpers';
+import { supabase } from '../supabase/client';
 import { logAudit } from '../shared/audit';
 import { useAuth } from '../../auth/AuthProvider';
 import type { ArticuloDB, AlmacenDB, CategoriaInventarioDB, MovimientoInventarioDB } from '../supabase/types';
@@ -79,6 +80,10 @@ export interface Movimiento {
   notas?: string;
   realizadoPor?: string;
   fecha: string;
+  /** Proyecto al que pertenece lo que entra o sale (la recepción lo hereda de la OC). */
+  proyectoId?: string;
+  /** Soles al TC del día del documento (para valorar el inventario del proyecto). */
+  costoTotalSoles?: number;
 }
 
 export interface NuevoMovimientoInput {
@@ -93,6 +98,7 @@ export interface NuevoMovimientoInput {
   notas?: string;
   referenciaId?: string;
   referenciaTipo?: string;
+  proyectoId?: string | null;
 }
 
 interface InventarioContextValue {
@@ -202,6 +208,8 @@ function mapMovimientoFromDB(row: MovimientoInventarioDB): Movimiento {
     notas: row.notas ?? undefined,
     realizadoPor: row.realizado_por ?? undefined,
     fecha: row.fecha,
+    proyectoId: (row as any).proyecto_id ?? undefined,
+    costoTotalSoles: (row as any).costo_total_soles != null ? Number((row as any).costo_total_soles) : undefined,
   };
 }
 
@@ -393,89 +401,40 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
   // MOVIMIENTOS
   // --------------------------------------------------------------------------
 
+  // El movimiento lo escribe la base (registrar_movimiento_inventario → kardex_registrar):
+  // la misma puerta por la que entra una recepción. Ahí se numera, se calcula el
+  // stock anterior/nuevo, se actualiza el artículo y el stock por almacén y proyecto.
+  // Antes el cliente numeraba y sumaba el stock por su cuenta: dos fuentes de verdad.
   const registrarMovimiento = useCallback(async (input: NuevoMovimientoInput): Promise<Movimiento> => {
     if (!tenantId || !user) throw new Error('Sin sesión activa');
 
     const articulo = articulos.find(a => a._dbId === input.articuloDbId);
     if (!articulo) throw new Error('Artículo no encontrado');
 
-    const year = new Date().getFullYear();
-    const numeros = movimientos.map(m => {
-      const match = m.id.match(/^MOV-\d{4}-(\d{4})$/);
-      return match ? parseInt(match[1], 10) : 0;
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const { data: movId, error } = await (supabase as any).rpc('registrar_movimiento_inventario', {
+      p_articulo: input.articuloDbId,
+      p_almacen: input.almacenDbId,
+      p_tipo: input.tipo,
+      p_motivo: input.motivo,
+      p_cantidad: input.cantidad,
+      p_precio: input.precioUnitario ?? null,
+      p_proyecto: input.proyectoId ?? null,
+      p_ref_tipo: input.referenciaTipo ?? null,
+      p_ref_id: input.referenciaId ?? null,
+      p_notas: input.notas ?? null,
     });
-    const siguiente = (numeros.length > 0 ? Math.max(...numeros) : 0) + 1;
-    const numero = `MOV-${year}-${siguiente.toString().padStart(4, '0')}`;
-
-    const stockAnterior = articulo.stockActual;
-    let stockNuevo: number;
-    if (input.tipo === 'entrada') {
-      stockNuevo = stockAnterior + input.cantidad;
-    } else if (input.tipo === 'salida') {
-      stockNuevo = stockAnterior - input.cantidad;
-    } else if (input.tipo === 'ajuste') {
-      if (input.motivo === 'ajuste_positivo') {
-        stockNuevo = stockAnterior + input.cantidad;
-      } else {
-        stockNuevo = stockAnterior - input.cantidad;
-      }
-    } else {
-      stockNuevo = stockAnterior;
-    }
-
-    // Prevenir stock negativo
-    if (stockNuevo < 0) {
-      throw new Error(`Stock insuficiente para ${articulo.nombre}. Stock actual: ${stockAnterior}, cantidad solicitada: ${input.cantidad}`);
-    }
-
-    const costoTotal = input.precioUnitario != null ? input.precioUnitario * input.cantidad : null;
-
-    const payload: Omit<MovimientoInventarioDB, 'id' | 'creado_en' | 'articulo' | 'almacen'> = {
-      tenant_id: tenantId,
-      articulo_id: input.articuloDbId,
-      almacen_id: input.almacenDbId,
-      numero,
-      tipo: input.tipo,
-      motivo: input.motivo,
-      cantidad: input.cantidad,
-      stock_anterior: stockAnterior,
-      stock_nuevo: stockNuevo,
-      precio_unitario: input.precioUnitario ?? null,
-      costo_total: costoTotal,
-      referencia_id: input.referenciaId ?? null,
-      referencia_tipo: input.referenciaTipo ?? null,
-      notas: input.notas ?? null,
-      realizado_por: user.id,
-      fecha: new Date().toISOString(),
-    };
-
-    const { data: dbData, error } = await dbMovimientos.insert(payload);
     if (error) throw new Error(error.message);
 
-    const almacen = almacenes.find(a => a._dbId === input.almacenDbId);
-    const nuevo = mapMovimientoFromDB({
-      ...(dbData as MovimientoInventarioDB),
-      articulo: { codigo: articulo.id, nombre: articulo.nombre, unidad_medida: articulo.unidadMedida },
-      almacen: { nombre: almacen?.nombre ?? '', codigo: almacen?.id ?? '' },
-    });
-    setMovimientos(prev => [nuevo, ...prev]);
-
-    // Update stock in articulos state
-    setArticulos(prev => prev.map(a => {
-      if (a._dbId !== input.articuloDbId) return a;
-      const updated = { ...a, stockActual: stockNuevo };
-      return {
-        ...updated,
-        estadoStock: calcularEstadoStock(stockNuevo, updated.stockMinimo, updated.stockMaximo),
-        valorTotal: updated.precioUnitario != null ? stockNuevo * updated.precioUnitario : undefined,
-      };
-    }));
-
-    // Also update stock via DB for consistency
-    await dbArticulos.update(input.articuloDbId, { stock_actual: stockNuevo });
-
+    // Se relee lo que la base dejó (número, stock antes/después) en vez de adivinarlo.
+    const [movRes, artRes] = await Promise.all([dbMovimientos.list(tenantId), dbArticulos.list(tenantId)]);
+    const filas = ((movRes.data ?? []) as MovimientoInventarioDB[]).map(mapMovimientoFromDB);
+    setMovimientos(filas);
+    if (artRes.data) setArticulos((artRes.data as ArticuloDB[]).map(mapArticuloFromDB));
+    const nuevo = filas.find(m => m._dbId === movId);
+    if (!nuevo) throw new Error('El movimiento se registró pero no se pudo releer');
     return nuevo;
-  }, [articulos, almacenes, movimientos, tenantId, user]);
+  }, [articulos, tenantId, user]);
 
   const cargarKardex = useCallback(async (articuloDbId: string): Promise<Movimiento[]> => {
     if (!tenantId) return [];

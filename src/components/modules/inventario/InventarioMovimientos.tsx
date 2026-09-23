@@ -19,6 +19,7 @@ import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { toast } from 'sonner';
 import { useInventarioStore } from '../../../lib/inventario/inventario-store';
+import { ProyectoSelector } from '../../shared/ProyectoSelector';
 import type { Movimiento, NuevoMovimientoInput } from '../../../lib/inventario/inventario-store';
 
 interface Props {
@@ -64,6 +65,8 @@ interface FormState {
   precioUnitario: string;
   notas: string;
   referenciaId: string;
+  /** Proyecto del que sale (consumo, entrega) o al que entra. Las entradas por compra ya lo traen de la recepción. */
+  proyectoId: string | null;
 }
 
 const FORM_EMPTY: FormState = {
@@ -75,6 +78,7 @@ const FORM_EMPTY: FormState = {
   precioUnitario: '',
   notas: '',
   referenciaId: '',
+  proyectoId: null,
 };
 
 export function InventarioMovimientos({ onNavigate: _onNavigate }: Props) {
@@ -143,6 +147,7 @@ export function InventarioMovimientos({ onNavigate: _onNavigate }: Props) {
         notas: form.notas.trim() || undefined,
         referenciaId: form.referenciaId.trim() || undefined,
         referenciaTipo: form.referenciaId.trim() ? 'manual' : undefined,
+        proyectoId: form.proyectoId,
       };
       await registrarMovimiento(input);
       toast.success('Movimiento registrado');
@@ -365,6 +370,14 @@ export function InventarioMovimientos({ onNavigate: _onNavigate }: Props) {
                   placeholder="0.00"
                 />
               </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Proyecto {form.tipo === 'salida' ? '(a qué proyecto se entrega o consume)' : '(opcional)'}</Label>
+              <ProyectoSelector value={form.proyectoId} onChange={v => setForm(prev => ({ ...prev, proyectoId: v }))} />
+              <p className="text-xs text-muted-foreground">
+                Las entradas por compra no se registran aquí: nacen solas al registrar la recepción de la OC.
+              </p>
             </div>
 
             <div className="space-y-1">
