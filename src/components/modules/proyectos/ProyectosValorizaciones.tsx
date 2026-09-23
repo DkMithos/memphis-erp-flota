@@ -97,8 +97,8 @@ export function ProyectosValorizaciones({ onNavigate }: ValorizacionesProps) {
             }))}
             headers={{
               codigo: 'Código', proyecto: 'Proyecto', estado: 'Estado',
-              presupuesto: 'Presupuesto', costoReal: 'Valorizado',
-              porValorizar: 'Por valorizar', avance: '% avance',
+              presupuesto: 'Presupuesto', costoReal: 'Costo real',
+              porValorizar: 'Saldo (presupuesto − costo)', avance: '% avance',
               fechaInicio: 'Inicio', fechaFin: 'Fin estimado',
             }}
             size="sm"
@@ -175,7 +175,7 @@ export function ProyectosValorizaciones({ onNavigate }: ValorizacionesProps) {
                 <TableRow>
                   <TableHead>Proyecto</TableHead>
                   <TableHead className="text-right">Presupuesto</TableHead>
-                  <TableHead className="text-right">Ejecutado</TableHead>
+                  <TableHead className="text-right">Costo real</TableHead>
                   <TableHead>Avance Físico</TableHead>
                   <TableHead className="text-right">Variación</TableHead>
                   <TableHead>Estado</TableHead>

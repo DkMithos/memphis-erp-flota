@@ -1,14 +1,20 @@
 /**
  * PROYECTO-FINANCIERO — Cálculos financieros por proyecto
  *
- * Gasto Real = Σ OCs aprobadas/en ejecución + Σ Gastos Caja Chica aprobados
- * NUNCA incluir OTs (cada OT genera una OC; contarlas duplicaría el gasto).
- *
- * Soporta PEN y USD — convierte a la moneda del proyecto usando tipo de cambio.
+ * Es el ESPEJO en TypeScript de `proyecto_financiero(uuid)` en la base (la
+ * fuente de verdad que también usan el Panorama y `proyectos.costo_real`).
+ * Las dos deben decir lo mismo:
+ *   · Gasto real = Σ OC comprometidas (ESTADOS_OC_GASTO) + Σ caja chica aprobada.
+ *     NUNCA OTs (cada OT genera una OC; contarlas duplicaría el gasto).
+ *   · Utilidad operativa = contrato total − gasto real.
+ *   · Ganancia neta = regla de Antonio (16/09/2026), ver `rendimiento.ts`.
+ *   · USD → PEN con el TC de cada orden; lo que no lo trae usa el TC vigente
+ *     que llega como parámetro (tabla `tipos_cambio`), nunca un valor fijo.
  */
 
 import { supabase } from '../supabase/client';
 import type { AdendaProyectoDB } from '../supabase/types';
+import { calcularMargen, type ResultadoMargen } from './rendimiento';
 
 // ============================================================================
 // TIPOS
@@ -77,6 +83,11 @@ export interface ProyectoFinanciero {
   montoPendienteCobro: number;  // montoContratoTotal - montoCobrado
   anioConvenio?: number;        // año de firma del convenio (cohorte)
 
+  // Ganancia neta (regla de Antonio 16/09/2026): ingresos sin IGV − gasto −
+  // consultoría OxI − contraprestación − venta del CIPRL. null si el proyecto
+  // no está en soles.
+  neto: ResultadoMargen | null;
+
   // Detalle
   adendas: AdendaProyecto[];
   ocs: OCProyecto[];
@@ -88,14 +99,11 @@ export interface ProyectoFinanciero {
 }
 
 // ============================================================================
-// TIPO DE CAMBIO POR DEFECTO (PEN/USD)
-// En producción se puede parametrizar o leer de la DB
+// CONVERSIÓN DE MONEDA — sin ningún tipo de cambio fijo en el código
 // ============================================================================
 
-const TIPO_CAMBIO_DEFAULT = 3.40; // fallback. Lo correcto es el TC del día de emisión (SBS/SUNAT), guardado por orden.
-
-/** Convierte un monto a la moneda destino usando un tipo de cambio (por defecto el fallback). */
-function convertirMoneda(monto: number, monedaOrigen: string, monedaDestino: string, rate: number = TIPO_CAMBIO_DEFAULT): number {
+/** Convierte un monto a la moneda destino con el tipo de cambio indicado. */
+function convertirMoneda(monto: number, monedaOrigen: string, monedaDestino: string, rate: number): number {
   if (monedaOrigen === monedaDestino) return monto;
   if (monedaOrigen === 'USD' && monedaDestino === 'PEN') return monto * rate;
   if (monedaOrigen === 'PEN' && monedaDestino === 'USD') return monto / rate;
@@ -130,13 +138,22 @@ export async function fetchAdendasProyecto(proyectoId: string): Promise<AdendaPr
   }));
 }
 
-/** Obtiene OCs aprobadas/en ejecución de un proyecto */
+/**
+ * Estados de OC que cuentan como gasto comprometido del proyecto.
+ * Son los estados REALES de `ordenes_compra` (borrador | enviada | aprobada |
+ * recibida_parcial | recibida_total | anulada): una OC aprobada sigue siendo
+ * gasto cuando ya se recibió, parcial o totalmente. Borradores y enviadas
+ * todavía no son un compromiso; anuladas nunca.
+ */
+export const ESTADOS_OC_GASTO = ['aprobada', 'recibida_parcial', 'recibida_total'] as const;
+
+/** Obtiene OCs comprometidas (aprobadas o recibidas) de un proyecto */
 export async function fetchOCsProyecto(proyectoId: string): Promise<OCProyecto[]> {
   const { data, error } = await supabase
     .from('ordenes_compra')
     .select('id, numero, total, moneda, tipo_cambio, estado, fecha_emision, proveedor:proveedores(razon_social)')
     .eq('proyecto_id', proyectoId)
-    .in('estado', ['aprobada', 'en_ejecucion', 'completada', 'recibida']);
+    .in('estado', [...ESTADOS_OC_GASTO]);
 
   if (error) {
     console.error('[FINANCIERO] Error cargando OCs:', error.message);
@@ -207,7 +224,9 @@ export async function fetchGastosFijosProyecto(proyectoId: string) {
  * Calcula TODOS los KPIs financieros de un proyecto.
  *
  * @param proyecto — datos base del proyecto (del store)
- * @param tipoCambio — tipo de cambio USD→PEN (default 3.75)
+ * @param tipoCambio — TC USD→PEN vigente (de `useTipoCambio`, respaldado por la
+ *   tabla `tipos_cambio`). Se usa para adendas, caja chica y las OC que no
+ *   traen su propio TC. Obligatorio: aquí ya no vive ningún valor fijo.
  */
 export async function calcularFinancieroProyecto(
   proyecto: {
@@ -219,7 +238,7 @@ export async function calcularFinancieroProyecto(
     montoCobrado?: number;
     anioConvenio?: number;
   },
-  tipoCambio: number = TIPO_CAMBIO_DEFAULT
+  tipoCambio: number
 ): Promise<ProyectoFinanciero> {
   const monedaBase = proyecto.moneda || 'PEN';
 
@@ -233,7 +252,7 @@ export async function calcularFinancieroProyecto(
 
   // Sumar adendas (convertir a moneda base)
   const montoAdendas = adendas.reduce(
-    (sum, a) => sum + convertirMoneda(a.monto, a.moneda, monedaBase),
+    (sum, a) => sum + convertirMoneda(a.monto, a.moneda, monedaBase, tipoCambio),
     0
   );
 
@@ -251,14 +270,15 @@ export async function calcularFinancieroProyecto(
 
   // Sumar gastos caja chica (convertir a moneda base)
   const gastoCajaChica = gastosCC.reduce(
-    (sum, g) => sum + convertirMoneda(g.monto, g.moneda, monedaBase),
+    (sum, g) => sum + convertirMoneda(g.monto, g.moneda, monedaBase, tipoCambio),
     0
   );
 
   // Gastos fijos de asesoría (consultoría 10% + contraprestación 5% + IR 3.5% + venta CIPRL 4%).
-  // Se muestran en su propio bloque y NO entran en el gasto operativo ni en la utilidad.
+  // Se muestran en su propio bloque y NO entran en el gasto operativo ni en la
+  // utilidad operativa; la ganancia NETA (abajo) sí los descuenta por regla.
   const gastoFijos = gastosFijos.reduce(
-    (sum, g) => sum + convertirMoneda(g.monto, g.moneda, monedaBase),
+    (sum, g) => sum + convertirMoneda(g.monto, g.moneda, monedaBase, tipoCambio),
     0
   );
 
@@ -284,7 +304,15 @@ export async function calcularFinancieroProyecto(
   const montoCobrado = proyecto.montoCobrado ?? 0;
   const montoPendienteCobro = montoContratoTotal - montoCobrado;
 
+  // Ganancia neta (regla de Antonio): misma cuenta que `proyecto_financiero()`
+  // en la base. Los convenios con el Estado están en soles; en otra moneda no
+  // aplica.
+  const neto = monedaBase === 'PEN'
+    ? calcularMargen({ convenio: montoContratoTotal, costo: gastoTotal })
+    : null;
+
   return {
+    neto,
     montoContrato,
     montoAdendas: montoAdendaTotal,
     montoContratoTotal,

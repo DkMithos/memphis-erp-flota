@@ -43,6 +43,7 @@ import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
 import { useOrdenesStore } from '../../../lib/compras/ordenes-store';
 import { useEquiposStore } from '../../../lib/biomedico/equipos-store';
 import { calcSaldoPreventivo } from '../../../lib/flota/vehiculos-config';
+import { useTipoCambio } from '../../../lib/shared/tipo-cambio-store';
 import {
   calcularFinancieroProyecto,
   colorEjecucion,
@@ -133,6 +134,8 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
   const { cotizaciones } = useCotizacionesStore();
   const { ordenes: ordenesCompra } = useOrdenesStore();
   const { equipos } = useEquiposStore();
+  // TC vigente (tabla tipos_cambio): reemplaza el 3.40 que vivía fijo en el cálculo.
+  const { tipoCambio } = useTipoCambio();
 
   const proyecto = proyectos.find(p => p._dbId === proyectoDbId);
 
@@ -159,7 +162,7 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
       moneda: proyecto.moneda,
       montoCobrado: proyecto.montoCobrado,
       anioConvenio: proyecto.anioConvenio,
-    }).then(fin => {
+    }, tipoCambio.PEN_USD).then(fin => {
       if (!cancelled) {
         setFinanciero(fin);
         setLoadingFin(false);
@@ -169,7 +172,7 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
     });
 
     return () => { cancelled = true; };
-  }, [proyecto?._dbId, proyecto?.montoContrato, proyecto?.montoAdenda, proyecto?.presupuesto, proyecto?.moneda]);
+  }, [proyecto?._dbId, proyecto?.montoContrato, proyecto?.montoAdenda, proyecto?.presupuesto, proyecto?.moneda, tipoCambio.PEN_USD]);
 
   // ── Vehiculos del proyecto ──
   const vehiculosProyecto = useMemo(() =>
@@ -458,10 +461,13 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
         </Card>
         <Card>
           <CardContent className="p-3 text-center">
-            <p className="text-xs text-muted-foreground">Margen</p>
+            <p className="text-xs text-muted-foreground">Margen operativo</p>
             <p className={`text-2xl font-bold ${semaforoText(colorMargen(margen))}`}>
               {margen.toFixed(1)}%
             </p>
+            {fin?.neto && (
+              <p className="text-xs text-muted-foreground">neto {(fin.neto.margen * 100).toFixed(1)}%</p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -662,9 +668,49 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
                   <span className={utilidad >= 0 ? 'text-green-600' : 'text-red-600'}>{fmt(utilidad, proyecto.moneda)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Margen sobre contrato</span>
+                  <span>Margen operativo sobre contrato</span>
                   <span>{margen.toFixed(1)}%</span>
                 </div>
+
+                {/* Ganancia neta — la MISMA regla que PresupuestoProyecto y la base */}
+                {fin?.neto && (
+                  <>
+                    <Separator />
+                    <p className="text-xs text-muted-foreground">
+                      Ganancia neta — regla de Antonio (16/09/2026): ingresos sin IGV menos las contraprestaciones OxI.
+                    </p>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Ingresos del convenio sin IGV</span>
+                      <span>{fmt(fin.neto.ingresosSinIgv, proyecto.moneda)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>(−) Gastos (compras + caja)</span>
+                      <span className="text-amber-600">{fmt(fin.neto.costo, proyecto.moneda)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>(−) Consultoría OxI (10 %)</span>
+                      <span className="text-amber-600">{fmt(fin.neto.consultoria, proyecto.moneda)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>(−) Contraprestación privada (5 %)</span>
+                      <span className="text-amber-600">{fmt(fin.neto.contraprestacion, proyecto.moneda)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>(−) Venta del CIPRL (4 %)</span>
+                      <span className="text-amber-600">{fmt(fin.neto.ventaCiprl, proyecto.moneda)}</span>
+                    </div>
+                    <div className="flex items-center justify-between font-bold">
+                      <span className="text-sm">Ganancia neta</span>
+                      <span className={fin.neto.gananciaNeta >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        {fmt(fin.neto.gananciaNeta, proyecto.moneda)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Margen neto sobre ingresos sin IGV</span>
+                      <span>{(fin.neto.margen * 100).toFixed(1)}%</span>
+                    </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>

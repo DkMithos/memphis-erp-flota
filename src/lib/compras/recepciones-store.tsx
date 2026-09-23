@@ -300,7 +300,9 @@ export function RecepcionStoreProvider({ children }: { children: React.ReactNode
         recepcion_id: dbRow.id,
         descripcion: item.descripcion.trim(),
         unidad: item.unidad,
-        cantidad_pedida: item.cantidadRecibida,
+        // Lo pedido viene de la OC (el formulario lo manda); solo si no llega
+        // se asume igual a lo recibido. Antes se pisaba siempre con lo recibido.
+        cantidad_pedida: item.cantidadPedida ?? item.cantidadRecibida,
         cantidad_recibida: item.cantidadRecibida,
         conforme,
         observaciones: item.observacionItem ?? null,
@@ -370,7 +372,7 @@ export function RecepcionStoreProvider({ children }: { children: React.ReactNode
           recepcion_id: dbId,
           descripcion: item.descripcion.trim(),
           unidad: item.unidad,
-          cantidad_pedida: item.cantidadRecibida,
+          cantidad_pedida: item.cantidadPedida ?? item.cantidadRecibida,
           cantidad_recibida: item.cantidadRecibida,
           conforme,
           observaciones: item.observacionItem ?? null,

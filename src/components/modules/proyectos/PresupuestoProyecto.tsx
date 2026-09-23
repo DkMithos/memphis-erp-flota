@@ -24,6 +24,7 @@ import { supabase } from '../../../lib/supabase/client';
 import {
   calcularMargen, aSoles, margenLegible, PARAMETROS_DEFECTO,
 } from '../../../lib/proyectos/rendimiento';
+import { ESTADOS_OC_GASTO } from '../../../lib/proyectos/proyecto-financiero';
 
 interface PresupuestoCab {
   id: string;
@@ -113,9 +114,11 @@ export function PresupuestoProyecto() {
       proveedorNota: (r.proveedor_nota as string) ?? null,
       orden: r.orden as number,
     })));
-    // Comprometido: órdenes no anuladas, en soles al TC del presupuesto.
+    // Comprometido: la MISMA regla que Proyecto 360 y la base (aprobadas o
+    // recibidas; borradores y enviadas aún no comprometen), en soles al TC
+    // del presupuesto.
     const comp = (ocs ?? [])
-      .filter((o: Record<string, unknown>) => o.estado !== 'anulada')
+      .filter((o: Record<string, unknown>) => (ESTADOS_OC_GASTO as readonly string[]).includes(String(o.estado)))
       .reduce((s: number, o: Record<string, unknown>) =>
         s + aSoles(Number(o.total ?? 0), String(o.moneda ?? 'PEN'), c.tipoCambio), 0);
     setComprometido(Math.round(comp * 100) / 100);

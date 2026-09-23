@@ -2510,3 +2510,41 @@ presupuesto por partidas al abrir proyecto y encender Inventario (Gerencia).
 - Autonomía: programar `flujo-import`, `fianzas-import`, `gps-sync` y reactivar `excel-sync` (cron existe: solo `notif-scheduler` corre a diario);
   TC automático (FASE 3); reportes ejecutivos "push" por Teams/correo (requiere KPIs definidos por Gerencia).
 - Flujo financiero: 515 compromisos sin CDC; proveedores de Administración no cruzan con el directorio; fechas sucias de Proyectos ocultas, no limpiadas.
+
+
+## Bloque 0 ejecutado + análisis de los 6 puntos de Kevin (2026-09-23)
+
+**Respuestas verificadas a los 6 puntos:**
+1-2. Condiciones de pago: TODAS las OC la tienen (1 312/1 316 migradas, 18/18 nativas) y el catálogo `condicion_pago` está
+   estandarizado (contado, adelantado, credito_7…150, ciprl, segun_acordado). Lo que falta: convertirla en días/fecha de
+   vencimiento y un estado de pago; la OC guarda la etiqueta y, si nace de cotización, arrastra texto libre de "términos".
+3. Proyectos se actualizan por `excel-sync` (RESUMEN.xlsx → `proyectos_excel_sync` + `proyectos`); última corrida 2026-09-10 16:00;
+   el cron cada 30 min está desactivado y nunca corrió; ICAPNP24 nunca se actualizó (no está en el Excel). La base registra
+   `sincronizado_en`/`ultima_sincronizacion` pero la UI no muestra "Datos al…".
+4. Presupuesto como origen: `proyecto_presupuesto_lineas` ya son partidas jerárquicas (solo 1/11 proyectos cargado, 406 líneas);
+   no existe `partida_id` en req/cot/OC items. Diseño: cada línea de gasto → partida (proyecto) o línea de presupuesto de área (CDC).
+5. Kardex automático: sí; requiere catálogo de artículos + `articulo_id` en ítems + almacén en recepción + trigger.
+6. Flujo Excel: los 63 negativos son categoría INGRESOS (CIPRL, cobros de valorización). Codificar tipo por signo NO es correcto.
+   Formato correcto: saldo inicial + INGRESOS (operativos/financieros) − EGRESOS (operativos/financieros/impuestos) = flujo neto → saldo
+   final; dimensiones mes · moneda · tipo · clase · área/proyecto · estado (proyectado/comprometido/pagado). CxP alimenta egresos, CxC ingresos.
+
+**Hallazgos nuevos:** 933/1 334 OC (70 %) en USD con TC 3.40/3.45 fijo (defaults de migración); las OC nativas no guardaban TC.
+93 migraciones (jun→sep) existían solo en Supabase, no en el repo.
+
+**Bloque 0 HECHO (migración `bloque0_tipo_cambio_definicion_unica_costo_real`):**
+- Estados reales de OC (`aprobada|recibida_parcial|recibida_total`) en TS (`ESTADOS_OC_GASTO`) y en SQL (`proyectos_financiero_resumen`,
+  `proyectos_gasto_por_anio`); PresupuestoProyecto usa la misma regla (antes contaba borradores/enviadas).
+- `cantidad_pedida` en recepciones ya respeta lo pedido de la OC (crear y actualizar).
+- `proyectos.costo_real` mantenido por triggers (`trg_oc_costo_real`, `trg_caja_costo_real`) + relleno inicial; rótulo "Valorizado" → "Costo real".
+- UNA definición: `proyecto_financiero(uuid)` en la base (utilidad operativa + ganancia neta regla Antonio con `parametros_financieros`);
+  `proyecto-financiero.ts` es su espejo y expone `neto`; Proyecto 360 muestra margen operativo y neto.
+- Tipo de cambio: tabla `tipos_cambio` + `tc_vigente(fecha)` + `fijar_tipo_cambio()` (finanzas.editar) + trigger `trg_oc_tipo_cambio`
+  (la OC USD guarda el TC del día); `tipo-cambio-store` lee de la base (antes localStorage por navegador); fuera el 3.40 del código y del SQL.
+  **Semilla = 3.40 a propósito** (no mover cifras sin política de TC). PENDIENTE Finanzas: política y job diario SUNAT/SBS (Bloque 1).
+- 94 migraciones exportadas al repo desde `supabase_migrations.schema_migrations` (pooler + rol temporal, eliminado). `transacciones.proyecto_id`
+  y `presupuesto_lineas.proyecto_id` creadas.
+- Con la nueva función: margen neto AMAZONAS −0.9 %, HUÁNUCO −11.1 % (señal para Gerencia; con TC real sería peor).
+
+**Bloques re-secuenciados (arrancar Bloque 1):** 1 CxP por mes (vencimiento desde catálogo, estado de pago, OC→compromiso, vista unificada,
+TC diario, "Datos al…" + cron proyectos) · 2 Presupuesto como origen (partidas, `partida_id`, líneas de área) · 3 Cadena por proyecto
+(recepción/factura/pago/cobro) · 4 Kardex automático · 5 Contable por proyecto · 6 Flujo financiero correcto + Proyecto 360 completo.
