@@ -20,7 +20,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { leerCompromisos, leerProyectos, resumen, type LineaFlujo } from './flujo.ts'
+import { leerCompromisos, leerProyectos, normalizarNumeroOC, resumen, type LineaFlujo } from './flujo.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -225,21 +225,41 @@ export default {
       const resolverCC = (cdc: string) => ccPorClave.get(norm(cdc)) ?? ccPorClave.get(ALIAS_CC[norm(cdc)] ?? '') ?? null
       const resolverProv = (nombre: string) => provPorNombre.get(norm(nombre)) ?? null
 
-      let ccMatch = 0, provMatch = 0
+      // Órdenes de compra por número, para enlazar la fila del Excel con su OC
+      // (así el compromiso que genera la OC aprobada no se duplica con el del
+      // Excel). Supabase corta en 1000 filas: se pagina.
+      const ocPorNumero = new Map<string, string>()
+      for (let desde = 0; ; desde += 1000) {
+        const { data: ocs } = await admin.from('ordenes_compra').select('id, numero')
+          .eq('tenant_id', tenantId).range(desde, desde + 999)
+        for (const o of (ocs ?? []) as any[]) {
+          const n = normalizarNumeroOC(o.numero)
+          if (n && !ocPorNumero.has(n)) ocPorNumero.set(n, o.id as string)
+        }
+        if (!ocs || ocs.length < 1000) break
+      }
+      const resolverOC = (ref: string) => ocPorNumero.get(normalizarNumeroOC(ref)) ?? null
+
+      let ccMatch = 0, provMatch = 0, ocMatch = 0
       const resueltas = lineas.map((l: LineaFlujo) => {
         const centro_costo_id = resolverCC(l.cdc)
         const proveedor_id = resolverProv(l.proveedor)
+        const orden_compra_id = resolverOC(l.referencia)
         if (centro_costo_id) ccMatch++
         if (proveedor_id) provMatch++
-        return { l, centro_costo_id, proveedor_id }
+        if (orden_compra_id) ocMatch++
+        return { l, centro_costo_id, proveedor_id, orden_compra_id }
       })
 
       const info = {
         area,
         archivo: meta.name,
+        hoja: hoja.name,
+        cabecera: (celdas[0] ?? []).slice(0, 40),
         ...res,
         centros_costo_reconocidos: ccMatch,
         proveedores_reconocidos: provMatch,
+        ordenes_reconocidas: ocMatch,
       }
       if (cuerpo.solo_leer) {
         return json({ ok: true, solo_leer: true, ...info, muestra: lineas.slice(0, 3) })
@@ -249,32 +269,45 @@ export default {
       await admin.from('flujo_compromisos').delete()
         .eq('tenant_id', tenantId).eq('area', area).eq('fuente', 'excel')
 
-      const filas = resueltas.map(({ l, centro_costo_id, proveedor_id }) => ({
-        tenant_id: tenantId,
-        area,
-        cdc: l.cdc || null,
-        centro_costo_id,
-        concepto: l.concepto || null,
-        categoria: l.categoria || null,
-        proveedor: l.proveedor || null,
-        proveedor_id,
-        moneda: l.moneda,
-        tc: l.tc,
-        mes_vencimiento: l.mesVencimiento || null,
-        monto_ejecutado: l.montoEjecutado,
-        monto_presupuestado: l.montoPresupuestado,
-        monto_pagado: l.montoPagado,
-        fecha_pagado: l.fechaPagado || null,
-        estado_pago: l.estadoPago || null,
-        mes_programado: l.mesProgramado || null,
-        postergado: l.postergado,
-        momento: l.momento || null,
-        observaciones: l.observaciones || null,
-        fuente: 'excel',
-        origen_archivo: meta.name,
-        fila: l.fila,
-        creado_por: user.id,
-      }))
+      // El Excel codifica el ingreso con signo negativo; el ERP lo guarda como
+      // sentido='cobrar' con monto positivo (nunca por signo). El origen separa
+      // deuda cierta (pagado/factura) de comprometido (OC) y proyección.
+      const abs = (n: number | null) => (n === null ? null : Math.abs(n))
+      const filas = resueltas.map(({ l, centro_costo_id, proveedor_id, orden_compra_id }) => {
+        const esIngreso = (l.montoPresupuestado ?? l.montoEjecutado ?? 0) < 0
+        const pagado = /PAGADO/.test(l.estadoPago)
+        return {
+          tenant_id: tenantId,
+          area,
+          cdc: l.cdc || null,
+          centro_costo_id,
+          concepto: l.concepto || null,
+          categoria: l.categoria || null,
+          proveedor: l.proveedor || null,
+          proveedor_id,
+          moneda: l.moneda,
+          tc: l.tc,
+          mes_vencimiento: l.mesVencimiento || null,
+          fecha_vencimiento: l.fechaVencimiento || l.mesVencimiento || null,
+          monto_ejecutado: abs(l.montoEjecutado),
+          monto_presupuestado: abs(l.montoPresupuestado),
+          monto_pagado: abs(l.montoPagado),
+          fecha_pagado: l.fechaPagado || null,
+          estado_pago: l.estadoPago || null,
+          mes_programado: l.mesProgramado || null,
+          postergado: l.postergado,
+          momento: l.momento || null,
+          observaciones: l.observaciones || null,
+          sentido: esIngreso ? 'cobrar' : 'pagar',
+          origen: pagado ? 'real' : orden_compra_id ? 'comprometido' : 'proyectado',
+          orden_compra_id,
+          referencia_doc: l.referencia || null,
+          fuente: 'excel',
+          origen_archivo: meta.name,
+          fila: l.fila,
+          creado_por: user.id,
+        }
+      })
       for (let i = 0; i < filas.length; i += 200) {
         const { error } = await admin.from('flujo_compromisos').insert(filas.slice(i, i + 200))
         if (error) return json({ error: `Error al cargar: ${error.message}`, ...info }, 500)

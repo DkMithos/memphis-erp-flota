@@ -44,6 +44,7 @@ import { useOrdenesStore } from '../../../lib/compras/ordenes-store';
 import { useEquiposStore } from '../../../lib/biomedico/equipos-store';
 import { calcSaldoPreventivo } from '../../../lib/flota/vehiculos-config';
 import { useTipoCambio } from '../../../lib/shared/tipo-cambio-store';
+import { supabase } from '../../../lib/supabase/client';
 import {
   calcularFinancieroProyecto,
   colorEjecucion,
@@ -136,6 +137,19 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
   const { equipos } = useEquiposStore();
   // TC vigente (tabla tipos_cambio): reemplaza el 3.40 que vivía fijo en el cálculo.
   const { tipoCambio } = useTipoCambio();
+
+  // "Datos al…": los montos del proyecto (contrato, adenda, cobrado, avance)
+  // llegan del Excel RESUMEN por `excel-sync`, que hoy solo corre a mano.
+  // Gerencia debe ver de cuándo es la foto.
+  const [datosAl, setDatosAl] = useState<string | null>(null);
+  useEffect(() => {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    (supabase as any).from('excel_sync_config').select('ultima_sincronizacion, ultimo_estado')
+      .ilike('nombre', 'RESUMEN%').order('ultima_sincronizacion', { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }: { data: { ultima_sincronizacion: string | null } | null }) => {
+        setDatosAl(data?.ultima_sincronizacion ?? null);
+      });
+  }, []);
 
   const proyecto = proyectos.find(p => p._dbId === proyectoDbId);
 
@@ -400,6 +414,15 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
             )}
           </div>
           <p className="text-muted-foreground mt-0.5">{proyecto.nombre}</p>
+          {datosAl && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Datos del Excel de Operaciones al{' '}
+              <span className="font-medium">
+                {new Date(datosAl).toLocaleString('es-PE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </span>
+              {' '}· la sincronización es manual (Proyectos › Espejo Excel)
+            </p>
+          )}
           {proyecto.entidadCliente && (
             <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
               <Users className="size-3.5" /> {proyecto.entidadCliente}

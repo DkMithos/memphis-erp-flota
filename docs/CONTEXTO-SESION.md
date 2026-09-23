@@ -2548,3 +2548,37 @@ presupuesto por partidas al abrir proyecto y encender Inventario (Gerencia).
 **Bloques re-secuenciados (arrancar Bloque 1):** 1 CxP por mes (vencimiento desde catálogo, estado de pago, OC→compromiso, vista unificada,
 TC diario, "Datos al…" + cron proyectos) · 2 Presupuesto como origen (partidas, `partida_id`, líneas de área) · 3 Cadena por proyecto
 (recepción/factura/pago/cobro) · 4 Kardex automático · 5 Contable por proyecto · 6 Flujo financiero correcto + Proyecto 360 completo.
+
+
+## Bloque 1 ejecutado — Cuentas por pagar por mes (2026-09-23)
+
+Sigue el diseño de `docs/PLAN-CxP.md` (decisiones 26–27/08) sin crear otra tabla: **`flujo_compromisos` evolucionó al modelo CxP**.
+
+**Modelo (migraciones `bloque1_*`):**
+- `sentido` pagar/cobrar con **montos siempre positivos** (63 ingresos del Excel pasaron de negativo a `cobrar`; 0 negativos quedan).
+  `origen` real/comprometido/proyectado. `orden_compra_id`, `comprobante_id`, `proyecto_id` (derivado del CDC por trigger),
+  `fecha_vencimiento`, `referencia_doc`. Índices únicos: una fila ERP por OC; una por factura sin OC.
+- `centros_costo.area` (dueño del CDC), rellenada por mayoría desde el flujo (32 CDC sin área → caen a ADMINISTRACION).
+- OC: `dias_credito` y `fecha_vencimiento_pago` derivados de `condiciones_pago` (`dias_credito_de()` + trigger): **1 167 de 1 334 OC
+  con vencimiento**; sin fecha: SEGÚN LO ACORDADO 125, CIPRL 24, basura ("SUBTOTAL", "MENSUAL", tarjeta) → requieren fecha a mano.
+- **OC aprobada/recibida → compromiso** (`sync_compromiso_de_oc`, trigger `trg_oc_compromiso`), solo desde `cxp_desde` (parámetro
+  `parametros_financieros`, hoy 2026-07-01 = go-live): las OC anteriores se pagaron en el sistema anterior y el ERP no lo sabe —
+  generarlas inflaba S/ 67 M "vencidos". Si el Excel ya trae la OC, el Excel manda (no duplica). Bug corregido: la variable record
+  se llamaba igual que el alias y rompía el trigger de OC.
+- **Factura → compromiso** (`trg_factura_compromiso`): con OC enlaza y pasa a `real`; sin OC (N30) crea el suyo anclado en la factura.
+- Vistas `v_cxp` / `v_cxc` / `v_cxp_por_mes` (security invoker: RLS por área).
+
+**Importador (`flujo-import` v8):** captura la referencia de OC (la hoja de Proyectos tiene columnas OC y FACTURA; CÓDIGO no es la OC)
+y la fecha de vencimiento; normaliza el signo a `sentido`; enlaza por número (`normalizarNumeroOC`: "MM-290" → "MM-000290").
+Reimportadas las 4 áreas: **Proyectos 1 399 (329 enlazadas a OC)**, Administración 1 053, Contabilidad 154, TI 52. 30 pruebas del parser.
+
+**Tipo de cambio automático:** Edge `tc-sync` (API decolecta/apis.net.pe, token existente) + cron `tc-sync-diario` 07:30 Perú (`dias:3`).
+Probado: SUNAT venta **3.362** (19–23 sep) ya en `tipos_cambio`; `tc_vigente` = 3.362 (la semilla 3.40 de hoy fue reemplazada).
+
+**Pantallas:** nueva **`/finanzas/cuentas-pagar`** (`CuentasPorPagar.tsx`): KPIs ¿cuánto se debe? / vencido / vence este mes / próximos
+30 días, filtro por origen (real/OC/proyectado), área, proyecto, solo vencidas, búsqueda; calendario mes × área; detalle paginado;
+"Marcar pagado" (finanzas.editar o finanzas.flujo). Flujo financiero y su diálogo ya trabajan con `sentido` (sin signos) y con el TC
+de la base. Proyecto 360 muestra **"Datos del Excel de Operaciones al …"** (de `excel_sync_config`; sync sigue manual por decisión).
+
+**Decisiones que quedan para Finanzas/Gerencia:** `cxp_desde` (hoy go-live); política de TC (ya hay dato real diario); fechas de
+vencimiento a mano para CIPRL / según lo acordado; reactivar o no el cron de proyectos; normalizar `momento` a catálogo (35 variantes).

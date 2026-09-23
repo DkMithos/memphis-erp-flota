@@ -267,3 +267,49 @@ describe('resumen', () => {
     expect(r.presupuestado).toBe(184121);
   });
 });
+
+// ── Bloque 1: enlace del Excel con la OC del ERP ──────────────────────────────
+import { normalizarNumeroOC } from '../../../supabase/functions/flujo-import/flujo';
+
+describe('normalizarNumeroOC (referencia del Excel → serie del ERP)', () => {
+  it('rellena a 6 dígitos y respeta la serie de servicios', () => {
+    expect(normalizarNumeroOC('MM-290')).toBe('MM-000290');
+    expect(normalizarNumeroOC('mm-00290')).toBe('MM-000290');
+    expect(normalizarNumeroOC('MM-001158')).toBe('MM-001158');
+    expect(normalizarNumeroOC('MM-S 12')).toBe('MM-S-000012');
+    expect(normalizarNumeroOC('MM-S-000034')).toBe('MM-S-000034');
+  });
+  it('toma la primera cuando la celda trae varias, y vacío si no hay OC', () => {
+    expect(normalizarNumeroOC('MM-000338, MM-000339, MM-000340')).toBe('MM-000338');
+    expect(normalizarNumeroOC('MM-000568 - MM-000812')).toBe('MM-000568');
+    expect(normalizarNumeroOC('ANULADA')).toBe('');
+    expect(normalizarNumeroOC('')).toBe('');
+    expect(normalizarNumeroOC(null)).toBe('');
+  });
+});
+
+describe('referencia y fecha de vencimiento en las hojas', () => {
+  it('Proyectos: CÓDIGO como referencia y FECHA DE VENCIMIENTO completa', () => {
+    const celdas = [
+      ['CÓDIGO', 'CDC', 'CATEGORIA', 'CONCEPTO', 'PROVEEDOR', 'MONEDA', 'TC', 'FECHA DE VENCIMIENTO', 'TOTAL SOLES', 'PAGADO', 'MONTO PAGADO'],
+      ['MM-000338', 'GLORETOBOM', 'VEHÍCULOS', 'Camioneta', 'ACME', 'S/', '', '15/10/2026', '1.500,00', 'PENDIENTE', ''],
+    ];
+    const [l] = leerProyectos(celdas);
+    expect(l.referencia).toBe('MM-000338');
+    expect(l.fechaVencimiento).toBe('2026-10-15');
+    expect(l.mesVencimiento).toBe('2026-10-01');
+  });
+  it('BD común: prefiere una columna OC explícita y no rompe si no hay ninguna', () => {
+    const conOC = [
+      ['CDC', 'CONCEPTO', 'OC', 'MONEDA', 'MES VENCIMIENTO', 'MONTO PRESUPUESTADO', 'PAGADO/PENDIENTE'],
+      ['OFCENTRAL', 'Alquiler', 'mm-290', 'S/', 'ago-26', '2.000,00', 'PENDIENTE'],
+    ];
+    expect(leerCompromisos(conOC)[0].referencia).toBe('mm-290');
+    const sinOC = [
+      ['CDC', 'CONCEPTO', 'MONEDA', 'MES VENCIMIENTO', 'MONTO PRESUPUESTADO'],
+      ['OFCENTRAL', 'Alquiler', 'S/', 'ago-26', '2.000,00'],
+    ];
+    expect(leerCompromisos(sinOC)[0].referencia).toBe('');
+    expect(leerCompromisos(sinOC)[0].fechaVencimiento).toBe('');
+  });
+});

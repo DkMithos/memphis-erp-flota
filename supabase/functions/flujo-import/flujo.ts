@@ -143,7 +143,28 @@ export interface LineaFlujo {
   postergado: number | null;
   momento: string;
   observaciones: string;
+  referencia: string;           // OC / código / factura que traía la fila ('' si no)
+  fechaVencimiento: string;     // fecha completa ISO si la hoja la trae ('' si no)
   fila: number;                 // fila de origen (1-based en la hoja)
+}
+
+/**
+ * Número de OC normalizado a la serie del ERP: "MM-290", "mm-00290",
+ * "MM-000290, MM-000291" → "MM-000290" (la primera); "MM-S 12" → "MM-S-000012".
+ * '' si el texto no trae ninguna OC.
+ */
+export function normalizarNumeroOC(entrada: unknown): string {
+  const s = texto(entrada).toUpperCase();
+  const m = s.match(/MM\s*-?\s*(S)?\s*-?\s*(\d{1,6})/);
+  if (!m) return '';
+  return m[1] ? `MM-S-${m[2].padStart(6, '0')}` : `MM-${m[2].padStart(6, '0')}`;
+}
+
+/** Columna que trae la referencia documental (OC / código / orden). undefined si no hay. */
+function colReferencia(col: Record<string, number>): string | undefined {
+  const claves = Object.keys(col);
+  const pref = claves.find((k) => /^(oc|n[°º]?\s*oc|orden(\s+de\s+compra)?|orden\s*n[°º]?)$/.test(k));
+  return pref ?? claves.find((k) => /^codigo$/.test(k));
 }
 
 /** Nombre de columna → índice, buscando en la fila de cabecera por nombre. */
@@ -176,6 +197,7 @@ export function leerCompromisos(celdas: unknown[][]): LineaFlujo[] {
 
   const val = (fila: unknown[], nombre: string): unknown =>
     nombre in col ? fila[col[nombre]] : undefined;
+  const refCol = colReferencia(col);
 
   const lineas: LineaFlujo[] = [];
   for (let r = iCab + 1; r < celdas.length; r++) {
@@ -185,6 +207,8 @@ export function leerCompromisos(celdas: unknown[][]): LineaFlujo[] {
     if (!cdc && !concepto) continue;
 
     lineas.push({
+      referencia: refCol ? texto(f[col[refCol]]) : '',
+      fechaVencimiento: fechaISO(val(f, 'fecha vencimiento')) || fechaISO(val(f, 'fecha de vencimiento')),
       cdc,
       concepto,
       categoria: texto(val(f, 'categoria')),
@@ -213,7 +237,7 @@ function nueva(fila: number, p: Partial<LineaFlujo>): LineaFlujo {
     cdc: '', concepto: '', categoria: '', proveedor: '', moneda: 'PEN', tc: null,
     mesVencimiento: '', montoEjecutado: null, montoPresupuestado: null, montoPagado: null,
     fechaPagado: '', estadoPago: '', mesProgramado: '', postergado: null, momento: '',
-    observaciones: '', fila, ...p,
+    observaciones: '', referencia: '', fechaVencimiento: '', fila, ...p,
   };
 }
 
@@ -229,6 +253,7 @@ export function leerProyectos(celdas: unknown[][]): LineaFlujo[] {
   if (iCab === -1) return [];
   const col = mapaColumnas(celdas[iCab]);
   const val = (f: unknown[], n: string): unknown => (n in col ? f[col[n]] : undefined);
+  const refCol = colReferencia(col);
 
   const lineas: LineaFlujo[] = [];
   for (let r = iCab + 1; r < celdas.length; r++) {
@@ -240,6 +265,8 @@ export function leerProyectos(celdas: unknown[][]): LineaFlujo[] {
 
     lineas.push(nueva(r + 1, {
       cdc, concepto,
+      referencia: refCol ? texto(f[col[refCol]]) : '',
+      fechaVencimiento: fechaISO(val(f, 'fecha de vencimiento')),
       categoria: texto(val(f, 'categoria')),
       proveedor: texto(val(f, 'proveedor')),
       moneda: moneda(val(f, 'moneda')),

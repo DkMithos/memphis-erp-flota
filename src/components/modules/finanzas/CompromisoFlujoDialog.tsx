@@ -2,9 +2,10 @@
  * Crear / editar un compromiso del flujo financiero DENTRO del ERP.
  *
  * Lo nativo se guarda con fuente='erp' y sobrevive a las reimportaciones del
- * Excel (que solo pisan fuente='excel'). El monto se guarda firmado: un EGRESO
- * es positivo y un INGRESO (p. ej. la CIPRL) negativo, igual que el resto del
- * flujo. La RLS asegura que cada quien solo escriba en su área.
+ * Excel (que solo pisan fuente='excel'). El monto se guarda SIEMPRE positivo y
+ * el tipo va en `sentido` (pagar = egreso, cobrar = ingreso como la CIPRL):
+ * nunca se codifica por signo. La RLS asegura que cada quien solo escriba en
+ * su área.
  */
 
 import { useEffect, useState } from 'react';
@@ -28,7 +29,9 @@ export interface CompromisoEdit {
   moneda: string | null;
   tc: number | null;
   mesVencimiento: string | null;   // 'YYYY-MM-01'
-  monto: number;                    // firmado
+  monto: number;                    // siempre positivo
+  sentido: 'pagar' | 'cobrar';
+  origen?: string | null;           // real | comprometido | proyectado
   pagado: number;
   estado: string | null;
   postergado: number | null;
@@ -79,7 +82,7 @@ export function CompromisoFlujoDialog({
     setCategoria(i?.categoria ?? '');
     setConcepto(i?.concepto ?? '');
     setProveedor(i?.proveedor ?? '');
-    setTipo((i?.monto ?? 0) < 0 ? 'ingreso' : 'egreso');
+    setTipo(i?.sentido === 'cobrar' ? 'ingreso' : 'egreso');
     setMonto(i ? String(Math.abs(i.monto)) : '');
     setMoneda((i?.moneda as 'PEN' | 'USD') ?? 'PEN');
     setTc(i?.tc != null ? String(i.tc) : '');
@@ -96,7 +99,6 @@ export function CompromisoFlujoDialog({
     const montoNum = Number(monto);
     if (!Number.isFinite(montoNum) || montoNum === 0) { toast.error('Indica un monto válido'); return; }
     setGuardando(true);
-    const firmado = Math.round((tipo === 'ingreso' ? -Math.abs(montoNum) : Math.abs(montoNum)) * 100) / 100;
     const centro = centros.find(c => c.codigo.toLowerCase() === cdc.trim().toLowerCase());
     const payload: Record<string, unknown> = {
       area,
@@ -108,8 +110,13 @@ export function CompromisoFlujoDialog({
       moneda,
       tc: moneda === 'USD' && tc ? Number(tc) : null,
       mes_vencimiento: mes ? `${mes}-01` : null,
-      monto_presupuestado: firmado,
-      monto_pagado: pagado ? Number(pagado) : null,
+      fecha_vencimiento: mes ? `${mes}-01` : null,
+      monto_presupuestado: Math.round(Math.abs(montoNum) * 100) / 100,
+      sentido: tipo === 'ingreso' ? 'cobrar' : 'pagar',
+      // Lo que se registra a mano es una proyección salvo que ya esté pagado;
+      // la OC y la factura ponen su propio origen al enlazarse.
+      origen: /PAGADO/i.test(estado) ? 'real' : (inicial?.origen ?? 'proyectado'),
+      monto_pagado: pagado ? Math.abs(Number(pagado)) : null,
       estado_pago: estado || null,
       postergado: postergado ? Number(postergado) : null,
       observaciones: observaciones.trim() || null,

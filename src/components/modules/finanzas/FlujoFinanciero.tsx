@@ -28,6 +28,7 @@ import { useAuth } from '../../../auth/AuthProvider';
 import { toast } from 'sonner';
 import { ImportarFlujoDialog } from './ImportarFlujoDialog';
 import { CompromisoFlujoDialog, type CompromisoEdit } from './CompromisoFlujoDialog';
+import { useTipoCambio } from '../../../lib/shared/tipo-cambio-store';
 
 interface Compromiso {
   id: string;
@@ -39,7 +40,10 @@ interface Compromiso {
   moneda: string | null;
   tc: number | null;
   mesVencimiento: string | null;   // 'YYYY-MM-01'
-  monto: number;                    // firmado: + egreso, − ingreso
+  monto: number;                    // siempre positivo; el tipo va en `sentido`
+  sentido: 'pagar' | 'cobrar';
+  origen: string;                   // real | comprometido | proyectado
+  referencia: string | null;        // OC / factura enlazada
   pagado: number;
   estado: string | null;
   postergado: number | null;
@@ -71,8 +75,9 @@ const mesValido = (iso: string | null): boolean => {
   return y >= 2025 && y <= 2027;
 };
 
-const aSoles = (monto: number, moneda: string | null, tc: number | null) =>
-  moneda === 'USD' ? monto * (tc && tc > 0 ? tc : 3.4) : monto;
+/** A soles con el TC de la fila; si no trae, el TC vigente de la base (nunca un fijo). */
+const aSoles = (monto: number, moneda: string | null, tc: number | null, tcHoy: number) =>
+  moneda === 'USD' ? monto * (tc && tc > 0 ? tc : tcHoy) : monto;
 
 function badgeEstado(estado: string | null): { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' } {
   const e = (estado ?? '').toUpperCase();
@@ -94,6 +99,8 @@ const POR_PAGINA = 25;
 
 export function FlujoFinanciero() {
   const { tenantId, user } = useAuth();
+  const { tipoCambio } = useTipoCambio();
+  const tcHoy = tipoCambio.PEN_USD;
   const [filas, setFilas] = useState<Compromiso[]>([]);
   const [centros, setCentros] = useState<{ id: string; codigo: string; nombre: string }[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -117,7 +124,7 @@ export function FlujoFinanciero() {
     for (let desde = 0; ; desde += TAM) {
       const { data: pagina, error } = await supabase
         .from('flujo_compromisos')
-        .select('id, area, cdc, categoria, concepto, proveedor, moneda, tc, mes_vencimiento, monto_presupuestado, monto_pagado, estado_pago, postergado, observaciones, fuente')
+        .select('id, area, cdc, categoria, concepto, proveedor, moneda, tc, mes_vencimiento, monto_presupuestado, monto_pagado, estado_pago, postergado, observaciones, fuente, sentido, origen, referencia_doc')
         .order('mes_vencimiento', { ascending: true })
         .range(desde, desde + TAM - 1);
       if (error || !pagina || pagina.length === 0) break;
@@ -134,8 +141,11 @@ export function FlujoFinanciero() {
       moneda: (r.moneda as string) ?? 'PEN',
       tc: r.tc as number | null,
       mesVencimiento: (r.mes_vencimiento as string) ?? null,
-      monto: Number(r.monto_presupuestado ?? 0),
-      pagado: Number(r.monto_pagado ?? 0),
+      monto: Math.abs(Number(r.monto_presupuestado ?? 0)),
+      sentido: r.sentido === 'cobrar' ? 'cobrar' : 'pagar',
+      origen: (r.origen as string) ?? 'proyectado',
+      referencia: (r.referencia_doc as string) ?? null,
+      pagado: Math.abs(Number(r.monto_pagado ?? 0)),
       estado: (r.estado_pago as string) ?? null,
       postergado: r.postergado as number | null,
       observaciones: (r.observaciones as string) ?? null,
@@ -168,13 +178,13 @@ export function FlujoFinanciero() {
   const total = useMemo(() => {
     let egresos = 0, ingresos = 0, pagado = 0, postergados = 0;
     for (const f of datos) {
-      const v = aSoles(f.monto, f.moneda, f.tc);
-      if (v >= 0) egresos += v; else ingresos += -v;
-      pagado += aSoles(f.pagado, f.moneda, f.tc);
+      const v = aSoles(f.monto, f.moneda, f.tc, tcHoy);
+      if (f.sentido === 'cobrar') ingresos += v; else egresos += v;
+      pagado += aSoles(f.pagado, f.moneda, f.tc, tcHoy);
       if ((f.postergado ?? 0) > 0) postergados++;
     }
     return { egresos, ingresos, neto: egresos - ingresos, pagado, postergados };
-  }, [datos]);
+  }, [datos, tcHoy]);
 
   const meses = useMemo(() => {
     const set = new Set<string>();
@@ -190,7 +200,8 @@ export function FlujoFinanciero() {
     for (const f of datos) {
       const g = clave(f);
       const k = f.mesVencimiento ?? 'sin-fecha';
-      const v = aSoles(f.monto, f.moneda, f.tc);
+      // La matriz es un flujo neto: lo por cobrar resta (y se pinta en azul).
+      const v = (f.sentido === 'cobrar' ? -1 : 1) * aSoles(f.monto, f.moneda, f.tc, tcHoy);
       const gg = grupos.get(g) ?? { total: 0, mes: new Map() };
       gg.total += v; gg.mes.set(k, (gg.mes.get(k) ?? 0) + v);
       grupos.set(g, gg);
@@ -198,7 +209,7 @@ export function FlujoFinanciero() {
     }
     const orden = Array.from(grupos.entries()).sort((a, b) => Math.abs(b[1].total) - Math.abs(a[1].total));
     return { orden, totalMes, nGrupos: grupos.size };
-  }, [datos, agrupador]);
+  }, [datos, agrupador, tcHoy]);
 
   const detalle = useMemo(() => {
     const t = busqueda.trim().toLowerCase();
@@ -215,7 +226,8 @@ export function FlujoFinanciero() {
   const aEdicion = (f: Compromiso): CompromisoEdit => ({
     id: f.id, area: f.area, cdc: f.cdc, categoria: f.categoria, concepto: f.concepto,
     proveedor: f.proveedor, moneda: f.moneda, tc: f.tc, mesVencimiento: f.mesVencimiento,
-    monto: f.monto, pagado: f.pagado, estado: f.estado, postergado: f.postergado, observaciones: f.observaciones,
+    monto: f.monto, sentido: f.sentido, origen: f.origen,
+    pagado: f.pagado, estado: f.estado, postergado: f.postergado, observaciones: f.observaciones,
   });
 
   const borrar = async (f: Compromiso) => {
@@ -236,7 +248,8 @@ export function FlujoFinanciero() {
             <Waves className="size-6" /> Flujo financiero
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            Compromisos por área y mes. Positivo = egreso (a pagar); negativo (azul) = ingreso, como la CIPRL.
+            Compromisos por área y mes. Cada uno tiene sentido <b>pagar</b> (egreso) o <b>cobrar</b> (ingreso, p. ej. la CIPRL);
+            los montos ya no llevan signo. En la matriz lo por cobrar resta y va en azul: cada celda es el neto del mes.
           </p>
         </div>
         <div className="flex items-center gap-2">
