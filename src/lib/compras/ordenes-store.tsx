@@ -71,6 +71,17 @@ export interface Orden {
   // Fechas
   fechaEmision: string;
   fechaEntregaEstimada: string | null;
+  /**
+   * Vencimiento de pago proyectado (emisión + días de crédito), editable a mano.
+   * Cuando llega la factura, manda la fecha de la factura (en el compromiso).
+   */
+  fechaVencimientoPago: string | null;
+  /** true si alguien fijó la fecha a mano (la base ya no la recalcula). */
+  vencimientoManual: boolean;
+  /** true si la fecha es la estimada del cobro del CIPRL, no una fecha firme. */
+  vencimientoEstimado: boolean;
+  /** ciprl = se paga al cobrar el CIPRL del proyecto · acordado = fecha a convenir. */
+  pagoLigadoA: 'ciprl' | 'acordado' | null;
 
   // Items
   items: ItemOrden[];
@@ -125,6 +136,8 @@ export interface NuevaOrdenInput {
   moneda: MonedaOrden;
   items: (Omit<ItemOrden, 'id' | '_dbId' | 'subtotal' | 'descuento'> & { descuento?: number })[];
   fechaEntregaEstimada?: string;
+  /** Vencimiento de pago fijado a mano; null/undefined = que lo calcule la base. */
+  fechaVencimientoPago?: string | null;
   condiciones?: string;
   lugarEntrega?: string;
   /**
@@ -191,6 +204,10 @@ type OrdenWithRelations = OrdenCompraDB & {
   /** Columnas nuevas, aún fuera de los tipos generados de Supabase. */
   regimen_igv?: string | null;
   aplica_retencion_rh?: boolean | null;
+  fecha_vencimiento_pago?: string | null;
+  vencimiento_manual?: boolean | null;
+  vencimiento_estimado?: boolean | null;
+  pago_ligado_a?: string | null;
   items: OrdenItemDB[];
   proveedor?: { razon_social: string; ruc: string } | null;
   centro_costo?: { codigo: string; nombre: string } | null;
@@ -252,6 +269,10 @@ function mapFromDB(row: OrdenWithRelations): Orden {
     moneda: row.moneda as MonedaOrden,
     fechaEmision: row.fecha_emision,
     fechaEntregaEstimada: row.fecha_entrega_esperada,
+    fechaVencimientoPago: row.fecha_vencimiento_pago ?? null,
+    vencimientoManual: row.vencimiento_manual ?? false,
+    vencimientoEstimado: row.vencimiento_estimado ?? false,
+    pagoLigadoA: (row.pago_ligado_a === 'ciprl' || row.pago_ligado_a === 'acordado') ? row.pago_ligado_a : null,
     items,
     subtotal: row.subtotal,
     impuestos: row.igv,
@@ -398,6 +419,10 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         estado: 'borrador',
         fecha_emision: timestamp,
         fecha_entrega_esperada: input.fechaEntregaEstimada ?? null,
+        // Si el comprador fija la fecha, la base no la recalcula; si no, la
+        // deriva de la condición de pago (o del CIPRL del proyecto).
+        fecha_vencimiento_pago: input.fechaVencimientoPago ?? null,
+        vencimiento_manual: !!input.fechaVencimientoPago,
         moneda: input.moneda,
         subtotal,
         igv: impuestos,
@@ -507,6 +532,10 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
       if (input.lugarEntrega !== undefined) updatePayload.lugar_entrega = input.lugarEntrega?.trim() ?? null;
       if (input.observaciones !== undefined) updatePayload.observaciones = input.observaciones?.trim() || null;
       if (input.fechaEntregaEstimada !== undefined) updatePayload.fecha_entrega_esperada = input.fechaEntregaEstimada ?? null;
+      if (input.fechaVencimientoPago !== undefined) {
+        updatePayload.fecha_vencimiento_pago = input.fechaVencimientoPago ?? null;
+        updatePayload.vencimiento_manual = !!input.fechaVencimientoPago;
+      }
 
       if (input.items !== undefined) {
         const itemsConSubtotal = input.items.map(item => ({
@@ -566,6 +595,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
               ...(input.condiciones !== undefined && { condiciones: input.condiciones?.trim() ?? null }),
               ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() || null }),
               ...(input.fechaEntregaEstimada !== undefined && { fechaEntregaEstimada: input.fechaEntregaEstimada ?? null }),
+              ...(input.fechaVencimientoPago !== undefined && { fechaVencimientoPago: input.fechaVencimientoPago ?? null, vencimientoManual: !!input.fechaVencimientoPago }),
               items: newItems,
               subtotal,
               impuestos,
@@ -584,6 +614,7 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
               ...(input.condiciones !== undefined && { condiciones: input.condiciones?.trim() ?? null }),
               ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() || null }),
               ...(input.fechaEntregaEstimada !== undefined && { fechaEntregaEstimada: input.fechaEntregaEstimada ?? null }),
+              ...(input.fechaVencimientoPago !== undefined && { fechaVencimientoPago: input.fechaVencimientoPago ?? null, vencimientoManual: !!input.fechaVencimientoPago }),
               auditoria: { ...o.auditoria, modificadoPor: user.id, modificadoEn: ahora },
             };
           })

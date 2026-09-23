@@ -49,6 +49,10 @@ interface Cxp {
   referencia: string | null;
   estado: string | null;
   momento: string | null;
+  ordenCompraId: string | null;
+  pagoLigadoA: 'ciprl' | 'acordado' | null;   // el vencimiento es un evento, no una fecha
+  vencimientoEstimado: boolean;                // fecha estimada del CIPRL, no firme
+  desfaseDias: number | null;                  // vencimiento factura − vencimiento OC
 }
 
 const soles = (n: number) =>
@@ -92,7 +96,7 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
       /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       const { data: pag, error } = await (supabase as any)
         .from('v_cxp')
-        .select('id, area, cdc, proyecto_id, concepto, categoria, proveedor, moneda, tc_aplicado, vence, mes, monto_pendiente, monto_presupuestado, monto_pagado, pagado, vencido, origen, fuente, referencia_doc, estado_pago, momento')
+        .select('id, area, cdc, proyecto_id, concepto, categoria, proveedor, moneda, tc_aplicado, vence, mes, monto_pendiente, monto_presupuestado, monto_pagado, pagado, vencido, origen, fuente, referencia_doc, estado_pago, momento, orden_compra_id, pago_ligado_a, vencimiento_estimado, desfase_dias')
         .eq('pagado', false)
         .order('vence', { ascending: true, nullsFirst: false })
         .range(desde, desde + TAM - 1);
@@ -127,6 +131,10 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
         referencia: (r.referencia_doc as string) ?? null,
         estado: (r.estado_pago as string) ?? null,
         momento: (r.momento as string) ?? null,
+        ordenCompraId: (r.orden_compra_id as string) ?? null,
+        pagoLigadoA: r.pago_ligado_a === 'ciprl' || r.pago_ligado_a === 'acordado' ? r.pago_ligado_a : null,
+        vencimientoEstimado: Boolean(r.vencimiento_estimado),
+        desfaseDias: r.desfase_dias == null ? null : Number(r.desfase_dias),
       };
     }));
     setCargando(false);
@@ -182,6 +190,46 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
   useEffect(() => { setPagina(1); }, [area, origenes, proyecto, soloVencidas, busqueda]);
   const totalPaginas = Math.max(1, Math.ceil(datos.length / POR_PAGINA));
   const paginado = datos.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
+
+  // Lo que no tiene fecha porque su vencimiento es un EVENTO (el cobro del
+  // CIPRL) o un acuerdo pendiente. Se separa para que nadie lo lea como vencido
+  // ni lo pierda de vista.
+  const ligadasCiprl = useMemo(() => {
+    const porProyecto = new Map<string, { proyectoId: string | null; filas: Cxp[]; total: number }>();
+    for (const f of datos) {
+      if (f.pagoLigadoA !== 'ciprl') continue;
+      if (f.vence && !f.vencimientoEstimado) continue;   // ya tiene fecha firme (cobro registrado)
+      const k = f.proyectoId ?? 'sin-proyecto';
+      const g = porProyecto.get(k) ?? { proyectoId: f.proyectoId, filas: [], total: 0 };
+      g.filas.push(f); g.total += f.pendienteSoles; porProyecto.set(k, g);
+    }
+    return Array.from(porProyecto.entries()).sort((a, b) => b[1].total - a[1].total);
+  }, [datos]);
+  const sinFechaAcordado = useMemo(() => datos.filter(f => !f.vence && f.pagoLigadoA !== 'ciprl'), [datos]);
+
+  const [ciprlEdit, setCiprlEdit] = useState<Record<string, string>>({});
+  const [fechaEdit, setFechaEdit] = useState<Record<string, string>>({});
+
+  const fijarCiprl = async (proyectoId: string, estimada: string, cobro?: string) => {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const { error } = await (supabase as any).rpc('fijar_ciprl_proyecto', {
+      p_proyecto: proyectoId, p_estimada: estimada || null, p_cobro: cobro || null,
+    });
+    if (error) { toast.error('No se pudo fijar la fecha del CIPRL: ' + error.message); return; }
+    toast.success(cobro ? 'Cobro del CIPRL registrado: las órdenes ligadas quedan con fecha firme' : 'Fecha estimada del CIPRL aplicada a las órdenes ligadas');
+    void cargar();
+  };
+
+  const fijarFecha = async (f: Cxp, fecha: string) => {
+    if (!fecha) return;
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const { error } = f.ordenCompraId
+      ? await (supabase as any).rpc('fijar_vencimiento_oc', { p_oc: f.ordenCompraId, p_fecha: fecha, p_estimado: false })
+      : await (supabase as any).from('flujo_compromisos').update({ fecha_vencimiento: fecha, mes_vencimiento: `${fecha.slice(0, 7)}-01` }).eq('id', f.id);
+    if (error) { toast.error('No se pudo fijar la fecha: ' + error.message); return; }
+    toast.success('Fecha de vencimiento fijada');
+    void cargar();
+  };
 
   const toggleOrigen = (k: Cxp['origen']) => setOrigenes(prev => {
     const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n;
@@ -270,6 +318,100 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
         </div>
       </CardContent></Card>
 
+      {/* Ligadas al cobro del CIPRL: el vencimiento es un evento, no una fecha */}
+      {ligadasCiprl.length > 0 && (
+        <Card className="border-amber-300/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarClock className="size-4 text-amber-600" /> Se pagan cuando la empresa cobre el CIPRL
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              No cuentan como vencidas. Pon la <b>fecha estimada</b> de cobro por proyecto para que entren en la proyección de caja
+              (queda marcada como estimada); cuando el CIPRL se cobre, registra la <b>fecha real</b> y las órdenes pasan a vencimiento firme.
+            </p>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-muted-foreground border-b bg-muted/30">
+                <tr>
+                  <th className="text-left font-medium px-3 py-2">Proyecto</th>
+                  <th className="text-right font-medium px-3 py-2">Órdenes</th>
+                  <th className="text-right font-medium px-3 py-2">Pendiente (S/)</th>
+                  <th className="text-left font-medium px-3 py-2">Fecha estimada de cobro</th>
+                  {puedeEditar && <th className="px-3 py-2"></th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {ligadasCiprl.map(([k, g]) => {
+                  const estimadaActual = g.filas.find(f => f.vencimientoEstimado && f.vence)?.vence ?? '';
+                  const valor = ciprlEdit[k] ?? estimadaActual;
+                  return (
+                    <tr key={k}>
+                      <td className="px-3 py-2 font-medium">{g.proyectoId ? (nombreProyecto.get(g.proyectoId) ?? '—') : 'Sin proyecto'}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{g.filas.length}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{soles(g.total)}</td>
+                      <td className="px-3 py-2">
+                        {puedeEditar && g.proyectoId ? (
+                          <Input type="date" className="h-8 w-[160px]" value={valor} onChange={e => setCiprlEdit(p => ({ ...p, [k]: e.target.value }))} />
+                        ) : (estimadaActual || 'sin estimar')}
+                        {estimadaActual && <span className="ml-2 text-xs text-amber-600">estimada</span>}
+                      </td>
+                      {puedeEditar && (
+                        <td className="px-3 py-2 text-right whitespace-nowrap">
+                          {g.proyectoId && (
+                            <>
+                              <Button size="sm" variant="outline" disabled={!valor} onClick={() => fijarCiprl(g.proyectoId!, valor)}>Aplicar estimada</Button>
+                              <Button size="sm" variant="ghost" className="ml-1" disabled={!valor} title="Registrar que el CIPRL ya se cobró en esa fecha"
+                                onClick={() => { if (window.confirm(`¿Registrar el cobro real del CIPRL el ${valor}? Las órdenes ligadas pasan a vencimiento firme.`)) fijarCiprl(g.proyectoId!, valor, valor); }}>
+                                Cobrado
+                              </Button>
+                            </>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sin fecha por acuerdo pendiente */}
+      {sinFechaAcordado.length > 0 && (
+        <Card className="border-amber-300/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="size-4 text-amber-600" /> Sin fecha de vencimiento ({sinFechaAcordado.length})
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">"Según lo acordado" u otras sin fecha: no entran al calendario hasta que alguien la fije.</p>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-sm">
+              <tbody className="divide-y">
+                {sinFechaAcordado.slice(0, 40).map(f => (
+                  <tr key={f.id}>
+                    <td className="px-3 py-1.5 max-w-[360px] truncate" title={f.concepto ?? ''}>{f.concepto}{f.referencia && <span className="ml-1 text-xs text-muted-foreground">· {f.referencia}</span>}</td>
+                    <td className="px-3 py-1.5 max-w-[200px] truncate">{f.proveedor ?? '—'}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums whitespace-nowrap">{soles2(f.pendienteSoles)}</td>
+                    {puedeEditar && (
+                      <td className="px-3 py-1.5 whitespace-nowrap text-right">
+                        <Input type="date" className="h-8 w-[150px] inline-block" value={fechaEdit[f.id] ?? ''} onChange={e => setFechaEdit(p => ({ ...p, [f.id]: e.target.value }))} />
+                        <Button size="sm" variant="outline" className="ml-1" disabled={!fechaEdit[f.id]} onClick={() => fijarFecha(f, fechaEdit[f.id])}>Fijar</Button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                {sinFechaAcordado.length > 40 && (
+                  <tr><td colSpan={4} className="px-3 py-2 text-xs text-muted-foreground">… y {sinFechaAcordado.length - 40} más (usa la búsqueda del detalle).</td></tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Calendario mes × área */}
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-base">Calendario de pagos (pendiente en soles)</CardTitle></CardHeader>
@@ -345,8 +487,14 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
               {paginado.map(f => (
                 <tr key={f.id} className={f.vencido ? 'bg-red-50/40 dark:bg-red-950/20' : ''}>
                   <td className="px-3 py-1.5 whitespace-nowrap tabular-nums">
-                    {f.vence ?? '—'}
+                    {f.vence ?? (f.pagoLigadoA === 'ciprl' ? 'al cobrar CIPRL' : '—')}
                     {f.vencido && <Badge variant="destructive" className="ml-1 text-[10px]">vencido</Badge>}
+                    {f.vencimientoEstimado && <Badge variant="outline" className="ml-1 text-[10px] text-amber-600">estimada</Badge>}
+                    {f.desfaseDias != null && f.desfaseDias !== 0 && (
+                      <Badge variant="outline" className="ml-1 text-[10px]" title="Vencimiento de la factura frente al proyectado por la OC">
+                        factura {f.desfaseDias > 0 ? '+' : ''}{f.desfaseDias} d
+                      </Badge>
+                    )}
                   </td>
                   <td className="px-3 py-1.5 max-w-[320px] truncate" title={f.concepto ?? ''}>
                     {f.concepto}

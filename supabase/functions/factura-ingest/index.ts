@@ -128,6 +128,8 @@ export default {
         numero: f.numero,
         numero_completo: f.numeroCompleto,
         fecha_emision: f.fechaEmision,
+        // Si el XML no trae vencimiento, el trigger lo deriva de emisión + días de crédito de la OC.
+        fecha_vencimiento: f.fechaVencimiento,
         ruc_emisor: f.rucEmisor,
         razon_social_emisor: f.razonSocialEmisor,
         ruc_receptor: f.rucReceptor,

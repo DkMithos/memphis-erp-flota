@@ -9,6 +9,12 @@ export interface FacturaUBL {
   numero: string;            // 00000123
   numeroCompleto: string;    // F001-00000123
   fechaEmision: string | null;
+  /**
+   * Vencimiento de pago: cbc:DueDate o, si viene por cuotas (SUNAT FormaPago),
+   * la ÚLTIMA cac:PaymentTerms/cbc:PaymentDueDate. null si el XML no lo trae
+   * (entonces la base lo deriva de emisión + días de crédito de la OC).
+   */
+  fechaVencimiento: string | null;
   moneda: string;            // PEN | USD
   rucEmisor: string | null;
   razonSocialEmisor: string | null;
@@ -72,6 +78,13 @@ export function parseUBLInvoice(xml: string): FacturaUBL {
   const moneda = txt(root.DocumentCurrencyCode) ?? 'PEN';
   const fechaEmision = txt(root.IssueDate);
 
+  // Vencimiento: DueDate directo, o la última cuota de FormaPago (crédito).
+  const cuotas = arr(root.PaymentTerms)
+    .map((t) => txt(t?.PaymentDueDate))
+    .filter((d): d is string => !!d && /^\d{4}-\d{2}-\d{2}/.test(d))
+    .sort();
+  const fechaVencimiento = txt(root.DueDate) ?? (cuotas.length ? cuotas[cuotas.length - 1] : null);
+
   // Emisor / receptor
   const supplier = root.AccountingSupplierParty?.Party;
   const customer = root.AccountingCustomerParty?.Party;
@@ -99,6 +112,7 @@ export function parseUBLInvoice(xml: string): FacturaUBL {
     numero: numero ?? '',
     numeroCompleto: idFull,
     fechaEmision,
+    fechaVencimiento: fechaVencimiento ? fechaVencimiento.slice(0, 10) : null,
     moneda,
     rucEmisor,
     razonSocialEmisor: partyName(supplier),

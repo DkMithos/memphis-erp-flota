@@ -2582,3 +2582,22 @@ de la base. Proyecto 360 muestra **"Datos del Excel de Operaciones al …"** (de
 
 **Decisiones que quedan para Finanzas/Gerencia:** `cxp_desde` (hoy go-live); política de TC (ya hay dato real diario); fechas de
 vencimiento a mano para CIPRL / según lo acordado; reactivar o no el cron de proyectos; normalizar `momento` a catálogo (35 variantes).
+
+
+## Bloque 1b — Vencimientos: la factura manda; CIPRL es un evento (2026-09-23)
+
+Kevin: "¿todos los pagos deben ir ligados al vencimiento de la factura?" y "CIPRL/según lo acordado: ¿el equipo puede poner la fecha
+cuando la sepa? En CIPRL se paga al proveedor cuando la empresa cobra el CIPRL del proyecto (se enteran 1 día antes)".
+
+**Regla implementada (migración `bloque1b_vencimiento_editable_ciprl_y_factura`):** manual > factura > CIPRL del proyecto > emisión + días.
+- OC: `pago_ligado_a` (ciprl | acordado, derivado de la condición), `fecha_vencimiento_pago` **editable** (`vencimiento_manual`; campo en
+  OrdenForm con ayuda según condición; visible en OrdenDetalle) y `vencimiento_estimado` cuando hereda la fecha del CIPRL.
+- Proyecto: `fecha_ciprl_estimada` / `fecha_ciprl_cobro` → bajan a las OC ligadas sin fecha manual (trigger). RPCs `fijar_ciprl_proyecto`
+  y `fijar_vencimiento_oc` (finanzas.editar / finanzas.flujo / compras.editar).
+- Factura: `factura-ingest` v5 lee `cbc:DueDate` o la última cuota `PaymentTerms/PaymentDueDate`; si no viene, trigger = emisión + días de
+  crédito de la OC. Al enlazarse manda su fecha y se guarda `desfase_dias` (factura − OC) para control.
+- `v_cxp`: lo ligado a CIPRL sin fecha o con fecha estimada **no** cuenta como vencido.
+- Cuentas por pagar: bloque "Se pagan cuando la empresa cobre el CIPRL" (por proyecto, con fecha estimada → "Aplicar" y "Cobrado"),
+  bloque "Sin fecha de vencimiento" con edición en línea, badges estimada / desfase de factura.
+
+Datos: 24 OC CIPRL (2 vivas post go-live: AMAZONAS, LORETO Bomberos), 126 "según lo acordado". Vencido sigue en S/ 29.6 M.

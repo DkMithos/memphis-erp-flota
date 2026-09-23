@@ -387,6 +387,24 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
                 <p className="font-medium">{formatearFecha(orden.fechaEntregaEstimada)}</p>
               </div>
             )}
+            {/* Vencimiento de pago: proyectado por la condición, fijado a mano,
+                o ligado a un evento (cobro del CIPRL). Con factura, manda la factura. */}
+            <div>
+              <p className="text-sm text-muted-foreground">Vencimiento de pago</p>
+              {orden.fechaVencimientoPago ? (
+                <p className="font-medium">
+                  {formatearFecha(orden.fechaVencimientoPago)}
+                  {orden.vencimientoEstimado && <span className="ml-2 text-xs text-amber-600">estimado (CIPRL)</span>}
+                  {orden.vencimientoManual && !orden.vencimientoEstimado && <span className="ml-2 text-xs text-muted-foreground">fijado a mano</span>}
+                </p>
+              ) : orden.pagoLigadoA === 'ciprl' ? (
+                <p className="font-medium text-amber-600">Al cobrar el CIPRL del proyecto (sin fecha aún)</p>
+              ) : orden.pagoLigadoA === 'acordado' ? (
+                <p className="font-medium text-amber-600">Según lo acordado — falta fijar la fecha</p>
+              ) : (
+                <p className="font-medium text-muted-foreground">—</p>
+              )}
+            </div>
           </CardContent>
         </Card>
 

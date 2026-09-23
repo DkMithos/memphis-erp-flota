@@ -139,6 +139,11 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
   const [condiciones, setCondiciones] = useState(
     ordenExistente?.condiciones || cotizacionPrefill?.terminos || ''
   );
+  // Vencimiento de pago: vacío = que la base lo calcule (emisión + días de
+  // crédito, o la fecha del CIPRL del proyecto). Con valor = fijado a mano.
+  const [fechaVencimientoPago, setFechaVencimientoPago] = useState(
+    ordenExistente?.vencimientoManual ? (ordenExistente.fechaVencimientoPago ?? '') : ''
+  );
   const [lugarEntrega, setLugarEntrega] = useState(ordenExistente?.lugarEntrega || '');
   // Lo que hay que decirle al proveedor y no cabe en la descripción de un item.
   // Sale impreso en el PDF de la orden.
@@ -185,6 +190,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
       setMoneda(ordenExistente.moneda);
       setFechaEntregaEstimada(ordenExistente.fechaEntregaEstimada?.split('T')[0] || '');
       setCondiciones(ordenExistente.condiciones || '');
+      setFechaVencimientoPago(ordenExistente.vencimientoManual ? (ordenExistente.fechaVencimientoPago ?? '') : '');
       setLugarEntrega(ordenExistente.lugarEntrega || '');
       setObservaciones(ordenExistente.observaciones || '');
       setRegimenIgv(ordenExistente.regimenIgv ?? 'gravado');
@@ -283,6 +289,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
           proveedorNombre: proveedorNombre.trim(),
           moneda,
           fechaEntregaEstimada: fechaEntregaEstimada || undefined,
+          fechaVencimientoPago: fechaVencimientoPago || null,
           condiciones: condiciones.trim() || undefined,
           lugarEntrega: lugarEntrega.trim() || undefined,
           observaciones: observaciones.trim() || undefined,
@@ -312,6 +319,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
             precioUnitario: item.precioUnitario
           })),
           fechaEntregaEstimada: fechaEntregaEstimada || undefined,
+          fechaVencimientoPago: fechaVencimientoPago || null,
           condiciones: condiciones.trim() || undefined,
           lugarEntrega: lugarEntrega.trim() || undefined,
           observaciones: observaciones.trim() || undefined,
@@ -548,6 +556,28 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
             {errors.condiciones && (
               <p className="text-sm text-red-600 mt-1">{errors.condiciones}</p>
             )}
+          </div>
+
+          {/* Vencimiento de pago: la base lo deriva de la condición (emisión +
+              días). Se puede fijar a mano; para CIPRL y "según lo acordado" es
+              la única forma de tener fecha, y la de CIPRL puede ser estimada. */}
+          <div className="space-y-2">
+            <Label htmlFor="fechaVencimientoPago">Vencimiento de pago</Label>
+            <Input
+              id="fechaVencimientoPago"
+              type="date"
+              value={fechaVencimientoPago}
+              onChange={(e) => setFechaVencimientoPago(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {/ciprl/i.test(condiciones)
+                ? 'Ligada al cobro del CIPRL del proyecto: se paga cuando la empresa cobre. Puedes poner una fecha estimada; Finanzas la ajusta desde Cuentas por pagar.'
+                : /acordad/i.test(condiciones)
+                  ? 'Condición "según lo acordado": indica aquí la fecha convenida; sin ella la orden no entra en el calendario de pagos.'
+                  : fechaVencimientoPago
+                    ? 'Fijada a mano: la base no la recalculará al cambiar la condición.'
+                    : 'Déjala vacía y se calcula sola: fecha de emisión + días de crédito de la condición.'}
+            </p>
           </div>
 
           {/* Lugar de entrega — mixto: destinos frecuentes del catálogo, y
