@@ -22,7 +22,7 @@ import { SearchableSelect } from '../../shared/SearchableSelect';
 import { ImportarPresupuestoDialog } from './ImportarPresupuestoDialog';
 import { supabase } from '../../../lib/supabase/client';
 import {
-  calcularMargen, aSoles, margenLegible, PARAMETROS_DEFECTO,
+  calcularMargen, aSoles, margenLegible, PARAMETROS_DEFECTO, IGV,
 } from '../../../lib/proyectos/rendimiento';
 import { ESTADOS_OC_GASTO } from '../../../lib/proyectos/proyecto-financiero';
 
@@ -101,7 +101,7 @@ export function PresupuestoProyecto() {
         .select('item, nivel, es_hoja, descripcion, unidad, cantidad, moneda, total_sin_igv, total_con_igv, proveedor_nota, orden')
         .eq('presupuesto_id', c.id).order('orden'),
       supabase.from('ordenes_compra')
-        .select('total, moneda, estado')
+        .select('total, moneda, estado, tipo_cambio')
         .eq('proyecto_id', c.proyectoId),
       /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       (supabase as any).from('v_partida_ejecucion')
@@ -125,21 +125,26 @@ export function PresupuestoProyecto() {
       proveedorNota: (r.proveedor_nota as string) ?? null,
       orden: r.orden as number,
     })));
-    // Comprometido: la MISMA regla que Proyecto 360 y la base (aprobadas o
-    // recibidas; borradores y enviadas aún no comprometen), en soles al TC
-    // del presupuesto.
+    // Comprometido: la MISMA regla que proyecto_financiero() y Proyecto 360
+    // (aprobadas o recibidas; borradores y enviadas aún no comprometen), total
+    // con IGV y cada orden en dólares al TC SUNAT con que nació. El TC del
+    // presupuesto solo entra si la orden no trae el suyo.
     const comp = (ocs ?? [])
       .filter((o: Record<string, unknown>) => (ESTADOS_OC_GASTO as readonly string[]).includes(String(o.estado)))
       .reduce((s: number, o: Record<string, unknown>) =>
-        s + aSoles(Number(o.total ?? 0), String(o.moneda ?? 'PEN'), c.tipoCambio), 0);
+        s + aSoles(Number(o.total ?? 0), String(o.moneda ?? 'PEN'), Number(o.tipo_cambio) || c.tipoCambio), 0);
     setComprometido(Math.round(comp * 100) / 100);
     setCargando(false);
   }, []);
 
   useEffect(() => { if (cab) cargarDetalle(cab); }, [cab, cargarDetalle]);
 
+  // El presupuesto de Operaciones (PRO-FOR-004) va con IGV, igual que el total
+  // de la OC: se comparan con IGV en los dos lados. Una plantilla vieja sin
+  // total con IGV se lleva a con IGV con la tasa general.
+  const conIgv = (l: LineaPresu) => l.totalConIgv ?? ((l.totalSinIgv ?? 0) * (1 + IGV));
   const presupuestado = useMemo(
-    () => lineas.filter(l => l.esHoja).reduce((s, l) => s + (l.totalSinIgv ?? 0), 0),
+    () => lineas.filter(l => l.esHoja).reduce((s, l) => s + conIgv(l), 0),
     [lineas],
   );
 
@@ -158,7 +163,7 @@ export function PresupuestoProyecto() {
     // Total presupuestado por prefijo (suma de hojas cuyo item empieza por el prefijo).
     const hojasDe = (prefijo: string) => lineas
       .filter(l => l.esHoja && (l.item === prefijo || l.item.startsWith(prefijo + '.')));
-    const totalDe = (prefijo: string) => hojasDe(prefijo).reduce((s, l) => s + (l.totalSinIgv ?? 0), 0);
+    const totalDe = (prefijo: string) => hojasDe(prefijo).reduce((s, l) => s + conIgv(l), 0);
     // Comprometido con partida asignada, agregado hacia arriba por prefijo.
     const compDe = (prefijo: string) => hojasDe(prefijo).reduce((s, l) => s + (ejec.get(l.item)?.comprometido ?? 0), 0);
     const sobregiradasDe = (prefijo: string) => hojasDe(prefijo).filter(l => ejec.get(l.item)?.sobregirada).length;
@@ -228,13 +233,14 @@ export function PresupuestoProyecto() {
               <p className="text-xl font-bold">{soles(cab.convenio)}</p>
             </CardContent></Card>
             <Card><CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Presupuestado (sin IGV)</p>
+              <p className="text-xs text-muted-foreground">Presupuestado (con IGV)</p>
               <p className="text-xl font-bold">{soles(presupuestado)}</p>
+              <p className="text-[11px] text-muted-foreground">plan de Operaciones, TC {cab.tipoCambio}</p>
             </CardContent></Card>
             <Card><CardContent className="p-4">
               <p className="text-xs text-muted-foreground">Comprometido en órdenes</p>
               <p className="text-xl font-bold">{soles(comprometido)}</p>
-              <p className="text-[11px] text-muted-foreground">dólares al TC {cab.tipoCambio}</p>
+              <p className="text-[11px] text-muted-foreground">con IGV · dólares al TC SUNAT de cada orden</p>
             </CardContent></Card>
             <Card className={sobregasto ? 'border-red-400 dark:border-red-800' : ''}>
               <CardContent className="p-4">
@@ -306,7 +312,8 @@ export function PresupuestoProyecto() {
                   </tbody>
                 </table>
                 <p className="text-xs text-muted-foreground px-4 py-2">
-                  Base: importe del convenio. Sin ganancia por integración. Tipo de cambio fijo {cab.tipoCambio}.
+                  Base: importe del convenio. Sin ganancia por integración. Costo con IGV, como en el
+                  presupuesto de Operaciones; las órdenes en dólares al TC SUNAT del día en que se emitieron.
                   Reglas confirmadas con Antonio (16/09/2026). La columna «con lo comprometido» va subiendo a
                   medida que se emiten órdenes ({margenLegible(avance)} del presupuesto hasta hoy); solo iguala al
                   plan cuando el proyecto termina de comprarse.

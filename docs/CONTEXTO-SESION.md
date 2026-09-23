@@ -2627,3 +2627,53 @@ sobregiradas, enlace a partidas).
 **Estado de datos:** partidas cargadas solo en **1 de 11** proyectos (305 hojas); 0 ítems de OC con partida todavía (el control empieza
 con los requerimientos nuevos). Pendiente Operaciones: subir la plantilla de Antonio de los otros 10 proyectos (ImportarPresupuestoDialog).
 Pendiente (2b): UI para líneas de presupuesto de área; "crear proyecto desde el presupuesto"; alerta al aprobar una OC que sobregira su partida.
+
+
+## Bloque 2 · datos — Presupuestos PRO-FOR-004 migrados y TC SUNAT diario (2026-09-23)
+
+Kevin compartió `OneDrive - MEMPHIS MAQUINARIAS S.A.C\General - PROYECTOS` ("cada proyecto tiene carpeta y archivos con 'presupuesto';
+revisa celda por celda, tienen fórmulas extrañas, no todos son iguales") y confirmó: **Finanzas usará el TC de SUNAT diario**.
+
+**Formato encontrado: PRO-FOR-004** (plantilla de Antonio, abril 2025) en 10 proyectos. Cabecera (PROYECTO, CUI, Costo de Ejecución,
+Tasa de Cambio en C8, Plazo), bloque PLANIFICADO (E..H: precio U., precio T., proveedor, forma de pago) y bloque FINAL (I..L, negociado).
+Lo "extraño" de las fórmulas, ya resuelto en el parser (`parse_profor004.py`, scratchpad; leído con openpyxl valores + fórmulas):
+- **La moneda va escondida en la fórmula**: `=37990*$C$8` es dólares × celda del TC; el valor visible ya está en soles. Se detecta por
+  referencia a la celda del TC → `moneda='USD'`, `precio_unitario` en US$ (valor / TC) y `precio_unitario_soles`.
+- **Los precios traen IGV** (`=ROUND(720*1.18,2)`): validado porque Σ PLANIFICADO = `proyectos.presupuesto` **exacto** en MUNI CUSCO,
+  CUSCO AMBULANCIAS y HUÁNUCO. Se guarda `total_con_igv` = valor del Excel y `total_sin_igv` = /1.18.
+- Ítems "01.02.03" → canónico "1.2.3"; "01.02.00" es grupo. **Códigos duplicados** (SMARTBOM 72, LORMOVS 20, LORETO 13): hojas
+  duplicadas se renombran `1.2.3#2`, grupos duplicados se omiten. SMARTBOM tenía una celda "TC" con 70 (basura): se ignora si ≥ 10.
+- ICAPNP24 no tiene presupuesto: su Excel es un **control de pagos**, no un presupuesto. Sin partidas.
+
+**Migraciones:** `bloque2_partidas_bloque_final_profor004` (columnas del bloque FINAL, `forma_pago`, `fila_excel`; en cabecera
+`tipo_cambio_final`, `archivo_origen`, `formato`) y `bloque2_ejecucion_partidas_con_igv_y_respaldo_tc` (`v_partida_ejecucion` compara
+**con IGV en los dos lados** —el presupuesto no dice el IGV por línea, la OC sí conoce su régimen— y expone `presupuestado_sin_igv`;
+`ordenes_compra.tipo_cambio_migracion` como respaldo).
+
+**Carga (node pg + rol temporal, ya borrado):** 10 presupuestos, **1,290 partidas hoja** (upsert por código; LORETO: 130 nuevas, 275
+actualizadas, 131 viejas quedan `vigente=false`). Comparación Σ PLANIFICADO (con IGV) vs `proyectos.presupuesto`:
+
+| Proyecto | Hojas | Σ PRO-FOR-004 | ERP (Excel Operaciones) | Diferencia |
+|---|---|---|---|---|
+| 01CUSMUN24 | 77 | 6,235,201 | 6,235,201 | 0 |
+| 02CUSAMB25 | 143 | 26,917,370 | 26,917,370 | 0 |
+| 03HNCPNP25 | 50 | 6,804,737 | 6,804,737 | 0 |
+| 04LORBOM25 | 297 | 32,476,227 | 33,204,527 | −728,300 (archivo más nuevo) |
+| 05AMAPNP25 | 86 | 10,261,205 | 11,945,011 | −1,683,806 (versión distinta) |
+| 06CUSPNP25 | 45 | 11,406,421 | 12,585,422 | −1,179,001 (hoja "Presu. BASE") |
+| 07CUSHAM26 | 18 | 2,062,473 | 2,043,903 | +18,570 |
+| LORMOVS / SMARTBOM / SMARTMOVS | 82 / 397 / 95 | 73.5 M / 27.1 M / 34.6 M | sin presupuesto en ERP (en idea) | — |
+
+`proyectos.presupuesto` **no se tocó**: sigue viniendo del Excel de Operaciones. Las 4 diferencias son para que Operaciones diga cuál
+versión manda (o suba la vigente por ImportarPresupuestoDialog, que aún lee solo la plantilla-v1; soporte PRO-FOR-004 pendiente).
+
+**TC SUNAT diario, histórico completo:** la API decolecta sin token se agotó ("Apikey Required / Limit Exceeded"), así que el histórico
+viene de las series del BCRP "TC Sistema bancario SBS" (PD04639PD compra / PD04640PD venta). Regla verificada: **SUNAT(d) = cierre SBS del
+día hábil anterior** (SBS 18-sep 3.362 = SUNAT 19-sep 3.362; 14/15-mar-2025 3.67/3.663 coinciden). `tipos_cambio` tiene ahora **1,484 días
+seguidos** (2022-09-01 → hoy, sin huecos; 91 directos de SUNAT, el resto `sunat (SBS <fecha> via BCRP)`). `tc-sync` v2 usa el BCRP como
+respaldo cuando decolecta falla (probado: 2022-09-01 = 3.847), sin pisar valores directos de SUNAT.
+
+**914 OC migradas en USD re-expresadas** (911 traían 3.40 y 3 traían 3.45 por defecto) al TC SUNAT de su fecha de emisión (3.345–3.883),
+con el TC anterior guardado en `tipo_cambio_migracion`. Efecto: el gasto USD pasa de S/ 89.4 M a S/ 96.0 M (+7.3 %); `costo_real` se
+recalculó solo (triggers) y 138 compromisos del flujo se alinearon al nuevo TC. PresupuestoProyecto ahora compara con IGV en los dos lados
+y valora cada OC al TC con que nació (la misma regla que `proyecto_financiero()`).
