@@ -33,6 +33,8 @@ import { supabase } from '../../../lib/supabase/client';
 
 /** Partida hoja del presupuesto del proyecto, para imputar cada ítem. */
 interface PartidaOpcion { id: string; item: string; descripcion: string; presupuestado: number }
+/** Línea del presupuesto de área (centro de costo) para lo que no es de proyecto. */
+interface LineaAreaOpcion { id: string; etiqueta: string; periodo: string; presupuestado: number; ejecutado: number }
 
 interface RequerimientoFormProps {
   requerimientoId?: string; // Si existe, es edición
@@ -86,6 +88,36 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
       });
     return () => { cancelado = true; };
   }, [proyectoImputado]);
+
+  // Lo que NO es de proyecto se controla contra el presupuesto de ÁREA del
+  // centro de costo (líneas de Finanzas → Presupuestos). Solo aparece cuando el
+  // CDC elegido tiene líneas cargadas; si no, el ítem va sin control, como hoy.
+  const cdcImputado = proyectoImputado ? null : ((formData as any).centroCostoId ?? null);
+  const [lineasArea, setLineasArea] = useState<LineaAreaOpcion[]>([]);
+  useEffect(() => {
+    if (!cdcImputado) { setLineasArea([]); return; }
+    let cancelado = false;
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    (supabase as any).from('presupuesto_lineas')
+      .select('id, categoria, subcategoria, monto_presupuestado, monto_ejecutado, presupuesto:presupuestos(nombre, periodo, estado)')
+      .eq('centro_costo_id', cdcImputado)
+      .then(({ data }: { data: Record<string, unknown>[] | null }) => {
+        if (cancelado) return;
+        setLineasArea((data ?? [])
+          .filter(r => ((r.presupuesto as Record<string, unknown> | null)?.estado ?? 'activo') !== 'cerrado')
+          .map(r => {
+            const p = r.presupuesto as Record<string, unknown> | null;
+            return {
+              id: r.id as string,
+              etiqueta: [r.categoria, r.subcategoria].filter(Boolean).join(' / '),
+              periodo: `${p?.nombre ?? ''} ${p?.periodo ?? ''}`.trim(),
+              presupuestado: Number(r.monto_presupuestado ?? 0),
+              ejecutado: Number(r.monto_ejecutado ?? 0),
+            };
+          }));
+      });
+    return () => { cancelado = true; };
+  }, [cdcImputado]);
 
   // Cargar datos si es edición
   useEffect(() => {
@@ -629,6 +661,27 @@ export function RequerimientoForm({ requerimientoId, onCancel, onSuccess }: Requ
                             </select>
                             <p className="text-xs text-muted-foreground">
                               Viaja a la cotización y a la orden: el gasto se compara contra esta partida.
+                            </p>
+                          </div>
+                        )}
+
+                        {partidas.length === 0 && lineasArea.length > 0 && (
+                          <div className="md:col-span-2 space-y-2">
+                            <Label>Línea del presupuesto del área</Label>
+                            <select
+                              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                              value={item.presupuestoLineaId ?? ''}
+                              onChange={(e) => actualizarItem(idx, 'presupuestoLineaId' as any, e.target.value || null)}
+                            >
+                              <option value="">— Sin línea (no se controla contra el presupuesto del área) —</option>
+                              {lineasArea.map(l => (
+                                <option key={l.id} value={l.id}>
+                                  {l.etiqueta} · {l.periodo} · {formatearMonto(l.presupuestado)} (ejecutado {formatearMonto(l.ejecutado)})
+                                </option>
+                              ))}
+                            </select>
+                            <p className="text-xs text-muted-foreground">
+                              Gasto que no es de proyecto: se compara contra el presupuesto del centro de costo.
                             </p>
                           </div>
                         )}

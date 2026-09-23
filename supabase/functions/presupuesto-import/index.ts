@@ -106,6 +106,11 @@ export default {
       const ok = (x: P) => x?.modulo === 'proyectos' && (x?.accion === 'crear' || x?.accion === 'editar')
       return Array.isArray(p) ? p.some(ok) : ok(p ?? {})
     })
+    const puedeCrear = permisoFilas.some((r) => {
+      const p = r.permisos as P | P[] | null
+      const ok = (x: P) => x?.modulo === 'proyectos' && x?.accion === 'crear'
+      return Array.isArray(p) ? p.some(ok) : ok(p ?? {})
+    })
     const esAdmin = (await admin.from('roles').select('nombre').in('id', rolIds))
       .data?.some((r: { nombre: string }) => r.nombre === 'Administrador') ?? false
     if (!esAdmin && !puede) return json({ error: 'Hace falta permiso para editar Proyectos' }, 403)
@@ -113,9 +118,11 @@ export default {
     let cuerpo: {
       accion?: string; proyecto_id?: string; drive_id?: string; item_id?: string
       carpeta_id?: string; solo_leer?: boolean
+      /** "Crear proyecto desde el presupuesto": nace con el código y nombre dados y el presupuesto del Excel. */
+      proyecto_nuevo?: { codigo?: string; nombre?: string }
     }
     try { cuerpo = await req.json() } catch { cuerpo = {} }
-    const accion = cuerpo.accion ?? (cuerpo.proyecto_id ? 'importar' : 'listar')
+    const accion = cuerpo.accion ?? (cuerpo.proyecto_id || cuerpo.proyecto_nuevo ? 'importar' : 'listar')
 
     // ── Navegación de SharePoint (raíces uso='presupuesto') ──
     if (accion === 'carpetas' || accion === 'listar') {
@@ -172,14 +179,29 @@ export default {
     }
 
     // ── Importar ──
-    if (!cuerpo.proyecto_id || !cuerpo.drive_id || !cuerpo.item_id) {
-      return json({ error: 'Faltan datos: proyecto_id, drive_id, item_id' }, 400)
+    const nuevo = cuerpo.proyecto_nuevo
+      ? { codigo: (cuerpo.proyecto_nuevo.codigo ?? '').trim().toUpperCase(), nombre: (cuerpo.proyecto_nuevo.nombre ?? '').trim() }
+      : null
+    if ((!cuerpo.proyecto_id && !nuevo) || !cuerpo.drive_id || !cuerpo.item_id) {
+      return json({ error: 'Faltan datos: proyecto_id (o proyecto_nuevo), drive_id, item_id' }, 400)
     }
 
-    const { data: proyecto } = await admin
-      .from('proyectos').select('id, codigo, nombre, monto_contrato, monto_adenda')
-      .eq('id', cuerpo.proyecto_id).eq('tenant_id', tenantId).maybeSingle()
-    if (!proyecto) return json({ error: 'Proyecto no encontrado' }, 404)
+    type Proy = { id: string | null; codigo: string; nombre: string; monto_contrato: number | null; monto_adenda: number | null; presupuesto: number | null; codigo_inversion: string | null }
+    let proyecto: Proy
+    if (nuevo) {
+      if (!esAdmin && !puedeCrear) return json({ error: 'Hace falta permiso para crear Proyectos' }, 403)
+      if (!nuevo.codigo || !nuevo.nombre) return json({ error: 'El proyecto nuevo necesita código y nombre' }, 400)
+      const { data: existe } = await admin.from('proyectos').select('id')
+        .eq('tenant_id', tenantId).eq('codigo', nuevo.codigo).maybeSingle()
+      if (existe) return json({ error: `Ya existe un proyecto con el código ${nuevo.codigo}: elígelo en la lista` }, 409)
+      proyecto = { id: null, codigo: nuevo.codigo, nombre: nuevo.nombre, monto_contrato: null, monto_adenda: null, presupuesto: null, codigo_inversion: null }
+    } else {
+      const { data } = await admin
+        .from('proyectos').select('id, codigo, nombre, monto_contrato, monto_adenda, presupuesto, codigo_inversion')
+        .eq('id', cuerpo.proyecto_id).eq('tenant_id', tenantId).maybeSingle()
+      if (!data) return json({ error: 'Proyecto no encontrado' }, 404)
+      proyecto = data as Proy
+    }
 
     try {
       const token = await getAppToken()
@@ -240,6 +262,25 @@ export default {
         convenio: Number(proyecto.monto_contrato ?? 0) + Number(proyecto.monto_adenda ?? 0),
       }
       if (cuerpo.solo_leer) return json({ ok: true, solo_leer: true, ...resumen })
+
+      // El proyecto nace del presupuesto: en idea, con el CUI y el total con IGV
+      // del Excel como presupuesto. El Excel de Operaciones (sync) lo irá
+      // completando; hasta entonces, esto es lo que hay.
+      if (proyecto.id === null) {
+        const { data: creado, error: eNuevo } = await admin.from('proyectos').insert({
+          tenant_id: tenantId, codigo: proyecto.codigo, nombre: proyecto.nombre,
+          tipo: 'cliente', modalidad: 'oxi', estado: 'planificacion', fase: 'idea', moneda: 'PEN',
+          presupuesto: t.conIgv, codigo_inversion: cab.cui || null, creado_por: user.id,
+        }).select('id').single()
+        if (eNuevo || !creado) return json({ error: `No se pudo crear el proyecto: ${eNuevo?.message}` }, 500)
+        proyecto.id = creado.id
+      } else if (proyecto.presupuesto === null || proyecto.presupuesto === 0) {
+        // Un proyecto en idea sin presupuesto en el ERP lo toma del Excel; uno
+        // que ya lo tiene lo conserva (esa cifra la manda Operaciones).
+        await admin.from('proyectos').update({
+          presupuesto: t.conIgv, codigo_inversion: proyecto.codigo_inversion ?? (cab.cui || null),
+        }).eq('id', proyecto.id)
+      }
 
       // La cabecera se actualiza; las partidas, más abajo, por código.
       const { data: cabeza, error: eCab } = await admin.from('proyecto_presupuestos').upsert({
@@ -303,7 +344,7 @@ export default {
         .not('item', 'in', `(${codigos.map(c => `"${c.replace(/"/g, '')}"`).join(',')})`)
       if (eVig) return json({ error: `Error al marcar partidas retiradas: ${eVig.message}`, ...resumen }, 500)
 
-      return json({ ok: true, ...resumen })
+      return json({ ok: true, proyecto_id: proyecto.id, proyecto_creado: nuevo !== null, ...resumen })
     } catch (e) {
       return json({ error: e instanceof Error ? e.message : String(e) }, 500)
     }

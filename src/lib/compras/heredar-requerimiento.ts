@@ -16,7 +16,7 @@
 import type { Requerimiento } from './requerimientos-store';
 
 export interface HerenciaCotizacion {
-  items: { descripcion: string; cantidad: number; unidad: string; precioUnitario: number; partidaId: string | null }[];
+  items: { descripcion: string; cantidad: number; unidad: string; precioUnitario: number; partidaId: string | null; presupuestoLineaId: string | null }[];
   moneda: 'PEN' | 'USD';
   observaciones: string;
 }
@@ -36,6 +36,7 @@ export function heredarDelRequerimiento(req: Requerimiento): HerenciaCotizacion 
       unidad: i.unidad,
       precioUnitario: i.precioEstimado,
       partidaId: i.partidaId ?? null,
+      presupuestoLineaId: i.presupuestoLineaId ?? null,
     })),
     moneda: req.moneda,
     observaciones: comentarios.join('\n'),

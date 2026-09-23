@@ -30,9 +30,15 @@ describe('la cotización no obliga a teclear otra vez lo pedido', () => {
     }));
 
     expect(h.items).toEqual([
-      { descripcion: 'Llanta 295/80 R22.5', cantidad: 4, unidad: 'UND', precioUnitario: 1200, partidaId: null },
-      { descripcion: 'Cámara', cantidad: 2, unidad: 'JGO', precioUnitario: 90, partidaId: null },
+      { descripcion: 'Llanta 295/80 R22.5', cantidad: 4, unidad: 'UND', precioUnitario: 1200, partidaId: null, presupuestoLineaId: null },
+      { descripcion: 'Cámara', cantidad: 2, unidad: 'JGO', precioUnitario: 90, partidaId: null, presupuestoLineaId: null },
     ]);
+  });
+
+  it('lo que no es de proyecto lleva su línea del presupuesto de área', () => {
+    const h = heredarDelRequerimiento(req({ items: [item({ presupuestoLineaId: 'linea-admin-2026' })] }));
+    expect(h.items[0].presupuestoLineaId).toBe('linea-admin-2026');
+    expect(h.items[0].partidaId).toBeNull();
   });
 
   it('la partida del presupuesto viaja con el ítem (así la OC hace match con el plan)', () => {

@@ -39,6 +39,8 @@ export interface ItemRequerimiento {
   comentario: string | null;
   /** Partida del presupuesto del proyecto a la que se imputa (viaja a la cotización y a la OC). */
   partidaId?: string | null;
+  /** Línea del presupuesto de ÁREA (por centro de costo) para lo que no es de proyecto. */
+  presupuestoLineaId?: string | null;
 }
 
 export interface Requerimiento {
@@ -148,6 +150,7 @@ function mapFromDB(row: RequerimientoWithItems): Requerimiento {
     unidad: item.unidad,
     precioEstimado: item.costo_estimado_unitario,
     partidaId: (item as any).partida_id ?? null,
+    presupuestoLineaId: (item as any).presupuesto_linea_id ?? null,
     comentario: item.observaciones,
   }));
 
@@ -326,6 +329,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
         cantidad: item.cantidad,
         costo_estimado_unitario: item.precioEstimado,
         partida_id: (item as any).partidaId ?? null,
+        presupuesto_linea_id: (item as any).presupuestoLineaId ?? null,
         observaciones: item.comentario ?? null,
       }));
       const { data: itemsData, error: errItems } = await supabase
@@ -392,7 +396,8 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
           unidad: item.unidad,
           cantidad: item.cantidad,
           costo_estimado_unitario: item.precioEstimado,
-        partida_id: (item as any).partidaId ?? null,
+          partida_id: (item as any).partidaId ?? null,
+          presupuesto_linea_id: (item as any).presupuestoLineaId ?? null,
           observaciones: item.comentario ?? null,
         }));
         const { data: newItemsData } = await supabase
@@ -412,6 +417,7 @@ export function RequerimientoStoreProvider({ children }: { children: React.React
               unidad: dbItem.unidad,
               precioEstimado: dbItem.costo_estimado_unitario,
               partidaId: (dbItem as any).partida_id ?? null,
+              presupuestoLineaId: (dbItem as any).presupuesto_linea_id ?? null,
               comentario: dbItem.observaciones,
             }));
             return {

@@ -119,6 +119,28 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
     [orden?.total, orden?.moneda, flujoConfig]
   );
 
+  // Al abrir el diálogo de aprobación se consulta si alguna partida de la orden
+  // se pasa del presupuesto de Operaciones (misma regla que v_partida_ejecucion).
+  // No bloquea —Compras puede tener razones— pero quien firma lo ve antes.
+  interface Sobregiro { item: string; descripcion: string; presupuestado: number; otras: number; esta: number; exceso: number; sobregira: boolean }
+  const [partidasOrden, setPartidasOrden] = useState<Sobregiro[] | null>(null);
+  useEffect(() => {
+    if (!showAprobarDialog || !orden?._dbId) { setPartidasOrden(null); return; }
+    let cancelado = false;
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    (supabase as any).rpc('oc_partidas_sobregiro', { p_oc: orden._dbId })
+      .then(({ data }: { data: Record<string, unknown>[] | null }) => {
+        if (cancelado) return;
+        setPartidasOrden((data ?? []).map(r => ({
+          item: r.item as string, descripcion: (r.descripcion as string) ?? '',
+          presupuestado: Number(r.presupuestado ?? 0), otras: Number(r.comprometido_otras ?? 0),
+          esta: Number(r.esta_orden ?? 0), exceso: Number(r.exceso ?? 0), sobregira: Boolean(r.sobregira),
+        })));
+      });
+    return () => { cancelado = true; };
+  }, [showAprobarDialog, orden?._dbId]);
+  const sobregiradas = (partidasOrden ?? []).filter(p => p.sobregira);
+
   if (!orden) {
     return (
       <Alert variant="destructive">
@@ -625,9 +647,36 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
               ¿Está seguro de aprobar la orden <strong>{orden.id}</strong>?
             </DialogDescription>
           </DialogHeader>
+          {sobregiradas.length > 0 && (
+            <Alert variant="destructive">
+              <ShieldAlert className="size-4" />
+              <AlertDescription>
+                <p className="font-medium">
+                  Con esta orden, {sobregiradas.length === 1 ? 'una partida se pasa' : `${sobregiradas.length} partidas se pasan`} del presupuesto del proyecto:
+                </p>
+                <ul className="mt-1.5 space-y-1 text-xs">
+                  {sobregiradas.map(p => (
+                    <li key={p.item}>
+                      <span className="font-mono">{p.item}</span> {p.descripcion} — presupuestado {formatearMonto(p.presupuestado, 'PEN')},
+                      ya comprometido {formatearMonto(p.otras, 'PEN')}, esta orden {formatearMonto(p.esta, 'PEN')} →
+                      <strong> se pasa en {formatearMonto(p.exceso, 'PEN')}</strong>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 text-xs">Montos con IGV, dólares al TC SUNAT de cada orden. Puedes aprobar igual; queda a tu criterio.</p>
+              </AlertDescription>
+            </Alert>
+          )}
+          {partidasOrden && partidasOrden.length > 0 && sobregiradas.length === 0 && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <ShieldCheck className="size-3.5 text-green-600" /> Las {partidasOrden.length} partidas de esta orden quedan dentro del presupuesto.
+            </p>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAprobarDialog(false)} className="!border-slate-400 hover:!bg-black hover:!text-white hover:!border-black dark:hover:!bg-accent dark:hover:!text-accent-foreground dark:hover:!border-input">Cancelar</Button>
-            <Button onClick={handleAprobar}>Confirmar Aprobación</Button>
+            <Button onClick={handleAprobar} variant={sobregiradas.length > 0 ? 'destructive' : 'default'}>
+              {sobregiradas.length > 0 ? 'Aprobar igual' : 'Confirmar Aprobación'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

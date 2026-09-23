@@ -53,6 +53,7 @@ interface ItemForm {
   precioUnitario: number;
   /** Partida del presupuesto, heredada de la cotización (que la heredó del requerimiento). */
   partidaId?: string | null;
+  presupuestoLineaId?: string | null;
 }
 
 export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onSuccess }: OrdenFormProps) {
@@ -300,7 +301,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
             cantidad: item.cantidad,
             unidad: item.unidad.trim(),
             precioUnitario: item.precioUnitario,
-            partidaId: item.partidaId ?? null,
+            partidaId: item.partidaId ?? null, presupuestoLineaId: item.presupuestoLineaId ?? null,
           }))
         });
         if (!res.exito) {
@@ -320,7 +321,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
             cantidad: item.cantidad,
             unidad: item.unidad.trim(),
             precioUnitario: item.precioUnitario,
-            partidaId: item.partidaId ?? null,
+            partidaId: item.partidaId ?? null, presupuestoLineaId: item.presupuestoLineaId ?? null,
           })),
           fechaEntregaEstimada: fechaEntregaEstimada || undefined,
           fechaVencimientoPago: fechaVencimientoPago || null,

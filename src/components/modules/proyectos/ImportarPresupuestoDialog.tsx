@@ -18,6 +18,7 @@ import {
 } from '../../ui/dialog';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
+import { Input } from '../../ui/input';
 import { SearchableSelect } from '../../shared/SearchableSelect';
 import { supabase } from '../../../lib/supabase/client';
 
@@ -37,6 +38,8 @@ interface Miga { id: string | null; nombre: string; }
 interface Resultado {
   ok: boolean;
   proyecto?: string;
+  proyecto_id?: string;
+  proyecto_creado?: boolean;
   formato?: 'plantilla-v1' | 'pro-for-004';
   hoja?: string;
   lineas?: number;
@@ -62,6 +65,11 @@ export function ImportarPresupuestoDialog({ proyectoIdInicial, onImportado }: Pr
 
   const [proyectos, setProyectos] = useState<ProyectoOpt[]>([]);
   const [proyectoId, setProyectoId] = useState<string | null>(proyectoIdInicial ?? null);
+  // "Crear proyecto desde el presupuesto": un proyecto en idea nace aquí, con el
+  // código que le da Operaciones y el total del Excel como presupuesto.
+  const [modo, setModo] = useState<'existente' | 'nuevo'>('existente');
+  const [nuevoCodigo, setNuevoCodigo] = useState('');
+  const [nuevoNombre, setNuevoNombre] = useState('');
 
   const [items, setItems] = useState<ItemSP[]>([]);
   const [migas, setMigas] = useState<Miga[]>([]);
@@ -123,19 +131,28 @@ export function ImportarPresupuestoDialog({ proyectoIdInicial, onImportado }: Pr
     void listar(null);
   }, [open, listar]);
 
+  const esNuevo = modo === 'nuevo';
+  const destinoListo = esNuevo ? nuevoCodigo.trim().length > 0 && nuevoNombre.trim().length > 0 : !!proyectoId;
+
   const importar = async () => {
-    if (!proyectoId || !archivo || !driveId) return;
+    if (!destinoListo || !archivo || !driveId) return;
     setImportando(true);
     setResultado(null);
     try {
       const { data, error: errFn } = await supabase.functions.invoke('presupuesto-import', {
-        body: { accion: 'importar', proyecto_id: proyectoId, drive_id: driveId, item_id: archivo.itemId },
+        body: {
+          accion: 'importar', drive_id: driveId, item_id: archivo.itemId,
+          ...(esNuevo
+            ? { proyecto_nuevo: { codigo: nuevoCodigo.trim().toUpperCase(), nombre: nuevoNombre.trim() } }
+            : { proyecto_id: proyectoId }),
+        },
       });
       if (errFn) throw errFn;
       const r = data as Resultado;
       if (!r?.ok) { setResultado({ ok: false, error: r?.error ?? 'No se pudo importar' }); return; }
       setResultado(r);
-      onImportado(proyectoId);
+      const idCargado = r.proyecto_id ?? proyectoId;
+      if (idCargado) onImportado(idCargado);
     } catch (e) {
       setResultado({ ok: false, error: e instanceof Error ? e.message : 'No se pudo importar' });
     } finally {
@@ -163,7 +180,9 @@ export function ImportarPresupuestoDialog({ proyectoIdInicial, onImportado }: Pr
             <div className="rounded-md border border-green-300 bg-green-50 dark:bg-green-950/20 p-4 flex items-start gap-3">
               <CheckCircle2 className="size-5 text-green-600 shrink-0 mt-0.5" />
               <div className="text-sm">
-                <p className="font-medium">Presupuesto cargado para {resultado.proyecto}</p>
+                <p className="font-medium">
+                  {resultado.proyecto_creado ? `Proyecto ${resultado.proyecto} creado con su presupuesto` : `Presupuesto cargado para ${resultado.proyecto}`}
+                </p>
                 <p className="text-muted-foreground mt-1">
                   {resultado.lineas} líneas ({resultado.hojas} partidas de gasto) ·
                   presupuestado {soles(resultado.total_presupuestado_con_igv ?? 0)} con IGV
@@ -183,18 +202,32 @@ export function ImportarPresupuestoDialog({ proyectoIdInicial, onImportado }: Pr
           <div className="space-y-4">
             {/* 1. Proyecto destino */}
             <div>
-              <p className="text-sm font-medium mb-1.5">1. ¿A qué proyecto?</p>
-              <SearchableSelect
-                value={proyectoId}
-                onChange={setProyectoId}
-                options={proyectos.map(p => ({ value: p.id, label: `${p.codigo} — ${p.nombre}`, keywords: `${p.codigo} ${p.nombre}` }))}
-                placeholder="Elegir proyecto destino"
-                emptyText="Sin proyectos"
-                nullable={false}
-              />
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <p className="text-sm font-medium">1. ¿A qué proyecto?</p>
+                <div className="flex rounded-md border text-xs overflow-hidden">
+                  <button type="button" className={`px-2.5 py-1 ${!esNuevo ? 'bg-primary text-primary-foreground' : 'hover:bg-accent/50'}`} onClick={() => setModo('existente')}>Existente</button>
+                  <button type="button" className={`px-2.5 py-1 ${esNuevo ? 'bg-primary text-primary-foreground' : 'hover:bg-accent/50'}`} onClick={() => setModo('nuevo')}>Proyecto nuevo</button>
+                </div>
+              </div>
+              {esNuevo ? (
+                <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-2">
+                  <Input value={nuevoCodigo} onChange={e => setNuevoCodigo(e.target.value)} placeholder="Código (ej. 08AYAPNP26)" className="font-mono uppercase" />
+                  <Input value={nuevoNombre} onChange={e => setNuevoNombre(e.target.value)} placeholder="Nombre del proyecto" />
+                </div>
+              ) : (
+                <SearchableSelect
+                  value={proyectoId}
+                  onChange={setProyectoId}
+                  options={proyectos.map(p => ({ value: p.id, label: `${p.codigo} — ${p.nombre}`, keywords: `${p.codigo} ${p.nombre}` }))}
+                  placeholder="Elegir proyecto destino"
+                  emptyText="Sin proyectos"
+                  nullable={false}
+                />
+              )}
               <p className="text-xs text-muted-foreground mt-1">
-                Vale la plantilla v1 o el PRO-FOR-004 de Operaciones (se reconoce solo). Si el proyecto ya
-                tenía presupuesto, las partidas se actualizan por su código y las que ya no están quedan retiradas.
+                {esNuevo
+                  ? 'El proyecto nace en idea con el CUI y el total con IGV del Excel como presupuesto; después Operaciones lo completa.'
+                  : 'Vale la plantilla v1 o el PRO-FOR-004 de Operaciones (se reconoce solo). Si el proyecto ya tenía presupuesto, las partidas se actualizan por su código y las que ya no están quedan retiradas.'}
               </p>
             </div>
 
@@ -282,7 +315,7 @@ export function ImportarPresupuestoDialog({ proyectoIdInicial, onImportado }: Pr
                 </span>
               )}
               <Button variant="ghost" onClick={() => setOpen(false)} disabled={importando}>Cancelar</Button>
-              <Button onClick={importar} disabled={!proyectoId || !archivo || importando}>
+              <Button onClick={importar} disabled={!destinoListo || !archivo || importando}>
                 {importando ? <><Loader2 className="size-4 animate-spin" /> Importando…</> : 'Importar'}
               </Button>
             </DialogFooter>

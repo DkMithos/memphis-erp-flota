@@ -2686,3 +2686,18 @@ y guarda `formato`, `archivo_origen · hoja`, `tipo_cambio_final` y el bloque FI
 11,406,420.67 en la hoja "Presu. BASE" — idénticos al parser de Python. La raíz `uso='presupuesto'` (COMPRAS/General) **es** la carpeta
 "General - PROYECTOS" de OneDrive (mismo drive), así que Operaciones ya navega a sus archivos desde ImportarPresupuestoDialog.
 En "0.0 PROYECTOS EN IDEA" hay PRO-FOR-004 sin proyecto en el ERP: Ayacucho, COER Loreto, Bomberos Cusco (2 versiones), renting.
+
+
+## Bloque 2b ejecutado — Alerta de sobregiro, presupuesto de área y proyecto desde el presupuesto (2026-09-23)
+
+- **Alerta al aprobar** (`oc_partidas_sobregiro(uuid)`, migración `bloque2b_alerta_sobregiro_partida_al_aprobar`): al abrir el diálogo de
+  aprobación, OrdenDetalle lista las partidas de la OC que se pasarían del presupuesto (presupuestado · ya comprometido por otras OC ·
+  esta orden · exceso; con IGV, USD al TC de cada orden). No bloquea: el botón pasa a "Aprobar igual" en rojo. Si todo cabe, lo dice.
+- **Presupuesto de ÁREA**: `presupuestoLineaId` viaja requerimiento → cotización → OC (stores, heredar, OrdenForm; columna
+  `presupuesto_linea_id` ya existía). RequerimientoForm muestra el selector de líneas de `presupuesto_lineas` del CDC cuando el
+  requerimiento NO es de proyecto y el CDC tiene líneas. **Hoy Finanzas no tiene ningún presupuesto de área cargado (0 filas)**: el
+  selector no aparece hasta que carguen uno en Finanzas → Presupuestos. Decisión pendiente de Finanzas.
+- **Crear proyecto desde el presupuesto** (`presupuesto-import` v6, `proyecto_nuevo: {codigo, nombre}`, exige `proyectos.crear`):
+  el proyecto nace en idea (tipo cliente, OxI, planificación) con el CUI y el total con IGV del Excel como `presupuesto`; un proyecto
+  existente SIN presupuesto en el ERP también lo toma del Excel (uno que ya lo tiene lo conserva: esa cifra la manda Operaciones).
+  En ImportarPresupuestoDialog: pestaña "Existente / Proyecto nuevo".

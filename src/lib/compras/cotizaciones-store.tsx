@@ -40,6 +40,8 @@ export interface ItemCotizacion {
   subtotal: number;
   /** Partida del presupuesto del proyecto (heredada del requerimiento; viaja a la OC). */
   partidaId?: string | null;
+  /** Línea del presupuesto de área (lo que no es de proyecto); viaja del requerimiento a la OC. */
+  presupuestoLineaId?: string | null;
 }
 
 export interface Cotizacion {
@@ -179,7 +181,7 @@ function mapFromDB(row: CotizacionWithRelations): Cotizacion {
     unidad: item.unidad,
     precioUnitario: item.precio_unitario,
     subtotal: item.precio_total,
-    partidaId: (item as any).partida_id ?? null,
+    partidaId: (item as any).partida_id ?? null, presupuestoLineaId: (item as any).presupuesto_linea_id ?? null,
   }));
 
   // Parse validez días from fecha_validez
@@ -400,7 +402,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
         unidad: item.unidad,
         cantidad: item.cantidad,
         precio_unitario: item.precioUnitario,
-        partida_id: (item as any).partidaId ?? null,
+        partida_id: (item as any).partidaId ?? null, presupuesto_linea_id: (item as any).presupuestoLineaId ?? null,
       }));
       const { data: itemsData, error: errItems } = await supabase
         .from('cotizacion_items')
@@ -492,7 +494,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
           unidad: item.unidad,
           cantidad: item.cantidad,
           precio_unitario: item.precioUnitario,
-          partida_id: (item as any).partidaId ?? null,
+          partida_id: (item as any).partidaId ?? null, presupuesto_linea_id: (item as any).presupuestoLineaId ?? null,
         }));
         const { data: newItemsData } = await supabase
           .from('cotizacion_items')
@@ -511,7 +513,7 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
               unidad: dbItem.unidad,
               precioUnitario: dbItem.precio_unitario,
               subtotal: dbItem.precio_total,
-              partidaId: (dbItem as any).partida_id ?? null,
+              partidaId: (dbItem as any).partida_id ?? null, presupuestoLineaId: (dbItem as any).presupuesto_linea_id ?? null,
             }));
             const { subtotal, impuestos, total } = calcularTotales(newItems);
             return {
