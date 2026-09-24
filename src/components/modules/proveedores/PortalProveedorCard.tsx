@@ -30,6 +30,7 @@ export function PortalProveedorCard({ proveedorDbId, ruc, emailSugerido }: Props
   const [estado, setEstado] = useState<EstadoPortal | null>(null);
   const [email, setEmail] = useState('');
   const [enlace, setEnlace] = useState('');
+  const [correo, setCorreo] = useState<{ enviado: boolean; error: string | null } | null>(null);
   const [trabajando, setTrabajando] = useState(false);
 
   const cargar = useCallback(async () => {
@@ -53,6 +54,7 @@ export function PortalProveedorCard({ proveedorDbId, ruc, emailSugerido }: Props
   const llamar = async (accion: 'alta' | 'reenviar' | 'revocar') => {
     setTrabajando(true);
     setEnlace('');
+    setCorreo(null);
     try {
       const { data: s } = await supabase.auth.getSession();
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/portal-proveedor-alta`, {
@@ -69,8 +71,9 @@ export function PortalProveedorCard({ proveedorDbId, ruc, emailSugerido }: Props
         toast.error(data.error ?? `Error ${res.status}`);
         return;
       }
-      toast.success(data.mensaje ?? 'Listo');
+      if (data.correo_enviado === false) toast.warning(data.mensaje ?? 'El correo no salió'); else toast.success(data.mensaje ?? 'Listo');
       if (data.enlace_contrasena) setEnlace(data.enlace_contrasena);
+      if (typeof data.correo_enviado === 'boolean') setCorreo({ enviado: data.correo_enviado, error: data.correo_error ?? null });
       cargar();
     } finally {
       setTrabajando(false);
@@ -142,10 +145,12 @@ export function PortalProveedorCard({ proveedorDbId, ruc, emailSugerido }: Props
               )}
             </div>
             {enlace && (
-              <div className="rounded-md border border-green-300 bg-green-50 dark:bg-green-950/20 p-3 space-y-2">
+              <div className={`rounded-md border p-3 space-y-2 ${correo?.enviado ? 'border-green-300 bg-green-50 dark:bg-green-950/20' : 'border-amber-300 bg-amber-50 dark:bg-amber-950/20'}`}>
                 <p className="text-sm flex items-center gap-1.5">
-                  <CheckCircle2 className="size-4 text-green-600" />
-                  Envía este enlace a <strong>{email}</strong> para que el proveedor defina su contraseña (expira en 24h):
+                  <CheckCircle2 className={`size-4 ${correo?.enviado ? 'text-green-600' : 'text-amber-600'}`} />
+                  {correo?.enviado
+                    ? <>El enlace ya salió por correo a <strong>{email}</strong> (vence en 72 h). Por si acaso, aquí lo tienes:</>
+                    : <>El correo no salió{correo?.error ? ` (${correo.error})` : ''}. Envía este enlace a <strong>{email}</strong> a mano (vence en 72 h):</>}
                 </p>
                 <div className="flex items-center gap-2">
                   <Input readOnly value={enlace} className="text-xs font-mono" onFocus={e => e.target.select()} />

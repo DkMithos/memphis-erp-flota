@@ -2818,6 +2818,27 @@ mezcla montos con signo; ¿cómo debe ser un flujo correcto?"):
   de 4,726,500); y el cobro se fecha con la valorización, no con "hoy" (migración `bloque6_cxc_valorizacion_duplicado_agrupado`).
   Quedan como cobro real del ERP solo las 2 de MUNI CUSCO (4.0 M + 2.01 M), que el Excel no trae como filas de cobro.
 
+## Portal de proveedores: correo automático del enlace + acceso de prueba de Kevin (2026-09-24)
+
+Estado real del portal antes de esto: 98 proveedores con cuenta, **8 entraron alguna vez, 0 facturas subidas**, 4 invitaciones en
+2,5 meses. El cuello: el enlace de contraseña lo tenía que mandar alguien a mano.
+
+- **`correo-enviar`** (Edge Function interna, x-cron-secret o clave de servicio): puerta única de correo del ERP por **Microsoft Graph**
+  (`/users/{remitente}/sendMail`, token de aplicación MS_*). Remitente en `configuracion_tenant` (tabla nueva, clave `correo_remitente`,
+  hoy `kcastillo@memphis.pe`; RPC `fijar_configuracion` con admin.editar).
+- **`portal-proveedor-alta` v6** llama a `correo-enviar` tras generar el enlace y devuelve `correo_enviado` / `correo_error`; si el correo
+  no sale, el enlace sigue saliendo en pantalla para mandarlo a mano. La tarjeta "Portal de Proveedores" muestra el estado.
+- **BLOQUEO pendiente de Kevin (Entra ID):** la prueba real devolvió **403 ErrorAccessDenied**: la app de Microsoft del ERP no tiene el
+  permiso de aplicación **Mail.Send** con consentimiento de administrador. Al concederlo (Entra → App registrations → la app del ERP →
+  API permissions → Microsoft Graph → Application → Mail.Send → Grant admin consent) el envío funciona sin tocar código. Recomendable
+  además una *Application Access Policy* de Exchange que limite la app al buzón remitente.
+- **Acceso de prueba TEMPORAL (eliminar al terminar):** proveedor `PROV-QA01` "PROVEEDOR DE PRUEBA (KEVIN) S.A.C." RUC **20999999991**
+  (email kevinc.2703@gmail.com, cuenta portal `9a1c0000-0000-4000-8000-00000000f0f0`), OC **MM-QA0001** (PEN 5,900, CDC OFCENTRAL) y
+  **MM-QA0002** (USD 1,180, proyecto 07CUSHAM26, TC 3.362), 2 compromisos en CxP. Invitación de 72 h generada por SQL. Cuatro XML UBL de
+  prueba entregados (FQ01-00000001 completa; 0002/0003 parciales; 0004 excede el saldo → debe rechazarse).
+  **Limpieza al terminar:** borrar comprobantes/transacciones/asientos/registros/compromisos/recepciones/movimientos de esas OC, las OC,
+  el proveedor, la invitación y el usuario auth; el proyecto 07CUSHAM26 vuelve solo (triggers).
+
 **Lo que muestra hoy (empresa, jun–dic 2026):** ingresos reales 69.1 M (CIPRL/valorizaciones del Excel), egresos reales 66.3 M,
 previsto por cobrar 76.1 M (oct–nov), previsto por pagar 75.6 M, vencido sin pagar 22.5 M; saldo acumulado negativo (−60 M a dic) porque
 el saldo inicial está en 0 y el Excel trae egresos 2025–2026 sin sus ingresos correspondientes: **el saldo solo tendrá sentido cuando

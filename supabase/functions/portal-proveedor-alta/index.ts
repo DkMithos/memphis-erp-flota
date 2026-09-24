@@ -2,8 +2,9 @@
 // La ejecuta el personal interno de Memphis (staff autenticado del tenant).
 // Crea la cuenta del proveedor (alias {ruc}@proveedores.memphismaquinarias.com),
 // y genera el enlace de un solo uso para que el PROVEEDOR fije su contraseña
-// (Memphis nunca ve ni define la contraseña). Sin SMTP propio: la función
-// devuelve el enlace y el staff lo envía al email real del proveedor.
+// (Memphis nunca ve ni define la contraseña). El enlace sale por correo solo
+// (correo-enviar → Microsoft Graph); si el correo falla, se devuelve el enlace
+// para que el staff lo mande a mano.
 import { withSupabase } from 'npm:@supabase/server';
 
 interface Body {
@@ -47,6 +48,40 @@ async function gotrueAdmin(path: string, method: string, body?: unknown) {
   });
   const data = await res.json().catch(() => ({}));
   return { ok: res.ok, status: res.status, data };
+}
+
+/** Manda el enlace de contraseña por la puerta única de correo del ERP. Nunca lanza. */
+async function enviarEnlacePorCorreo(p: {
+  tenantId: string; para: string; razonSocial: string; ruc: string; enlace: string; regenerado: boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  const html = `
+    <div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#222;max-width:560px">
+      <p>Estimados <b>${p.razonSocial}</b>,</p>
+      <p>Memphis Maquinarias ${p.regenerado ? 'le vuelve a enviar' : 'le da'} acceso a su <b>Portal de Proveedores</b>, donde ve sus órdenes de compra y sube sus facturas (XML + PDF) para que entren directo a pago.</p>
+      <p>Para crear su contraseña, abra este enlace (vale ${INVITACION_HORAS} horas y se usa una sola vez):</p>
+      <p><a href="${p.enlace}" style="display:inline-block;background:#0A66C2;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">Crear mi contraseña</a></p>
+      <p style="font-size:12px;color:#555">Si el botón no abre, copie este enlace en su navegador:<br>${p.enlace}</p>
+      <p>Luego ingrese en <b>erp.memphismaquinarias.com/portal</b> con su RUC <b>${p.ruc}</b> y la contraseña que creó.</p>
+      <p>Al subir cada factura, indique el número de la orden de compra (OrderReference del XML) para que se asigne sola.</p>
+      <p style="color:#555">Compras — Memphis Maquinarias S.A.C.</p>
+    </div>`;
+  try {
+    const r = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/correo-enviar`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${SECRET}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenant_id: p.tenantId, para: p.para,
+        asunto: `Acceso al Portal de Proveedores de Memphis Maquinarias — RUC ${p.ruc}`,
+        html,
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (r.ok && data.ok) return { ok: true };
+    return { ok: false, error: data.error ?? `HTTP ${r.status}` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 export default {
@@ -157,13 +192,27 @@ export default {
       .update({ portal_habilitado: true, email_portal: emailReal, portal_user_id: userId })
       .eq('id', prov.id);
 
+    const enlace = `${INVITACION_BASE}?code=${codigo}`;
+
+    // 8. El correo sale solo (correo-enviar → Microsoft Graph). Si no se puede
+    // —falta el permiso Mail.Send, buzón mal configurado— se devuelve el enlace
+    // igual para que el staff lo mande a mano, y el motivo para arreglarlo.
+    const correo = await enviarEnlacePorCorreo({
+      tenantId: callerTenant, para: emailReal, razonSocial: prov.razon_social, ruc: prov.ruc, enlace,
+      regenerado: accion === 'reenviar',
+    });
+
     return Response.json({
       ok: true,
       proveedor: { codigo: prov.codigo, razon_social: prov.razon_social, ruc: prov.ruc },
       login_ruc: prov.ruc,
       email_portal: emailReal,
-      enlace_contrasena: `${INVITACION_BASE}?code=${codigo}`,
-      mensaje: `Portal habilitado para ${prov.razon_social}. Envíe el enlace a ${emailReal} para que defina su contraseña (vence en ${INVITACION_HORAS}h; puede regenerarlo con "reenviar"). El enlace no se gasta al previsualizarlo: solo cuando el proveedor crea su contraseña.`,
+      enlace_contrasena: enlace,
+      correo_enviado: correo.ok,
+      correo_error: correo.ok ? null : correo.error,
+      mensaje: correo.ok
+        ? `Portal habilitado para ${prov.razon_social}. El enlace para crear su contraseña ya salió a ${emailReal} (vence en ${INVITACION_HORAS}h).`
+        : `Portal habilitado para ${prov.razon_social}, pero el correo no salió (${correo.error}). Envíe el enlace a ${emailReal} a mano; vence en ${INVITACION_HORAS}h.`,
     });
   }),
 };
