@@ -2838,7 +2838,9 @@ Estado real del portal antes de esto: 98 proveedores con cuenta, **8 entraron al
   prueba entregados (FQ01-00000001 completa; 0002/0003 parciales; 0004 excede el saldo → debe rechazarse).
   **Limpieza al terminar:** borrar comprobantes/transacciones/asientos/registros/compromisos/recepciones/movimientos de esas OC, las OC,
   el proveedor, la invitación y el usuario auth; el proyecto 07CUSHAM26 vuelve solo (triggers).
-- **Mail.Send sigue sin llegar al token** (diagnóstico `{diagnostico:true}` en `correo-enviar` decodifica el claim `roles`): la captura de
+- **Correo FUNCIONANDO (24/09 tarde):** tras conceder `Mail.Send` como permiso de **Aplicación** (la primera vez quedó como Delegada), el token
+  trae `Mail.Send` y `correo-enviar` devolvió `ok` enviando desde `kcastillo@memphis.pe` a kevinc.2703@gmail.com. Desde ahora
+  "Habilitar portal" / "Regenerar enlace" mandan el correo solos. Historial del bloqueo: **Mail.Send sigue sin llegar al token** (diagnóstico `{diagnostico:true}` en `correo-enviar` decodifica el claim `roles`): la captura de
   Entra de Kevin muestra `Mail.Send` como **Delegada**; hace falta el permiso de **Aplicación** (Add a permission → Application permissions →
   Mail.Send → Grant admin consent). App: `Memphis ERP`, client id `ee341cf2-6605-482e-9624-b25f95bbc62e`.
 - **Los proveedores YA empezaron a subir facturas** (23–24/09): FP30-0003092 (PERUANA DE MOTORES, OC MM-S-000406) y F002-0000171
