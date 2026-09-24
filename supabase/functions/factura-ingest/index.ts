@@ -134,6 +134,11 @@ export default {
         razon_social_emisor: f.razonSocialEmisor,
         ruc_receptor: f.rucReceptor,
         razon_social_receptor: f.razonSocialReceptor,
+        // La contabilización y el registro de compras leen las op_*: la base
+        // gravada es el valor de venta cuando hay IGV; si no lo hay, va como
+        // no gravada (exonerada/inafecta no se distinguen aquí).
+        op_gravada: f.igv > 0 ? f.subtotal : 0,
+        op_exonerada: f.igv > 0 ? 0 : f.subtotal,
         subtotal: f.subtotal,
         igv: f.igv,
         total: f.total,

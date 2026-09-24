@@ -102,8 +102,21 @@ Deno.serve(async (req: Request) => {
   const conServicio = SECRET && auth === SECRET
   if (!conSecreto && !conServicio) return json({ error: 'forbidden' }, 403)
 
-  let body: Correo
+  let body: Correo & { diagnostico?: boolean }
   try { body = await req.json() } catch { return json({ error: 'JSON inválido' }, 400) }
+
+  // { diagnostico: true } → qué permisos de aplicación trae el token de Graph
+  // (claim `roles`), para saber si Mail.Send ya está concedido. No expone el token.
+  if (body?.diagnostico) {
+    try {
+      const token = await getAppToken()
+      const claims = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+      return json({ ok: true, roles: claims.roles ?? [], app_id: claims.appid ?? claims.azp ?? null, expira: claims.exp ?? null })
+    } catch (e) {
+      return json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 502)
+    }
+  }
+
   if (!body?.tenant_id || !body.para || !body.asunto || !body.html) return json({ error: 'Faltan tenant_id, para, asunto o html' }, 400)
 
   const res = await enviarCorreo(body)
