@@ -7,7 +7,7 @@ import { parseUBLInvoice } from './ubl.ts';
 
 interface Body {
   xml: string;              // contenido del XML UBL 2.1
-  pdf_base64?: string;      // PDF opcional (representación impresa)
+  pdf_base64?: string;      // PDF (representación impresa) — obligatorio desde 2026-09-25
   orden_compra_id?: string; // opcional: si el XML no trae OrderReference
 }
 
@@ -42,6 +42,10 @@ export default {
     let body: Body;
     try { body = await req.json(); } catch { return Response.json({ error: 'JSON inválido' }, { status: 400 }); }
     if (!body?.xml) return Response.json({ error: 'Falta el XML de la factura' }, { status: 400 });
+    // El PDF (representación impresa) es obligatorio: es lo que revisa Compras y lo que se archiva.
+    if (!body.pdf_base64 || body.pdf_base64.length < 100) {
+      return Response.json({ ok: false, errores: ['Falta el PDF de la factura (representación impresa). Suba el XML y el PDF con el mismo nombre.'] }, { status: 422 });
+    }
 
     let f;
     try { f = parseUBLInvoice(body.xml); }

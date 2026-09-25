@@ -325,21 +325,27 @@ export function PortalProveedores({ route, onNavigate }: Props) {
     const pdfs = new Map(lista.filter(f => f.name.toLowerCase().endsWith('.pdf'))
       .map(f => [f.name.toLowerCase().replace(/\.pdf$/, ''), f]));
     if (xmls.length === 0) {
-      setResultados(r => [{ archivo: '—', ok: false, mensaje: 'Seleccione al menos un archivo XML (el PDF es opcional y se empareja por nombre)' }, ...r]);
+      setResultados(r => [{ archivo: '—', ok: false, mensaje: 'Seleccione el XML y el PDF de cada factura (los dos son obligatorios y deben llamarse igual, p. ej. F001-00000458.xml y F001-00000458.pdf)' }, ...r]);
       setSubiendo(false);
       return;
     }
     const nuevos: ResultadoSubida[] = [];
     for (const f of xmls) {
       const xml = await f.text();
+      // El PDF (representación impresa) es obligatorio: Compras y Contabilidad
+      // lo revisan y es el que se archiva. Se empareja con el XML por nombre.
       const pdf = pdfs.get(f.name.toLowerCase().replace(/\.xml$/, ''));
-      let pdfBase64: string | undefined;
-      if (pdf) {
-        const buf = new Uint8Array(await pdf.arrayBuffer());
-        let bin = '';
-        for (let i = 0; i < buf.length; i += 32768) bin += String.fromCharCode(...buf.subarray(i, i + 32768));
-        pdfBase64 = btoa(bin);
+      if (!pdf) {
+        nuevos.push({
+          archivo: f.name, ok: false, mensaje: 'Falta el PDF de esta factura',
+          errores: [`Sube también ${f.name.replace(/\.xml$/i, '.pdf')} (la representación impresa). Selecciona el XML y el PDF juntos.`],
+        });
+        continue;
       }
+      const buf = new Uint8Array(await pdf.arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < buf.length; i += 32768) bin += String.fromCharCode(...buf.subarray(i, i + 32768));
+      const pdfBase64 = btoa(bin);
       nuevos.push(await subirXml(f.name, xml, pdfBase64));
     }
     setResultados(r => [...nuevos, ...r]);
@@ -646,9 +652,10 @@ export function PortalProveedores({ route, onNavigate }: Props) {
             <CardHeader>
               <CardTitle className="text-base">Enviar facturas electrónicas</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Sube el <strong>XML</strong> de tu factura (obligatorio). El PDF es opcional y se
-                empareja por nombre de archivo. Si el XML incluye el número de orden
-                (OrderReference), la asignación es automática. Puedes subir varias a la vez.
+                Por cada factura sube <strong>dos archivos con el mismo nombre</strong>: el <strong>XML</strong> (factura
+                electrónica) y el <strong>PDF</strong> (representación impresa), p. ej. <code>F001-00000458.xml</code> y{' '}
+                <code>F001-00000458.pdf</code>. Ambos son obligatorios. Si el XML incluye el número de la orden de compra
+                (OrderReference), se asigna sola; si no, podrás elegir la orden. Puedes subir varias facturas a la vez.
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
