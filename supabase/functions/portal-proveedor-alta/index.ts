@@ -64,7 +64,7 @@ async function enviarEnlacePorCorreo(p: {
       <p style="font-size:12px;color:#555">Si el botón no abre, copie este enlace en su navegador:<br>${p.enlace}</p>
       <p>Luego ingrese en <b>erp.memphismaquinarias.com/portal</b> con su RUC <b>${p.ruc}</b> y la contraseña que creó.</p>
       <p>Por cada factura debe subir <b>dos archivos con el mismo nombre</b>: el <b>XML</b> y el <b>PDF</b>. Indique el número de la orden de compra (OrderReference del XML) para que se asigne sola.</p>
-      <p>Aquí tiene la guía paso a paso del portal: <a href="${GUIA_URL}">Guía del Portal de Proveedores (PDF)</a>.</p>
+      <p>Le adjuntamos la <b>Guía del Portal de Proveedores</b> (PDF) con el paso a paso. También puede verla en: <a href="${GUIA_URL}">${GUIA_URL}</a>.</p>
       <p style="color:#555">Compras — Memphis Maquinarias S.A.C.</p>
     </div>`;
   try {
@@ -75,8 +75,10 @@ async function enviarEnlacePorCorreo(p: {
         tenant_id: p.tenantId, para: p.para,
         asunto: `Acceso al Portal de Proveedores de Memphis Maquinarias — RUC ${p.ruc}`,
         html,
+        // La guía va adjunta (correo-enviar la descarga del ERP). Si no se pudiera, el correo sale igual con el enlace.
+        adjuntos_url: [{ nombre: 'Guia-Portal-Proveedores-Memphis.pdf', url: GUIA_URL }],
       }),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(40000),
     });
     const data = await r.json().catch(() => ({}));
     if (r.ok && data.ok) return { ok: true };

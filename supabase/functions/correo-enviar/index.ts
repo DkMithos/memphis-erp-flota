@@ -11,7 +11,10 @@
  * Es INTERNA: la llaman otras Edge Functions (portal-proveedor-alta, avisos) o
  * pg_cron. Exige `x-cron-secret` (vault cron_secret) o la clave de servicio.
  *
- * Body: { tenant_id, para: string|string[], asunto, html, texto?, cc?, responder_a? }
+ * Body: { tenant_id, para: string|string[], asunto, html, texto?, cc?, responder_a?,
+ *         adjuntos?: [{ nombre, content_type?, base64 }], adjuntos_url?: [{ nombre, url }] }
+ * Los adjuntos por URL se descargan aquí (p. ej. la guía del portal publicada en el ERP).
+ * Límite Graph para adjuntos simples: ~3 MB en total; si se pasa, se envía sin adjuntos y se avisa.
  * Respuesta: { ok, remitente, id? } | { ok:false, error, detalle? }
  */
 
@@ -50,10 +53,49 @@ export interface Correo {
   texto?: string
   cc?: string | string[]
   responder_a?: string
+  adjuntos?: { nombre: string; content_type?: string; base64: string }[]
+  adjuntos_url?: { nombre: string; url: string }[]
+}
+
+const MAX_ADJUNTOS_BYTES = 3 * 1024 * 1024
+
+function aBase64(bytes: Uint8Array): string {
+  let bin = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return btoa(bin)
+}
+
+/** Resuelve adjuntos (base64 directos + descargados por URL). Nunca lanza: lo que falle se omite y se informa. */
+async function resolverAdjuntos(c: Correo): Promise<{ lista: Record<string, unknown>[]; avisos: string[] }> {
+  const lista: Record<string, unknown>[] = []
+  const avisos: string[] = []
+  let total = 0
+  for (const a of c.adjuntos ?? []) {
+    if (!a?.nombre || !a?.base64) continue
+    total += Math.floor(a.base64.length * 3 / 4)
+    lista.push({ '@odata.type': '#microsoft.graph.fileAttachment', name: a.nombre, contentType: a.content_type ?? 'application/octet-stream', contentBytes: a.base64 })
+  }
+  for (const a of c.adjuntos_url ?? []) {
+    if (!a?.nombre || !a?.url) continue
+    try {
+      const r = await fetch(a.url, { signal: AbortSignal.timeout(10000) })
+      if (!r.ok) { avisos.push(`No se pudo descargar ${a.nombre} (HTTP ${r.status})`); continue }
+      const bytes = new Uint8Array(await r.arrayBuffer())
+      total += bytes.length
+      lista.push({ '@odata.type': '#microsoft.graph.fileAttachment', name: a.nombre, contentType: r.headers.get('content-type')?.split(';')[0] ?? 'application/octet-stream', contentBytes: aBase64(bytes) })
+    } catch (e) {
+      avisos.push(`No se pudo descargar ${a.nombre}: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+  if (total > MAX_ADJUNTOS_BYTES) {
+    avisos.push(`Adjuntos omitidos: superan el límite de ${Math.round(MAX_ADJUNTOS_BYTES / 1024 / 1024)} MB (${Math.round(total / 1024)} KB)`)
+    return { lista: [], avisos }
+  }
+  return { lista, avisos }
 }
 
 /** Envía un correo por Graph. Devuelve el motivo si no se pudo, nunca lanza. */
-export async function enviarCorreo(c: Correo): Promise<{ ok: boolean; remitente?: string; error?: string; detalle?: string }> {
+export async function enviarCorreo(c: Correo): Promise<{ ok: boolean; remitente?: string; error?: string; detalle?: string; adjuntos?: number; avisos?: string[] }> {
   const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', SECRET)
   const { data: cfg } = await admin.from('configuracion_tenant').select('valor')
     .eq('tenant_id', c.tenant_id).eq('clave', 'correo_remitente').maybeSingle()
@@ -67,6 +109,8 @@ export async function enviarCorreo(c: Correo): Promise<{ ok: boolean; remitente?
   let token: string
   try { token = await getAppToken() } catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) } }
 
+  const { lista: attachments, avisos } = await resolverAdjuntos(c)
+
   const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(remitente)}/sendMail`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -77,12 +121,13 @@ export async function enviarCorreo(c: Correo): Promise<{ ok: boolean; remitente?
         toRecipients: para.map(a => ({ emailAddress: { address: a } })),
         ccRecipients: lista(c.cc).map(a => ({ emailAddress: { address: a } })),
         replyTo: c.responder_a ? [{ emailAddress: { address: c.responder_a } }] : undefined,
+        attachments: attachments.length > 0 ? attachments : undefined,
       },
       saveToSentItems: true,
     }),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(30000),
   })
-  if (r.status === 202) return { ok: true, remitente }
+  if (r.status === 202) return { ok: true, remitente, adjuntos: attachments.length, avisos: avisos.length ? avisos : undefined }
   const detalle = (await r.text().catch(() => '')).slice(0, 400)
   const error = r.status === 403
     ? `Microsoft no deja enviar desde ${remitente} (403). Falta el permiso de aplicación Mail.Send con consentimiento de administrador en Entra, o el buzón no existe.`
