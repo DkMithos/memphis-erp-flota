@@ -582,6 +582,11 @@ export function PortalProveedores({ route, onNavigate }: Props) {
           <p className="text-xs text-muted-foreground text-center">
             ¿Sin acceso o contraseña olvidada? Contacta a tu comprador de Memphis Maquinarias.
           </p>
+          <p className="text-xs text-center">
+            <a href="/portal/guia-proveedores.pdf" target="_blank" rel="noopener" className="text-primary underline">
+              Guía del portal (PDF): cómo crear su contraseña y enviar sus facturas
+            </a>
+          </p>
         </CardContent>
       </Card>
     );

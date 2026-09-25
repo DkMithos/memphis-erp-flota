@@ -18,6 +18,7 @@ const DOMINIO_ALIAS = 'proveedores.memphismaquinarias.com';
 // GoTrue, que los bots de previsualización quemaban con el primer GET). Esta
 // página es HTML estático: bajarla no consume nada. La invitación solo se
 // consume cuando una persona envía su contraseña (ver portal-fijar-clave).
+const GUIA_URL = 'https://erp.memphismaquinarias.com/portal/guia-proveedores.pdf';
 const INVITACION_BASE = 'https://erp.memphismaquinarias.com/portal/invitacion';
 const INVITACION_HORAS = 72;
 
@@ -62,7 +63,8 @@ async function enviarEnlacePorCorreo(p: {
       <p><a href="${p.enlace}" style="display:inline-block;background:#0A66C2;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">Crear mi contraseña</a></p>
       <p style="font-size:12px;color:#555">Si el botón no abre, copie este enlace en su navegador:<br>${p.enlace}</p>
       <p>Luego ingrese en <b>erp.memphismaquinarias.com/portal</b> con su RUC <b>${p.ruc}</b> y la contraseña que creó.</p>
-      <p>Al subir cada factura, indique el número de la orden de compra (OrderReference del XML) para que se asigne sola.</p>
+      <p>Por cada factura debe subir <b>dos archivos con el mismo nombre</b>: el <b>XML</b> y el <b>PDF</b>. Indique el número de la orden de compra (OrderReference del XML) para que se asigne sola.</p>
+      <p>Aquí tiene la guía paso a paso del portal: <a href="${GUIA_URL}">Guía del Portal de Proveedores (PDF)</a>.</p>
       <p style="color:#555">Compras — Memphis Maquinarias S.A.C.</p>
     </div>`;
   try {
