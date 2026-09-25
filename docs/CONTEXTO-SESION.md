@@ -2853,3 +2853,25 @@ Estado real del portal antes de esto: 98 proveedores con cuenta, **8 entraron al
 previsto por cobrar 76.1 M (oct–nov), previsto por pagar 75.6 M, vencido sin pagar 22.5 M; saldo acumulado negativo (−60 M a dic) porque
 el saldo inicial está en 0 y el Excel trae egresos 2025–2026 sin sus ingresos correspondientes: **el saldo solo tendrá sentido cuando
 Finanzas fije el saldo de caja inicial y el flujo tenga todos los cobros**.
+
+## Portal de proveedores: XML + PDF obligatorios y Guía para proveedores (2026-09-25)
+
+- **Los dos archivos son obligatorios.** El portal (`PortalProveedores.tsx`) solo envía pares XML+PDF con el mismo nombre
+  (si falta el PDF, tarjeta de error "Falta el PDF de esta factura") y `factura-ingest` v7 rechaza con 422 si no llega
+  `pdf_base64`. Regla de negocio: el PDF (representación impresa) es lo que revisa Compras y lo que se archiva.
+- **Guía del Portal de Proveedores** (8 páginas, capturas reales del portal, hecha con Playwright + Edge headless):
+  publicada en `public/portal/guia-proveedores.pdf` → https://erp.memphismaquinarias.com/portal/guia-proveedores.pdf
+  (Vercel sirve el estático antes del rewrite del SPA; verificado 200 application/pdf). Contenido: qué es, requisitos
+  (XML UBL 2.1 + PDF mismo nombre, OrderReference con nº de OC, RUC receptor 20603847424), crear contraseña (72 h),
+  ingresar con RUC, Mis órdenes (saldo disponible, parcial), Enviar facturas + tabla de mensajes de error, estados de
+  Mis facturas, cambiar contraseña, FAQ. Para regenerarla: `scratchpad/manual/armar_guia.py` (fuente en el historial
+  de esta sesión; si cambia el portal, volver a capturar y regenerar).
+- **Enlazada desde**: el correo de invitación (`portal-proveedor-alta` v7, que además dice explícitamente que van XML y
+  PDF con el mismo nombre) y el pie del login del portal ("Guía del portal (PDF)"). `correo-enviar` no soporta adjuntos;
+  se enlaza, no se adjunta.
+- **QA02 limpiado.** El proveedor de captura `PROV-QA02` (RUC 20999999992, OCs MM-QA0003/04, factura F001-00000458,
+  invitación, auth user, archivos del bucket) fue borrado por completo. Nota: `storage.objects` no admite DELETE por SQL
+  (`storage.protect_delete`); se usó una Edge Function de un solo uso `qa-limpieza-storage` (llamada con el
+  `cron_secret` del vault vía pg_net) que ya quedó retirada como stub 410. Para la próxima limpieza de bucket, rehacer
+  ese mismo truco o borrar desde el dashboard de Storage.
+- **Sigue vivo (borrar cuando Kevin termine sus pruebas):** `PROV-QA01` RUC 20999999991 con MM-QA0001/02 e invitación.
