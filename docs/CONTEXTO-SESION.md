@@ -2875,3 +2875,13 @@ Finanzas fije el saldo de caja inicial y el flujo tenga todos los cobros**.
   `cron_secret` del vault vía pg_net) que ya quedó retirada como stub 410. Para la próxima limpieza de bucket, rehacer
   ese mismo truco o borrar desde el dashboard de Storage.
 - **Sigue vivo (borrar cuando Kevin termine sus pruebas):** `PROV-QA01` RUC 20999999991 con MM-QA0001/02 e invitación.
+
+### La guía va adjunta al correo de invitación (2026-09-25, tarde)
+- `correo-enviar` v3 acepta `adjuntos` (base64) y `adjuntos_url` (los descarga él; límite 3 MB total; si falla, el correo
+  sale igual y devuelve `avisos`). `portal-proveedor-alta` v8 adjunta `Guia-Portal-Proveedores-Memphis.pdf` desde la URL
+  publicada y mantiene el enlace en el cuerpo.
+- Prueba real end-to-end: staff temporal `qa.alta.tmp@memphis.pe` (creado por SQL y **ya borrado**) → `reenviar` para
+  PROV-QA01 → `correo_enviado: true`; el correo con la guía adjunta llegó a kevinc.2703@gmail.com. La invitación anterior
+  de QA01 quedó invalidada; la nueva vence el 2026-09-28 15:03 UTC.
+- Acceso de Kevin al portal de prueba: usuario = RUC `20999999991`; la contraseña la crea él con el enlace del correo
+  (Memphis nunca la conoce). Si el enlace vence, "Regenerar enlace" en la ficha del proveedor.
