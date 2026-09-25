@@ -90,6 +90,17 @@ export default {
       if (!res.ok) {
         const t = await res.text().catch(() => '')
         console.error('[fijar-clave] admin PUT error:', res.status, t)
+        // Política de contraseñas de Auth (mayúscula, minúscula, número, símbolo; no filtradas):
+        // se traduce a un mensaje claro para el proveedor en vez de un 500 genérico.
+        if (res.status === 422 && /weak_password/.test(t)) {
+          const filtrada = /pwned/.test(t)
+          return json({
+            ok: false, motivo: 'clave_debil',
+            error: filtrada
+              ? 'Esa contraseña es muy común y aparece en listas filtradas; elija otra. Debe tener mínimo 8 caracteres con mayúscula, minúscula, número y símbolo (por ejemplo: Ferreteria-2026!).'
+              : 'La contraseña debe tener mínimo 8 caracteres e incluir al menos una mayúscula, una minúscula, un número y un símbolo (por ejemplo: Ferreteria-2026!).',
+          }, 200)
+        }
         return json({ ok: false, error: `No se pudo fijar la contraseña (HTTP ${res.status})` }, 500)
       }
 

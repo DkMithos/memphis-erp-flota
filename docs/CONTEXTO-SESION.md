@@ -2885,3 +2885,12 @@ Finanzas fije el saldo de caja inicial y el flujo tenga todos los cobros**.
   de QA01 quedó invalidada; la nueva vence el 2026-09-28 15:03 UTC.
 - Acceso de Kevin al portal de prueba: usuario = RUC `20999999991`; la contraseña la crea él con el enlace del correo
   (Memphis nunca la conoce). Si el enlace vence, "Regenerar enlace" en la ficha del proveedor.
+
+### Política de contraseñas del portal (2026-09-25, tarde)
+- Kevin no pudo crear su contraseña: `portal-fijar-clave` devolvía "HTTP 422" genérico. Causa: **Supabase Auth exige
+  mayúscula + minúscula + número + símbolo (mín. 8) y rechaza contraseñas filtradas (HIBP)**; el formulario solo decía
+  "mínimo 8 caracteres". La invitación NO se consume cuando falla, así que el mismo enlace sigue sirviendo.
+- Fix: `portal-fijar-clave` v(+1) traduce el 422 `weak_password` a `{motivo:'clave_debil', error}` legible (distingue
+  "filtrada"); el portal valida antes de enviar (`validarClave`) y muestra la regla bajo el campo en los dos formularios
+  (invitación y cambiar contraseña); la guía (v1.1) explica la regla en Requisitos, Primer acceso y FAQ. Regenerada y
+  republicada en `public/portal/guia-proveedores.pdf`.

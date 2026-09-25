@@ -242,14 +242,32 @@ export function PortalProveedores({ route, onNavigate }: Props) {
     }
   };
 
+  // Política de contraseñas del proyecto (Supabase Auth): mínimo 8 caracteres con
+  // mayúscula, minúscula, número y símbolo; además rechaza contraseñas filtradas.
+  const REGLA_CLAVE = 'Mínimo 8 caracteres, con al menos una mayúscula, una minúscula, un número y un símbolo (por ejemplo: Ferreteria-2026!).';
+  const validarClave = (pwd: string): string | null => {
+    if (pwd.length < 8) return 'La contraseña debe tener al menos 8 caracteres.';
+    if (!/[a-z]/.test(pwd)) return 'La contraseña debe incluir al menos una letra minúscula.';
+    if (!/[A-Z]/.test(pwd)) return 'La contraseña debe incluir al menos una letra mayúscula.';
+    if (!/[0-9]/.test(pwd)) return 'La contraseña debe incluir al menos un número.';
+    if (!/[^A-Za-z0-9]/.test(pwd)) return 'La contraseña debe incluir al menos un símbolo (por ejemplo ! @ # $ % - _ .).';
+    return null;
+  };
+
   const guardarClave = async () => {
     setClaveMsg('');
-    if (clave1.length < 8) { setClaveMsg('La contraseña debe tener al menos 8 caracteres'); return; }
+    const invalida = validarClave(clave1);
+    if (invalida) { setClaveMsg(invalida); return; }
     if (clave1 !== clave2) { setClaveMsg('Las contraseñas no coinciden'); return; }
     setGuardandoClave(true);
     const { error } = await supabase.auth.updateUser({ password: clave1 });
     setGuardandoClave(false);
-    if (error) { setClaveMsg(`No se pudo guardar: ${error.message}`); return; }
+    if (error) {
+      setClaveMsg(/weak|pwned|character/i.test(error.message)
+        ? 'Esa contraseña es demasiado común o no cumple las reglas. ' + REGLA_CLAVE
+        : `No se pudo guardar: ${error.message}`);
+      return;
+    }
     setClave1(''); setClave2('');
     onNavigate('/portal');
     setVista('dashboard');
@@ -258,7 +276,8 @@ export function PortalProveedores({ route, onNavigate }: Props) {
   // Fija la contraseña desde la invitación opaca. Aquí SÍ se consume el código.
   const fijarClaveInvitacion = async () => {
     setClaveMsg('');
-    if (clave1.length < 8) { setClaveMsg('La contraseña debe tener al menos 8 caracteres'); return; }
+    const invalida = validarClave(clave1);
+    if (invalida) { setClaveMsg(invalida); return; }
     if (clave1 !== clave2) { setClaveMsg('Las contraseñas no coinciden'); return; }
     setGuardandoClave(true);
     try {
@@ -455,8 +474,9 @@ export function PortalProveedores({ route, onNavigate }: Props) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label className="mb-1.5 block">Nueva contraseña (mínimo 8 caracteres)</Label>
+            <Label className="mb-1.5 block">Nueva contraseña</Label>
             <Input type="password" value={clave1} onChange={e => setClave1(e.target.value)} />
+            <p className="text-xs text-muted-foreground mt-1.5">{REGLA_CLAVE}</p>
           </div>
           <div>
             <Label className="mb-1.5 block">Repite la contraseña</Label>
@@ -496,8 +516,9 @@ export function PortalProveedores({ route, onNavigate }: Props) {
         <CardHeader><CardTitle className="text-lg">Define tu contraseña</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label className="mb-1.5 block">Nueva contraseña (mínimo 8 caracteres)</Label>
+            <Label className="mb-1.5 block">Nueva contraseña</Label>
             <Input type="password" value={clave1} onChange={e => setClave1(e.target.value)} />
+            <p className="text-xs text-muted-foreground mt-1.5">{REGLA_CLAVE}</p>
           </div>
           <div>
             <Label className="mb-1.5 block">Repite la contraseña</Label>
