@@ -2995,3 +2995,6 @@ Microsoft 365 Copilot como complemento. Sin código ni commit en esta tarea. §7
   "Solicitar edición" (Compras), tarjeta ámbar con Autorizar/Denegar (quien aprueba), tarjeta gris si fue denegada.
   Lista: badge "Edición solicitada". `useMisPendientesOC` expone `edicionesPendientes` (se muestran en el recuadro
   "Me toca firmar" y en el KPI del tablero). Tras editar, Compras vuelve a "Enviar a aprobación" como siempre.
+- **Anular (30/09, tarde):** anular OC, cotización, requerimiento (y recepción) exige `compras.eliminar`. El rol Proyectos
+  (Miguelángel) lo recibe (migración `proyectos_puede_anular_compras`). Richard (Compras) NO lo tiene: hoy solo anula sus
+  propios requerimientos. Si Kevin quiere que Compras también anule, es el mismo permiso para el rol Compras.
