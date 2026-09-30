@@ -538,7 +538,7 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
     </table>
     <div class="res">
       <div><span>Subtotal:</span><span>${money(orden.subtotal)}</span></div>
-      <div><span>IGV (18%):</span><span>${money(orden.impuestos ?? orden.igv)}</span></div>
+      <div><span>${Number(orden.impuestos ?? orden.igv ?? 0) > 0 ? 'IGV (18%):' : 'IGV: no aplica'}</span><span>${money(orden.impuestos ?? orden.igv)}</span></div>
       <div class="tot"><span>Total:</span><span>${money(orden.total)}</span></div>
     </div>
   </div>

@@ -9,7 +9,7 @@ import { supabase } from '../supabase/client';
 import { dbOrdenesCompra } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { validateTransition, ORDEN_TRANSITIONS } from '../shared/state-machine';
-import type { RegimenIgv } from './regimen-igv';
+import { tasaIgv, type RegimenIgv } from './regimen-igv';
 import { etapasRequeridas, type EtapaAprobacion, type FlujoAprobacionConfig } from './approval-flow';
 import { solicitarAprobacionTeams } from './solicitar-aprobacion';
 import type {
@@ -413,8 +413,12 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         subtotal: item.cantidad * item.precioUnitario,
       }));
 
+      // El IGV sale del RÉGIMEN (18% gravado; 0 Amazonía / no domiciliado /
+      // inafecto). Sin la tasa, calcularTotales aplicaba 18% siempre y la orden
+      // guardaba IGV aunque dijera "exonerado" (MM-S-000429, MM-001279…).
       const { subtotal, impuestos, total } = calcularTotales(
-        itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal }))
+        itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal })),
+        tasaIgv(input.regimenIgv ?? 'gravado'),
       );
 
       const { data: inserted, error: errOrd } = await dbOrdenesCompra.create({
@@ -500,7 +504,12 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         .insert(itemsPayload)
         .select();
       if (errItems) {
+        // Antes esto solo iba a la consola y la orden quedaba guardada SIN líneas
+        // (MM-S-000429, 30/09). Una orden sin detalle no sirve: se deshace
+        // (orden_aprobaciones cae en cascada) y se avisa.
         console.error('[ORDENES] Error al crear items:', errItems.message);
+        await supabase.from('ordenes_compra').delete().eq('id', dbRow.id);
+        return { exito: false, errores: [`No se pudieron guardar las líneas: ${errItems.message}`] };
       }
       const itemsInserted = (itemsData ?? []) as OrdenItemDB[];
 
@@ -545,17 +554,29 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         updatePayload.vencimiento_manual = !!input.fechaVencimientoPago;
       }
 
+      // Régimen de IGV: se guarda si cambia, y los totales se recalculan con SU
+      // tasa cuando cambian los ítems o el propio régimen.
+      const ordPrevia = ordenesRef.current.find(o => o.id === id);
+      const regimen = input.regimenIgv ?? ordPrevia?.regimenIgv ?? 'gravado';
+      if (input.regimenIgv !== undefined) updatePayload.regimen_igv = input.regimenIgv;
+      if (input.aplicaRetencionRh !== undefined) updatePayload.aplica_retencion_rh = input.aplicaRetencionRh;
+
       if (input.items !== undefined) {
         const itemsConSubtotal = input.items.map(item => ({
           ...item,
           subtotal: item.cantidad * item.precioUnitario,
         }));
         const { subtotal, impuestos, total } = calcularTotales(
-          itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal }))
+          itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal })),
+          tasaIgv(regimen),
         );
         updatePayload.subtotal = subtotal;
         updatePayload.igv = impuestos;
         updatePayload.total = total;
+      } else if (input.regimenIgv !== undefined && ordPrevia) {
+        const impuestos = ordPrevia.subtotal * tasaIgv(regimen);
+        updatePayload.igv = impuestos;
+        updatePayload.total = ordPrevia.subtotal + impuestos;
       }
 
       const { error } = await dbOrdenesCompra.update(dbId, updatePayload);

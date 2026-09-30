@@ -2957,3 +2957,22 @@ Microsoft 365 Copilot como complemento. Sin código ni commit en esta tarea. §7
    (0 tablas): se añadieron `notificaciones` y `notificaciones_lecturas`, así que la campana ahora sí cambia en vivo.
    Saneamiento: 9 avisos abiertos de OC ya resueltas cerrados, 57 solicitudes "pendientes" de OC ya resueltas marcadas,
    133 lecturas anotadas a quienes ya firmaron. Trigger probado con fila de prueba (borrada).
+
+## MM-S-000429: IGV en una OS exonerada, y líneas de detalle perdidas (2026-09-30)
+
+- **IGV con régimen exonerado.** `ordenes-store` (crear y actualizar) y `cotizaciones-store` (crear) llamaban
+  `calcularTotales(items)` SIN la tasa del régimen → siempre 18%, aunque la orden dijera "Exonerado — Amazonía" o
+  "No domiciliado". El formulario sí calculaba bien en pantalla, pero el store guardaba otra cosa. Corregido: la tasa
+  sale de `tasaIgv(regimen)`; al editar una OC se guarda `regimen_igv` (antes no se persistía) y se recalcula el IGV si
+  cambia el régimen o los ítems. Etiquetas: el detalle de cotización y el PDF de la orden ya no dicen "IGV (18%)" cuando
+  no aplica. **Datos inconsistentes que quedan por corregir (con OK de Kevin):** MM-001279…001290 y MM-001292
+  (no domiciliado, aprobadas, con IGV) y COT-0082…0087 (no domiciliado, con IGV). Es `igv = 0, total = subtotal`.
+- **Líneas perdidas.** COT-0098 (17:41 UTC) y MM-S-000429 (17:55 UTC) se guardaron con **0 ítems**: el POST a
+  `cotizacion_items` / `orden_items` devolvió 400 porque `cantidad` era **INTEGER** (Richard puso una cantidad con
+  decimales) y el store solo lo mandaba a consola. Migración `cantidades_con_decimales_en_compras`: `cantidad` →
+  numeric(12,3) en cotizacion_items, orden_items, requerimiento_items y recepcion_items (cantidad_pedida/recibida);
+  hubo que soltar y recrear `precio_total` (generada), `trg_recepcion_item_valor` y `v_partida_ejecucion`. Probado con
+  cantidad 2.5. Además, si fallan las líneas al crear, ahora **se deshace la cabecera y se avisa** en pantalla.
+- **MM-S-000429 devuelta a borrador** (los triggers nuevos cerraron su aviso y su solicitud pendiente): Richard debe
+  abrirla, volver a cargar la línea del servicio (con el régimen exonerado el IGV saldrá 0) y enviarla a aprobación.
+  COT-0098 sigue aprobada sin líneas (su cabecera dice 4,970.08 + IGV); no se inventó la línea.

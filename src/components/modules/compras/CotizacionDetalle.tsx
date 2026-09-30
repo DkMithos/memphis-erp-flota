@@ -26,6 +26,7 @@ import {
   TableRow,
 } from '../../ui/table';
 import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
+import { llevaIgv, etiquetaRegimen } from '../../../lib/compras/regimen-igv';
 import { AdjuntosCotizacion } from './AdjuntosCotizacion';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useRoles } from '../../../lib/rbac/roles-store';
@@ -427,7 +428,9 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
                 <TableCell className="font-medium">{formatearMonto(cotizacion.subtotal, cotizacion.moneda)}</TableCell>
               </TableRow>
               <TableRow className="bg-muted/50">
-                <TableCell colSpan={5} className="text-right font-medium">IGV (18%):</TableCell>
+                <TableCell colSpan={5} className="text-right font-medium">
+                  {llevaIgv(cotizacion.regimenIgv) ? 'IGV (18%):' : `Sin IGV — ${etiquetaRegimen(cotizacion.regimenIgv)}:`}
+                </TableCell>
                 <TableCell className="font-medium">{formatearMonto(cotizacion.impuestos, cotizacion.moneda)}</TableCell>
               </TableRow>
               <TableRow className="bg-muted/50 font-semibold">

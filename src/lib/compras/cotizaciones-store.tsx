@@ -351,8 +351,10 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
         subtotal: item.cantidad * item.precioUnitario,
       }));
 
+      // El IGV sale del RÉGIMEN, no siempre del 18% (igual que al actualizar).
       const { subtotal, impuestos, total } = calcularTotales(
-        itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal }))
+        itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal })),
+        tasaIgv(input.regimenIgv ?? 'gravado'),
       );
 
       const fechaVencimiento = calcularFechaVencimiento(timestamp, input.validezDias);
@@ -409,7 +411,12 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
         .insert(itemsPayload)
         .select();
       if (errItems) {
+        // Antes esto solo iba a la consola y la cotización quedaba guardada SIN
+        // líneas (COT-0098, 30/09: cantidad con decimales contra una columna
+        // entera). Una cotización sin detalle no sirve: se deshace y se avisa.
         console.error('[COTIZACIONES] Error al crear items:', errItems.message);
+        await supabase.from('cotizaciones').delete().eq('id', dbRow.id);
+        return { exito: false, errores: [`No se pudieron guardar las líneas: ${errItems.message}`] };
       }
       const itemsInserted = (itemsData ?? []) as CotizacionItemDB[];
 
