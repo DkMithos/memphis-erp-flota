@@ -237,7 +237,7 @@ export function RecepcionDetalle({ recepcionId, onNavigate }: RecepcionDetallePr
               rows={4}
               placeholder="Explique las razones de la anulación..."
             />
-            <p className="text-sm text-muted-foreground">{motivoAnulacion.length}/30 caracteres</p>
+            <p className="text-sm text-muted-foreground">{motivoAnulacion.trim().length} caracteres (mínimo 30)</p>
             {errorMotivo && <p className="text-sm text-red-600">{errorMotivo}</p>}
           </div>
           <DialogFooter>

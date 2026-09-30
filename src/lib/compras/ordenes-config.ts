@@ -28,6 +28,7 @@ export type EstadoOrden =
   | 'en_ejecucion'          // En proceso de ejecución
   | 'recepcion_parcial'     // Recepción parcial de items
   | 'recepcion_completa'    // Recepción completa, orden cerrada
+  | 'rechazada'             // Rechazada en aprobación (se corrige y se vuelve a enviar)
   | 'anulada';              // Anulada con motivo
 
 export type MonedaOrden = 
@@ -60,6 +61,11 @@ export const ORDEN_ESTADO_CONFIG: Record<EstadoOrden, BadgeConfig> = {
     label: 'Pendiente Aprobación',
     icon: Clock,
     className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+  },
+  rechazada: {
+    label: 'Rechazada',
+    icon: XCircle,
+    className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
   },
   aprobada: {
     label: 'Aprobada',
@@ -231,7 +237,8 @@ export function calcularTotales(
  * Verifica si una orden puede editarse según su estado
  */
 export function puedeEditarOrden(estado: EstadoOrden): boolean {
-  return estado === 'borrador';
+  // Una orden rechazada se corrige y se vuelve a enviar.
+  return estado === 'borrador' || estado === 'rechazada';
 }
 
 /**

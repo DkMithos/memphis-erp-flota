@@ -22,6 +22,7 @@ import { Badge } from '../ui/badge';
 import { useRequerimientosStore } from '../../lib/compras/requerimientos-store';
 import { useCotizacionesStore } from '../../lib/compras/cotizaciones-store';
 import { useOrdenesStore } from '../../lib/compras/ordenes-store';
+import { useMisPendientesOC } from '../../lib/compras/mis-pendientes';
 import { convertirAMonedaBase, formatMontoBase } from '../../lib/shared/currency-utils';
 import { usePermissions } from '../../lib/rbac/usePermissions';
 
@@ -46,6 +47,7 @@ export function Compras({ onNavigate }: ComprasProps) {
   const { cotizaciones } = useCotizacionesStore();
   const { ordenes } = useOrdenesStore();
   const { can } = usePermissions();
+  const { misPendientes, pendientes: ordenesEnAprobacion } = useMisPendientesOC(ordenes);
 
   const stats = useMemo(() => {
     const reqAbiertos = requerimientos.filter(
@@ -157,9 +159,9 @@ export function Compras({ onNavigate }: ComprasProps) {
           'esperan decisión', '/compras/cotizaciones',
         )}
         {kpi(
-          'Órdenes por aprobar', stats.ordPorAprobar,
+          'Órdenes que me toca firmar', misPendientes.length,
           <Clock className="size-4 text-orange-600" />,
-          'en el flujo de montos', '/compras/ordenes',
+          `de ${ordenesEnAprobacion.length} en aprobación`, '/compras/ordenes',
         )}
         {kpi(
           'Comprado este mes', formatMontoBase(stats.montoMes),

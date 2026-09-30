@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { usePersistedState } from '../../../lib/shared/usePersistedState';
 import { usePagination } from '../../../lib/shared/usePagination';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { exportToExcel, exportToPDF } from '../../../lib/shared/export-utils';
@@ -64,11 +65,11 @@ export function RequerimientosLista({ onNavigate }: RequerimientosListaProps) {
   );
   
   // Filtros
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState<EstadoRequerimiento | 'todos'>('todos');
-  const [filtroPrioridad, setFiltroPrioridad] = useState<PrioridadRequerimiento | 'todos'>('todos');
-  const [filtroCentroCosto, setFiltroCentroCosto] = useState<CentroCosto | 'todos'>('todos');
-  const [tabActual, setTabActual] = useState<'activos' | 'anulados' | 'todos'>('activos');
+  const [searchTerm, setSearchTerm] = usePersistedState('requerimientos.searchTerm', '');
+  const [filtroEstado, setFiltroEstado] = usePersistedState<EstadoRequerimiento | 'todos'>('requerimientos.filtroEstado', 'todos');
+  const [filtroPrioridad, setFiltroPrioridad] = usePersistedState<PrioridadRequerimiento | 'todos'>('requerimientos.filtroPrioridad', 'todos');
+  const [filtroCentroCosto, setFiltroCentroCosto] = usePersistedState<CentroCosto | 'todos'>('requerimientos.filtroCentroCosto', 'todos');
+  const [tabActual, setTabActual] = usePersistedState<'activos' | 'anulados' | 'todos'>('requerimientos.tabActual', 'activos');
 
   // Requerimientos filtrados por tab
   const requerimientosPorTab = useMemo(() => {

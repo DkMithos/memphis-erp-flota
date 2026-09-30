@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { usePersistedState } from '../../../lib/shared/usePersistedState';
 import { usePagination } from '../../../lib/shared/usePagination';
 import { Package, Search, Filter, Download, Eye, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -37,8 +38,8 @@ export function RecepcionesLista({ onNavigate }: RecepcionesListaProps) {
   const { can } = usePermissions();
   const puedeRecepcionar = can('compras', 'recepcionar');
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState<EstadoRecepcion | 'todos'>('todos');
+  const [searchTerm, setSearchTerm] = usePersistedState('recepciones.searchTerm', '');
+  const [filtroEstado, setFiltroEstado] = usePersistedState<EstadoRecepcion | 'todos'>('recepciones.filtroEstado', 'todos');
 
   const recepcionesFiltradas = useMemo(() => {
     return recepciones.filter(r => {

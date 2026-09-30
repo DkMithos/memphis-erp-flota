@@ -186,7 +186,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
   // Una orden nueva nace en borrador y la máquina de estados permite pasarla a
   // pendiente_aprobacion, pero no había ningún botón que lo hiciera: las órdenes
   // creadas desde el ERP se quedaban en borrador para siempre.
-  const puedeEnviarAAprobacion = can('compras', 'editar') && orden.estado === 'borrador';
+  const puedeEnviarAAprobacion = can('compras', 'editar') && (orden.estado === 'borrador' || orden.estado === 'rechazada');
   // Registrar una recepción es una acción, no una lectura: exige el permiso propio
   // `compras.recepcionar` (el que tienen Compras, Flota y Operaciones), no `ver`.
   const puedeCrearRecepcion = can('compras', 'recepcionar') && puedeRecibirOrden(orden.estado);
@@ -340,7 +340,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
       </div>
 
       {/* Alerta si fue rechazada */}
-      {orden.motivoRechazo && (
+      {orden.estado === 'rechazada' && orden.motivoRechazo && (
         <Alert variant="destructive">
           <XCircle className="size-4" />
           <AlertDescription>
@@ -702,7 +702,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
               rows={4}
               placeholder="Explique las razones del rechazo..."
             />
-            <p className="text-sm text-muted-foreground">{motivoRechazo.length}/30 caracteres</p>
+            <p className="text-sm text-muted-foreground">{motivoRechazo.trim().length} caracteres (mínimo 30)</p>
             {errorMotivo && <p className="text-sm text-red-600">{errorMotivo}</p>}
           </div>
           <DialogFooter>
@@ -733,7 +733,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
               rows={4}
               placeholder="Explique las razones de la anulación..."
             />
-            <p className="text-sm text-muted-foreground">{motivoAnulacion.length}/30 caracteres</p>
+            <p className="text-sm text-muted-foreground">{motivoAnulacion.trim().length} caracteres (mínimo 30)</p>
             {errorMotivo && <p className="text-sm text-red-600">{errorMotivo}</p>}
           </div>
           <DialogFooter>

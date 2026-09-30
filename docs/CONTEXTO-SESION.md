@@ -2928,3 +2928,32 @@ Microsoft 365 Copilot como complemento. Sin código ni commit en esta tarea. §7
 - **Pendiente para Kevin (opcional):** renovar el token en https://decolecta.com/profile/ y actualizar el secreto
   `APIS_NET_PE_TOKEN` (Supabase → Edge Functions → Secrets) para volver a tener decolecta como fuente primaria (más cuota
   y datos como `actividad_economica`). Sin eso, apis.net.pe gratis funciona pero comparte cuota por IP.
+
+## Cuatro reportes de Miguelángel resueltos (2026-09-30)
+
+1. **Rechazar orden fallaba** ("Could not find the 'motivo_rechazo' column of 'ordenes_compra'"). El store escribía
+   `motivo_rechazo/rechazado_por/rechazado_en` pero las columnas solo existían en `cotizaciones`. Migración
+   `ordenes_compra_columnas_rechazo`. Además el estado **`rechazada` no existía en el front** (ni en `EstadoOrden`, ni en
+   `ORDEN_ESTADO_CONFIG`, ni en el mapeo DB↔front): se añadió completo. Una OC rechazada: badge rojo, aparece en la
+   pestaña Activas y en el filtro de estado, **se puede editar y volver a enviar a aprobación** (al reenviar se borran las
+   firmas anteriores salvo la del comprador). La alerta con el motivo solo se muestra mientras esté rechazada.
+   El contador "30/30 caracteres" confundía (parecía un máximo): ahora dice "N caracteres (mínimo 30)" en rechazo y
+   anulación de OC, cotización y recepción. El mínimo de 30 sigue vigente.
+2. **Se perdían los filtros al entrar y salir de una OC/factura/OS.** Nuevo hook `usePersistedState` (sessionStorage,
+   por pestaña) aplicado a los filtros, búsqueda, orden y pestaña de OrdenesLista, RequerimientosLista, CotizacionesLista,
+   RecepcionesLista y FacturasProveedores.
+3. **"Pendientes" mostraba los de todos.** Nuevo hook `useMisPendientesOC(ordenes)` (`src/lib/compras/mis-pendientes.ts`):
+   una orden "me toca" si alguna etapa que su monto exige (comprador → operaciones → gerencia) sigue sin firma y uno de mis
+   roles puede firmarla; misma regla que el detalle ("Te toca firmar como…"). Firmas leídas de `orden_aprobaciones` en una
+   consulta. Tablero de Compras: KPI "Órdenes que me toca firmar (de N en aprobación)". Lista de órdenes: recuadro
+   "Me toca firmar" que al pulsarlo filtra solo esas (`ordenes.soloMias`, persistido).
+4. **Las notificaciones no se quitaban al aprobar.** Dos causas: `leida` era una marca única por tenant (si uno la
+   marcaba, desaparecía para todos; por eso nadie la marcaba) y nada cerraba el aviso al resolverse la orden. Migración
+   `notificaciones_por_usuario_y_cierre_al_aprobar`: tabla `notificaciones_lecturas` (lectura por usuario, RLS propia),
+   `notif_cerrar_aprobacion()`, triggers `trg_oc_cierra_avisos` (OC sale de "enviada" → resuelve `aprobaciones` y cierra
+   avisos para todos), `trg_aprobacion_cierra_avisos` (cualquier módulo) y `trg_firma_marca_leido` (quien firma una
+   etapa deja de ver el aviso; los demás firmantes lo siguen viendo). `useNotifications` reescrito: leída = la leí yo o
+   el sistema la cerró; marcar leída anota mi lectura y no toca a los demás. **La publicación realtime estaba vacía**
+   (0 tablas): se añadieron `notificaciones` y `notificaciones_lecturas`, así que la campana ahora sí cambia en vivo.
+   Saneamiento: 9 avisos abiertos de OC ya resueltas cerrados, 57 solicitudes "pendientes" de OC ya resueltas marcadas,
+   133 lecturas anotadas a quienes ya firmaron. Trigger probado con fila de prueba (borrada).

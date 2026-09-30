@@ -16,6 +16,15 @@
  * Darle un nombre distinto a cada canal lo habría callado, pero duplicaría las
  * notificaciones que se insertan desde los handlers. Se comparte una sola
  * suscripción con conteo de referencias.
+ *
+ * LEÍDAS POR PERSONA (2026-09-30). La tabla `notificaciones` es por tenant y su
+ * `leida` es una sola marca para todos: si Richard marcaba un aviso, se le
+ * borraba también a Miguelángel. Ahora cada persona tiene sus lecturas en
+ * `notificaciones_lecturas`, y un aviso se ve como leído si YO lo leí o si el
+ * sistema lo cerró para todos (`leida = true`, que ponen los triggers cuando
+ * la orden queda aprobada/rechazada). Cuando alguien firma una etapa, el
+ * trigger de `orden_aprobaciones` le anota la lectura solo a él: a los demás
+ * firmantes el aviso les sigue pendiente, que es lo correcto.
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../supabase/client';
@@ -41,6 +50,7 @@ const RUTA_DE_ENTIDAD: Record<string, string> = {
   requerimiento: '/compras',
   recepcion: '/compras',
   factura_proveedor: '/compras',
+  factura: '/compras',
   proveedor: '/proveedores',
   caja_chica: '/finanzas',
   transaccion: '/finanzas',
@@ -97,73 +107,132 @@ export interface Notificacion {
   tipo: 'info' | 'warning' | 'error' | 'success';
   titulo: string;
   mensaje?: string;
+  /** Leída por mí o cerrada para todos por el sistema. */
   leida: boolean;
   entidadTipo?: string;
   entidadId?: string;
   creadoEn: string;
 }
 
-function mapRow(r: Record<string, unknown>): Notificacion {
+/** Fila cruda de la tabla; `leida` aquí es la marca global (cerrada para todos). */
+interface FilaNotif {
+  id: string;
+  tipo: Notificacion['tipo'];
+  titulo: string;
+  mensaje?: string;
+  cerrada: boolean;
+  entidadTipo?: string;
+  entidadId?: string;
+  creadoEn: string;
+}
+
+function mapRow(r: Record<string, unknown>): FilaNotif {
   return {
     id: r.id as string,
     tipo: r.tipo as Notificacion['tipo'],
     titulo: r.titulo as string,
     mensaje: (r.mensaje as string) ?? undefined,
-    leida: r.leida as boolean,
+    cerrada: Boolean(r.leida),
     entidadTipo: (r.entidad_tipo as string) ?? undefined,
     entidadId: (r.entidad_id as string) ?? undefined,
     creadoEn: r.creado_en as string,
   };
 }
 
-// ── Estado compartido por tenant ────────────────────────────────────────────
+// ── Estado compartido por tenant + usuario ─────────────────────────────────
 
 type Oyente = (n: Notificacion[]) => void;
 
 interface Compartido {
   canal: ReturnType<typeof supabase.channel> | null;
   oyentes: Set<Oyente>;
-  datos: Notificacion[];
+  filas: FilaNotif[];
+  /** ids de avisos que YO ya leí. */
+  lecturas: Set<string>;
 }
 
 const compartidos = new Map<string, Compartido>();
 
-function estado(tenantId: string): Compartido {
-  let c = compartidos.get(tenantId);
+function estado(clave: string): Compartido {
+  let c = compartidos.get(clave);
   if (!c) {
-    c = { canal: null, oyentes: new Set(), datos: [] };
-    compartidos.set(tenantId, c);
+    c = { canal: null, oyentes: new Set(), filas: [], lecturas: new Set() };
+    compartidos.set(clave, c);
   }
   return c;
 }
 
-/** Publica una nueva lista a todos los componentes montados. */
-function emitir(tenantId: string, cambio: (prev: Notificacion[]) => Notificacion[]): void {
-  const c = estado(tenantId);
-  c.datos = cambio(c.datos);
-  for (const oyente of c.oyentes) oyente(c.datos);
+function vista(c: Compartido): Notificacion[] {
+  return c.filas.map(f => ({
+    id: f.id,
+    tipo: f.tipo,
+    titulo: f.titulo,
+    mensaje: f.mensaje,
+    leida: f.cerrada || c.lecturas.has(f.id),
+    entidadTipo: f.entidadTipo,
+    entidadId: f.entidadId,
+    creadoEn: f.creadoEn,
+  }));
 }
 
-async function cargar(tenantId: string): Promise<void> {
-  const { data } = await supabase
-    .from('notificaciones')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .order('creado_en', { ascending: false })
-    .limit(50);
-  if (data) emitir(tenantId, () => (data as Record<string, unknown>[]).map(mapRow));
+/** Publica la lista actual a todos los componentes montados. */
+function emitir(clave: string, cambio?: (c: Compartido) => void): void {
+  const c = estado(clave);
+  if (cambio) cambio(c);
+  const lista = vista(c);
+  for (const oyente of c.oyentes) oyente(lista);
 }
 
-function abrirCanal(tenantId: string): ReturnType<typeof supabase.channel> {
-  return supabase.channel(`notif-${tenantId}`)
-    // Notificaciones propias (otras sesiones o usuarios del mismo tenant)
+async function cargar(clave: string, tenantId: string, userId: string): Promise<void> {
+  const [{ data: notifs }, { data: lecturas }] = await Promise.all([
+    supabase
+      .from('notificaciones')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('creado_en', { ascending: false })
+      .limit(50),
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    (supabase.from('notificaciones_lecturas') as any)
+      .select('notificacion_id')
+      .eq('user_id', userId) as Promise<{ data: { notificacion_id: string }[] | null }>,
+  ]);
+  emitir(clave, c => {
+    if (notifs) c.filas = (notifs as Record<string, unknown>[]).map(mapRow);
+    if (lecturas) c.lecturas = new Set(lecturas.map(l => l.notificacion_id));
+  });
+}
+
+function abrirCanal(clave: string, tenantId: string, userId: string): ReturnType<typeof supabase.channel> {
+  return supabase.channel(`notif-${tenantId}-${userId}`)
+    // Notificaciones nuevas (otras sesiones o usuarios del mismo tenant)
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'notificaciones', filter: `tenant_id=eq.${tenantId}` },
       (payload) => {
         const nueva = mapRow(payload.new as Record<string, unknown>);
-        emitir(tenantId, prev =>
-          prev.some(n => n.id === nueva.id) ? prev : [nueva, ...prev].slice(0, 50));
+        emitir(clave, c => {
+          if (!c.filas.some(n => n.id === nueva.id)) c.filas = [nueva, ...c.filas].slice(0, 50);
+        });
+      },
+    )
+    // Un aviso cerrado para todos (la orden ya se aprobó/rechazó) desaparece en vivo
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'notificaciones', filter: `tenant_id=eq.${tenantId}` },
+      (payload) => {
+        const fila = mapRow(payload.new as Record<string, unknown>);
+        emitir(clave, c => {
+          c.filas = c.filas.map(n => n.id === fila.id ? fila : n);
+        });
+      },
+    )
+    // Mis lecturas hechas en otra pestaña o anotadas por el sistema (firmé una etapa)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'notificaciones_lecturas', filter: `user_id=eq.${userId}` },
+      (payload) => {
+        const id = (payload.new as { notificacion_id: string }).notificacion_id;
+        emitir(clave, c => { c.lecturas.add(id); });
       },
     )
     // Nuevas OTs
@@ -208,17 +277,17 @@ function abrirCanal(tenantId: string): ReturnType<typeof supabase.channel> {
 }
 
 /** Registra un componente. Devuelve la función para darlo de baja. */
-function suscribir(tenantId: string, oyente: Oyente): () => void {
-  const c = estado(tenantId);
+function suscribir(clave: string, tenantId: string, userId: string, oyente: Oyente): () => void {
+  const c = estado(clave);
   const primero = c.oyentes.size === 0;
   c.oyentes.add(oyente);
 
   if (primero) {
-    c.canal = abrirCanal(tenantId);
-    void cargar(tenantId);
+    c.canal = abrirCanal(clave, tenantId, userId);
+    void cargar(clave, tenantId, userId);
   } else {
     // Ya hay datos cargados: el que llega tarde los recibe de inmediato.
-    oyente(c.datos);
+    oyente(vista(c));
   }
 
   return () => {
@@ -230,13 +299,25 @@ function suscribir(tenantId: string, oyente: Oyente): () => void {
   };
 }
 
+/** Anota mis lecturas (idempotente: la clave primaria es notificación + usuario). */
+async function anotarLecturas(userId: string, ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  await (supabase.from('notificaciones_lecturas') as any)
+    .upsert(ids.map(id => ({ notificacion_id: id, user_id: userId })), {
+      onConflict: 'notificacion_id,user_id', ignoreDuplicates: true,
+    });
+}
+
 // ── Hook ────────────────────────────────────────────────────────────────────
 
 export function useNotifications() {
-  const { tenantId } = useAuth();
+  const { tenantId, user } = useAuth();
+  const userId = user?.id ?? null;
+  const clave = tenantId && userId ? `${tenantId}|${userId}` : null;
   const { can, soloNotificaAprobaciones } = usePermissions();
   const [todas, setTodas] = useState<Notificacion[]>(
-    () => (tenantId ? estado(tenantId).datos : []),
+    () => (clave ? vista(estado(clave)) : []),
   );
 
   // La caché es del tenant; lo que cada uno ve depende de sus módulos.
@@ -256,19 +337,19 @@ export function useNotifications() {
   );
 
   useEffect(() => {
-    if (!tenantId) {
+    if (!clave || !tenantId || !userId) {
       setTodas([]);
       return;
     }
-    return suscribir(tenantId, setTodas);
-  }, [tenantId]);
+    return suscribir(clave, tenantId, userId, setTodas);
+  }, [clave, tenantId, userId]);
 
   const noLeidas = notificaciones.filter(n => !n.leida).length;
 
   const pushNotificacion = useCallback(async (
     notif: Omit<Notificacion, 'id' | 'leida' | 'creadoEn'>,
   ) => {
-    if (!tenantId) return;
+    if (!tenantId || !clave) return;
     const { data } = await supabase.from('notificaciones').insert({
       tenant_id: tenantId,
       tipo: notif.tipo,
@@ -279,25 +360,27 @@ export function useNotifications() {
     }).select().single();
     if (data) {
       const nueva = mapRow(data as Record<string, unknown>);
-      emitir(tenantId, prev =>
-        prev.some(n => n.id === nueva.id) ? prev : [nueva, ...prev].slice(0, 50));
+      emitir(clave, c => {
+        if (!c.filas.some(n => n.id === nueva.id)) c.filas = [nueva, ...c.filas].slice(0, 50);
+      });
     }
-  }, [tenantId]);
+  }, [tenantId, clave]);
 
+  // Leer es personal: se anota MI lectura, no se cierra el aviso para los demás.
   const marcarLeida = useCallback(async (id: string) => {
-    await supabase.from('notificaciones').update({ leida: true }).eq('id', id);
-    if (tenantId) emitir(tenantId, prev => prev.map(n => n.id === id ? { ...n, leida: true } : n));
-  }, [tenantId]);
+    if (!userId || !clave) return;
+    emitir(clave, c => { c.lecturas.add(id); });
+    await anotarLecturas(userId, [id]);
+  }, [userId, clave]);
 
   const marcarTodasLeidas = useCallback(async () => {
-    if (!tenantId) return;
-    // Solo las suyas. Marcando por tenant, quien no ve caja chica le borraba a
-    // Carolina los avisos que ella todavía no había leído.
+    if (!userId || !clave) return;
+    // Solo las que esta persona ve como pendientes.
     const ids = notificaciones.filter(n => !n.leida).map(n => n.id);
     if (ids.length === 0) return;
-    await supabase.from('notificaciones').update({ leida: true }).in('id', ids);
-    emitir(tenantId, prev => prev.map(n => ids.includes(n.id) ? { ...n, leida: true } : n));
-  }, [tenantId, notificaciones]);
+    emitir(clave, c => { ids.forEach(id => c.lecturas.add(id)); });
+    await anotarLecturas(userId, ids);
+  }, [userId, clave, notificaciones]);
 
   return { notificaciones, noLeidas, marcarLeida, marcarTodasLeidas, pushNotificacion };
 }

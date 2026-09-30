@@ -541,7 +541,7 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
               </p>
             )}
             <p className="text-xs text-muted-foreground">
-              {motivoAnulacion.length}/30 caracteres
+              {motivoAnulacion.trim().length} caracteres (mínimo 30)
             </p>
           </div>
           <AlertDialogFooter>
@@ -587,7 +587,7 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
               </p>
             )}
             <p className="text-xs text-muted-foreground">
-              {motivoRechazo.length}/30 caracteres
+              {motivoRechazo.trim().length} caracteres (mínimo 30)
             </p>
           </div>
           <AlertDialogFooter>

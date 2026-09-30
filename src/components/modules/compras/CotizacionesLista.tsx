@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { usePersistedState } from '../../../lib/shared/usePersistedState';
 import { usePagination } from '../../../lib/shared/usePagination';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { exportToExcel, exportToPDF } from '../../../lib/shared/export-utils';
@@ -49,11 +50,11 @@ export function CotizacionesLista({ onNavigate }: CotizacionesListaProps) {
   const puedeExportar = can('compras', 'exportar');
   
   // Filtros
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState<EstadoCotizacion | 'todos'>('todos');
-  const [filtroTipo, setFiltroTipo] = useState<TipoCotizacion | 'todos'>('todos');
-  const [filtroMoneda, setFiltroMoneda] = useState<MonedaCotizacion | 'todos'>('todos');
-  const [tabActual, setTabActual] = useState<'activas' | 'aprobadas' | 'rechazadas' | 'anuladas' | 'todas'>('activas');
+  const [searchTerm, setSearchTerm] = usePersistedState('cotizaciones.searchTerm', '');
+  const [filtroEstado, setFiltroEstado] = usePersistedState<EstadoCotizacion | 'todos'>('cotizaciones.filtroEstado', 'todos');
+  const [filtroTipo, setFiltroTipo] = usePersistedState<TipoCotizacion | 'todos'>('cotizaciones.filtroTipo', 'todos');
+  const [filtroMoneda, setFiltroMoneda] = usePersistedState<MonedaCotizacion | 'todos'>('cotizaciones.filtroMoneda', 'todos');
+  const [tabActual, setTabActual] = usePersistedState<'activas' | 'aprobadas' | 'rechazadas' | 'anuladas' | 'todas'>('cotizaciones.tabActual', 'activas');
 
   // Cotizaciones filtradas por tab
   const cotizacionesPorTab = useMemo(() => {

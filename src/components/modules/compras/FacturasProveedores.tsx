@@ -5,6 +5,7 @@
  * pago. El saldo de facturación por OC sale de v_oc_saldo_facturacion.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePersistedState } from '../../../lib/shared/usePersistedState';
 import { FileText, Search, X, RefreshCw, CheckCircle2, AlertTriangle, FileDown, CalendarClock, BadgeCheck } from 'lucide-react';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -67,8 +68,8 @@ export function FacturasProveedores({ onNavigate }: Props) {
   const { user } = useAuth();
   const [facturas, setFacturas] = useState<FacturaRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busqueda, setBusqueda] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState('pendientes');
+  const [busqueda, setBusqueda] = usePersistedState('facturas.busqueda', '');
+  const [filtroEstado, setFiltroEstado] = usePersistedState('facturas.filtroEstado', 'pendientes');
 
   // Diálogos
   const [conformidadDe, setConformidadDe] = useState<FacturaRow | null>(null);

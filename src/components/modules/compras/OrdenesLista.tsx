@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { usePersistedState } from '../../../lib/shared/usePersistedState';
 import { Plus, Search, Filter, Download, Eye, Edit, FileText, ShoppingBag, Clock, Activity, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -23,6 +24,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { useOrdenesStore } from '../../../lib/compras/ordenes-store';
+import { useMisPendientesOC } from '../../../lib/compras/mis-pendientes';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { usePagination } from '../../../lib/shared/usePagination';
 import { 
@@ -64,15 +66,19 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
   }, [cotizaciones]);
 
   // Filtros
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState<EstadoOrden | 'todos'>('todos');
-  const [filtroTipo, setFiltroTipo] = useState<TipoOrden | 'todos'>('todos');
-  const [filtroMoneda, setFiltroMoneda] = useState<MonedaOrden | 'todos'>('todos');
-  const [filtroProyecto, setFiltroProyecto] = useState<string>('todos');
+  const [searchTerm, setSearchTerm] = usePersistedState('ordenes.searchTerm', '');
+  const [filtroEstado, setFiltroEstado] = usePersistedState<EstadoOrden | 'todos'>('ordenes.filtroEstado', 'todos');
+  const [filtroTipo, setFiltroTipo] = usePersistedState<TipoOrden | 'todos'>('ordenes.filtroTipo', 'todos');
+  const [filtroMoneda, setFiltroMoneda] = usePersistedState<MonedaOrden | 'todos'>('ordenes.filtroMoneda', 'todos');
+  const [filtroProyecto, setFiltroProyecto] = usePersistedState<string>('ordenes.filtroProyecto', 'todos');
   // Ordenamiento (default: por número, de la última generada hacia abajo)
-  const [sortBy, setSortBy] = useState<'numero' | 'proveedor' | 'tipo' | 'estado' | 'total'>('numero');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [tabActual, setTabActual] = useState<'activas' | 'completas' | 'anuladas' | 'todas'>('activas');
+  const [sortBy, setSortBy] = usePersistedState<'numero' | 'proveedor' | 'tipo' | 'estado' | 'total'>('ordenes.sortBy', 'numero');
+  const [sortDir, setSortDir] = usePersistedState<'asc' | 'desc'>('ordenes.sortDir', 'desc');
+  const [tabActual, setTabActual] = usePersistedState<'activas' | 'completas' | 'anuladas' | 'todas'>('ordenes.tabActual', 'activas');
+  // "Pendientes" son las que ME toca firmar, como en el sistema anterior; el
+  // recuadro se puede pulsar para ver solo esas.
+  const [soloMias, setSoloMias] = usePersistedState<boolean>('ordenes.soloMias', false);
+  const { misPendientes, meTocaFirmar } = useMisPendientesOC(ordenes);
 
   // Órdenes filtradas por tab
   const ordenesPorTab = useMemo(() => {
@@ -80,6 +86,7 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
       return ordenes.filter(o => 
         o.estado === 'borrador' || 
         o.estado === 'pendiente_aprobacion' || 
+        o.estado === 'rechazada' ||
         o.estado === 'aprobada' || 
         o.estado === 'en_ejecucion' || 
         o.estado === 'recepcion_parcial'
@@ -115,9 +122,12 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
       // Filtro por proyecto (vía proyecto_id de la orden)
       const matchProyecto = filtroProyecto === 'todos' || (o as any).proyectoId === filtroProyecto;
 
-      return matchSearch && matchEstado && matchTipo && matchMoneda && matchProyecto;
+      // Solo las que me toca firmar
+      const matchMias = !soloMias || meTocaFirmar.has(o.id);
+
+      return matchSearch && matchEstado && matchTipo && matchMoneda && matchProyecto && matchMias;
     });
-  }, [ordenesPorTab, searchTerm, filtroEstado, filtroTipo, filtroMoneda, filtroProyecto, numeroCotizacion]);
+  }, [ordenesPorTab, searchTerm, filtroEstado, filtroTipo, filtroMoneda, filtroProyecto, numeroCotizacion, soloMias, meTocaFirmar]);
 
   // Órdenes ordenadas (antes de paginar)
   const ordenesOrdenadas = useMemo(() => {
@@ -256,17 +266,19 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-colors hover:bg-accent/40 ${soloMias ? 'ring-2 ring-yellow-500' : ''}`}
+          onClick={() => setSoloMias(v => !v)}
+          title={soloMias ? 'Mostrando solo las que me toca firmar. Pulse para ver todas.' : 'Pulse para ver solo las que me toca firmar.'}
+        >
           <CardContent className="p-4 flex items-center gap-4">
             <div className="size-10 bg-yellow-500 rounded-lg flex items-center justify-center shrink-0">
               <Clock className="size-5 text-white" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Pendientes</p>
-              <p className="text-2xl font-bold">{statsVista.pendientes}</p>
-              {hayFiltro && (
-                <p className="text-[11px] text-muted-foreground">de {stats.pendientes} en total</p>
-              )}
+              <p className="text-xs text-muted-foreground">Me toca firmar</p>
+              <p className="text-2xl font-bold">{misPendientes.length}</p>
+              <p className="text-[11px] text-muted-foreground">de {stats.pendientes} en aprobación</p>
             </div>
           </CardContent>
         </Card>
@@ -336,6 +348,7 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
                 <SelectItem value="todos">Todos los Estados</SelectItem>
                 <SelectItem value="borrador">Borrador</SelectItem>
                 <SelectItem value="pendiente_aprobacion">Pendiente Aprobación</SelectItem>
+                <SelectItem value="rechazada">Rechazada</SelectItem>
                 <SelectItem value="aprobada">Aprobada</SelectItem>
                 <SelectItem value="en_ejecucion">En Ejecución</SelectItem>
                 <SelectItem value="recepcion_parcial">Recepción Parcial</SelectItem>

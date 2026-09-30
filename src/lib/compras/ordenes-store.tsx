@@ -240,6 +240,7 @@ function mapFromDB(row: OrdenWithRelations): Orden {
   const estadoMap: Record<string, EstadoOrden> = {
     borrador: 'borrador',
     enviada: 'pendiente_aprobacion',
+    rechazada: 'rechazada',
     aprobada: 'aprobada',
     recibida_parcial: 'recepcion_parcial',
     recibida_total: 'recepcion_completa',
@@ -310,6 +311,7 @@ function estadoFrontendToDb(estadoFrontend: EstadoOrden): string {
   const map: Record<EstadoOrden, string> = {
     borrador: 'borrador',
     pendiente_aprobacion: 'enviada',
+    rechazada: 'rechazada',
     aprobada: 'aprobada',
     en_ejecucion: 'aprobada', // DB doesn't have en_ejecucion
     recepcion_parcial: 'recibida_parcial',
@@ -671,6 +673,15 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
             : o
         )
       );
+
+      // Si venía de un rechazo, las firmas de aprobación anteriores ya no valen:
+      // la orden cambió y operaciones/gerencia deben volver a revisarla. La firma
+      // del comprador se conserva (es la evidencia de quién la hizo).
+      if (nuevoEstado === 'pendiente_aprobacion' && ordActual?.estado === 'rechazada') {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+        await (supabase.from('orden_aprobaciones') as any)
+          .delete().eq('orden_id', dbId).neq('etapa', 'comprador');
+      }
 
       // Al enviar a aprobación → solicitar aprobación vía Teams (no bloquea)
       if (nuevoEstado === 'pendiente_aprobacion' && ordActual) {
