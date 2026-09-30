@@ -9,7 +9,7 @@ import { Input } from './input';
 import { Button } from './button';
 import { Badge } from './badge';
 import { cn } from './utils';
-import { consultarRUC, type SunatRucResult } from '../../lib/sunat/sunat-service';
+import { consultarRUC, SunatServicioError, type SunatRucResult } from '../../lib/sunat/sunat-service';
 
 interface SunatRucInputProps {
   value: string;
@@ -32,6 +32,7 @@ export function SunatRucInput({
 }: SunatRucInputProps) {
   const [status, setStatus] = useState<QueryStatus>('idle');
   const [sunatData, setSunatData] = useState<SunatRucResult | null>(null);
+  const [servicioMsg, setServicioMsg] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,7 +53,16 @@ export function SunatRucInput({
     if (rucToSearch.length !== 11) return;
 
     setStatus('loading');
-    const result = await consultarRUC(rucToSearch);
+    setServicioMsg('');
+    let result: SunatRucResult | null;
+    try {
+      result = await consultarRUC(rucToSearch);
+    } catch (e) {
+      // El servicio no respondió: no es que el RUC no exista. Se puede seguir a mano.
+      setStatus('error');
+      setServicioMsg(e instanceof SunatServicioError ? e.message : 'No se pudo consultar SUNAT. Puede continuar ingresando los datos a mano.');
+      return;
+    }
 
     if (!result) {
       setStatus('not_found');
@@ -157,6 +167,13 @@ export function SunatRucInput({
         <p className="text-xs text-red-600 flex items-center gap-1">
           <XCircle className="size-3" />
           RUC no encontrado en SUNAT
+        </p>
+      )}
+
+      {status === 'error' && (
+        <p className="text-xs text-amber-700 flex items-center gap-1">
+          <AlertCircle className="size-3" />
+          {servicioMsg}
         </p>
       )}
 

@@ -409,6 +409,11 @@ export function ProveedorForm({ proveedorId, onCancel, onSuccess }: ProveedorFor
       toast.success('Verificado en SUNAT', {
         description: `${data.razonSocial} — ${data.estado} / ${data.condicion}`,
       });
+    } catch (e) {
+      // Servicio caído ≠ RUC inexistente
+      toast.error('No se pudo consultar SUNAT', {
+        description: e instanceof Error ? e.message : 'Intente de nuevo en unos minutos.',
+      });
     } finally {
       setVerifyingSunat(false);
     }

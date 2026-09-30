@@ -1,8 +1,19 @@
 /**
  * Memphis ERP — Servicio de consulta SUNAT
- * Llama al Edge Function sunat-proxy que usa decolecta.com (migración de apis.net.pe).
- * Requiere APIS_NET_PE_TOKEN en Supabase secrets (token de https://decolecta.com/profile/).
+ * Llama al Edge Function sunat-proxy, que consulta en cadena decolecta.com (si hay
+ * token APIS_NET_PE_TOKEN) → apis.net.pe v2 → apis.net.pe v1, y devuelve siempre el
+ * mismo formato snake_case. Aquí se distingue "no existe" (null) de "el servicio
+ * no respondió" (SunatServicioError), para no decirle al usuario que un RUC no
+ * existe cuando en realidad se cayó la consulta.
  */
+
+/** El servicio de consulta no respondió (cuota agotada, token inválido, caída). */
+export class SunatServicioError extends Error {
+  constructor(message = 'El servicio de consulta SUNAT no está disponible en este momento. Intente de nuevo en unos minutos o registre los datos a mano.') {
+    super(message);
+    this.name = 'SunatServicioError';
+  }
+}
 
 export interface SunatRucResult {
   ruc: string;
@@ -42,7 +53,8 @@ async function callProxy(params: Record<string, string>): Promise<Record<string,
     },
     signal: AbortSignal.timeout(10000),
   });
-  if (!res.ok) return null;
+  if (res.status === 404 || res.status === 422) return null; // no existe
+  if (!res.ok) throw new SunatServicioError();                // cuota/token/caída
   const data = await res.json();
   if (data?.error) return null;
   return data;
@@ -78,7 +90,10 @@ export async function consultarRUC(ruc: string): Promise<SunatRucResult | null> 
       tipo: rucLimpio.startsWith('20') ? 'empresa' : 'persona_natural',
       actividadEconomica: data.actividad_economica ?? data.actividadEconomica ?? undefined,
     };
-  } catch {
+  } catch (e) {
+    if (e instanceof SunatServicioError) throw e;
+    // Timeout o red caída: también es "servicio no disponible", no "RUC inexistente"
+    if (e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError' || e.name === 'TypeError')) throw new SunatServicioError();
     return null;
   }
 }
@@ -109,7 +124,9 @@ export async function consultarDNI(dni: string): Promise<SunatDniResult | null> 
       apellidoMaterno,
       nombreCompleto: data.full_name ?? `${nombres} ${apellidoPaterno} ${apellidoMaterno}`.trim(),
     };
-  } catch {
+  } catch (e) {
+    if (e instanceof SunatServicioError) throw e;
+    if (e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError' || e.name === 'TypeError')) throw new SunatServicioError();
     return null;
   }
 }

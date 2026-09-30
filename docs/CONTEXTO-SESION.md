@@ -2894,3 +2894,37 @@ Finanzas fije el saldo de caja inicial y el flujo tenga todos los cobros**.
   "filtrada"); el portal valida antes de enviar (`validarClave`) y muestra la regla bajo el campo en los dos formularios
   (invitación y cambiar contraseña); la guía (v1.1) explica la regla en Requisitos, Primer acceso y FAQ. Regenerada y
   republicada en `public/portal/guia-proveedores.pdf`.
+
+## Obsidian + Graphify para proyectos, y dónde consolidar la información (2026-09-28)
+
+Kevin preguntó si Obsidian + Graphify (video de Chase AI) sirve para llevar los proyectos y en
+qué base de datos consolidar lo que hoy vive en Teams/SharePoint. Análisis completo en
+[ANALISIS-Obsidian-Graphify-Proyectos.md](ANALISIS-Obsidian-Graphify-Proyectos.md).
+
+**Veredicto:** Obsidian/Graphify **no** es para llevar los proyectos (monousuario, sin cifras,
+tercera fuente de verdad); **sí** sirve como herramienta de lectura: dossier de un proyecto en
+minutos, bases de licitaciones y el propio repo del ERP. Los proyectos se llevan en el ERP.
+La información: datos estructurados ya están en Supabase; los archivos se quedan en SharePoint;
+lo que falta es la **capa de conocimiento** (catálogo documental por proyecto + texto +
+pgvector + grafo de entidades) **en Supabase**, sin copiar archivos. `vector` está disponible
+pero no instalada. Mensajes de canal de Teams = API protegida de Microsoft (dejar para después).
+
+**Pendiente de Kevin:** piloto graphify sobre GORE ICA y licitaciones (carpeta en OneDrive),
+conformidad de Gerencia sobre confidencialidad, proveedor de embeddings, y si evaluar
+Microsoft 365 Copilot como complemento. Sin código ni commit en esta tarea. §7 del análisis: continuidad si se va Microsoft (8 Edge Functions con Graph, ~120 días de gracia, falta respaldo externo automático de Supabase, qué es un VPS).
+
+## Consulta de RUC en SUNAT: "RUC no encontrado" con RUC válidos (2026-09-30)
+
+- **Causa:** `sunat-proxy` (v13) solo consultaba decolecta.com con el secreto `APIS_NET_PE_TOKEN`, y decolecta responde
+  **401 "Apikey Required / Limit Exceeded"** (el token configurado ya no vale o la cuota gratuita se agotó). El cliente
+  convertía cualquier error en "RUC no encontrado en SUNAT". Todas las consultas del 30/09 (16:19–16:33 UTC) fallaron así.
+- **Fix (`sunat-proxy` v15):** cadena de fuentes decolecta (solo si hay token) → **apis.net.pe v2** (gratis, sin token) →
+  apis.net.pe v1, con respuesta **normalizada** a snake_case (`numero_documento`, `razon_social`, `departamento`…); RUC y
+  DNI. 404 solo si todas dicen "no existe" (404/422 "ruc no valido"); 502 si fue cuota/red, con `detalle` por fuente y
+  `token_configurado`. Probado desde el edge con 5 RUC reales y 1 DNI: todos OK vía apis.net.pe v2.
+- **Cliente:** `sunat-service.ts` distingue `null` (no existe) de `SunatServicioError` (servicio caído/timeout);
+  `SunatRucInput` muestra en ámbar "El servicio de consulta SUNAT no está disponible… registre los datos a mano" y
+  `ProveedorForm` (Verificar en SUNAT) lo muestra en toast. Nunca más "RUC no encontrado" por una caída.
+- **Pendiente para Kevin (opcional):** renovar el token en https://decolecta.com/profile/ y actualizar el secreto
+  `APIS_NET_PE_TOKEN` (Supabase → Edge Functions → Secrets) para volver a tener decolecta como fuente primaria (más cuota
+  y datos como `actividad_economica`). Sin eso, apis.net.pe gratis funciona pero comparte cuota por IP.
