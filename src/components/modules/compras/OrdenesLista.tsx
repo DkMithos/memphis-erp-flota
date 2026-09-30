@@ -78,7 +78,7 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
   // "Pendientes" son las que ME toca firmar, como en el sistema anterior; el
   // recuadro se puede pulsar para ver solo esas.
   const [soloMias, setSoloMias] = usePersistedState<boolean>('ordenes.soloMias', false);
-  const { misPendientes, meTocaFirmar } = useMisPendientesOC(ordenes);
+  const { misPendientes, meTocaFirmar, edicionesPendientes } = useMisPendientesOC(ordenes);
 
   // Órdenes filtradas por tab
   const ordenesPorTab = useMemo(() => {
@@ -278,7 +278,10 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
             <div>
               <p className="text-xs text-muted-foreground">Me toca firmar</p>
               <p className="text-2xl font-bold">{misPendientes.length}</p>
-              <p className="text-[11px] text-muted-foreground">de {stats.pendientes} en aprobación</p>
+              <p className="text-[11px] text-muted-foreground">
+                de {stats.pendientes} en aprobación
+                {edicionesPendientes.length > 0 && <> · {edicionesPendientes.length} {edicionesPendientes.length === 1 ? 'solicitud de edición' : 'solicitudes de edición'}</>}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -501,6 +504,11 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
                               <estadoConfig.icon className="size-3" />
                               {estadoConfig.label}
                             </Badge>
+                            {orden.solicitudEdicion?.estado === 'pendiente' && (
+                              <Badge variant="outline" className="ml-1 border-amber-500 text-amber-700 dark:text-amber-300">
+                                Edición solicitada
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className="font-medium">{formatearMonto(orden.total, orden.moneda)}</TableCell>
                           <TableCell className="text-right">

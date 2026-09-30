@@ -29,11 +29,13 @@ export interface MisPendientesOC {
   meTocaFirmar: Set<string>;
   /** Firmas ya puestas por orden (uuid → etapas firmadas). */
   firmasPorOrden: Map<string, Set<string>>;
+  /** Órdenes con solicitud de edición pendiente que me toca resolver (compras.aprobar). */
+  edicionesPendientes: Orden[];
 }
 
 export function useMisPendientesOC(ordenes: Orden[]): MisPendientesOC {
   const { user } = useAuth();
-  const { isAdmin } = usePermissions();
+  const { isAdmin, can } = usePermissions();
   const { usuarios } = useRoles();
   const { config } = useFlujoAprobacion();
 
@@ -93,5 +95,12 @@ export function useMisPendientesOC(ordenes: Orden[]): MisPendientesOC {
     [pendientes, meTocaFirmar],
   );
 
-  return { pendientes, misPendientes, meTocaFirmar, firmasPorOrden };
+  const edicionesPendientes = useMemo(
+    () => (isAdmin || can('compras', 'aprobar'))
+      ? ordenes.filter(o => o.solicitudEdicion?.estado === 'pendiente')
+      : [],
+    [ordenes, isAdmin, can],
+  );
+
+  return { pendientes, misPendientes, meTocaFirmar, firmasPorOrden, edicionesPendientes };
 }

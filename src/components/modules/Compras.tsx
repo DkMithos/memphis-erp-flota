@@ -47,7 +47,7 @@ export function Compras({ onNavigate }: ComprasProps) {
   const { cotizaciones } = useCotizacionesStore();
   const { ordenes } = useOrdenesStore();
   const { can } = usePermissions();
-  const { misPendientes, pendientes: ordenesEnAprobacion } = useMisPendientesOC(ordenes);
+  const { misPendientes, pendientes: ordenesEnAprobacion, edicionesPendientes } = useMisPendientesOC(ordenes);
 
   const stats = useMemo(() => {
     const reqAbiertos = requerimientos.filter(
@@ -161,7 +161,7 @@ export function Compras({ onNavigate }: ComprasProps) {
         {kpi(
           'Órdenes que me toca firmar', misPendientes.length,
           <Clock className="size-4 text-orange-600" />,
-          `de ${ordenesEnAprobacion.length} en aprobación`, '/compras/ordenes',
+          `de ${ordenesEnAprobacion.length} en aprobación` + (edicionesPendientes.length ? ` · ${edicionesPendientes.length} solicitud(es) de edición` : ''), '/compras/ordenes',
         )}
         {kpi(
           'Comprado este mes', formatMontoBase(stats.montoMes),

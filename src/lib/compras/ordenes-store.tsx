@@ -48,6 +48,41 @@ export interface ItemOrden {
   presupuestoLineaId?: string | null;
 }
 
+/**
+ * Solicitud de edición (como en el sistema anterior): Compras pide editar una
+ * orden ya enviada o aprobada y quien aprueba la autoriza o la deniega. Si la
+ * autoriza, la orden vuelve a borrador (se conserva la firma del comprador) y
+ * se vuelve a enviar a aprobación después de editarla.
+ */
+export interface SolicitudEdicion {
+  estado: 'pendiente' | 'aprobada' | 'rechazada';
+  motivo: string;
+  solicitadoPor: string | null;
+  solicitadoPorEmail: string | null;
+  solicitadoEn: string;
+  resueltoPor?: string | null;
+  resueltoPorEmail?: string | null;
+  resueltoEn?: string | null;
+  observacion?: string | null;
+}
+
+function mapSolicitudEdicion(raw: unknown): SolicitudEdicion | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (!r.estado) return null;
+  return {
+    estado: r.estado as SolicitudEdicion['estado'],
+    motivo: (r.motivo as string) ?? '',
+    solicitadoPor: (r.solicitado_por as string) ?? null,
+    solicitadoPorEmail: (r.solicitado_por_email as string) ?? null,
+    solicitadoEn: (r.solicitado_en as string) ?? '',
+    resueltoPor: (r.resuelto_por as string) ?? null,
+    resueltoPorEmail: (r.resuelto_por_email as string) ?? null,
+    resueltoEn: (r.resuelto_en as string) ?? null,
+    observacion: (r.observacion as string) ?? null,
+  };
+}
+
 export interface Orden {
   // Identificación — id = numero (OC/OS-NNNN), _dbId = UUID interno
   id: string;
@@ -112,6 +147,8 @@ export interface Orden {
   rechazadoPor: string | null;
   rechazadoEn: string | null;
   motivoRechazo: string | null;
+  /** Solicitud de edición de una orden ya enviada/aprobada (null si nunca hubo). */
+  solicitudEdicion: SolicitudEdicion | null;
 
   // Imputación dual
   proyectoId: string | null;
@@ -186,6 +223,10 @@ interface OrdenStoreContext {
   /** Firma una etapa; la orden queda aprobada solo con todas las requeridas. */
   firmarEtapa: (id: string, etapa: EtapaAprobacion, config: FlujoAprobacionConfig) => Promise<CrudResult>;
   rechazarOrden: (id: string, rechazadoPor: string, motivo: string) => Promise<CrudResult>;
+  /** Compras pide editar una orden enviada/aprobada; queda pendiente de que la autoricen. */
+  solicitarEdicion: (id: string, motivo: string) => Promise<CrudResult>;
+  /** Quien aprueba autoriza (la orden vuelve a borrador) o deniega la solicitud. */
+  resolverSolicitudEdicion: (id: string, autorizar: boolean, observacion?: string) => Promise<CrudResult>;
   marcarEnEjecucion: (id: string) => Promise<CrudResult>;
   anularOrden: (id: string, motivo: string) => Promise<CrudResult>;
   aplicarEstadoRecepcion: (ordenId: string, esCompleta: boolean) => Promise<CrudResult>;
@@ -207,6 +248,7 @@ const OrdenContext = createContext<OrdenStoreContext | undefined>(undefined);
 type OrdenWithRelations = OrdenCompraDB & {
   /** Columnas nuevas, aún fuera de los tipos generados de Supabase. */
   regimen_igv?: string | null;
+  solicitud_edicion?: unknown;
   aplica_retencion_rh?: boolean | null;
   fecha_vencimiento_pago?: string | null;
   vencimiento_manual?: boolean | null;
@@ -293,6 +335,7 @@ function mapFromDB(row: OrdenWithRelations): Orden {
     rechazadoPor: row.rechazado_por ?? null,
     rechazadoEn: row.rechazado_en ?? null,
     motivoRechazo: row.motivo_rechazo ?? null,
+    solicitudEdicion: mapSolicitudEdicion(row.solicitud_edicion),
     enEjecucionDesde: row.en_ejecucion_desde ?? null,
     auditoria: {
       creadoPor: row.creado_por ?? '',
@@ -843,6 +886,102 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
     [user]
   );
 
+  const solicitarEdicion = useCallback(
+    async (id: string, motivo: string): Promise<CrudResult> => {
+      if (!user || !tenantId) return { exito: false, errores: ['Sin sesión activa'] };
+      const orden = ordenesRef.current.find(o => o.id === id);
+      const dbId = orden?._dbId;
+      if (!orden || !dbId) return { exito: false, errores: ['Orden no encontrada'] };
+      if (!['pendiente_aprobacion', 'aprobada', 'en_ejecucion'].includes(orden.estado)) {
+        return { exito: false, errores: ['Solo se pide edición de una orden enviada o aprobada'] };
+      }
+      if (orden.solicitudEdicion?.estado === 'pendiente') {
+        return { exito: false, errores: ['Ya hay una solicitud de edición pendiente'] };
+      }
+      const ahora = new Date().toISOString();
+      const solicitud = {
+        estado: 'pendiente', motivo: motivo.trim(),
+        solicitado_por: user.id, solicitado_por_email: user.email ?? null, solicitado_en: ahora,
+      };
+      const { error } = await dbOrdenesCompra.update(dbId, {
+        solicitud_edicion: solicitud, modificado_por: user.id, modificado_en: ahora,
+      } as Record<string, unknown>);
+      if (error) return { exito: false, errores: [error.message] };
+
+      // Aviso para quien aprueba (la campana lo filtra por módulo/permiso).
+      await supabase.from('notificaciones').insert({
+        tenant_id: tenantId, tipo: 'warning',
+        titulo: `Solicitud de edición: ${orden.id}`,
+        mensaje: `${profile?.nombre ?? user.email ?? 'Compras'} pide editar la orden: ${motivo.trim()}`,
+        entidad_tipo: 'orden_compra', entidad_id: orden.id,
+      });
+
+      setOrdenes(prev => prev.map(o => o.id === id
+        ? { ...o, solicitudEdicion: mapSolicitudEdicion(solicitud) }
+        : o));
+      return { exito: true };
+    },
+    [user, tenantId, profile]
+  );
+
+  const resolverSolicitudEdicion = useCallback(
+    async (id: string, autorizar: boolean, observacion?: string): Promise<CrudResult> => {
+      if (!user || !tenantId) return { exito: false, errores: ['Sin sesión activa'] };
+      const orden = ordenesRef.current.find(o => o.id === id);
+      const dbId = orden?._dbId;
+      if (!orden || !dbId) return { exito: false, errores: ['Orden no encontrada'] };
+      const previa = orden.solicitudEdicion;
+      if (previa?.estado !== 'pendiente') return { exito: false, errores: ['No hay solicitud de edición pendiente'] };
+
+      const ahora = new Date().toISOString();
+      const solicitud = {
+        estado: autorizar ? 'aprobada' : 'rechazada',
+        motivo: previa.motivo,
+        solicitado_por: previa.solicitadoPor, solicitado_por_email: previa.solicitadoPorEmail, solicitado_en: previa.solicitadoEn,
+        resuelto_por: user.id, resuelto_por_email: user.email ?? null, resuelto_en: ahora,
+        observacion: observacion?.trim() || null,
+      };
+      const payload: Record<string, unknown> = { solicitud_edicion: solicitud, modificado_por: user.id, modificado_en: ahora };
+      // Autorizar = la orden vuelve a borrador para que Compras la edite y la
+      // reenvíe. El trigger de la base cierra la solicitud de aprobación y sus
+      // avisos al salir de "enviada".
+      if (autorizar) payload.estado = 'borrador';
+      const { error } = await dbOrdenesCompra.update(dbId, payload);
+      if (error) return { exito: false, errores: [error.message] };
+
+      if (autorizar) {
+        // Las firmas de aprobación ya no valen para lo que se va a editar; la del
+        // comprador se conserva (es quién hizo la orden).
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+        await (supabase.from('orden_aprobaciones') as any).delete().eq('orden_id', dbId).neq('etapa', 'comprador');
+      }
+
+      // Se cierra el aviso de la solicitud y se avisa el resultado.
+      await supabase.from('notificaciones').update({ leida: true })
+        .eq('tenant_id', tenantId).eq('entidad_tipo', 'orden_compra').eq('entidad_id', orden.id)
+        .ilike('titulo', 'Solicitud de edici%');
+      await supabase.from('notificaciones').insert({
+        tenant_id: tenantId, tipo: autorizar ? 'success' : 'warning',
+        titulo: `Edición ${autorizar ? 'autorizada' : 'denegada'}: ${orden.id}`,
+        mensaje: autorizar
+          ? 'La orden volvió a borrador: edítela y vuelva a enviarla a aprobación.'
+          : (observacion?.trim() || 'La solicitud de edición fue denegada.'),
+        entidad_tipo: 'orden_compra', entidad_id: orden.id,
+      });
+
+      setOrdenes(prev => prev.map(o => o.id === id
+        ? {
+            ...o,
+            estado: autorizar ? ('borrador' as EstadoOrden) : o.estado,
+            solicitudEdicion: mapSolicitudEdicion(solicitud),
+            auditoria: { ...o.auditoria, modificadoPor: user.id, modificadoEn: ahora },
+          }
+        : o));
+      return { exito: true };
+    },
+    [user, tenantId]
+  );
+
   const marcarEnEjecucion = useCallback(
     async (id: string): Promise<CrudResult> => {
       if (!user) return { exito: false, errores: ['Sin sesión activa'] };
@@ -975,6 +1114,8 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
     cambiarEstado,
     firmarEtapa,
     rechazarOrden,
+    solicitarEdicion,
+    resolverSolicitudEdicion,
     marcarEnEjecucion,
     anularOrden,
     aplicarEstadoRecepcion,

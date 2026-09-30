@@ -2976,3 +2976,22 @@ Microsoft 365 Copilot como complemento. Sin código ni commit en esta tarea. §7
 - **MM-S-000429 devuelta a borrador** (los triggers nuevos cerraron su aviso y su solicitud pendiente): Richard debe
   abrirla, volver a cargar la línea del servicio (con el régimen exonerado el IGV saldrá 0) y enviarla a aprobación.
   COT-0098 sigue aprobada sin líneas (su cabecera dice 4,970.08 + IGV); no se inventó la línea.
+
+## Permisos de Miguelángel y Richard + solicitud de edición de OC (2026-09-30)
+
+- **Aprobar proveedores.** Miguelángel (rol Proyectos) no tenía ningún permiso de proveedores y Richard (Compras) tenía
+  todo menos `aprobar`. Migración `proveedores_aprobar_compras_y_proyectos_y_solicitud_edicion_oc`: `proveedores.ver` +
+  `proveedores.aprobar` para los roles Compras y Proyectos (afecta solo a ellos dos, son los únicos con esos roles).
+  El botón "Aprobar proveedor" del directorio sale con `can('proveedores','aprobar')` para proveedores en evaluación.
+- **Rechazar órdenes.** Miguelángel ya tenía `compras.aprobar` (que es lo que exige el botón Rechazar); lo que fallaba
+  era la columna `motivo_rechazo` inexistente, corregida esta mañana. Debería poder rechazar ya.
+- **Editar una orden enviada/aprobada solo con autorización** (como `solicitudEdicion` del oc-system):
+  columna `ordenes_compra.solicitud_edicion` (jsonb: estado pendiente/aprobada/rechazada, motivo, quién y cuándo pidió,
+  quién y cuándo resolvió, observación). Store: `solicitarEdicion(id, motivo)` (exige `compras.editar`, orden en
+  pendiente_aprobacion/aprobada/en_ejecucion, sin solicitud pendiente; crea aviso "Solicitud de edición: MM-xxx") y
+  `resolverSolicitudEdicion(id, autorizar, observacion)` (exige `compras.aprobar`; autorizar = la orden vuelve a
+  **borrador**, se borran las firmas salvo la del comprador, el trigger cierra la solicitud de aprobación y sus avisos;
+  se cierra el aviso de la solicitud y se crea "Edición autorizada/denegada: MM-xxx"). Detalle de la orden: botón
+  "Solicitar edición" (Compras), tarjeta ámbar con Autorizar/Denegar (quien aprueba), tarjeta gris si fue denegada.
+  Lista: badge "Edición solicitada". `useMisPendientesOC` expone `edicionesPendientes` (se muestran en el recuadro
+  "Me toca firmar" y en el KPI del tablero). Tras editar, Compras vuelve a "Enviar a aprobación" como siempre.

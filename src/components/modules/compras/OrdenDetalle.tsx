@@ -50,7 +50,7 @@ interface OrdenDetalleProps {
 }
 
 export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
-  const { obtenerOrdenPorId, firmarEtapa, rechazarOrden, marcarEnEjecucion, anularOrden, cambiarEstado, usuarioActual } = useOrdenesStore();
+  const { obtenerOrdenPorId, firmarEtapa, rechazarOrden, marcarEnEjecucion, anularOrden, cambiarEstado, usuarioActual, solicitarEdicion, resolverSolicitudEdicion } = useOrdenesStore();
   // Permisos reales del usuario (RBAC), no el rol suelto de profiles
   const { can, isAdmin } = usePermissions();
   const { user } = useAuth();
@@ -105,6 +105,11 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
   const [showAprobarDialog, setShowAprobarDialog] = useState(false);
   const [showRechazarDialog, setShowRechazarDialog] = useState(false);
   const [showAnularDialog, setShowAnularDialog] = useState(false);
+  const [showSolicitarEdicionDialog, setShowSolicitarEdicionDialog] = useState(false);
+  const [showDenegarEdicionDialog, setShowDenegarEdicionDialog] = useState(false);
+  const [motivoSolicitud, setMotivoSolicitud] = useState('');
+  const [observacionEdicion, setObservacionEdicion] = useState('');
+  const [resolviendoEdicion, setResolviendoEdicion] = useState(false);
   const [motivoRechazo, setMotivoRechazo] = useState('');
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
   const [errorMotivo, setErrorMotivo] = useState('');
@@ -180,6 +185,17 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
 
   const puedeAprobar = !!miEtapaPendiente && puedeRevisarOrden(orden.estado);
   const puedeRechazar = can('compras', 'aprobar') && puedeRevisarOrden(orden.estado);
+
+  /**
+   * Solicitud de edición: una orden enviada o aprobada ya no se edita a secas.
+   * Compras la pide con un motivo y quien aprueba la autoriza (vuelve a borrador)
+   * o la deniega. Igual que en el sistema anterior.
+   */
+  const solicitudEdicion = orden.solicitudEdicion;
+  const solicitudPendiente = solicitudEdicion?.estado === 'pendiente';
+  const puedeSolicitarEdicion = can('compras', 'editar') && !puedeEditarOrden(orden.estado)
+    && ['pendiente_aprobacion', 'aprobada', 'en_ejecucion'].includes(orden.estado) && !solicitudPendiente;
+  const puedeResolverEdicion = solicitudPendiente && can('compras', 'aprobar');
   const puedeEditar = can('compras', 'editar') && puedeEditarOrden(orden.estado);
   const puedeAnular = can('compras', 'eliminar') && puedeAnularOrden(orden.estado);
   const puedeIniciarEjecucion = can('compras', 'editar') && puedeMarcarEnEjecucion(orden.estado);
@@ -218,6 +234,34 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
       });
     }
     await recargarAprobaciones();
+  };
+
+  const handleSolicitarEdicion = async () => {
+    if (motivoSolicitud.trim().length < 10) {
+      setErrorMotivo('Explique qué necesita cambiar (mínimo 10 caracteres)');
+      return;
+    }
+    const res = await solicitarEdicion(orden.id, motivoSolicitud);
+    if (!res.exito) { toast.error(res.errores?.[0] ?? 'No se pudo enviar la solicitud'); return; }
+    setShowSolicitarEdicionDialog(false);
+    setMotivoSolicitud('');
+    setErrorMotivo('');
+    toast.success('Solicitud de edición enviada', { description: 'Quien aprueba la verá en sus pendientes y en la campana.' });
+  };
+
+  const handleResolverEdicion = async (autorizar: boolean) => {
+    setResolviendoEdicion(true);
+    const res = await resolverSolicitudEdicion(orden.id, autorizar, observacionEdicion);
+    setResolviendoEdicion(false);
+    if (!res.exito) { toast.error(res.errores?.[0] ?? 'No se pudo resolver la solicitud'); return; }
+    setShowDenegarEdicionDialog(false);
+    setObservacionEdicion('');
+    if (autorizar) {
+      toast.success('Edición autorizada', { description: 'La orden volvió a borrador. Compras la editará y la reenviará a aprobación.' });
+      await recargarAprobaciones();
+    } else {
+      toast.success('Solicitud de edición denegada');
+    }
   };
 
   const handleRechazar = async () => {
@@ -300,6 +344,12 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
               Editar
             </Button>
           )}
+          {puedeSolicitarEdicion && (
+            <Button variant="outline" onClick={() => { setErrorMotivo(''); setShowSolicitarEdicionDialog(true); }}>
+              <Edit className="size-4" />
+              Solicitar edición
+            </Button>
+          )}
           {puedeEnviarAAprobacion && (
             <Button onClick={handleEnviarAAprobacion} variant="default">
               <CheckCircle className="size-4" />
@@ -338,6 +388,51 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
           )}
         </div>
       </div>
+
+      {/* Solicitud de edición pendiente o denegada */}
+      {solicitudEdicion && solicitudPendiente && (
+        <Alert className="border-amber-400 bg-amber-50 dark:bg-amber-950/30">
+          <Edit className="size-4" />
+          <AlertDescription>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <strong>Solicitud de edición pendiente:</strong> {solicitudEdicion.motivo}
+                <br />
+                <span className="text-xs">
+                  Pedida por {solicitudEdicion.solicitadoPorEmail ?? nombreDe(solicitudEdicion.solicitadoPor)}
+                  {solicitudEdicion.solicitadoEn && <> el {formatearFecha(solicitudEdicion.solicitadoEn)}</>}.
+                  {puedeResolverEdicion
+                    ? ' Si la autoriza, la orden vuelve a borrador y Compras la reenvía a aprobación después de editarla.'
+                    : ' Esperando autorización de quien aprueba.'}
+                </span>
+              </div>
+              {puedeResolverEdicion && (
+                <div className="flex gap-2 shrink-0">
+                  <Button size="sm" onClick={() => handleResolverEdicion(true)} disabled={resolviendoEdicion}>
+                    <CheckCircle className="size-4" /> Autorizar edición
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowDenegarEdicionDialog(true)} disabled={resolviendoEdicion}>
+                    <XCircle className="size-4" /> Denegar
+                  </Button>
+                </div>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      {solicitudEdicion?.estado === 'rechazada' && orden.estado !== 'borrador' && (
+        <Alert>
+          <XCircle className="size-4" />
+          <AlertDescription>
+            <strong>Edición denegada</strong>{solicitudEdicion.observacion ? <>: {solicitudEdicion.observacion}</> : null}
+            <br />
+            <span className="text-xs">
+              Por {solicitudEdicion.resueltoPorEmail ?? nombreDe(solicitudEdicion.resueltoPor)}
+              {solicitudEdicion.resueltoEn && <> el {formatearFecha(solicitudEdicion.resueltoEn)}</>}. Motivo pedido: {solicitudEdicion.motivo}
+            </span>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Alerta si fue rechazada */}
       {orden.estado === 'rechazada' && orden.motivoRechazo && (
@@ -682,6 +777,52 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
       </Dialog>
 
       {/* Rechazar */}
+      {/* Solicitar edición */}
+      <Dialog open={showSolicitarEdicionDialog} onOpenChange={setShowSolicitarEdicionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Solicitar edición de la orden</DialogTitle>
+            <DialogDescription>
+              La orden ya fue enviada a aprobación. Explique qué necesita cambiar; quien aprueba la autorizará o la denegará.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="motivoSolicitud">Motivo *</Label>
+            <Textarea
+              id="motivoSolicitud"
+              value={motivoSolicitud}
+              onChange={(e) => { setMotivoSolicitud(e.target.value); setErrorMotivo(''); }}
+              rows={4}
+              placeholder="Ej.: cambiar la cantidad del ítem 2 y la fecha de entrega"
+            />
+            <p className="text-sm text-muted-foreground">{motivoSolicitud.trim().length} caracteres (mínimo 10)</p>
+            {errorMotivo && <p className="text-sm text-red-600">{errorMotivo}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSolicitarEdicionDialog(false)}>Cancelar</Button>
+            <Button onClick={handleSolicitarEdicion}>Enviar solicitud</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Denegar edición */}
+      <Dialog open={showDenegarEdicionDialog} onOpenChange={setShowDenegarEdicionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Denegar la solicitud de edición</DialogTitle>
+            <DialogDescription>Opcional: indique por qué, para que Compras lo vea en la orden.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="observacionEdicion">Observación</Label>
+            <Textarea id="observacionEdicion" value={observacionEdicion} onChange={(e) => setObservacionEdicion(e.target.value)} rows={3} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDenegarEdicionDialog(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => handleResolverEdicion(false)} disabled={resolviendoEdicion}>Denegar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showRechazarDialog} onOpenChange={setShowRechazarDialog}>
         <DialogContent>
           <DialogHeader>
