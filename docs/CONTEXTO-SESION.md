@@ -2998,3 +2998,6 @@ Microsoft 365 Copilot como complemento. Sin código ni commit en esta tarea. §7
 - **Anular (30/09, tarde):** anular OC, cotización, requerimiento (y recepción) exige `compras.eliminar`. El rol Proyectos
   (Miguelángel) lo recibe (migración `proyectos_puede_anular_compras`). Richard (Compras) NO lo tiene: hoy solo anula sus
   propios requerimientos. Si Kevin quiere que Compras también anule, es el mismo permiso para el rol Compras.
+- **Compras también anula (30/09, tarde):** `compras.eliminar` para el rol Compras (Richard). Y **`cotizaciones` no
+  tenía `motivo_anulacion`** (el store lo escribía → "Could not find the 'motivo_anulacion' column"): columna añadida.
+  Revisadas las cuatro tablas: órdenes y requerimientos ya la tenían; recepciones guarda el motivo en `observaciones`.
