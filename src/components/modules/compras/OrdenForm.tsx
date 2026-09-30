@@ -213,7 +213,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
   // Calcular totales en tiempo real
   const totales = useMemo(() => {
     return calcularTotales(items, tasaIgv(regimenIgv));
-  }, [items]);
+  }, [items, regimenIgv]);
 
   // Verificar si puede editar
   const puedeEditar = !isEditing || (ordenExistente && puedeEditarOrden(ordenExistente.estado));

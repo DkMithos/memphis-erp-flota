@@ -3001,3 +3001,6 @@ Microsoft 365 Copilot como complemento. Sin código ni commit en esta tarea. §7
 - **Compras también anula (30/09, tarde):** `compras.eliminar` para el rol Compras (Richard). Y **`cotizaciones` no
   tenía `motivo_anulacion`** (el store lo escribía → "Could not find the 'motivo_anulacion' column"): columna añadida.
   Revisadas las cuatro tablas: órdenes y requerimientos ya la tenían; recepciones guarda el motivo en `observaciones`.
+- **El formulario seguía mostrando IGV al elegir "Exonerado" (30/09, tarde):** el `useMemo` de totales de
+  CotizacionForm y OrdenForm dependía solo de los ítems, no del régimen, así que al cambiar el régimen la pantalla no
+  recalculaba (y con el bug anterior del store, eso era lo que se guardaba). Añadido `regimenIgv` a las dependencias.

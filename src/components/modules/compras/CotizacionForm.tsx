@@ -159,7 +159,9 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
       precioUnitario: item.precioUnitario || 0
     }));
     return calcularTotales(items, tasaIgv(formData.regimenIgv));
-  }, [formData.items]);
+    // El régimen también cambia los totales: sin él en las dependencias, al pasar a
+    // "Exonerado" la pantalla seguía mostrando el IGV del 18%.
+  }, [formData.items, formData.regimenIgv]);
 
   // Validar formulario
   const validateForm = (): boolean => {
