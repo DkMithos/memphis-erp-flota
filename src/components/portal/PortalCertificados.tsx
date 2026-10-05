@@ -146,7 +146,7 @@ function VerificarCertificado({ token, onNavigate }: { token: string; onNavigate
 
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <BotonDescargar cert={cert} />
-        <Button variant="outline" onClick={() => onNavigate(`/certificados?dni=${encodeURIComponent(d.participante.dni)}`)}>
+        <Button variant="outline" onClick={() => { recordarDni(d.participante.dni); onNavigate('/certificados'); }}>
           <FileSearch className="size-4" /> Ver todas mis capacitaciones <ArrowRight className="size-4" />
         </Button>
       </div>
@@ -154,9 +154,16 @@ function VerificarCertificado({ token, onNavigate }: { token: string; onNavigate
   );
 }
 
+// El DNI no viaja en la URL (quedaría en el historial y en los registros del
+// servidor): al pasar de la verificación al portal se deja en sessionStorage
+// y se consume una sola vez.
+const CLAVE_DNI = 'certificados.dni';
+function recordarDni(dni: string) { try { sessionStorage.setItem(CLAVE_DNI, dni); } catch { /* modo privado */ } }
+function tomarDni(): string { try { const v = sessionStorage.getItem(CLAVE_DNI) ?? ''; sessionStorage.removeItem(CLAVE_DNI); return v; } catch { return ''; } }
+
 // ─── /certificados (portal por DNI) ──────────────────────────────────────────
 function PortalPorDni({ onNavigate }: { onNavigate: (r: string) => void }) {
-  const dniInicial = useMemo(() => new URLSearchParams(window.location.search).get('dni') ?? '', []);
+  const dniInicial = useMemo(() => tomarDni(), []);
   const [dni, setDni] = useState(dniInicial);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
