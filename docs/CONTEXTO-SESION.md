@@ -3133,3 +3133,5 @@ filas se pagina desde el primer commit con `usePagination` (20/pág.) y el compo
 Aplicado ya: Capacitaciones (lista, participantes, certificados) y Fianzas (próximas renovaciones,
 lista de fianzas, cargos de cada fianza a 10/pág.). Verificado en preview: "1–20 de 138
 participantes · Página 1 de 7".
+- (05/10, tarde) Faltaba la pantalla **Fianzas → Cargos de Fianzas** (`FianzasCargos.tsx`, la de
+  Lisbet, con los 117 cargos en una columna): paginada a 20, reset al buscar.

@@ -5,9 +5,11 @@
  * `fianzas.cargos`, no `fianzas.ver`. Es el mismo criterio con el que Flota
  * entra a Recepciones sin ver el resto de Compras.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FileText, Plus, Search, ExternalLink } from 'lucide-react';
 import { PageNav } from '../../shared/PageNav';
+import { Paginador } from '../../shared/Paginador';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -48,6 +50,11 @@ export function FianzasCargos() {
       .map(c => ({ ...c, fianza: nombrePorFianza.get(c.fianzaId) ?? '—' }))
       .filter(c => !q || c.nombre.toLowerCase().includes(q) || c.fianza.toLowerCase().includes(q));
   }, [cargos, busqueda, nombrePorFianza]);
+
+  // Más de cien cargos en una columna no se pueden recorrer: 20 por página,
+  // y al buscar se vuelve a la primera.
+  const pag = usePagination(lista);
+  useEffect(() => { pag.setPage(1); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [busqueda]);
 
   const cartasDeLaFianza = useMemo(
     () => fianzas.find(f => f.id === form.fianzaId)?.cartas ?? [],
@@ -124,7 +131,7 @@ export function FianzasCargos() {
             </div>
           ) : (
             <ul className="divide-y">
-              {lista.map(c => (
+              {pag.paged.map(c => (
                 <li key={c.id} className="py-3 flex items-start gap-3">
                   <FileText className="size-4 mt-0.5 text-muted-foreground shrink-0" />
                   <div className="min-w-0 flex-1">
@@ -146,6 +153,7 @@ export function FianzasCargos() {
               ))}
             </ul>
           )}
+          {!loading && lista.length > 0 && <Paginador {...pag} nombre="cargos" className="px-0" />}
         </CardContent>
       </Card>
 
