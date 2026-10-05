@@ -119,10 +119,11 @@ export function CertificadoVista({ plantilla: p, datos: d, codigo, qrDataUrl, ma
   );
 
   const bloqueFirma = (firmante || cargoFirmante) && (
-    <div style={{ position: 'relative', margin: fondoCompleto ? '26px auto 0' : '34px auto 0', width: 430, textAlign: 'center', paddingTop: 6 }}>
+    // Con rúbrica, el bloque baja para que la imagen (hasta 90 px) no pise la fecha.
+    <div style={{ position: 'relative', margin: `${firmaUrl ? (fondoCompleto ? 70 : 84) : (fondoCompleto ? 26 : 34)}px auto 0`, width: 430, textAlign: 'center', paddingTop: 6 }}>
       {firmaUrl && (
         <img src={firmaUrl} alt="" crossOrigin="anonymous"
-          style={{ position: 'absolute', left: '50%', bottom: 'calc(100% - 10px)', transform: 'translateX(-50%)', height: 64, maxWidth: 220, objectFit: 'contain' }} />
+          style={{ position: 'absolute', left: '50%', bottom: 'calc(100% - 16px)', transform: 'translateX(-50%)', height: 90, maxWidth: 260, objectFit: 'contain' }} />
       )}
       {p.sello_url && !fondoCompleto && (
         <img src={p.sello_url} alt="" crossOrigin="anonymous"

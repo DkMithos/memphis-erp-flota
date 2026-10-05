@@ -3074,3 +3074,9 @@ y las hojas de asistencia manuscritas de 3 días (10 + 8 + 9 páginas, 15 firmas
   las fechas reales de los 3 días); (2) nombre y rúbrica del firmante en la plantilla; (3) decidir
   los 35 de asistencia parcial; (4) revisar los DNI marcados "Revisar" en el Excel (la persona que
   escribió el nombre a mano puede confirmarlos con RENIEC); (5) sello del consorcio si lo quieren.
+- **Rúbrica del representante (05/10, tarde):** Kevin entregó `firma_gm.docx`; se extrajo el PNG, se
+  reforzó el trazo (alfa ×2.2, azul tinta, recortado) y quedó como `firma_url` de la plantilla
+  "Consorcio Ejecutor Salud Cusco". Se cambia desde Plantillas → Imágenes → Rúbrica del firmante
+  (Reemplazar / Quitar / "Usar mi firma registrada"). El bloque de firma del diploma baja 50 px
+  cuando hay rúbrica para que la imagen (90 px) no pise la fecha. Falta el **nombre** del
+  firmante (la plantilla solo dice "Representante Común").
