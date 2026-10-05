@@ -3038,3 +3038,7 @@ Documento completo: `docs/CAPACITACIONES-CERTIFICADOS.md`.
   (no se guarda archivo; el snapshot lo reconstruye idéntico); sello y rúbrica no son firma
   digital. Pendiente de Kevin: subir logo/sello/rúbrica del consorcio en Plantillas y, si quiere,
   una plantilla por consorcio (Salud Cusco, Mas Seguridad Amazonas…).
+- **Deploy (05/10):** los dos primeros intentos fallaron en Vercel al arrancar: *"Node.js Version
+  20.x is discontinued"*. Se declaró `"engines": { "node": "24.x" }` en `package.json`
+  (commit `f8aed672`). Local sigue en Node 20.19 y compila igual. Cualquier push futuro ya
+  sale con Node 24.
