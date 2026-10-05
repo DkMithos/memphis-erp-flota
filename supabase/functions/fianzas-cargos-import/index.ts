@@ -50,6 +50,16 @@ const CARPETA_A_PROYECTO: Record<string, string> = {
   'gore cusco patrulleros': 'GORE CUSCO PATRULLEROS',
   'gore cusco hidroambulancias': 'GORE CUSCO HIDROAMBULANCIAS',
   'gore ica patrulleros': 'GORE ICA PATRULLEROS',
+  // La carpeta se llama por la ciudad; la fianza del Excel, por la región.
+  'bomberos moyobamba': 'BOMBEROS SAN MARTIN',
+  // Fianzas HISTÓRICAS registradas el 05/10/2026 (Kevin) solo para que entren
+  // sus cargos: no están en el Excel de Administración ni tienen cartas en el ERP.
+  'gore loreto ambulancias': 'GORE LORETO AMBULANCIAS',
+  'gore loreto comisarias': 'GORE LORETO COMISARIAS',
+  'gore loreto comisarías': 'GORE LORETO COMISARIAS',
+  'gore loreto serenazgo': 'GORE LORETO SERENAZGO',
+  'independencia': 'MUNI INDEPENDENCIA',
+  'surco': 'MUNI SURCO',
 }
 
 async function getAppToken(): Promise<string> {

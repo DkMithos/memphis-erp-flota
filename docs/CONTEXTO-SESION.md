@@ -3115,3 +3115,10 @@ Arreglo:
   (tenant = dueño del archivo de fianzas) y se despliega con verify_jwt=false; `fianzas-import` v5,
   en modo cron, la llama justo después de leer el Excel y devuelve su resumen en `cargos`. Si los
   cargos fallan, el Excel ya quedó importado y el error viene aparte en la respuesta.
+- **Fianzas históricas para los cargos huérfanos (05/10, Kevin):** 26 PDF de SharePoint no tenían
+  fianza. La carpeta "BOMBEROS MOYOBAMBA" es la fianza "BOMBEROS SAN MARTIN" (ya existía: solo se
+  mapeó). Las otras cinco se crearon como **históricas** (sin cartas, `notas` empieza por "HISTÓRICA",
+  consorcio Memphis, sin proyecto): GORE LORETO AMBULANCIAS, GORE LORETO COMISARIAS, GORE LORETO
+  SERENAZGO, MUNI INDEPENDENCIA, MUNI SURCO. `fianzas-cargos-import` v4 trae el mapeo de carpetas.
+  Si Shirley las agrega algún día al Excel con otro nombre, el importador no las unirá (empareja por
+  convenio+entidad): habría que renombrar la histórica o mover sus cargos.
