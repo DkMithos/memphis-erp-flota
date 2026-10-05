@@ -34,6 +34,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../ui/dropdown-menu';
 import { PageNav } from '../../shared/PageNav';
 import { PadFirma } from '../../shared/PadFirma';
+import { Paginador, numeroDeFila } from '../../shared/Paginador';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { useAuth } from '../../../auth/AuthProvider';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useConfirmAction } from '../../shared/ConfirmDialogProvider';
@@ -237,6 +239,8 @@ function Participantes({ cap, parts, tenantId, puedeEditar, plantilla, onCambioC
   const [mostrarQR, setMostrarQR] = useState(false);
   const linkAsistencia = urlAsistencia(cap.asistencia_token);
   const qr = useQrDataUrl(mostrarQR ? linkAsistencia : null);
+  // 138 participantes en una sola tabla no se puede trabajar: 20 por página.
+  const pagParts = usePagination(parts);
   const cerrada = cap.estado === 'cerrada' || cap.estado === 'anulada';
 
   const toggleAsistencia = async (abierta: boolean) => {
@@ -299,9 +303,9 @@ function Participantes({ cap, parts, tenantId, puedeEditar, plantilla, onCambioC
               </TableHeader>
               <TableBody>
                 {parts.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-10">Sin participantes. Agréguelos a mano, importe la lista o abra el enlace de asistencia para que se registren ellos mismos.</TableCell></TableRow>}
-                {parts.map((p, i) => (
+                {pagParts.paged.map((p, i) => (
                   <TableRow key={p.id} className={p.asistio === false ? 'opacity-50' : ''}>
-                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell className="text-muted-foreground">{numeroDeFila(pagParts.page, pagParts.pageSize, i)}</TableCell>
                     <TableCell className="font-mono text-xs">{p.dni}</TableCell>
                     <TableCell>
                       <div className="font-medium">{p.apellidos}, {p.nombres}</div>
@@ -341,6 +345,7 @@ function Participantes({ cap, parts, tenantId, puedeEditar, plantilla, onCambioC
                 ))}
               </TableBody>
             </Table>
+            <Paginador {...pagParts} nombre="participantes" />
           </CardContent>
         </Card>
 
@@ -637,6 +642,7 @@ function Certificados({ cap, parts, certs, plantillas, tenantId, puedeEmitir, pu
   };
 
   const emitidos = certs.filter(c => c.estado === 'emitido');
+  const pagCerts = usePagination(certs);
 
   return (
     <div className="space-y-4">
@@ -701,7 +707,7 @@ function Certificados({ cap, parts, certs, plantillas, tenantId, puedeEmitir, pu
             </TableHeader>
             <TableBody>
               {certs.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Aún no se emitieron certificados.</TableCell></TableRow>}
-              {certs.map(c => (
+              {pagCerts.paged.map(c => (
                 <TableRow key={c.id}>
                   <TableCell className="font-mono text-xs">{c.codigo}</TableCell>
                   <TableCell>
@@ -734,6 +740,7 @@ function Certificados({ cap, parts, certs, plantillas, tenantId, puedeEmitir, pu
               ))}
             </TableBody>
           </Table>
+          <Paginador {...pagCerts} nombre="certificados" />
         </CardContent>
       </Card>
 

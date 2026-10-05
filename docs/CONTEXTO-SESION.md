@@ -3122,3 +3122,14 @@ Arreglo:
   SERENAZGO, MUNI INDEPENDENCIA, MUNI SURCO. `fianzas-cargos-import` v4 trae el mapeo de carpetas.
   Si Shirley las agrega algún día al Excel con otro nombre, el importador no las unirá (empareja por
   convenio+entidad): habría que renombrar la histórica o mover sus cargos.
+
+## Regla nueva: paginación en todo lo que tenga bastante data (2026-10-05, Kevin — N80)
+
+"No puedo estar scrolleando tanto tiempo." Desde hoy toda tabla/lista que pueda pasar de ~20-30
+filas se pagina desde el primer commit con `usePagination` (20/pág.) y el componente nuevo
+`src/components/shared/Paginador.tsx` (mismo aspecto que Órdenes/Requerimientos; muestra
+"X–Y de N · Página p de t"; `numeroDeFila()` para la columna #). Se pagina después de filtrar
+(reset a página 1 al cambiar el filtro) y totales/exportaciones siguen sobre la lista completa.
+Aplicado ya: Capacitaciones (lista, participantes, certificados) y Fianzas (próximas renovaciones,
+lista de fianzas, cargos de cada fianza a 10/pág.). Verificado en preview: "1–20 de 138
+participantes · Página 1 de 7".

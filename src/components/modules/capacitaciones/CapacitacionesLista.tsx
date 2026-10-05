@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { PageNav } from '../../shared/PageNav';
 import { ProyectoSelector } from '../../shared/ProyectoSelector';
+import { Paginador } from '../../shared/Paginador';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { useAuth } from '../../../auth/AuthProvider';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { dbCapacitaciones, dbCursos, dbPlantillas } from '../../../lib/capacitaciones/db';
@@ -55,6 +57,10 @@ export function CapacitacionesLista({ onNavigate }: Props) {
       (!t || [c.codigo, c.titulo, c.lugar, c.instructor_nombre, c.proyecto?.codigo, c.proyecto?.nombre, c.entidad_beneficiaria].some(v => (v ?? '').toLowerCase().includes(t))),
     );
   }, [caps, proyectoId, estado, q]);
+
+  const pag = usePagination(filtradas);
+  // Al cambiar el filtro se vuelve a la primera página.
+  useEffect(() => { pag.setPage(1); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [q, proyectoId, estado]);
 
   const kpi = useMemo(() => ({
     sesiones: filtradas.length,
@@ -125,7 +131,7 @@ export function CapacitacionesLista({ onNavigate }: Props) {
                   {caps.length === 0 ? 'Aún no hay capacitaciones. Cree la primera con "Nueva capacitación".' : 'Nada coincide con el filtro.'}
                 </TableCell></TableRow>
               )}
-              {filtradas.map(c => {
+              {pag.paged.map(c => {
                 const est = ESTADO_CAPACITACION[c.estado] ?? ESTADO_CAPACITACION.programada;
                 const tp = c.total_participantes ?? 0, tf = c.total_firmados ?? 0, tc = c.total_certificados ?? 0;
                 return (
@@ -152,6 +158,7 @@ export function CapacitacionesLista({ onNavigate }: Props) {
               })}
             </TableBody>
           </Table>
+          <Paginador {...pag} nombre="capacitaciones" />
         </CardContent>
       </Card>
 

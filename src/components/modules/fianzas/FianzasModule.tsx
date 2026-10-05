@@ -10,6 +10,8 @@ import {
   Plus, FileText, Landmark, ArrowLeft, Coins, Pencil, RefreshCw,
 } from 'lucide-react';
 import { PageNav } from '../../shared/PageNav';
+import { Paginador } from '../../shared/Paginador';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -218,6 +220,11 @@ export function FianzasModule() {
     porcentaje: 'Porcentaje', afianzado: 'Monto afianzado',
     costo: 'Costo de renovación', encaje: 'Encaje', vigencia: 'Vigencia',
   };
+
+  // Paginación (regla del 05/10/2026): las dos tablas largas del tablero.
+  const pagVigentes = usePagination(vigentes);
+  const pagFianzas = usePagination(listaFiltrada);
+  useEffect(() => { pagFianzas.setPage(1); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [busqueda]);
 
   const filasCartas = () => fianzas.flatMap(f => f.cartas.map(c => ({
     proyecto: f.nombreProyecto, entidad: f.entidad, concurso: f.concurso ?? '',
@@ -557,7 +564,7 @@ export function FianzasModule() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {vigentes.map(({ f, c }) => {
+                    {pagVigentes.paged.map(({ f, c }) => {
                       const d = diasParaRenovar(c);
                       const u = urgencia(c);
                       return (
@@ -589,6 +596,7 @@ export function FianzasModule() {
                   </TableBody>
                 </Table>
               )}
+              <Paginador {...pagVigentes} nombre="cartas vigentes" />
             </CardContent>
           </Card>
 
@@ -616,7 +624,7 @@ export function FianzasModule() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {listaFiltrada.map(f => {
+                    {pagFianzas.paged.map(f => {
                       const vig = f.cartas.find(c => c.estado === 'vigente');
                       return (
                         <TableRow key={f.id} className="cursor-pointer"
@@ -650,6 +658,7 @@ export function FianzasModule() {
                     })}
                   </TableBody>
                 </Table>
+                <Paginador {...pagFianzas} nombre="fianzas" />
               </CardContent>
             </Card>
           </div>

@@ -16,6 +16,8 @@ import { Badge } from '../../ui/badge';
 import { toast } from 'sonner';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useFianzas, type CargoFianza } from '../../../lib/fianzas/fianzas-store';
+import { Paginador } from '../../shared/Paginador';
+import { usePagination } from '../../../lib/shared/usePagination';
 
 const MAX_BYTES = 20 * 1024 * 1024;
 
@@ -71,6 +73,8 @@ export function CargosDeFianza({ fianzaId, entidad }: { fianzaId: string; entida
     toast.success('Cargo eliminado');
   };
 
+  const pagCargos = usePagination(mios, 10);
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -105,7 +109,7 @@ export function CargosDeFianza({ fianzaId, entidad }: { fianzaId: string; entida
           </div>
         ) : (
           <ul className="divide-y">
-            {mios.map(c => (
+            {pagCargos.paged.map(c => (
               <li key={c.id} className="py-2 flex items-center gap-3">
                 <FileText className="size-4 text-muted-foreground shrink-0" />
                 <div className="min-w-0 flex-1">
@@ -142,6 +146,9 @@ export function CargosDeFianza({ fianzaId, entidad }: { fianzaId: string; entida
               </li>
             ))}
           </ul>
+        )}
+        {mios.length > 0 && (
+          <Paginador {...pagCargos} nombre="cargos" className="px-0" />
         )}
       </CardContent>
     </Card>
