@@ -5,6 +5,7 @@ import {
   Package, 
   DollarSign, 
   FolderKanban,
+  GraduationCap,
   Truck,
   Activity,
   UserCircle,
@@ -243,7 +244,8 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         { label: t('nav.sub.valorizaciones'), href: '/proyectos/valorizaciones' },
         { label: 'Presupuesto', href: '/proyectos/presupuesto' },
         { label: t('nav.sub.riesgos'), href: '/proyectos/riesgos' },
-        { label: t('nav.sub.documentos'), href: '/proyectos/documentos' }
+        { label: t('nav.sub.documentos'), href: '/proyectos/documentos' },
+        { label: 'Capacitaciones y certificados', href: '/proyectos/capacitaciones' }
       ]
     },
     {
@@ -401,6 +403,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
     if (href.includes('flujo-caja') || href.includes('flujo_caja')) return <TrendingUp className="size-4" />;
     if (href.includes('reportes')) return <BarChart3 className="size-4" />;
     // Proyectos
+    if (href.includes('capacitaciones')) return <GraduationCap className="size-4" />;
     if (href.includes('lista') || href.includes('proyectos/lista')) return <FolderKanban className="size-4" />;
     if (href.includes('tareas')) return <ListChecks className="size-4" />;
     if (href.includes('cronograma')) return <CalendarDays className="size-4" />;

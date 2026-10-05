@@ -1,7 +1,7 @@
 # CONTEXTO DE TRABAJO — Memphis ERP
 
 > **Documento vivo.** Se actualiza al cerrar cada tarea o cuando el contexto de la sesión
-> de trabajo se acerca al límite. Última actualización: **2026-07-07**.
+> de trabajo se acerca al límite. Última actualización: **2026-10-05**.
 > Es el punto de re-entrada para retomar el trabajo sin re-derivar contexto.
 
 ---
@@ -3004,3 +3004,37 @@ Microsoft 365 Copilot como complemento. Sin código ni commit en esta tarea. §7
 - **El formulario seguía mostrando IGV al elegir "Exonerado" (30/09, tarde):** el `useMemo` de totales de
   CotizacionForm y OrdenForm dependía solo de los ítems, no del régimen, así que al cambiar el régimen la pantalla no
   recalculaba (y con el bug anterior del store, eso era lo que se guardaba). Añadido `regimenIgv` a las dependencias.
+
+## Capacitaciones y certificados con QR + portal por DNI (2026-10-05)
+
+Pedido de Kevin (N79): las entregas de algunos proyectos incluyen capacitaciones; hacía falta
+asistencia con firma, certificados con QR, un portal público donde con el DNI se vean las
+capacitaciones/temario/certificados, y plantillas por consorcio/proyecto/curso (modelo propio o
+el estándar cambiando el logo). Referencia analizada: repo `Adrian-7268/plantilla-diplomas`
+(taller local con `window.print`; se reutilizó su diseño visual y su curso real como semilla).
+Documento completo: `docs/CAPACITACIONES-CERTIFICADOS.md`.
+
+- **DB** (`20261005120000_capacitaciones_y_certificados`): `capacitacion_cursos`,
+  `certificado_plantillas` (modo `estandar` / `fondo_completo`, alcance por proyecto/curso),
+  `capacitaciones` (CAP-YYYY-NNN, `asistencia_token` + `asistencia_abierta`),
+  `capacitacion_participantes` (firma PNG en la tabla, origen erp/enlace, IP),
+  `certificados` (CERT-YYYY-NNNNN, `token` del QR, snapshots `datos` + `plantilla`, revocación),
+  `certificado_accesos` (bitácora/tope por IP). RLS `ti_*`. Bucket público `certificados` para
+  logos/sellos/fondos/rúbrica. **Permisos = módulo `proyectos`**: aprobar emite, eliminar revoca.
+- **Edge Function pública `capacitaciones-publico`** (`@supabase/server`, `auth:'none'`,
+  verify_jwt=false): `verificar`, `consultar` (DNI; 12/10 min y 60/día por IP), `capacitacion`,
+  `firmar` (15/h por IP; duplicados → 409). Nunca devuelve firmas ni contactos.
+- **Front**: `src/lib/capacitaciones/*` y `src/components/modules/capacitaciones/*`
+  (`CertificadoVista` = el diploma a 1123×794, mismo componente para preview/portal/PDF;
+  PDF con html2canvas 2× + jsPDF por import dinámico; hoja de asistencia imprimible),
+  `src/components/portal/PortalCertificados.tsx` (público: `/certificados`, `/cert/:token`,
+  `/c/:token`). Menú: Proyectos → Capacitaciones y certificados. Los QR apuntan siempre a
+  producción salvo en localhost.
+- **Verificado** en preview con usuario QA temporal (eliminado): alta, importación pegada,
+  enlace de asistencia (abre/cierra; `firmar` 200/409/422 según caso), emisión de 2
+  certificados con correlativo, páginas públicas y portal por DNI. Build OK.
+- **Decisiones que Kevin debe conocer**: consulta por DNI sin segundo factor (como se pidió),
+  mitigada con tope por IP + bitácora + solo datos impresos; el PDF se genera en el navegador
+  (no se guarda archivo; el snapshot lo reconstruye idéntico); sello y rúbrica no son firma
+  digital. Pendiente de Kevin: subir logo/sello/rúbrica del consorcio en Plantillas y, si quiere,
+  una plantilla por consorcio (Salud Cusco, Mas Seguridad Amazonas…).

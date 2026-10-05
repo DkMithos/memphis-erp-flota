@@ -170,6 +170,12 @@ const UserProfile = lazyModulo(() => import('./components/modules/perfil/UserPro
 const PortalProveedores = lazyModulo(() => import('./components/portal/PortalProveedores').then(m => ({ default: m.PortalProveedores })));
 // Portal de talleres (ruta pública /taller, login por código del taller)
 const PortalTalleres = lazyModulo(() => import('./components/portal/PortalTalleres').then(m => ({ default: m.PortalTalleres })));
+// Capacitaciones y certificados (Proyectos) + portal público de certificados (/certificados, /cert/:token, /c/:token)
+const CapacitacionesLista = lazyModulo(() => import('./components/modules/capacitaciones/CapacitacionesLista').then(m => ({ default: m.CapacitacionesLista })));
+const CapacitacionDetalle = lazyModulo(() => import('./components/modules/capacitaciones/CapacitacionDetalle').then(m => ({ default: m.CapacitacionDetalle })));
+const CursosCatalogo = lazyModulo(() => import('./components/modules/capacitaciones/CursosCatalogo').then(m => ({ default: m.CursosCatalogo })));
+const PlantillasCertificado = lazyModulo(() => import('./components/modules/capacitaciones/PlantillasCertificado').then(m => ({ default: m.PlantillasCertificado })));
+const PortalCertificados = lazyModulo(() => import('./components/portal/PortalCertificados').then(m => ({ default: m.PortalCertificados })));
 
 // Stores
 import { OTStoreProvider } from './lib/flota/ot-store';
@@ -335,6 +341,8 @@ export default function App() {
     if (currentRoute.startsWith('/e/')) return true; // QR público biomédico
     if (currentRoute.startsWith('/portal')) return true; // Portal de proveedores (N20)
     if (currentRoute.startsWith('/taller')) return true; // Portal de talleres (N23/Fase C)
+    // Certificados de capacitación: verificación por QR, portal por DNI y firma de asistencia
+    if (currentRoute.startsWith('/certificados') || currentRoute.startsWith('/cert/') || currentRoute.startsWith('/c/')) return true;
     // NOTA: la impresión de QR del vehículo NO es pública — usa el store de vehículos
     // (requiere sesión + providers). Se maneja internamente en renderModule.
     if (ENABLE_PUBLIC_LEGACY_ROUTES && currentRoute.startsWith('/public/vehiculo/')) return true;
@@ -357,6 +365,15 @@ export default function App() {
       return (
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-muted-foreground">Cargando portal…</div>}>
           <PortalTalleres route={currentRoute} onNavigate={navigateTo} />
+        </Suspense>
+      );
+    }
+
+    // /certificados · /cert/:token · /c/:token — portal público de certificados de capacitación
+    if (currentRoute.startsWith('/certificados') || currentRoute.startsWith('/cert/') || currentRoute.startsWith('/c/')) {
+      return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-muted-foreground">Cargando…</div>}>
+          <PortalCertificados route={currentRoute} onNavigate={navigateTo} />
         </Suspense>
       );
     }
@@ -599,6 +616,14 @@ export default function App() {
             />
           );
         }
+      }
+      // Capacitaciones y certificados: /proyectos/capacitaciones[/cursos|/plantillas|/:id]
+      if (currentRoute.startsWith('/proyectos/capacitaciones')) {
+        const sub = currentRoute.split('?')[0].split('/')[3];
+        if (!sub) return <CapacitacionesLista onNavigate={navigateTo} />;
+        if (sub === 'cursos') return <CursosCatalogo onNavigate={navigateTo} />;
+        if (sub === 'plantillas') return <PlantillasCertificado onNavigate={navigateTo} />;
+        return <CapacitacionDetalle id={sub} onNavigate={navigateTo} />;
       }
       if (currentRoute === '/proyectos/lista') {
         return (
