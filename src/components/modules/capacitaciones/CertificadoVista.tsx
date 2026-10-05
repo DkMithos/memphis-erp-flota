@@ -147,6 +147,14 @@ export function CertificadoVista({ plantilla: p, datos: d, codigo, qrDataUrl, ma
     </div>
   );
 
+  // Fechas del curso + lugar. Se apaga cuando basta con la línea de emisión
+  // ("Cusco, 20 de setiembre de 2026"), para no imprimir dos fechas.
+  const lineaFechaCurso = layout.mostrar_fecha_curso !== false && (
+    <div style={{ fontSize: 13, marginTop: fondoCompleto ? 4 : 3, opacity: .9 }}>
+      {rangoFechas(d.capacitacion.fecha_inicio, d.capacitacion.fecha_fin)}{d.capacitacion.lugar ? ` · ${d.capacitacion.lugar}` : ''}
+    </div>
+  );
+
   const lineaProyecto = p.mostrar_proyecto !== false && (d.proyecto || d.capacitacion.entidad_beneficiaria) && (
     <div style={{ fontSize: 12.5, marginTop: 4, opacity: .85 }}>
       {d.capacitacion.entidad_beneficiaria ? `Entidad beneficiaria: ${d.capacitacion.entidad_beneficiaria}` : ''}
@@ -186,7 +194,7 @@ export function CertificadoVista({ plantilla: p, datos: d, codigo, qrDataUrl, ma
           <div style={{ fontSize: 20, fontWeight: 600, marginTop: 4, maxWidth: '92%', lineHeight: 1.3 }}>{d.capacitacion.titulo}</div>
           {bloqueTemario}
           <div style={{ fontSize: 15, fontWeight: 600, marginTop: 8, letterSpacing: '.03em' }}>Duración total: {horasTexto(totalHoras)}</div>
-          <div style={{ fontSize: 13, marginTop: 4 }}>{rangoFechas(d.capacitacion.fecha_inicio, d.capacitacion.fecha_fin)}{d.capacitacion.lugar ? ` · ${d.capacitacion.lugar}` : ''}</div>
+          {lineaFechaCurso}
           {lineaProyecto}
           <div style={{ fontSize: 14, marginTop: 10 }}>{fechaTexto}</div>
           {bloqueFirma}
@@ -235,9 +243,7 @@ export function CertificadoVista({ plantilla: p, datos: d, codigo, qrDataUrl, ma
         <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3, marginTop: 4, maxWidth: '92%' }}>{d.capacitacion.titulo}</div>
         {bloqueTemario}
         <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: '.03em', marginTop: 10 }}>Duración total: {horasTexto(totalHoras)}</div>
-        <div style={{ fontSize: 13, marginTop: 3, opacity: .9 }}>
-          {rangoFechas(d.capacitacion.fecha_inicio, d.capacitacion.fecha_fin)}{d.capacitacion.lugar ? ` · ${d.capacitacion.lugar}` : ''}
-        </div>
+        {lineaFechaCurso}
         {lineaProyecto}
         <div style={{ fontSize: 14, marginTop: 8 }}>{fechaTexto}</div>
         {bloqueFirma}

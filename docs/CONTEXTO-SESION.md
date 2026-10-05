@@ -3085,3 +3085,7 @@ y las hojas de asistencia manuscritas de 3 días (10 + 8 + 9 páginas, 15 firmas
   320 px); QR arriba a la derecha sin código ni URL (nuevas opciones `qr_pos` tr/tl y
   `layout.qr_texto`, con su select e interruptor en Diseño); fuera la línea "Entidad beneficiaria ·
   Proyecto" (`mostrar_proyecto=false` en la plantilla; se reactiva en Textos). Render verificado.
+- **Una sola fecha y sin relleno en la firma (05/10, tarde):** nueva opción `layout.mostrar_fecha_curso`
+  (interruptor "Mostrar fechas y lugar del curso" en Textos); en la plantilla del consorcio va apagada y
+  la ciudad de emisión es Cusco (plantilla y CAP-2026-001) → el diploma imprime solo "Cusco, 20 de
+  setiembre de 2026". La vista previa ya no inventa "Nombre del firmante": muestra lo que hay.

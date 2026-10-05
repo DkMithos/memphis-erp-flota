@@ -35,6 +35,8 @@ export interface LayoutPlantilla {
   qr_texto?: boolean;
   /** Ancho del logo en px del pliego (modo estándar, abajo a la izquierda). Por defecto 236. */
   logo_ancho?: number;
+  /** Línea con las fechas y el lugar del curso (además de la fecha de emisión). Por defecto sí. */
+  mostrar_fecha_curso?: boolean;
   /** Color del papel (modo estándar). */
   color_fondo?: string;
   /** Marco y franjas decorativas (modo estándar). */

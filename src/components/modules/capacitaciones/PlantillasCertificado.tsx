@@ -301,6 +301,7 @@ function EditorPlantilla({ plantilla, cursos, tenantId, userId, onCancelar, onGu
                   <Interruptor id="t2" label="Mostrar DNI" v={p.mostrar_dni} on={v => set({ mostrar_dni: v })} />
                   <Interruptor id="t3" label="Mostrar QR" v={p.mostrar_qr} on={v => set({ mostrar_qr: v })} />
                   <Interruptor id="t4" label="Mostrar proyecto / entidad" v={p.mostrar_proyecto} on={v => set({ mostrar_proyecto: v })} />
+                  <Interruptor id="t5" label="Mostrar fechas y lugar del curso" v={p.layout?.mostrar_fecha_curso !== false} on={v => setLayout({ mostrar_fecha_curso: v })} />
                 </div>
               </TabsContent>
 

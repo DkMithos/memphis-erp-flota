@@ -155,7 +155,8 @@ export function datosDeMuestra(plantilla: Plantilla | PlantillaSnapshot): DatosC
     },
     proyecto: { codigo: '02CUSAMB25', nombre: 'GORE CUSCO - AMBULANCIAS' },
     emision: { ciudad: plantilla.ciudad || 'Lima', fecha: '2026-09-20' },
-    firmante: { nombre: plantilla.firmante_nombre || 'Nombre del firmante', cargo: plantilla.firmante_cargo || 'Representante Común', firma_url: plantilla.firma_url },
+    // Sin texto de relleno: la vista previa muestra exactamente lo que se imprime.
+    firmante: { nombre: plantilla.firmante_nombre || '', cargo: plantilla.firmante_cargo || '', firma_url: plantilla.firma_url },
     consorcio: plantilla.consorcio_nombre,
   };
 }
