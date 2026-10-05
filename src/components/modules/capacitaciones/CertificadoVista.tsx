@@ -101,20 +101,26 @@ export function CertificadoVista({ plantilla: p, datos: d, codigo, qrDataUrl, ma
   };
 
   // ── Bloque de texto común (centrado) ────────────────────────────────────
+  // Arriba el QR va pegado al marco (las franjas decorativas ocupan las otras dos
+  // esquinas); abajo se aparta de ellas. Con `qr_texto` falso solo queda el código QR.
+  const qrArriba = qrPos === 'tr' || qrPos === 'tl';
+  const qrDerecha = qrPos === 'br' || qrPos === 'tr';
+  const posQR: React.CSSProperties = fondoCompleto
+    ? { [qrDerecha ? 'right' : 'left']: 40, [qrArriba ? 'top' : 'bottom']: 40 }
+    : qrArriba
+      ? { [qrDerecha ? 'right' : 'left']: 64, top: 44 }
+      : { [qrDerecha ? 'right' : 'left']: qrDerecha ? 215 : 240, top: 548 };
   const bloqueQR = qrPos !== 'none' && (
-    <div style={{
-      position: 'absolute',
-      left: qrPos === 'bl' ? 240 : undefined,
-      right: qrPos === 'br' ? (fondoCompleto ? 40 : 215) : undefined,
-      bottom: fondoCompleto ? 40 : undefined,
-      top: fondoCompleto ? undefined : 548,
-      width: 92, textAlign: 'center', fontSize: 9, lineHeight: '11px', color: p.color_texto,
-    }}>
+    <div style={{ position: 'absolute', ...posQR, width: 92, textAlign: 'center', fontSize: 9, lineHeight: '11px', color: p.color_texto }}>
       <div style={{ width: 84, height: 84, margin: '0 auto', background: '#fff', padding: 3, boxSizing: 'border-box', border: `1px solid ${p.color_acento}` }}>
         {qrDataUrl ? <img src={qrDataUrl} alt="" width={78} height={78} style={{ display: 'block' }} /> : null}
       </div>
-      <div style={{ marginTop: 3, fontWeight: 600, letterSpacing: '.02em' }}>{codigo || 'CERT-AAAA-00000'}</div>
-      <div style={{ opacity: .75 }}>{dominioCorto()}/certificados</div>
+      {layout.qr_texto !== false && (
+        <>
+          <div style={{ marginTop: 3, fontWeight: 600, letterSpacing: '.02em' }}>{codigo || 'CERT-AAAA-00000'}</div>
+          <div style={{ opacity: .75 }}>{dominioCorto()}/certificados</div>
+        </>
+      )}
     </div>
   );
 
@@ -204,7 +210,7 @@ export function CertificadoVista({ plantilla: p, datos: d, codigo, qrDataUrl, ma
 
       {p.logo_url && logoPos === 'abajo-izq' && (
         <img src={p.logo_url} alt="" crossOrigin="anonymous"
-          style={{ position: 'absolute', left: 78, bottom: 56, width: 236, maxHeight: 110, objectFit: 'contain', objectPosition: 'left bottom' }} />
+          style={{ position: 'absolute', left: 78, bottom: 56, width: layout.logo_ancho ?? 236, maxHeight: (layout.logo_ancho ?? 236) * 0.5, objectFit: 'contain', objectPosition: 'left bottom' }} />
       )}
 
       <div style={{

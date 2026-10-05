@@ -325,6 +325,9 @@ function EditorPlantilla({ plantilla, cursos, tenantId, userId, onCancelar, onGu
                         </SelectContent>
                       </Select>
                     </div>
+                    {(p.layout?.logo_pos ?? 'abajo-izq') === 'abajo-izq' && (
+                      <Deslizador label="Tamaño del logo" v={p.layout?.logo_ancho ?? 236} min={120} max={420} on={v => setLayout({ logo_ancho: v })} unidad="px" />
+                    )}
                     <Interruptor id="d1" label="Franjas y marco decorativo" v={p.layout?.mostrar_marco !== false} on={v => setLayout({ mostrar_marco: v })} />
                     <Deslizador label="Opacidad de la foto de fondo" v={Math.round((p.layout?.fondo_opacidad ?? 0.22) * 100)} min={5} max={100} on={v => setLayout({ fondo_opacidad: v / 100 })} unidad="%" />
                   </>
@@ -340,11 +343,14 @@ function EditorPlantilla({ plantilla, cursos, tenantId, userId, onCancelar, onGu
                   <Select value={p.layout?.qr_pos ?? 'br'} onValueChange={v => setLayout({ qr_pos: v as any })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="br">Derecha</SelectItem>
-                      <SelectItem value="bl">Izquierda</SelectItem>
+                      <SelectItem value="tr">Arriba a la derecha</SelectItem>
+                      <SelectItem value="tl">Arriba a la izquierda</SelectItem>
+                      <SelectItem value="br">Abajo a la derecha</SelectItem>
+                      <SelectItem value="bl">Abajo a la izquierda</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+                <Interruptor id="d2" label="Código y dirección del portal debajo del QR" v={p.layout?.qr_texto !== false} on={v => setLayout({ qr_texto: v })} />
               </TabsContent>
             </Tabs>
           </CardContent>

@@ -29,8 +29,12 @@ export type ModoPlantilla = 'estandar' | 'fondo_completo';
 export interface LayoutPlantilla {
   /** Dónde va el logo en el modo estándar. */
   logo_pos?: 'arriba' | 'abajo-izq' | 'ninguno';
-  /** Esquina del QR. */
-  qr_pos?: 'br' | 'bl' | 'none';
+  /** Posición del QR: abajo derecha / abajo izquierda / arriba derecha / arriba izquierda. */
+  qr_pos?: 'br' | 'bl' | 'tr' | 'tl' | 'none';
+  /** Código y dirección del portal debajo del QR (por defecto sí). */
+  qr_texto?: boolean;
+  /** Ancho del logo en px del pliego (modo estándar, abajo a la izquierda). Por defecto 236. */
+  logo_ancho?: number;
   /** Color del papel (modo estándar). */
   color_fondo?: string;
   /** Marco y franjas decorativas (modo estándar). */

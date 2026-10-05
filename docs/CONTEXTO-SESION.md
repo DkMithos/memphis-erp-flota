@@ -3080,3 +3080,8 @@ y las hojas de asistencia manuscritas de 3 días (10 + 8 + 9 páginas, 15 firmas
   (Reemplazar / Quitar / "Usar mi firma registrada"). El bloque de firma del diploma baja 50 px
   cuando hay rúbrica para que la imagen (90 px) no pise la fecha. Falta el **nombre** del
   firmante (la plantilla solo dice "Representante Común").
+- **Ajustes de Kevin a la plantilla (05/10, tarde):** firma queda solo como "Representante Común"
+  (sin nombre); logo más grande (nuevo `layout.logo_ancho`, deslizador en Diseño; en la plantilla
+  320 px); QR arriba a la derecha sin código ni URL (nuevas opciones `qr_pos` tr/tl y
+  `layout.qr_texto`, con su select e interruptor en Diseño); fuera la línea "Entidad beneficiaria ·
+  Proyecto" (`mostrar_proyecto=false` en la plantilla; se reactiva en Textos). Render verificado.
