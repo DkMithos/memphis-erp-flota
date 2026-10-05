@@ -25,7 +25,9 @@
  * y se reporta aparte: perder una fianza por un borrado accidental en una hoja
  * de cálculo no es una opción.
  *
- * Auth: usuario del tenant con `fianzas.editar`.
+ * Auth: usuario del tenant con `fianzas.editar`, o el cron de Supabase con
+ * `x-cron-secret` (job `fianzas-import-2xdia`, 06:00 y 15:00 hora Perú). Por eso
+ * la función se despliega con verify_jwt=false y valida la sesión ella misma.
  * Graph: app-only, solo lectura (`Files.Read.All`) — el mismo permiso que ya usa
  * `excel-sync`. No hace falta el `Files.ReadWrite.All` de `fianzas-excel`.
  */
@@ -38,7 +40,7 @@ import {
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, apikey, content-type, x-client-info, x-supabase-api-version',
+    'authorization, apikey, content-type, x-client-info, x-supabase-api-version, x-cron-secret',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 const json = (b: unknown, s = 200) =>
@@ -92,35 +94,55 @@ export default {
       ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     const admin = createClient(url, secret)
 
-    // 1. Quién llama: usuario del tenant con permiso de editar fianzas.
-    const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
-    if (!jwt) return json({ error: 'Falta la sesión' }, 401)
-    const { data: userRes } = await admin.auth.getUser(jwt)
-    const user = userRes?.user
-    if (!user) return json({ error: 'Sesión no válida' }, 401)
+    // 1. Quién llama. Dos puertas:
+    //    a) el cron de Supabase (header x-cron-secret = CRON_SECRET, el mismo
+    //       secreto que usan tc-sync y notif-scheduler). Existe desde el
+    //       05/10/2026 porque el botón manual dependía de que alguien se
+    //       acordara de pulsarlo: Shirley actualizó su Excel varias veces entre
+    //       el 16/09 y el 05/10 y el ERP no se enteró en tres semanas.
+    //    b) una persona del tenant con permiso `fianzas.editar`.
+    const cronSecret = Deno.env.get('CRON_SECRET') ?? ''
+    const esCron = Boolean(cronSecret) && (req.headers.get('x-cron-secret') ?? '') === cronSecret
+    let tenantId: string | undefined
 
-    const { data: ut } = await admin
-      .from('usuarios_tenant').select('tenant_id').eq('user_id', user.id).maybeSingle()
-    const tenantId = ut?.tenant_id as string | undefined
-    if (!tenantId) return json({ error: 'El usuario no pertenece a ninguna empresa' }, 403)
+    if (esCron) {
+      // Hoy hay un solo tenant con archivo de fianzas; si algún día hay más,
+      // esto debe pasar a un bucle. Se avisa en la respuesta para no olvidarlo.
+      const { data: cfgs } = await admin
+        .from('excel_sync_config').select('tenant_id').eq('nombre', CONFIG).eq('activo', true)
+      tenantId = cfgs?.[0]?.tenant_id as string | undefined
+      if (!tenantId) return json({ error: 'No hay archivo de fianzas configurado' }, 404)
+      if ((cfgs?.length ?? 0) > 1) console.warn('fianzas-import: hay más de un tenant con archivo; solo se procesa el primero')
+    } else {
+      const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+      if (!jwt) return json({ error: 'Falta la sesión' }, 401)
+      const { data: userRes } = await admin.auth.getUser(jwt)
+      const user = userRes?.user
+      if (!user) return json({ error: 'Sesión no válida' }, 401)
 
-    // ¿Tiene `fianzas.editar`? En dos consultas simples, igual que
-    // `fianzas-excel`: el embed anidado de PostgREST ya dio problemas antes.
-    const { data: roles } = await admin
-      .from('usuarios_roles').select('rol_id').eq('user_id', user.id).eq('tenant_id', tenantId)
-    const rolIds = (roles ?? []).map((r: { rol_id: string }) => r.rol_id)
-    if (rolIds.length === 0) return json({ error: 'El usuario no tiene rol asignado' }, 403)
-    const { data: permisoFilas } = await admin
-      .from('roles_permisos').select('permisos!inner(modulo,accion)').in('rol_id', rolIds)
-    // PostgREST devuelve el embed como objeto o como lista según la relación;
-    // se aceptan las dos formas en vez de apostar por una.
-    type Permiso = { modulo?: string; accion?: string }
-    const esEditarFianzas = (p: Permiso) => p?.modulo === 'fianzas' && p?.accion === 'editar'
-    const puede = (permisoFilas ?? []).some((r: Record<string, unknown>) => {
-      const p = r.permisos as Permiso | Permiso[] | null
-      return Array.isArray(p) ? p.some(esEditarFianzas) : esEditarFianzas(p ?? {})
-    })
-    if (!puede) return json({ error: 'Hace falta permiso de edición en Fianzas' }, 403)
+      const { data: ut } = await admin
+        .from('usuarios_tenant').select('tenant_id').eq('user_id', user.id).maybeSingle()
+      tenantId = ut?.tenant_id as string | undefined
+      if (!tenantId) return json({ error: 'El usuario no pertenece a ninguna empresa' }, 403)
+
+      // ¿Tiene `fianzas.editar`? En dos consultas simples, igual que
+      // `fianzas-excel`: el embed anidado de PostgREST ya dio problemas antes.
+      const { data: roles } = await admin
+        .from('usuarios_roles').select('rol_id').eq('user_id', user.id).eq('tenant_id', tenantId)
+      const rolIds = (roles ?? []).map((r: { rol_id: string }) => r.rol_id)
+      if (rolIds.length === 0) return json({ error: 'El usuario no tiene rol asignado' }, 403)
+      const { data: permisoFilas } = await admin
+        .from('roles_permisos').select('permisos!inner(modulo,accion)').in('rol_id', rolIds)
+      // PostgREST devuelve el embed como objeto o como lista según la relación;
+      // se aceptan las dos formas en vez de apostar por una.
+      type Permiso = { modulo?: string; accion?: string }
+      const esEditarFianzas = (p: Permiso) => p?.modulo === 'fianzas' && p?.accion === 'editar'
+      const puede = (permisoFilas ?? []).some((r: Record<string, unknown>) => {
+        const p = r.permisos as Permiso | Permiso[] | null
+        return Array.isArray(p) ? p.some(esEditarFianzas) : esEditarFianzas(p ?? {})
+      })
+      if (!puede) return json({ error: 'Hace falta permiso de edición en Fianzas' }, 403)
+    }
 
     // 2. Dónde está el archivo.
     const { data: cfg } = await admin

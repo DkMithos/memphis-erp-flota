@@ -4,7 +4,7 @@
  * Lo que resuelve: que no se venza una carta fianza. Hoy eso depende de que
  * alguien mire el Excel; aquí lo primero que se ve es qué renueva y cuándo.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ShieldCheck, AlertTriangle, CalendarClock, Download, ChevronDown,
   Plus, FileText, Landmark, ArrowLeft, Coins, Pencil, RefreshCw,
@@ -62,7 +62,22 @@ function textoDias(d: number) {
 }
 
 export function FianzasModule() {
-  const { fianzas, cargos, loading } = useFianzas();
+  const { fianzas, cargos, loading, recargar } = useFianzas();
+
+  /**
+   * Cuándo se leyó por última vez el Excel de Shirley. Se muestra en la
+   * cabecera porque durante tres semanas (16/09 → 05/10/2026) el ERP estuvo
+   * desactualizado sin que nadie lo notara: la importación era un botón
+   * escondido en el menú Exportar y nadie lo pulsaba. Ahora además corre sola
+   * dos veces al día (cron `fianzas-import-2xdia`).
+   */
+  const [ultimaLectura, setUltimaLectura] = useState<{ fecha: string | null; estado: string | null; error: string | null } | null>(null);
+  const cargarUltimaLectura = async () => {
+    const { data } = await (supabase as any).from('excel_sync_config')
+      .select('ultima_sincronizacion, ultimo_estado, ultimo_error').eq('nombre', 'fianzas').maybeSingle();
+    setUltimaLectura({ fecha: data?.ultima_sincronizacion ?? null, estado: data?.ultimo_estado ?? null, error: data?.ultimo_error ?? null });
+  };
+  useEffect(() => { void cargarUltimaLectura(); }, []);
   const { can } = usePermissions();
   const puedeExportar = can('fianzas', 'exportar');
   const puedeCrear = can('fianzas', 'crear');
@@ -93,6 +108,7 @@ export function FianzasModule() {
         (sueltos ? ` · ${sueltos} en carpetas sin fianza registrada` : ''),
         { duration: 8000 },
       );
+      await recargar();
     } catch (e) {
       toast.error('No se pudieron importar los cargos. ' +
         (e instanceof Error ? e.message : 'Error desconocido'), { duration: 10000 });
@@ -146,6 +162,10 @@ export function FianzasModule() {
           duration: 8000,
         });
       }
+      // Lo importado tiene que verse sin recargar la página: antes el botón
+      // escribía en la base y la pantalla seguía enseñando lo de antes.
+      await recargar();
+      await cargarUltimaLectura();
       // Los cargos de SharePoint pueden colgar de cartas que acaban de entrar.
       if ((r.cartas_creadas ?? 0) > 0 && puedeCrear) await importarCargos();
     } catch (e) {
@@ -403,9 +423,22 @@ export function FianzasModule() {
             <p className="text-muted-foreground mt-1">
               Cartas fianza de fiel cumplimiento y sus renovaciones
             </p>
+            {ultimaLectura && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {ultimaLectura.fecha
+                  ? <>Excel de Administración leído el {new Date(ultimaLectura.fecha).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}{ultimaLectura.estado === 'con_avisos' ? ' · con avisos' : ''}. Se actualiza solo a las 06:00 y 15:00.</>
+                  : 'El Excel de Administración aún no se ha leído.'}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {puedeEditar && (
+            <Button variant="outline" onClick={traerDelExcel} disabled={actualizandoExcel} title="Trae al ERP lo que hay hoy en el Excel de Shirley">
+              <RefreshCw className={`size-4 ${actualizandoExcel ? 'animate-spin' : ''}`} />
+              {actualizandoExcel ? 'Leyendo el Excel…' : 'Actualizar desde el Excel'}
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" disabled={!puedeExportar || fianzas.length === 0}>
@@ -445,15 +478,6 @@ export function FianzasModule() {
                   <div>{importando ? 'Importando…' : 'Importar cargos de SharePoint'}</div>
                   <div className="text-xs text-muted-foreground">
                     Trae al sistema lo que haya en «Cargos Fianzas»
-                  </div>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={traerDelExcel} disabled={actualizandoExcel || !puedeEditar}>
-                <RefreshCw className={`size-4 ${actualizandoExcel ? 'animate-spin' : ''}`} />
-                <div>
-                  <div>{actualizandoExcel ? 'Trayendo…' : 'Traer del Excel de Administración'}</div>
-                  <div className="text-xs text-muted-foreground">
-                    Actualiza fianzas, cartas y cargos con lo que hay en la hoja de Shirley
                   </div>
                 </div>
               </DropdownMenuItem>

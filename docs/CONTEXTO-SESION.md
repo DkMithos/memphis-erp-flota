@@ -3089,3 +3089,25 @@ y las hojas de asistencia manuscritas de 3 días (10 + 8 + 9 páginas, 15 firmas
   (interruptor "Mostrar fechas y lugar del curso" en Textos); en la plantilla del consorcio va apagada y
   la ciudad de emisión es Cusco (plantilla y CAP-2026-001) → el diploma imprime solo "Cusco, 20 de
   setiembre de 2026". La vista previa ya no inventa "Nombre del firmante": muestra lo que hay.
+
+## Fianzas no se actualizaba desde el Excel: causa y arreglo (2026-10-05)
+
+Kevin preguntó por qué el ERP de Fianzas seguía igual aunque Shirley actualizó su Excel varias
+veces. **Causa:** la importación (`fianzas-import`, 16/09) era SOLO manual, un ítem escondido en el
+menú Exportar ("Traer del Excel de Administración"), visible solo con `fianzas.editar` (Carolina,
+Shirley, Administrador) y nadie lo pulsó desde el 16/09 16:37. No había cron. Además, al pulsarlo
+la pantalla no recargaba los datos (faltaba `recargar()`), así que ni quien lo usara veía el cambio
+sin refrescar. La función en sí funcionaba (Graph OK): al correrla el 05/10 trajo 3 cartas nuevas y
+actualizó 60.
+
+Arreglo:
+- **Cron `fianzas-import-2xdia`** (job 8, `0 11,20 * * *` UTC = 06:00 y 15:00 Perú) con el mismo
+  patrón que tc-sync/notif-scheduler (apikey + `x-cron-secret` desde vault). `fianzas-import` v4
+  acepta esa puerta (CRON_SECRET) además de la sesión con permiso; desplegada con verify_jwt=false.
+  Probada a mano con `net.http_post`: 200, 63 cartas actualizadas. En modo cron NO encadena la
+  importación de cargos de SharePoint (eso sigue en el botón).
+- **Pantalla Fianzas:** botón visible "Actualizar desde el Excel" junto a Exportar (antes dentro del
+  menú), recarga los datos al terminar, y debajo del título dice cuándo se leyó el Excel por última
+  vez ("Excel de Administración leído el … Se actualiza solo a las 06:00 y 15:00").
+- Si el cron deja de correr: `select * from net._http_response order by id desc` y
+  `excel_sync_config.ultima_sincronizacion` (nombre='fianzas').
