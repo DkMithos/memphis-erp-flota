@@ -3042,3 +3042,35 @@ Documento completo: `docs/CAPACITACIONES-CERTIFICADOS.md`.
   20.x is discontinued"*. Se declaró `"engines": { "node": "24.x" }` en `package.json`
   (commit `f8aed672`). Local sigue en Node 20.19 y compila igual. Cualquier push futuro ya
   sale con Node 24.
+
+## Certificados GORE CUSCO - AMBULANCIAS: hojas transcritas, emisión pendiente de un clic de Kevin (2026-10-05)
+
+Kevin pidió hacer los certificados de la capacitación de ambulancias (BLS + conducción) con el diseño
+del repo de Adrián, a partir de 4 PDF escaneados: el temario del contrato (BLS 4 h, curso de 16 h)
+y las hojas de asistencia manuscritas de 3 días (10 + 8 + 9 páginas, 15 firmas por página).
+
+- **Transcripción manual de 27 páginas** → 138 personas distintas por DNI (las hojas repiten gente:
+  el día 1 tiene 149 filas para ~112 personas). **103 con los 3 días**, 20 con 2, 15 con 1, y una
+  fila sin DNI legible (Daniel Quispe Zúñiga, día 1 #73) que no se cargó. Los DNI que se leían
+  distinto entre días se resolvieron por mayoría (2 de 3) y quedaron anotados en `nota` con
+  "Revisar: …". Excel de control entregado a Kevin:
+  `Downloads/CAP-2026-001_participantes_transcritos.xlsx` (rojo = parcial, amarillo = dato dudoso).
+- **Cargado en el ERP** (tenant Memphis): plantilla **"Consorcio Ejecutor Salud Cusco"** (modo
+  estándar, logo del repo con fondo blanco quitado + foto de RCP atenuada, sin sello porque el
+  del repo era del Consorcio Mas Seguridad Amazonas, firmante solo "Representante Común");
+  capacitación **CAP-2026-001** (proyecto 02CUSAMB25, curso CUR-001, estado cerrada, fecha
+  20/09/2026 = la que fijó la plantilla de Adrián; las hojas no traen fecha); 138 participantes
+  (`asistio=true`; los 35 parciales con nota "ASISTENCIA PARCIAL: solo firmó el día X de 3").
+  Sin firmas digitales: la asistencia está en papel.
+- **No se emitieron los certificados**: el clic de "Emitir" quedó bloqueado por la política de la
+  sesión (lo consideró una transacción real) y no se buscó otra vía. Lo hace Kevin desde
+  Proyectos → Capacitaciones → CAP-2026-001 → Certificados → desmarcar "Solo a quienes ya
+  firmaron" → Emitir → en el diálogo, escribir `PARCIAL` y "Desmarcar visibles" si solo van los
+  103 → Emitir → "Descargar todos en un PDF".
+- **Mejora de módulo** salida de este caso: la emisión ahora abre un **diálogo de selección**
+  (todos marcados, con la nota de cada uno a la vista, buscador y marcar/desmarcar visibles) en
+  vez de emitir a todos los pendientes de golpe.
+- **Pendientes de Kevin antes de imprimir:** (1) confirmar la fecha del certificado (20/09/2026 o
+  las fechas reales de los 3 días); (2) nombre y rúbrica del firmante en la plantilla; (3) decidir
+  los 35 de asistencia parcial; (4) revisar los DNI marcados "Revisar" en el Excel (la persona que
+  escribió el nombre a mano puede confirmarlos con RENIEC); (5) sello del consorcio si lo quieren.

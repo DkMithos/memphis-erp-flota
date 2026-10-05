@@ -555,28 +555,45 @@ function Certificados({ cap, parts, certs, plantillas, tenantId, puedeEmitir, pu
   const qrPreview = useQrDataUrl(plantilla?.mostrar_qr ? urlVerificacion('00000000-0000-0000-0000-000000000000') : null);
   const qrVer = useQrDataUrl(ver && ver.plantilla.mostrar_qr !== false ? urlVerificacion(ver.token) : null);
 
-  const emitir = async () => {
+  // Emisión en dos pasos: primero se eligen las personas (todas marcadas, con su
+  // nota a la vista para desmarcar las de asistencia parcial o datos dudosos),
+  // y recién entonces se emite. Antes era todo o nada.
+  const [seleccionando, setSeleccionando] = useState(false);
+  const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
+  const [filtroSel, setFiltroSel] = useState('');
+
+  const emitir = () => {
     if (!plantilla) { toast.error('Elija la plantilla del certificado'); return; }
     if (!pendientes.length) return;
-    const ok = await confirmar({
-      title: `Emitir ${pendientes.length} certificado(s)`,
-      description: `Plantilla "${plantilla.nombre}". Cada certificado recibe su código correlativo y un QR de verificación; los datos y el diseño quedan congelados.`,
-      confirmLabel: 'Emitir',
-    });
-    if (!ok) return;
+    setSeleccion(new Set(pendientes.map(p => p.id)));
+    setFiltroSel('');
+    setSeleccionando(true);
+  };
+
+  const confirmarEmision = async () => {
+    if (!plantilla) return;
+    const elegidos = pendientes.filter(p => seleccion.has(p.id));
+    if (!elegidos.length) { toast.error('No hay nadie seleccionado'); return; }
     setEmitiendo(true);
     try {
       const snap = snapshotPlantilla(plantilla);
-      const nuevos = await dbCertificados.emitir(pendientes.map(p => ({
+      const nuevos = await dbCertificados.emitir(elegidos.map(p => ({
         tenant_id: tenantId, capacitacion_id: cap.id, participante_id: p.id,
         datos: construirDatosCertificado(cap, p, plantilla), plantilla: snap,
         emitido_por: quien, emitido_por_email: emailQuien,
       })));
       if (!cap.plantilla_id) onCambioCap(await dbCapacitaciones.actualizar(cap.id, { plantilla_id: plantilla.id } as any));
       toast.success(`${nuevos.length} certificado(s) emitidos`);
+      setSeleccionando(false);
       await onRecargar();
     } catch (e: any) { toast.error(e.message); } finally { setEmitiendo(false); }
   };
+
+  const pendientesFiltrados = useMemo(() => {
+    const t = filtroSel.trim().toLowerCase();
+    return t ? pendientes.filter(p => [p.dni, p.nombres, p.apellidos, p.institucion ?? '', p.nota ?? ''].some(v => v.toLowerCase().includes(t))) : pendientes;
+  }, [pendientes, filtroSel]);
+  const alternar = (id: string, v: boolean) => setSeleccion(prev => { const n = new Set(prev); if (v) n.add(id); else n.delete(id); return n; });
 
   const descargar = async (lista: Certificado[]) => {
     if (!lista.length) return;
@@ -730,6 +747,48 @@ function Certificados({ cap, parts, certs, plantillas, tenantId, puedeEmitir, pu
           <DialogFooter>
             {ver && <Button variant="outline" onClick={() => copiar(urlVerificacion(ver.token), 'Enlace copiado')}><Copy className="size-4" /> Copiar enlace</Button>}
             {ver && <Button onClick={() => descargar([ver])} disabled={!!progreso}><Download className="size-4" /> Descargar PDF</Button>}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={seleccionando} onOpenChange={o => !emitiendo && setSeleccionando(o)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>¿A quiénes se emite el certificado?</DialogTitle>
+            <DialogDescription>
+              Plantilla "{plantilla?.nombre}". Cada certificado recibe su código correlativo y un QR de verificación; los datos y el
+              diseño quedan congelados. Desmarque a quien no corresponda (asistencia parcial, datos por revisar).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input className="flex-1 min-w-48" placeholder="Buscar por DNI, nombre, IPRESS o nota…" value={filtroSel} onChange={e => setFiltroSel(e.target.value)} />
+            {/* Actúan sobre lo filtrado: escribir "PARCIAL" y desmarcar deja fuera solo a esos. */}
+            <Button type="button" variant="outline" size="sm" onClick={() => setSeleccion(prev => { const n = new Set(prev); pendientesFiltrados.forEach(p => n.add(p.id)); return n; })}>
+              Marcar {filtroSel.trim() ? 'visibles' : 'todos'}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setSeleccion(prev => { const n = new Set(prev); pendientesFiltrados.forEach(p => n.delete(p.id)); return n; })}>
+              Desmarcar {filtroSel.trim() ? 'visibles' : 'todos'}
+            </Button>
+          </div>
+          <div className="flex-1 overflow-y-auto rounded-md border divide-y">
+            {pendientesFiltrados.map(p => (
+              <label key={p.id} className="flex items-start gap-3 px-3 py-2 cursor-pointer hover:bg-muted/40">
+                <Checkbox className="mt-0.5" checked={seleccion.has(p.id)} onCheckedChange={v => alternar(p.id, !!v)} />
+                <div className="min-w-0 flex-1 text-sm">
+                  <div className="font-medium">{p.apellidos}, {p.nombres} <span className="font-mono text-xs text-muted-foreground ml-1">{p.dni}</span></div>
+                  <div className="text-xs text-muted-foreground">{[p.cargo, p.institucion].filter(Boolean).join(' · ')}{!p.firma_data_url ? ' · sin firma digital' : ''}</div>
+                  {p.nota && <div className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">{p.nota}</div>}
+                </div>
+              </label>
+            ))}
+            {pendientesFiltrados.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">Nadie coincide con el filtro.</div>}
+          </div>
+          <DialogFooter className="items-center gap-2">
+            <span className="text-sm text-muted-foreground mr-auto">{seleccion.size} de {pendientes.length} seleccionados</span>
+            <Button variant="outline" onClick={() => setSeleccionando(false)} disabled={emitiendo}>Cancelar</Button>
+            <Button onClick={confirmarEmision} disabled={emitiendo || seleccion.size === 0}>
+              {emitiendo ? <Loader2 className="size-4 animate-spin" /> : <Award className="size-4" />} Emitir {seleccion.size} certificado(s)
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
