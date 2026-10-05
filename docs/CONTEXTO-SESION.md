@@ -3111,3 +3111,7 @@ Arreglo:
   vez ("Excel de Administración leído el … Se actualiza solo a las 06:00 y 15:00").
 - Si el cron deja de correr: `select * from net._http_response order by id desc` y
   `excel_sync_config.ultima_sincronizacion` (nombre='fianzas').
+- **Cargos también en el cron (05/10, Kevin):** `fianzas-cargos-import` v3 acepta `x-cron-secret`
+  (tenant = dueño del archivo de fianzas) y se despliega con verify_jwt=false; `fianzas-import` v5,
+  en modo cron, la llama justo después de leer el Excel y devuelve su resumen en `cargos`. Si los
+  cargos fallan, el Excel ya quedó importado y el error viene aparte en la respuesta.

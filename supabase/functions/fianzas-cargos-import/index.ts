@@ -21,13 +21,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, apikey, content-type, x-client-info, x-supabase-api-version',
+    'authorization, apikey, content-type, x-client-info, x-supabase-api-version, x-cron-secret',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...CORS, 'Content-Type': 'application/json' } })
 
-const DRIVE = 'b!I_mLU8GLtk6ASRCGKjMULSgD8dZdflBHgO-paUOxse7z8ytHxVkaSaQ0Mj46-Mr4'
+const DRIVE ='b!I_mLU8GLtk6ASRCGKjMULSgD8dZdflBHgO-paUOxse7z8ytHxVkaSaQ0Mj46-Mr4'
 const CARPETA_RAIZ = 'Administración/Fianzas/Cargos Fianzas'
 const BUCKET = 'cargos-fianzas'
 const MAX_BYTES = 20 * 1024 * 1024
@@ -115,30 +115,46 @@ Deno.serve(async (req: Request) => {
   )
 
   // ── Quién llama ────────────────────────────────────────────────────────
-  const jwt = req.headers.get('Authorization')?.replace(/^Bearer /i, '')
-  if (!jwt) return json({ error: 'Falta la sesión' }, 401)
-  const { data: userData, error: errUser } = await admin.auth.getUser(jwt)
-  if (errUser || !userData?.user) return json({ error: 'Sesión inválida' }, 401)
+  // Dos puertas, como en `fianzas-import`: el cron (x-cron-secret = CRON_SECRET;
+  // la llama `fianzas-import` justo después de leer el Excel, dos veces al día)
+  // o una persona con `fianzas.crear` / `fianzas.cargos`. Por eso se despliega
+  // con verify_jwt=false y valida ella misma.
+  const cronSecret = Deno.env.get('CRON_SECRET') ?? ''
+  const esCron = Boolean(cronSecret) && (req.headers.get('x-cron-secret') ?? '') === cronSecret
+  let tenantId: string | undefined
 
-  const { data: ut } = await admin
-    .from('usuarios_tenant').select('tenant_id').eq('user_id', userData.user.id).maybeSingle()
-  const tenantId = ut?.tenant_id
-  if (!tenantId) return json({ error: 'El usuario no pertenece a ninguna empresa' }, 403)
+  if (esCron) {
+    // El tenant es el dueño del archivo de fianzas configurado (hoy, uno solo).
+    const { data: cfgs } = await admin
+      .from('excel_sync_config').select('tenant_id').eq('nombre', 'fianzas').eq('activo', true)
+    tenantId = cfgs?.[0]?.tenant_id as string | undefined
+    if (!tenantId) return json({ error: 'No hay archivo de fianzas configurado' }, 404)
+  } else {
+    const jwt = req.headers.get('Authorization')?.replace(/^Bearer /i, '')
+    if (!jwt) return json({ error: 'Falta la sesión' }, 401)
+    const { data: userData, error: errUser } = await admin.auth.getUser(jwt)
+    if (errUser || !userData?.user) return json({ error: 'Sesión inválida' }, 401)
 
-  const { data: roles } = await admin
-    .from('usuarios_roles').select('rol_id').eq('user_id', userData.user.id).eq('tenant_id', tenantId)
-  const rolIds = (roles ?? []).map((r: { rol_id: string }) => r.rol_id)
-  if (rolIds.length === 0) return json({ error: 'El usuario no tiene rol asignado' }, 403)
+    const { data: ut } = await admin
+      .from('usuarios_tenant').select('tenant_id').eq('user_id', userData.user.id).maybeSingle()
+    tenantId = ut?.tenant_id as string | undefined
+    if (!tenantId) return json({ error: 'El usuario no pertenece a ninguna empresa' }, 403)
 
-  const { data: permisoFilas } = await admin
-    .from('roles_permisos').select('permisos!inner(modulo,accion)').in('rol_id', rolIds)
-  const acciones = new Set(
-    (permisoFilas ?? [])
-      .filter((r: { permisos?: { modulo: string } }) => r.permisos?.modulo === 'fianzas')
-      .map((r: { permisos?: { accion: string } }) => r.permisos?.accion),
-  )
-  if (!acciones.has('crear') && !acciones.has('cargos')) {
-    return json({ error: 'No tienes permiso para importar cargos' }, 403)
+    const { data: roles } = await admin
+      .from('usuarios_roles').select('rol_id').eq('user_id', userData.user.id).eq('tenant_id', tenantId)
+    const rolIds = (roles ?? []).map((r: { rol_id: string }) => r.rol_id)
+    if (rolIds.length === 0) return json({ error: 'El usuario no tiene rol asignado' }, 403)
+
+    const { data: permisoFilas } = await admin
+      .from('roles_permisos').select('permisos!inner(modulo,accion)').in('rol_id', rolIds)
+    const acciones = new Set(
+      (permisoFilas ?? [])
+        .filter((r: { permisos?: { modulo: string } }) => r.permisos?.modulo === 'fianzas')
+        .map((r: { permisos?: { accion: string } }) => r.permisos?.accion),
+    )
+    if (!acciones.has('crear') && !acciones.has('cargos')) {
+      return json({ error: 'No tienes permiso para importar cargos' }, 403)
+    }
   }
 
   // ── Fianzas destino ────────────────────────────────────────────────────

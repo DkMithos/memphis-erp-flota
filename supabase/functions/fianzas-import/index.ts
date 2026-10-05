@@ -28,6 +28,7 @@
  * Auth: usuario del tenant con `fianzas.editar`, o el cron de Supabase con
  * `x-cron-secret` (job `fianzas-import-2xdia`, 06:00 y 15:00 hora Perú). Por eso
  * la función se despliega con verify_jwt=false y valida la sesión ella misma.
+ * En modo cron encadena `fianzas-cargos-import` (los PDF de SharePoint).
  * Graph: app-only, solo lectura (`Files.Read.All`) — el mismo permiso que ya usa
  * `excel-sync`. No hace falta el `Files.ReadWrite.All` de `fianzas-excel`.
  */
@@ -347,7 +348,29 @@ export default {
         }).eq('tenant_id', tenantId).eq('nombre', CONFIG)
       }
 
-      return json({ ok: true, archivo: cfg.excel_url, ...resumen })
+      // En modo cron también entran los cargos de SharePoint (Kevin, 05/10/2026):
+      // desde la pantalla lo hace el botón; aquí nadie los pediría. Es un segundo
+      // salto con el mismo secreto; si falla, el Excel ya quedó importado y se
+      // informa aparte en vez de tumbar toda la corrida.
+      let cargos: unknown = undefined
+      if (esCron && !soloLeer) {
+        try {
+          const r = await fetch(`${url}/functions/v1/fianzas-cargos-import`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': req.headers.get('apikey') ?? '',
+              'x-cron-secret': cronSecret,
+            },
+            body: '{}',
+          })
+          cargos = await r.json().catch(() => ({ error: `respuesta ${r.status} no legible` }))
+        } catch (e) {
+          cargos = { error: e instanceof Error ? e.message : String(e) }
+        }
+      }
+
+      return json({ ok: true, archivo: cfg.excel_url, ...resumen, cargos })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       return json({ error: msg }, 500)
