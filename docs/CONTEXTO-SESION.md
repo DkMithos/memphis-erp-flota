@@ -3190,3 +3190,6 @@ participantes · Página 1 de 7".
   aire a cada lado), debajo el cargo y el **nombre del consorcio** (también en modo estándar), rúbrica más grande
   (110 px, hasta 300 de ancho) al ras de la línea, sello pegado a la izquierda. Plantilla Cusco:
   `firmante_nombre = Guillermo Macher Jiménez`, `firmante_cargo = Representante Común`. Verificado en local.
+- **Rúbrica pegada a la línea (06/10, tarde):** la imagen baja 58 px más (`bottom: calc(100% - 92px)`, z-index 1):
+  el cuerpo de la firma apoya sobre la línea y el trazo final pasa por debajo, sobre el nombre, como en la muestra de
+  Operaciones. El bloque sube el margen superior (56 px) para compensar.

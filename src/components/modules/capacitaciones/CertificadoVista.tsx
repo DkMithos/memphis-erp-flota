@@ -149,10 +149,12 @@ export function CertificadoVista({ plantilla: p, datos: d, codigo, qrDataUrl, ma
     // Como lo pidió Operaciones (06/10): la línea abarca solo el nombre, la
     // rúbrica queda al ras y un poco más grande, debajo van el cargo y el
     // consorcio, y el sello se pega al inicio de la rúbrica como un sello real.
-    <div style={{ position: 'relative', margin: `${firmaUrl ? (fondoCompleto ? 80 : 96) : (fondoCompleto ? 26 : 34)}px auto 0`, width: 340, textAlign: 'center', paddingTop: 6 }}>
+    <div style={{ position: 'relative', margin: `${firmaUrl ? (fondoCompleto ? 44 : 56) : (fondoCompleto ? 26 : 34)}px auto 0`, width: 340, textAlign: 'center', paddingTop: 6 }}>
       {firmaUrl && (
         <img src={firmaUrl} alt="" crossOrigin="anonymous"
-          style={{ position: 'absolute', left: '50%', bottom: 'calc(100% - 34px)', transform: 'translateX(-50%)', height: 110, maxWidth: 300, objectFit: 'contain', objectPosition: 'center bottom' }} />
+          // El cuerpo de la rúbrica apoya sobre la línea y el trazo final baja por
+          // debajo, sobre el nombre, como una firma real en papel.
+          style={{ position: 'absolute', left: '50%', bottom: 'calc(100% - 92px)', transform: 'translateX(-50%)', height: 110, maxWidth: 300, objectFit: 'contain', objectPosition: 'center bottom', zIndex: 1, pointerEvents: 'none' }} />
       )}
       {p.sello_url && !fondoCompleto && (
         <img src={p.sello_url} alt="" crossOrigin="anonymous"
