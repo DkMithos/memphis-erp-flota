@@ -3160,3 +3160,9 @@ participantes · Página 1 de 7".
    sello del consorcio Cusco** (el del repo de Adrián era de otro consorcio). Kevin debe subirlo en Plantillas → Imágenes
    → Sello, o enviarlo para cargarlo.
    Usuario QA temporal `qa.cert.tmp@memphis.pe` (Administrador) creado para la verificación local — **borrado al cerrar**.
+- **Sello cargado (06/10, tarde).** Kevin confirmó que el sello del repo de Adrián es el correcto. Se tomó
+  `dist/sello.svg` de la copia local del repo (scratchpad de la sesión 8a9abbf4), se rasterizó a PNG transparente
+  de 520 px (texto: "CONSORCIO MAS SEGURIDAD AMAZONAS · REPRESENTANTE COMÚN · V°B°") y se subió a
+  `certificados/<tenant>/sello/consorcio-mas-seguridad-amazonas.png`; `sello_url` de la plantilla Cusco apunta ahí.
+  Verificado en el servidor local: el sello sale sobre el extremo izquierdo de la línea de firma, como en el diseño
+  original. Si Kevin consigue otro sello, se reemplaza desde Plantillas → Imágenes → Sello.
