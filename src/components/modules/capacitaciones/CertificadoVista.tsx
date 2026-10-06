@@ -154,11 +154,12 @@ export function CertificadoVista({ plantilla: p, datos: d, codigo, qrDataUrl, ma
         <img src={firmaUrl} alt="" crossOrigin="anonymous"
           // El cuerpo de la rúbrica apoya sobre la línea y el trazo final baja por
           // debajo, sobre el nombre, como una firma real en papel.
-          style={{ position: 'absolute', left: '50%', bottom: 'calc(100% - 92px)', transform: 'translateX(-50%)', height: 110, maxWidth: 300, objectFit: 'contain', objectPosition: 'center bottom', zIndex: 1, pointerEvents: 'none' }} />
+          // Los desplazamientos los ajusta Operaciones en Plantillas → Diseño.
+          style={{ position: 'absolute', left: `calc(50% + ${layout.firma_dx ?? 0}px)`, bottom: `calc(100% - ${92 + (layout.firma_dy ?? 0)}px)`, transform: 'translateX(-50%)', height: layout.firma_alto ?? 110, maxWidth: 340, objectFit: 'contain', objectPosition: 'center bottom', zIndex: 1, pointerEvents: 'none' }} />
       )}
       {p.sello_url && !fondoCompleto && (
         <img src={p.sello_url} alt="" crossOrigin="anonymous"
-          style={{ position: 'absolute', left: -30, bottom: 'calc(100% - 34px)', width: 100, height: 100, objectFit: 'contain', opacity: .9 }} />
+          style={{ position: 'absolute', left: -30 + (layout.sello_dx ?? 0), bottom: `calc(100% - ${34 + (layout.sello_dy ?? 0)}px)`, width: layout.sello_tamano ?? 100, height: layout.sello_tamano ?? 100, objectFit: 'contain', opacity: .9 }} />
       )}
       <div style={{ display: 'inline-block', borderTop: `1px solid ${fondoCompleto ? p.color_texto : '#637e8b'}`, padding: '7px 10px 0', fontSize: 17, fontWeight: 600, lineHeight: 1.3, whiteSpace: 'nowrap' }}>{firmante}</div>
       <div style={{ fontSize: 13, color: fondoCompleto ? p.color_texto : '#526b7b', marginTop: 2 }}>{cargoFirmante}</div>

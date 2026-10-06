@@ -55,6 +55,14 @@ export interface LayoutPlantilla {
   texto_margen?: number;
   /** Opacidad de la foto de fondo (modo estándar), 0–1. */
   fondo_opacidad?: number;
+  /** Rúbrica: alto en px (por defecto 110) y desplazamiento respecto a la línea (dx a la derecha, dy hacia abajo). */
+  firma_alto?: number;
+  firma_dx?: number;
+  firma_dy?: number;
+  /** Sello: tamaño en px (por defecto 100) y desplazamiento (dx a la derecha, dy hacia abajo). */
+  sello_tamano?: number;
+  sello_dx?: number;
+  sello_dy?: number;
 }
 
 export interface Plantilla {

@@ -3193,3 +3193,8 @@ participantes · Página 1 de 7".
 - **Rúbrica pegada a la línea (06/10, tarde):** la imagen baja 58 px más (`bottom: calc(100% - 92px)`, z-index 1):
   el cuerpo de la firma apoya sobre la línea y el trazo final pasa por debajo, sobre el nombre, como en la muestra de
   Operaciones. El bloque sube el margen superior (56 px) para compensar.
+- **Controles de posición de rúbrica y sello (06/10, tarde):** en Plantillas → Diseño (modo estándar) hay un bloque
+  "Rúbrica y sello" con deslizadores: tamaño de la rúbrica (60–180 px), rúbrica izquierda↔derecha y arriba↔abajo,
+  tamaño del sello (60–160), sello izquierda↔derecha y arriba↔abajo, y "Volver a la posición por defecto". Se guardan
+  en `layout` (`firma_alto`, `firma_dx`, `firma_dy`, `sello_tamano`, `sello_dx`, `sello_dy`) y la vista previa cambia
+  en vivo; el PDF usa los mismos valores. Así Kevin deja la firma exactamente como la muestra de Operaciones.

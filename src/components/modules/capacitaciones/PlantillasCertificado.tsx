@@ -345,6 +345,21 @@ function EditorPlantilla({ plantilla, cursos, tenantId, userId, onCancelar, onGu
                         </div>
                       </>
                     )}
+                    <div className="rounded-md border p-3 space-y-3">
+                      <div>
+                        <Label className="text-sm font-medium">Rúbrica y sello</Label>
+                        <p className="text-xs text-muted-foreground">Mueva la rúbrica y el sello mirando la vista previa. Los valores son píxeles del pliego (1123 × 794).</p>
+                      </div>
+                      <Deslizador label="Tamaño de la rúbrica" v={p.layout?.firma_alto ?? 110} min={60} max={180} on={v => setLayout({ firma_alto: v })} unidad="px" />
+                      <Deslizador label="Rúbrica: izquierda ↔ derecha" v={p.layout?.firma_dx ?? 0} min={-120} max={120} on={v => setLayout({ firma_dx: v })} unidad="px" />
+                      <Deslizador label="Rúbrica: arriba ↔ abajo" v={p.layout?.firma_dy ?? 0} min={-80} max={80} on={v => setLayout({ firma_dy: v })} unidad="px" />
+                      <Deslizador label="Tamaño del sello" v={p.layout?.sello_tamano ?? 100} min={60} max={160} on={v => setLayout({ sello_tamano: v })} unidad="px" />
+                      <Deslizador label="Sello: izquierda ↔ derecha" v={p.layout?.sello_dx ?? 0} min={-120} max={200} on={v => setLayout({ sello_dx: v })} unidad="px" />
+                      <Deslizador label="Sello: arriba ↔ abajo" v={p.layout?.sello_dy ?? 0} min={-80} max={80} on={v => setLayout({ sello_dy: v })} unidad="px" />
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setLayout({ firma_alto: undefined, firma_dx: undefined, firma_dy: undefined, sello_tamano: undefined, sello_dx: undefined, sello_dy: undefined })}>
+                        Volver a la posición por defecto
+                      </Button>
+                    </div>
                     <Interruptor id="d1" label="Franjas y marco decorativo" v={p.layout?.mostrar_marco !== false} on={v => setLayout({ mostrar_marco: v })} />
                     <Deslizador label="Opacidad de la foto de fondo" v={Math.round((p.layout?.fondo_opacidad ?? 0.22) * 100)} min={5} max={100} on={v => setLayout({ fondo_opacidad: v / 100 })} unidad="%" />
                   </>
