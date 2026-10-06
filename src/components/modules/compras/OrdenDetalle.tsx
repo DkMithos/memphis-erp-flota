@@ -491,6 +491,14 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
               <p className="font-medium">{orden.proveedorNombre}</p>
             </div>
             <div>
+              <p className="text-sm text-muted-foreground">Centro de Costo</p>
+              <p className="font-medium">
+                {orden.centroCostoCodigo
+                  ? <>{orden.centroCostoCodigo}{orden.centroCostoNombre && orden.centroCostoNombre !== orden.centroCostoCodigo ? ` — ${orden.centroCostoNombre}` : ''}</>
+                  : <span className="text-muted-foreground">Sin centro de costo</span>}
+              </p>
+            </div>
+            <div>
               <p className="text-sm text-muted-foreground">Moneda</p>
               <p className="font-medium">{orden.moneda === 'PEN' ? 'Soles (S/)' : 'Dólares ($)'}</p>
             </div>

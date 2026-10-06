@@ -28,7 +28,13 @@ export type ModoPlantilla = 'estandar' | 'fondo_completo';
 /** Ajustes finos del diseño. Todos opcionales; el renderizador tiene defaults. */
 export interface LayoutPlantilla {
   /** Dónde va el logo en el modo estándar. */
-  logo_pos?: 'arriba' | 'abajo-izq' | 'ninguno';
+  logo_pos?: 'arriba' | 'arriba-izq' | 'abajo-izq' | 'ninguno';
+  /**
+   * Esquinas con las franjas decorativas. 'tl-br' = arriba-izquierda y
+   * abajo-derecha (diseño original). 'tr-bl' las intercala para dejar libre la
+   * esquina superior izquierda (logo) sin pelearse con el azul.
+   */
+  marco_pos?: 'tl-br' | 'tr-bl';
   /** Posición del QR: abajo derecha / abajo izquierda / arriba derecha / arriba izquierda. */
   qr_pos?: 'br' | 'bl' | 'tr' | 'tl' | 'none';
   /** Código y dirección del portal debajo del QR (por defecto sí). */

@@ -27,6 +27,7 @@ import { Textarea } from '../../ui/textarea';
 import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabase/client';
 import { useAuth } from '../../../auth/AuthProvider';
+import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { usePagination } from '../../../lib/shared/usePagination';
 
 interface Props { onNavigate: (route: string) => void; }
@@ -47,6 +48,14 @@ interface FacturaRow {
   pdfPath: string | null;
   subidoPorProveedor: boolean;
   creadoEn: string;
+  /** Vencimiento del comprobante (o del compromiso si el comprobante no lo trae). */
+  fechaVencimiento: string | null;
+  conformeEn: string | null;
+  /** Lo que dice Cuentas por pagar (flujo_compromisos) de esta factura. */
+  pagoEstado: string | null;      // PENDIENTE | PAGADO | PARCIAL…
+  montoPagado: number;
+  fechaPagado: string | null;
+  mesProgramado: string | null;
 }
 
 interface RecepcionOpcion { id: string; numero: string; fecha: string | null; estado: string; }
@@ -83,7 +92,7 @@ export function FacturasProveedores({ onNavigate }: Props) {
     setLoading(true);
     const { data, error } = await supabase
       .from('comprobantes_pago')
-      .select('id, numero_completo, fecha_emision, total, moneda, estado_flujo, motivo_observacion, xml_path, pdf_path, subido_por_proveedor, creado_en, orden_compra_numero, orden_compra_id, ruc_emisor, razon_social_emisor')
+      .select('id, numero_completo, fecha_emision, fecha_vencimiento, conforme_en, total, moneda, estado_flujo, motivo_observacion, xml_path, pdf_path, subido_por_proveedor, creado_en, orden_compra_numero, orden_compra_id, ruc_emisor, razon_social_emisor')
       .eq('direccion', 'recibido')
       .order('creado_en', { ascending: false })
       .limit(1000);
@@ -91,6 +100,27 @@ export function FacturasProveedores({ onNavigate }: Props) {
       console.error('[FACTURAS-PROV] Error al cargar:', error.message);
       toast.error('No se pudieron cargar las facturas');
     } else {
+      // Qué pasó con el pago: Cuentas por pagar vive en flujo_compromisos y se
+      // enlaza por comprobante. Así Contabilidad ve aquí mismo si ya se pagó,
+      // cuánto y cuándo, sin ir a Finanzas.
+      const ids = (data ?? []).map((r: any) => r.id as string);
+      const pagos = new Map<string, { estado: string | null; pagado: number; fecha: string | null; mes: string | null; vence: string | null }>();
+      for (let i = 0; i < ids.length; i += 200) {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+        const { data: comp } = await (supabase.from('flujo_compromisos') as any)
+          .select('comprobante_id, estado_pago, monto_pagado, fecha_pagado, mes_programado, fecha_vencimiento')
+          .in('comprobante_id', ids.slice(i, i + 200)) as { data: any[] | null };
+        (comp ?? []).forEach(c => {
+          const prev = pagos.get(c.comprobante_id);
+          pagos.set(c.comprobante_id, {
+            estado: c.estado_pago ?? prev?.estado ?? null,
+            pagado: (prev?.pagado ?? 0) + Number(c.monto_pagado ?? 0),
+            fecha: c.fecha_pagado ?? prev?.fecha ?? null,
+            mes: c.mes_programado ?? prev?.mes ?? null,
+            vence: c.fecha_vencimiento ?? prev?.vence ?? null,
+          });
+        });
+      }
       setFacturas((data ?? []).map((r: any): FacturaRow => ({
         id: r.id,
         numeroCompleto: r.numero_completo,
@@ -107,6 +137,12 @@ export function FacturasProveedores({ onNavigate }: Props) {
         pdfPath: r.pdf_path,
         subidoPorProveedor: r.subido_por_proveedor ?? false,
         creadoEn: r.creado_en,
+        fechaVencimiento: r.fecha_vencimiento ?? pagos.get(r.id)?.vence ?? null,
+        conformeEn: r.conforme_en ?? null,
+        pagoEstado: r.estado_flujo === 'pagada' ? 'PAGADO' : (pagos.get(r.id)?.estado ?? null),
+        montoPagado: pagos.get(r.id)?.pagado ?? (r.estado_flujo === 'pagada' ? Number(r.total ?? 0) : 0),
+        fechaPagado: pagos.get(r.id)?.fecha ?? null,
+        mesProgramado: pagos.get(r.id)?.mes ?? null,
       })));
     }
     setLoading(false);
@@ -126,6 +162,16 @@ export function FacturasProveedores({ onNavigate }: Props) {
   }), [facturas, filtroEstado, busqueda]);
 
   const { paged, page, totalPages, setPage } = usePagination(filtradas);
+  const { can } = usePermissions();
+  const puedeGestionar = can('compras', 'editar');
+
+  const totalPorPagar = useMemo(() => facturas
+    .filter(f => ['conforme', 'programada_pago'].includes(f.estadoFlujo))
+    .reduce((acc, f) => { acc[f.moneda] = (acc[f.moneda] ?? 0) + f.total - f.montoPagado; return acc; }, {} as Record<string, number>), [facturas]);
+  const totalPagado = useMemo(() => facturas
+    .reduce((acc, f) => { if (f.montoPagado > 0) acc[f.moneda] = (acc[f.moneda] ?? 0) + f.montoPagado; return acc; }, {} as Record<string, number>), [facturas]);
+  const fmtMonedas = (m: Record<string, number>) => Object.keys(m).length
+    ? Object.entries(m).map(([k, v]) => fmt(v, k)).join(' · ') : '—';
 
   const pendientes = facturas.filter(f => ['recibida', 'validada'].includes(f.estadoFlujo));
   const conformes = facturas.filter(f => f.estadoFlujo === 'conforme');
@@ -211,7 +257,14 @@ export function FacturasProveedores({ onNavigate }: Props) {
               orden: f.ordenNumero ?? '',
               moneda: f.moneda,
               total: Number(f.total ?? 0),
-              estado: f.estadoFlujo,
+              estado: ESTADOS[f.estadoFlujo]?.label ?? f.estadoFlujo,
+              conformeEn: f.conformeEn ? f.conformeEn.slice(0, 10) : '',
+              vence: f.fechaVencimiento ?? '',
+              mesProgramado: f.mesProgramado ? f.mesProgramado.slice(0, 7) : '',
+              pagada: f.montoPagado >= f.total - 0.01 && f.total > 0 ? 'Sí' : (f.montoPagado > 0 ? 'Parcial' : 'No'),
+              montoPagado: Number(f.montoPagado.toFixed(2)),
+              saldo: Number(Math.max(0, f.total - f.montoPagado).toFixed(2)),
+              fechaPago: f.fechaPagado ?? '',
               observacion: f.motivoObservacion ?? '',
               subidaPorProveedor: f.subidoPorProveedor ? 'Sí' : 'No',
             }))}
@@ -219,6 +272,8 @@ export function FacturasProveedores({ onNavigate }: Props) {
               comprobante: 'Comprobante', fechaEmision: 'Fecha de emisión',
               ruc: 'RUC', proveedor: 'Proveedor', orden: 'Orden de compra',
               moneda: 'Moneda', total: 'Total', estado: 'Estado del flujo',
+              conformeEn: 'Conformidad', vence: 'Vencimiento', mesProgramado: 'Mes programado',
+              pagada: 'Pagada', montoPagado: 'Monto pagado', saldo: 'Saldo por pagar', fechaPago: 'Fecha de pago',
               observacion: 'Motivo de observación', subidaPorProveedor: 'Subida por el proveedor',
             }}
           />
@@ -229,7 +284,7 @@ export function FacturasProveedores({ onNavigate }: Props) {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Pendientes de conformidad</p>
@@ -246,6 +301,18 @@ export function FacturasProveedores({ onNavigate }: Props) {
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Observadas (esperan al proveedor)</p>
             <p className="text-2xl font-bold">{observadas.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Saldo por pagar (conformes y programadas)</p>
+            <p className="text-lg font-bold">{fmtMonedas(totalPorPagar)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Pagado</p>
+            <p className="text-lg font-bold">{fmtMonedas(totalPagado)}</p>
           </CardContent>
         </Card>
       </div>
@@ -299,15 +366,17 @@ export function FacturasProveedores({ onNavigate }: Props) {
                 <TableHead>Orden</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead>Vence</TableHead>
+                <TableHead>Pago</TableHead>
                 <TableHead>Archivos</TableHead>
-                <TableHead>Acciones</TableHead>
+                {puedeGestionar && <TableHead>Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
               ) : paged.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   {filtroEstado === 'pendientes' ? 'No hay facturas pendientes de conformidad' : 'Sin resultados'}
                 </TableCell></TableRow>
               ) : paged.map(f => {
@@ -341,6 +410,17 @@ export function FacturasProveedores({ onNavigate }: Props) {
                         <p className="text-xs text-red-600 mt-1 max-w-44">{f.motivoObservacion}</p>
                       )}
                     </TableCell>
+                    <TableCell className="text-sm">{f.fechaVencimiento ?? '—'}</TableCell>
+                    <TableCell className="text-sm">
+                      {f.montoPagado > 0 ? (
+                        <>
+                          <p className="font-medium text-green-700">{f.montoPagado >= f.total - 0.01 ? 'Pagada' : 'Parcial'} · {fmt(f.montoPagado, f.moneda)}</p>
+                          {f.fechaPagado && <p className="text-xs text-muted-foreground">{f.fechaPagado}</p>}
+                        </>
+                      ) : ['conforme', 'programada_pago'].includes(f.estadoFlujo) ? (
+                        <p className="text-muted-foreground">Por pagar{f.mesProgramado ? ` · ${f.mesProgramado.slice(0, 7)}` : ''}</p>
+                      ) : '—'}
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         {f.xmlPath && (
@@ -355,7 +435,7 @@ export function FacturasProveedores({ onNavigate }: Props) {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    {puedeGestionar && <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {['recibida', 'validada'].includes(f.estadoFlujo) && (
                           <>
@@ -380,7 +460,7 @@ export function FacturasProveedores({ onNavigate }: Props) {
                           </Button>
                         )}
                       </div>
-                    </TableCell>
+                    </TableCell>}
                   </TableRow>
                 );
               })}

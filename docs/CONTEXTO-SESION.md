@@ -3135,3 +3135,28 @@ lista de fianzas, cargos de cada fianza a 10/pág.). Verificado en preview: "1�
 participantes · Página 1 de 7".
 - (05/10, tarde) Faltaba la pantalla **Fianzas → Cargos de Fianzas** (`FianzasCargos.tsx`, la de
   Lisbet, con los 117 cargos en una columna): paginada a 20, reset al buscar.
+
+## Pedidos del 2026-10-06: CDC en la orden, facturas para Contabilidad, firma y diseño del certificado
+
+1. **Centro de costo en el detalle de la orden.** El PDF ya lo imprimía, pero la pantalla "Información General" no lo
+   mostraba. Ahora sale "Centro de Costo: CÓDIGO — nombre" (MM-001254 → GLOREBOMBE).
+2. **Facturas para Carolina (wbendezu, rol Contabilidad) y dmendez.** Contabilidad ya tenía `compras.ver` + `exportar`,
+   así que Carolina entra a Compras → Facturas Proveedores. **dmendez@memphis.pe no existe todavía como usuario**:
+   debe iniciar sesión con Microsoft una vez y luego asignarle el rol Contabilidad en Admin → Usuarios.
+   La pantalla ahora cruza cada factura con Cuentas por pagar (`flujo_compromisos.comprobante_id`): columnas
+   **Vence** y **Pago** (pagada / parcial / por pagar · mes programado · monto · fecha), KPIs "Saldo por pagar" y
+   "Pagado" por moneda, y el **Exportar** (Excel) incluye orden, estado, conformidad, vencimiento, mes programado,
+   pagada Sí/Parcial/No, monto pagado, saldo y fecha de pago. Las acciones (conformidad, observar, programar, pagar)
+   quedan solo para `compras.editar` (Compras); Contabilidad consulta y exporta.
+3. **Firma del Representante Común** (consorcio Cusco): de las fotos de Kevin se extrajo solo la rúbrica (sin huella),
+   tinta azul sobre fondo transparente, 800 px (`certificados/<tenant>/firma/representante-comun-2026-10-06.png`),
+   subida con una Edge Function de un solo uso (ya retirada como stub 410). `certificado_plantillas.firma_url`
+   actualizada; la rúbrica anterior se conserva en el bucket por los certificados ya emitidos (snapshot).
+4. **Diseño: logo arriba a la izquierda, más pequeño, y franjas intercaladas.** `LayoutPlantilla.logo_pos` admite
+   `arriba-izq` (ancho por defecto 180 px, editable 100–320) y `marco_pos` (`tr-bl` intercala las esquinas azules para
+   que el logo caiga en papel marfil; por defecto cuando el logo va arriba-izq). El QR se pega al marco en la esquina
+   libre. Plantilla Cusco: logo arriba-izq 200 px, franjas tr-bl, QR abajo-derecha. Verificado en el servidor local.
+   **Sello**: el renderizador ya lo pinta a la izquierda de la línea de firma (`sello_url`), pero **no hay imagen del
+   sello del consorcio Cusco** (el del repo de Adrián era de otro consorcio). Kevin debe subirlo en Plantillas → Imágenes
+   → Sello, o enviarlo para cargarlo.
+   Usuario QA temporal `qa.cert.tmp@memphis.pe` (Administrador) creado para la verificación local — **borrado al cerrar**.

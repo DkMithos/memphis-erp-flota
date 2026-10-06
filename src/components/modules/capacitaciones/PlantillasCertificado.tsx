@@ -321,6 +321,7 @@ function EditorPlantilla({ plantilla, cursos, tenantId, userId, onCancelar, onGu
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="abajo-izq">Abajo a la izquierda (diseño original)</SelectItem>
+                          <SelectItem value="arriba-izq">Arriba a la izquierda (las franjas se intercalan)</SelectItem>
                           <SelectItem value="arriba">Arriba, centrado</SelectItem>
                           <SelectItem value="ninguno">No mostrar</SelectItem>
                         </SelectContent>
@@ -328,6 +329,21 @@ function EditorPlantilla({ plantilla, cursos, tenantId, userId, onCancelar, onGu
                     </div>
                     {(p.layout?.logo_pos ?? 'abajo-izq') === 'abajo-izq' && (
                       <Deslizador label="Tamaño del logo" v={p.layout?.logo_ancho ?? 236} min={120} max={420} on={v => setLayout({ logo_ancho: v })} unidad="px" />
+                    )}
+                    {p.layout?.logo_pos === 'arriba-izq' && (
+                      <>
+                        <Deslizador label="Tamaño del logo" v={p.layout?.logo_ancho ?? 180} min={100} max={320} on={v => setLayout({ logo_ancho: v })} unidad="px" />
+                        <div className="space-y-1">
+                          <Label>Franjas decorativas</Label>
+                          <Select value={p.layout?.marco_pos ?? 'tr-bl'} onValueChange={v => setLayout({ marco_pos: v as any })}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="tr-bl">Intercaladas: arriba-derecha y abajo-izquierda</SelectItem>
+                              <SelectItem value="tl-br">Originales: arriba-izquierda y abajo-derecha</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
                     )}
                     <Interruptor id="d1" label="Franjas y marco decorativo" v={p.layout?.mostrar_marco !== false} on={v => setLayout({ mostrar_marco: v })} />
                     <Deslizador label="Opacidad de la foto de fondo" v={Math.round((p.layout?.fondo_opacidad ?? 0.22) * 100)} min={5} max={100} on={v => setLayout({ fondo_opacidad: v / 100 })} unidad="%" />
