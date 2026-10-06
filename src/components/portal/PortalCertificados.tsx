@@ -95,26 +95,81 @@ function VistaCertificado({ cert }: { cert: CertificadoPublico }) {
 
 // ─── /cert/:token ────────────────────────────────────────────────────────────
 function VerificarCertificado({ token, onNavigate }: { token: string; onNavigate: (r: string) => void }) {
-  const [estado, setEstado] = useState<'cargando' | 'ok' | 'no' | 'error'>('cargando');
+  // El QR solo confirma que el código existe. Para ver el certificado hay que
+  // escribir el DNI del titular: así quien escanee un diploma ajeno no ve sus
+  // datos (misma regla que el portal por DNI).
+  const [estado, setEstado] = useState<'cargando' | 'pide_dni' | 'ok' | 'no' | 'error'>('cargando');
   const [cert, setCert] = useState<CertificadoPublico | null>(null);
   const [msg, setMsg] = useState('');
+  const [dni, setDni] = useState('');
+  const [comprobando, setComprobando] = useState(false);
+  const [dniError, setDniError] = useState('');
 
   useEffect(() => {
     let vivo = true;
     setEstado('cargando');
     publico.verificar(token).then(r => {
       if (!vivo) return;
-      if (r.encontrado && r.certificado) { setCert(r.certificado); setEstado('ok'); }
-      else setEstado('no');
+      if (!r.encontrado) setEstado('no');
+      else if (r.certificado) { setCert(r.certificado); setEstado('ok'); }
+      else setEstado('pide_dni');
     }).catch((e: ErrorPublico) => { if (vivo) { setMsg(e.message); setEstado('error'); } });
     return () => { vivo = false; };
   }, [token]);
 
+  const comprobarDni = async () => {
+    const limpio = dni.replace(/[\s.-]/g, '');
+    if (limpio.length < 8) { setDniError('Escriba el número de documento completo'); return; }
+    setComprobando(true); setDniError('');
+    try {
+      const r = await publico.verificar(token, limpio);
+      if (r.certificado) { setCert(r.certificado); setEstado('ok'); }
+      else if (!r.encontrado) setEstado('no');
+      else setDniError('El documento no coincide con el titular de este certificado.');
+    } catch (e) {
+      setDniError((e as ErrorPublico).message);
+    } finally {
+      setComprobando(false);
+    }
+  };
+
   if (estado === 'cargando') return <Cargando texto="Verificando certificado…" />;
   if (estado === 'error') return <Aviso icono={<ShieldAlert className="size-8 text-amber-600" />} titulo="No se pudo verificar" texto={msg} />;
-  if (estado === 'no' || !cert) {
+  if (estado === 'no') {
     return <Aviso icono={<ShieldX className="size-8 text-red-600" />} titulo="Certificado no encontrado"
       texto="El código escaneado no corresponde a ningún certificado emitido por el ERP. Si lo recibió en papel, verifique que el QR sea legible o consulte por DNI." />;
+  }
+  if (estado === 'pide_dni' || !cert) {
+    return (
+      <Card>
+        <CardContent className="p-5 sm:p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="size-8 text-green-600 shrink-0" />
+            <div>
+              <div className="text-lg font-semibold">El código del certificado es válido</div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Para ver el certificado y los datos de la capacitación, escriba el número de documento (DNI) del titular, tal como figura en el diploma.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              inputMode="numeric" autoFocus placeholder="Número de documento"
+              value={dni} onChange={e => { setDni(e.target.value); setDniError(''); }}
+              onKeyDown={e => e.key === 'Enter' && comprobarDni()}
+              className="sm:max-w-xs"
+            />
+            <Button onClick={comprobarDni} disabled={comprobando}>
+              {comprobando ? 'Comprobando…' : 'Ver certificado'} <ArrowRight className="size-4" />
+            </Button>
+          </div>
+          {dniError && <p className="text-sm text-red-600">{dniError}</p>}
+          <p className="text-xs text-muted-foreground">
+            ¿No es su certificado? Puede consultar los suyos en <button className="underline" onClick={() => onNavigate('/certificados')}>el portal por DNI</button>.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
   const vigente = cert.estado === 'emitido';
   const d = cert.datos;

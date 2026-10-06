@@ -49,8 +49,9 @@ export interface FormularioAsistencia {
 }
 
 export const publico = {
-  verificar: (token: string) =>
-    llamar<{ encontrado: boolean; certificado?: CertificadoPublico }>({ accion: 'verificar', token }),
+  /** Sin DNI solo confirma que el código existe; con el DNI del titular devuelve el certificado. */
+  verificar: (token: string, dni?: string) =>
+    llamar<{ encontrado: boolean; requiere_dni?: boolean; dni_valido?: boolean; certificado?: CertificadoPublico }>({ accion: 'verificar', token, ...(dni ? { dni } : {}) }),
 
   consultarDni: (dni: string) =>
     llamar<{ encontrado: boolean; persona?: { nombres: string; apellidos: string; dni_mascara: string }; capacitaciones?: CapacitacionPublica[] }>({ accion: 'consultar', dni }),

@@ -3166,3 +3166,23 @@ participantes · Página 1 de 7".
   `certificados/<tenant>/sello/consorcio-mas-seguridad-amazonas.png`; `sello_url` de la plantilla Cusco apunta ahí.
   Verificado en el servidor local: el sello sale sobre el extremo izquierdo de la línea de firma, como en el diseño
   original. Si Kevin consigue otro sello, se reemplaza desde Plantillas → Imágenes → Sello.
+
+## Certificados: ajustes de diseño, nueva rúbrica negra, sello Cusco, QR con DNI y reemisión (2026-10-06, tarde)
+
+- **Sello**: se tomó el SVG de Adrián y se cambió el texto del arco superior a "CONSORCIO EJECUTOR SALUD CUSCO"
+  (resto igual: "REPRESENTANTE COMÚN", V°B°). Rasterizado a PNG transparente y subido como
+  `certificados/<tenant>/sello/consorcio-ejecutor-salud-cusco.png` → `sello_url` de la plantilla Cusco.
+- **Bloque de firma** (`CertificadoVista.bloqueFirma`): la línea mide 290 px (antes 430, "muy larga"), la rúbrica queda
+  casi al ras de la línea (`bottom: calc(100% - 30px)`, antes -16) y el sello se acerca (`left: -44`, 100 px) pisando
+  un poco el inicio de la rúbrica como un sello real.
+- **Nueva rúbrica en negro**: de la imagen PNG con alfa que mandó Kevin se separó la firma de la huella por componentes
+  conexos (la huella es un blob aparte en x>470, y>1100), rotada 90°, 800 px, subida con la sesión del usuario QA por la
+  API de Storage (`/storage/v1/object/certificados/...`, política `certificados_recursos_subir`) →
+  `firma/representante-comun-negra-2026-10-06.png` → `firma_url`. OJO: subir por pg_net + Edge Function pegando base64
+  corrompió un archivo (16288 vs 16285 bytes) y otra vez dio 500; **la vía fiable es curl con JWT a la API de Storage**.
+- **138 certificados emitidos borrados** (todos de CAP-2026-001) a pedido de Kevin: se reemitirán cuando aprueben el
+  diseño. `certificado_accesos` se conserva como bitácora.
+- **QR ya no expone datos**: `capacitaciones-publico` v2 → `verificar` sin DNI solo responde `{encontrado, requiere_dni}`;
+  con DNI compara contra `datos.participante.dni` del snapshot (mismo tope por IP que el portal, bitácora
+  `existe_sin_dni` / `dni_no_coincide`). `/cert/:token` muestra "El código es válido" + campo DNI y recién entonces el
+  certificado, el detalle y la descarga. Si el DNI no coincide, lo dice sin revelar nada.

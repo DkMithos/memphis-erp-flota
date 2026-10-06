@@ -11,7 +11,7 @@
  *                      y FIRMA desde su propio celular
  *
  * Acciones (POST JSON):
- *   { accion:'verificar',    token }
+ *   { accion:'verificar',    token, dni }  → sin dni solo dice si el código existe
  *   { accion:'consultar',    dni }
  *   { accion:'capacitacion', token }                       → datos para el formulario
  *   { accion:'firmar',       token, dni, nombres, apellidos, cargo?, institucion?,
@@ -124,15 +124,36 @@ export default {
     }
 
     // ── verificar: QR del certificado ─────────────────────────────────────
+    // El QR impreso NO abre el certificado por sí solo: cualquiera que lo
+    // escanee vería nombre y DNI del titular. Sin DNI solo se confirma que el
+    // código existe; los datos salen cuando el DNI coincide con el del titular
+    // (lo mismo que ya exige el portal por DNI). Mismo tope por IP que el portal.
     if (body.accion === 'verificar') {
       const token = String(body.token ?? '').trim()
       if (!UUID_RE.test(token)) return json({ error: 'Código de verificación inválido' }, 400)
+      const dni = normalizarDni(body.dni)
       const { data: c } = await admin.from('certificados')
         .select('id, tenant_id, codigo, token, estado, emitido_en, revocado_en, motivo_revocacion, datos, plantilla')
         .eq('token', token).maybeSingle()
-      await registrar({ tipo: 'verificacion', tenant_id: c?.tenant_id, certificado_id: c?.id, resultado: c ? c.estado : 'no_existe' })
-      if (!c) return json({ encontrado: false })
-      return json({ encontrado: true, certificado: vistaCertificado(c) })
+      if (!c) {
+        await registrar({ tipo: 'verificacion', resultado: 'no_existe' })
+        return json({ encontrado: false })
+      }
+      if (!dni) {
+        await registrar({ tipo: 'verificacion', tenant_id: c.tenant_id, certificado_id: c.id, resultado: 'existe_sin_dni' })
+        return json({ encontrado: true, requiere_dni: true })
+      }
+      if (await contar('verificacion', 10) >= TOPE_CONSULTAS_10MIN || await contar('verificacion', 24 * 60) >= TOPE_CONSULTAS_DIA) {
+        await registrar({ tipo: 'verificacion', tenant_id: c.tenant_id, certificado_id: c.id, dni, resultado: 'tope_ip' })
+        return json({ error: 'Demasiadas consultas desde esta conexión. Intente más tarde.' }, 429)
+      }
+      const dniTitular = normalizarDni(c.datos?.participante?.dni)
+      if (!dniTitular || dniTitular !== dni) {
+        await registrar({ tipo: 'verificacion', tenant_id: c.tenant_id, certificado_id: c.id, dni, resultado: 'dni_no_coincide' })
+        return json({ encontrado: true, requiere_dni: true, dni_valido: false })
+      }
+      await registrar({ tipo: 'verificacion', tenant_id: c.tenant_id, certificado_id: c.id, dni, resultado: c.estado })
+      return json({ encontrado: true, dni_valido: true, certificado: vistaCertificado(c) })
     }
 
     // ── consultar: portal por DNI ─────────────────────────────────────────

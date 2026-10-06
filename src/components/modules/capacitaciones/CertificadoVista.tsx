@@ -147,16 +147,19 @@ export function CertificadoVista({ plantilla: p, datos: d, codigo, qrDataUrl, ma
 
   const bloqueFirma = (firmante || cargoFirmante) && (
     // Con rúbrica, el bloque baja para que la imagen (hasta 90 px) no pise la fecha.
-    <div style={{ position: 'relative', margin: `${firmaUrl ? (fondoCompleto ? 70 : 84) : (fondoCompleto ? 26 : 34)}px auto 0`, width: 430, textAlign: 'center', paddingTop: 6 }}>
+    // La línea de firma mide lo que la rúbrica (290 px), la rúbrica queda casi al
+    // ras de la línea y el sello se pega a su izquierda, pisándola un poco como
+    // un sello real (pedido de Operaciones, 06/10).
+    <div style={{ position: 'relative', margin: `${firmaUrl ? (fondoCompleto ? 70 : 84) : (fondoCompleto ? 26 : 34)}px auto 0`, width: 290, textAlign: 'center', paddingTop: 6 }}>
       {firmaUrl && (
         <img src={firmaUrl} alt="" crossOrigin="anonymous"
-          style={{ position: 'absolute', left: '50%', bottom: 'calc(100% - 16px)', transform: 'translateX(-50%)', height: 90, maxWidth: 260, objectFit: 'contain' }} />
+          style={{ position: 'absolute', left: '50%', bottom: 'calc(100% - 30px)', transform: 'translateX(-50%)', height: 92, maxWidth: 250, objectFit: 'contain', objectPosition: 'center bottom' }} />
       )}
       {p.sello_url && !fondoCompleto && (
         <img src={p.sello_url} alt="" crossOrigin="anonymous"
-          style={{ position: 'absolute', left: -6, bottom: 'calc(100% - 22px)', width: 96, height: 96, objectFit: 'contain', opacity: .9 }} />
+          style={{ position: 'absolute', left: -44, bottom: 'calc(100% - 30px)', width: 100, height: 100, objectFit: 'contain', opacity: .9 }} />
       )}
-      <div style={{ borderTop: `1px solid ${fondoCompleto ? p.color_texto : '#637e8b'}`, paddingTop: 7, fontSize: 17, fontWeight: 600, lineHeight: 1.3 }}>{firmante}</div>
+      <div style={{ borderTop: `1px solid ${fondoCompleto ? p.color_texto : '#637e8b'}`, paddingTop: 7, fontSize: 17, fontWeight: 600, lineHeight: 1.3, whiteSpace: 'nowrap' }}>{firmante}</div>
       <div style={{ fontSize: 13, color: fondoCompleto ? p.color_texto : '#526b7b', marginTop: 2 }}>{cargoFirmante}</div>
       {consorcio && fondoCompleto && <div style={{ fontSize: 12, marginTop: 1, letterSpacing: '.06em' }}>{consorcio.toUpperCase()}</div>}
     </div>
