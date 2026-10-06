@@ -3186,3 +3186,7 @@ participantes · Página 1 de 7".
   con DNI compara contra `datos.participante.dni` del snapshot (mismo tope por IP que el portal, bitácora
   `existe_sin_dni` / `dni_no_coincide`). `/cert/:token` muestra "El código es válido" + campo DNI y recién entonces el
   certificado, el detalle y la descarga. Si el DNI no coincide, lo dice sin revelar nada.
+- **Bloque de firma v4 (06/10, tarde):** la línea abarca solo el nombre (`inline-block` con borde superior y 10 px de
+  aire a cada lado), debajo el cargo y el **nombre del consorcio** (también en modo estándar), rúbrica más grande
+  (110 px, hasta 300 de ancho) al ras de la línea, sello pegado a la izquierda. Plantilla Cusco:
+  `firmante_nombre = Guillermo Macher Jiménez`, `firmante_cargo = Representante Común`. Verificado en local.
