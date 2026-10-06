@@ -3208,3 +3208,4 @@ participantes · Página 1 de 7".
   - **ZIP, un PDF por persona** (nuevo): `descargarCertificadosZip` en `src/lib/capacitaciones/certificado-pdf.tsx`, usa `jszip` (dependencia nueva, import dinámico). Archivos nombrados "Certificado <código> - <nombre>.pdf"; el ZIP sale como "Certificados <código capacitación> (uno por persona).zip".
 - Todo se genera en el navegador (html2canvas + jsPDF); 138 certificados tardan unos minutos y hay que dejar la pestaña abierta.
 - Los errores TS7006 preexistentes en CapacitacionDetalle (11, parámetros `v`/`o` sin tipo) no son de este cambio.
+- Kevin vio "Failed to fetch dynamically imported module: .../jspdf.es.min-D3p5yh0p.js": su pestaña tenía la versión anterior y el chunk viejo ya no existe en Vercel (la URL devuelve el index.html). Se resuelve recargando. Se agregó en `src/main.tsx` un oyente de `vite:preloadError` que recarga una sola vez (guardia de 30 s en sessionStorage) para que no vuelva a pasar tras cada despliegue.
