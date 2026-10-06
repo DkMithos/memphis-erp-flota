@@ -3198,3 +3198,13 @@ participantes · Página 1 de 7".
   tamaño del sello (60–160), sello izquierda↔derecha y arriba↔abajo, y "Volver a la posición por defecto". Se guardan
   en `layout` (`firma_alto`, `firma_dx`, `firma_dy`, `sello_tamano`, `sello_dx`, `sello_dy`) y la vista previa cambia
   en vivo; el PDF usa los mismos valores. Así Kevin deja la firma exactamente como la muestra de Operaciones.
+
+## 2026-10-06 (tarde) — Exportación masiva del lote de certificados
+
+- Kevin emitió los 138 certificados de CAP-2026-001 con el diseño aprobado y no encontraba cómo exportar el lote.
+- Ya existía "Descargar todos en un PDF (N)" dentro de la tarjeta de emisión (columna izquierda de la pestaña Certificados), pero pasaba desapercibido.
+- Ahora la tarjeta **Certificados emitidos** muestra en su cabecera dos acciones masivas, con barra de progreso:
+  - **Todos en un PDF**: un solo PDF, una página por certificado (lo que ya existía).
+  - **ZIP, un PDF por persona** (nuevo): `descargarCertificadosZip` en `src/lib/capacitaciones/certificado-pdf.tsx`, usa `jszip` (dependencia nueva, import dinámico). Archivos nombrados "Certificado <código> - <nombre>.pdf"; el ZIP sale como "Certificados <código capacitación> (uno por persona).zip".
+- Todo se genera en el navegador (html2canvas + jsPDF); 138 certificados tardan unos minutos y hay que dejar la pestaña abierta.
+- Los errores TS7006 preexistentes en CapacitacionDetalle (11, parámetros `v`/`o` sin tipo) no son de este cambio.

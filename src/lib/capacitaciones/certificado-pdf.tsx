@@ -17,6 +17,7 @@ import { flushSync } from 'react-dom';
 import { CertificadoVista, CERT_ANCHO, CERT_ALTO } from '../../components/modules/capacitaciones/CertificadoVista';
 import type { DatosCertificado, PlantillaSnapshot, Plantilla } from './types';
 import { qrDataUrl } from './qr';
+import { nombreCompleto } from './datos';
 import { urlVerificacion } from './urls';
 
 export interface ItemCertificadoPdf {
@@ -90,6 +91,43 @@ export async function descargarCertificadosPdf(
   }
   const nombre = nombreArchivo.toLowerCase().endsWith('.pdf') ? nombreArchivo : `${nombreArchivo}.pdf`;
   pdf.save(nombre);
+  return nombre;
+}
+
+/**
+ * Descarga un ZIP con UN PDF por certificado (para repartirlos uno a uno o
+ * enviarlos por correo). `onProgreso(i, n)` para la barra. Devuelve el nombre.
+ *
+ * Se arma en memoria: a ~400 KB por página, 150 certificados son ~60 MB, que
+ * el navegador maneja sin problema. Para lotes mucho mayores conviene
+ * descargar por partes (filtrar) o usar el PDF único.
+ */
+export async function descargarCertificadosZip(
+  items: ItemCertificadoPdf[],
+  nombreZip: string,
+  onProgreso?: (hechos: number, total: number) => void,
+): Promise<string> {
+  if (!items.length) throw new Error('No hay certificados para generar');
+  const [{ jsPDF }, { default: JSZip }] = await Promise.all([import('jspdf'), import('jszip')]);
+  const zip = new JSZip();
+  const usados = new Set<string>();
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    const canvas = await rasterizarCertificado(it);
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.93), 'JPEG', 0, 0, 297, 210, undefined, 'FAST');
+    let nombre = nombreArchivoCertificado(it.codigo, nombreCompleto(it.datos.participante));
+    if (usados.has(nombre)) nombre = nombre.replace(/\.pdf$/, ` (${i + 1}).pdf`);
+    usados.add(nombre);
+    zip.file(nombre, pdf.output('arraybuffer'));
+    onProgreso?.(i + 1, items.length);
+  }
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+  const nombre = nombreZip.toLowerCase().endsWith('.zip') ? nombreZip : `${nombreZip}.zip`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
   return nombre;
 }
 

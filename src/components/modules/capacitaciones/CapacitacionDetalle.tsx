@@ -47,7 +47,7 @@ import {
 } from '../../../lib/capacitaciones/datos';
 import { useQrDataUrl } from '../../../lib/capacitaciones/qr';
 import { urlAsistencia, urlPortalCertificados, urlVerificacion } from '../../../lib/capacitaciones/urls';
-import { descargarCertificadosPdf, nombreArchivoCertificado } from '../../../lib/capacitaciones/certificado-pdf';
+import { descargarCertificadosPdf, descargarCertificadosZip, nombreArchivoCertificado } from '../../../lib/capacitaciones/certificado-pdf';
 import { imprimirHojaAsistencia } from '../../../lib/capacitaciones/hoja-asistencia';
 import { ESTADO_CAPACITACION, type Capacitacion, type Certificado, type Curso, type Participante, type Plantilla } from '../../../lib/capacitaciones/types';
 import { CertificadoPreview } from './CertificadoVista';
@@ -611,6 +611,21 @@ function Certificados({ cap, parts, certs, plantillas, tenantId, puedeEmitir, pu
     } catch (e: any) { toast.error(e.message); } finally { setProgreso(null); }
   };
 
+  // ZIP con un PDF por persona: lo que necesita Operaciones para repartir o
+  // enviar cada certificado por separado.
+  const descargarZip = async (lista: Certificado[]) => {
+    if (!lista.length) return;
+    setProgreso({ hechos: 0, total: lista.length });
+    try {
+      await descargarCertificadosZip(
+        lista.map(c => ({ plantilla: c.plantilla, datos: c.datos, codigo: c.codigo, token: c.token, marca: c.estado === 'revocado' ? 'REVOCADO' : undefined })),
+        `Certificados ${cap.codigo} (uno por persona).zip`,
+        (h, t) => setProgreso({ hechos: h, total: t }),
+      );
+      toast.success(`ZIP con ${lista.length} certificado(s) descargado`);
+    } catch (e: any) { toast.error(e.message); } finally { setProgreso(null); }
+  };
+
   const revocar = async () => {
     if (!revocando || motivo.trim().length < 4) { toast.error('Indique el motivo'); return; }
     try { await dbCertificados.revocar(revocando.id, motivo.trim(), quien); toast.success('Certificado revocado'); setRevocando(null); setMotivo(''); await onRecargar(); }
@@ -671,9 +686,14 @@ function Certificados({ cap, parts, certs, plantillas, tenantId, puedeEmitir, pu
               </Button>
             ) : <p className="text-xs text-muted-foreground">Emitir requiere el permiso de aprobación de Proyectos.</p>}
             {emitidos.length > 0 && (
-              <Button variant="outline" className="w-full" onClick={() => descargar(emitidos)} disabled={!!progreso}>
-                <Download className="size-4" /> Descargar todos en un PDF ({emitidos.length})
-              </Button>
+              <>
+                <Button variant="outline" className="w-full" onClick={() => descargar(emitidos)} disabled={!!progreso}>
+                  <Download className="size-4" /> Descargar todos en un PDF ({emitidos.length})
+                </Button>
+                <Button variant="outline" className="w-full" onClick={() => descargarZip(emitidos)} disabled={!!progreso}>
+                  <Download className="size-4" /> Descargar ZIP, un PDF por persona ({emitidos.length})
+                </Button>
+              </>
             )}
             {progreso && (
               <div className="space-y-1">
@@ -693,7 +713,27 @@ function Certificados({ cap, parts, certs, plantillas, tenantId, puedeEmitir, pu
       </div>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Certificados emitidos</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="text-base">Certificados emitidos ({emitidos.length} vigentes)</CardTitle>
+            {emitidos.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => descargar(emitidos)} disabled={!!progreso}>
+                  <Download className="size-4" /> Todos en un PDF
+                </Button>
+                <Button size="sm" onClick={() => descargarZip(emitidos)} disabled={!!progreso}>
+                  <Download className="size-4" /> ZIP, un PDF por persona
+                </Button>
+              </div>
+            )}
+          </div>
+          {progreso && (
+            <div className="space-y-1 pt-2">
+              <Progress value={progreso.hechos / progreso.total * 100} />
+              <div className="text-xs text-muted-foreground">Generando {progreso.hechos} de {progreso.total}… no cierre esta pestaña.</div>
+            </div>
+          )}
+        </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
