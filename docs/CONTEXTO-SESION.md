@@ -3209,3 +3209,10 @@ participantes · Página 1 de 7".
 - Todo se genera en el navegador (html2canvas + jsPDF); 138 certificados tardan unos minutos y hay que dejar la pestaña abierta.
 - Los errores TS7006 preexistentes en CapacitacionDetalle (11, parámetros `v`/`o` sin tipo) no son de este cambio.
 - Kevin vio "Failed to fetch dynamically imported module: .../jspdf.es.min-D3p5yh0p.js": su pestaña tenía la versión anterior y el chunk viejo ya no existe en Vercel (la URL devuelve el index.html). Se resuelve recargando. Se agregó en `src/main.tsx` un oyente de `vite:preloadError` que recarga una sola vez (guardia de 30 s en sessionStorage) para que no vuelva a pasar tras cada despliegue.
+
+## 2026-10-07 - Analisis para el nuevo GG: Excel vs ERP, SQL, data warehouse, indicadores, presentaciones
+
+- Pedido de Kevin: revisar los flujos de la carpeta Flujo Financiero (hay uno nuevo), los 7 presupuestos PROY-FOR-004 y el dashboard de Adrian; proponer como trabajar mas eficiente (Excel o ERP), volcar a SQL, DWH, indicadores y boton de presentaciones (Power BI vs dashboard).
+- Entregable: docs/PLAN-DATOS-GERENCIA.md (solo analisis y plan; nada construido).
+- Hallazgos clave: "Flujo GM Directorio" es copia exacta de "Flujo GM" (solo 22 celdas de la hoja nueva "Prestamo Socios": colchon 8 a 10 %, S/ 4.4 M a 4.5 M). Las 4 BD ya estan en flujo_compromisos (2,658 filas) pero flujo-import es manual y la ultima corrida fue el 23-sep, por eso ERP y Excel difieren (oct-26 egresos 15.1 M vs 13.0 M). El dashboard de Adrian lee RESUMEN.xlsx por celdas fijas desde el navegador (MSAL), sin historico; reutilizable ~70 % de UI como modo TV sobre una vista del ERP.
+- Plan: 6 fases (cron flujo-import + reconciliacion; esquema dw con fotos diarias y rol de lectura; catalogo de indicadores en SQL incl. prestamo_socios(); Power BI sobre dw; boton PPTX/PDF en /bi con pptxgenjs; modo TV; "el ERP manda"). Unas 9 a 10 semanas. Seis decisiones para el GG en la seccion 8.
