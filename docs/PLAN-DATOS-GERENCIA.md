@@ -299,3 +299,117 @@ mismo problema de fotos desfasadas y celdas frágiles, y habría que rehacerlo a
 - Código: `supabase/functions/flujo-import`, `excel-sync`, `fianzas-import` (patrón de cron a copiar),
   `src/components/modules/bi/FlujoGerencia.tsx`, `src/lib/bi/gerencia-store.ts`.
 - Dashboard de Adrián: `github.com/Adrian-7268/memphis-dashboard` (commit `ab9cf62`, 26-jun-2026).
+
+---
+
+## 10. El "flujo correcto" de Kevin, paso a paso contra el ERP (2026-10-07)
+
+Kevin describió la cadena que el sistema debería cubrir. Esta tabla dice, para cada paso, qué
+hay hoy en el ERP (verificado en la base), qué falta y dónde se corta la data. La regla de
+lectura: **el modelo está casi completo; la data se corta en "OC aprobada"** porque de ahí en
+adelante las áreas siguen registrando en Excel.
+
+| # | Paso | En el ERP hoy | Data real | Qué falta |
+|---|---|---|---|---|
+| 1 | Nace el proyecto | `proyectos` con fase (idea → actos previos → ejecución → post), CUI, convenio, contrato, adendas | 11 proyectos | Nada |
+| 2 | Se crea el presupuesto con todos los ítems | `presupuestos` + partidas (importador PROY-FOR-004), `v_partidas_proyecto` | 1,290 partidas en 10 presupuestos | Decidir la versión que manda en 4 proyectos; cargar presupuestos de área (0) |
+| 3 | Empieza el proyecto | Estado `en_ejecucion`, acta, plazo, fases desde RESUMEN.xlsx (`excel-sync`) | 7 en ejecución | Nada |
+| 4 | Requerimientos, cotizaciones y órdenes de los ítems | Cadena REQ → COT → OC con `partida_id` que viaja, aprobación por etapas, alerta de sobregiro por partida | 1,389 OC | Nada estructural. Que Compras siempre elija la partida |
+| 5 | Recepciones | `recepciones` + `recepcion_items` valorados (`orden_item_id`, `valor_recibido`), conforme = entrada al kardex automática | **1 recepción** | Que Compras/Almacén registre las recepciones. Sin esto, 6 a 9 quedan vacíos |
+| 6 | Salidas de los ítems a los proyectos | `movimientos_inventario` (tipo salida, `proyecto_id`, `referencia_tipo`), `registrar_movimiento_inventario()`, `v_stock_proyecto` | **0 salidas**, 1 artículo, 1 almacén | Pantalla de "despacho a proyecto" (ver 10.1) |
+| 7 | Se reciben las facturas | `comprobantes_pago` (XML SUNAT, detracción y retención calculadas, enlace a OC y recepción, estado de flujo), portal de proveedores, factura → compromiso CxP → asiento | 40 facturas (portal) | Que Contabilidad registre o reciba por el portal todas las facturas |
+| 8 | Pago parcial o total de facturas | `registrar_pago_compromiso(compromiso, fecha, monto, cuenta, referencia)` crea la `transaccion`, descuenta el compromiso y cierra factura/valorización cuando llega a cero | **0 transacciones** | Pantalla de pagos con monto parcial y cuenta bancaria; cuentas bancarias con saldo inicial (ver 10.2) |
+| 9 | Pago de detracciones y retenciones | Tablas `detracciones` (código, tasa, base, monto, fecha de depósito, constancia) y `retenciones_percepciones`, calculadas al leer el XML | **0 filas** | Flujo de pago en dos partes (ver 10.3) |
+| 10 | Apertura y cierre de cajas chicas | `cajas_chicas` con estado, regla "caja cerrada no admite gastos" (trigger), gastos con CDC y proyecto | 46 cajas, 1,138 gastos, 0 abiertas hoy | Nada |
+| 11 | Flujos con la información previa | `flujo_compromisos` (pagar/cobrar, real/comprometido/proyectado), `v_flujo_mensual`, `flujo_caja()`, `v_cxp`, `v_cxc` | 2,658 del Excel + 241 nativas | Cron de importación (fase 0) y, al final, que nazcan en el ERP (fase 6) |
+| 12 | Provisión y proyección de meses y proyectos siguientes | `origen = proyectado` en compromisos; proyectos en idea con contrato estimado; `BASE_IDEAS` del Excel (864 filas) aún no se importa | Parcial | Importar ideas; función `prestamo_socios()`; escenarios guardados con fecha (fotos diarias, fase 1) |
+| 13 | Informe al comité: deudas, pagado, por pagar, ganancia obtenida, esperada, proyectada | `proyecto_financiero()` (margen esperado y real), `v_cxp` (deuda y vencido), `/bi/gerencia` | Con huecos por 5, 7 y 8 | Catálogo de indicadores (fase 2) y botón de presentación (fase 4) |
+| 14 | Kardex | Kardex automático por artículo × almacén × proyecto, costo en soles al TC del día, reversión al anular | 1 entrada | Depende de 5 y 6 |
+| 15 | El sistema responde las preguntas del comité | `proyecto_cadena()` arma presupuesto → gasto → saldo → facturado → pagado → recepcionado → inventario → contable → rentabilidad | Responde hasta "OC aprobada" | Todo lo anterior |
+
+Conclusión: de los 15 pasos, 12 ya tienen modelo y función en la base. Los tres que faltan de
+verdad son pantallas (6, 8, 9), y el resto es **disciplina de registro** en recepciones y
+facturas. Sin recepciones no hay kardex; sin facturas no hay deuda real; sin pagos no hay caja.
+
+### 10.1 Cómo se debería registrar la salida de ítems a los proyectos
+
+Hoy la compra ya nace amarrada a un proyecto (la OC tiene `proyecto_id` por su centro de costo) y
+la recepción conforme entra al almacén general con ese proyecto. Lo que falta es el movimiento
+contrario y los casos reales:
+
+- **Compra directa para un proyecto** (el caso normal: 23 camionetas para Huánuco): recepción
+  conforme → entrada al kardex **ya con `proyecto_id`** → salida automática "despacho a proyecto"
+  en el mismo acto, o un botón "Despachar" en la recepción. El stock del proyecto sube y baja el
+  mismo día; el kardex deja constancia de que pasó por almacén.
+- **Compra a stock, luego se asigna** (uniformes, repuestos, equipo de rescate): recepción sin
+  proyecto → entrada al almacén general → pantalla **"Despacho a proyecto"**: artículo, cantidad,
+  proyecto destino, partida del presupuesto que consume, guía de remisión, quién recibe. Eso crea
+  la salida en `movimientos_inventario` (tipo `salida`, motivo `despacho_proyecto`,
+  `proyecto_id`, `referencia_tipo = 'guia'`) y descuenta la partida.
+- **Transferencia entre proyectos** (un ítem comprado para Loreto que termina en Amazonas): salida
+  de un proyecto + entrada al otro en una sola operación, con motivo `transferencia`, para que el
+  gasto real de cada proyecto se corrija solo y quede trazado. Hoy eso se arregla "reasignando la
+  OC", que borra la historia.
+- **Valorización en soles al TC de la fecha de salida**, no de la compra, para que el costo
+  cargado al proyecto sea el que Contabilidad acepta.
+
+La base ya soporta todo esto (`registrar_movimiento_inventario` acepta tipo, motivo, proyecto y
+referencia). Lo que se construye es la pantalla de despacho y la regla "entrada con proyecto =
+despacho automático". Dos a tres días.
+
+### 10.2 Cómo se debería registrar el pago parcial o total de una factura
+
+El modelo correcto ya está en la base: **la factura es la deuda, el pago es una transacción
+contra esa deuda, y pueden ser varias.** `registrar_pago_compromiso` recibe el monto (si no se
+manda, paga el saldo completo) y crea una transacción de egreso enlazada a la factura, la OC y el
+proyecto; el compromiso se cierra solo cuando el pagado llega al total.
+
+Lo que falta es la pantalla y dos decisiones:
+
+1. **Pantalla "Registrar pago"** desde la factura o desde Cuentas por pagar: fecha, monto (por
+   defecto el saldo), cuenta bancaria de salida, número de operación, moneda y TC del día si la
+   factura está en dólares, adjunto del voucher. Varios pagos a la misma factura se listan debajo
+   con su saldo restante. Un pago en exceso no se permite.
+2. **Cuentas bancarias con saldo inicial** (`cuentas` existe, `saldo_caja_inicial` sigue en 0).
+   Sin esto, el ERP sabe cuánto pagó pero no cuánto queda en el banco, y la "liquidez" del comité
+   sale en cero.
+3. **Regla de qué se considera pagado**: a efectos del flujo, la factura se paga en la fecha de la
+   transferencia, no en la fecha de la factura ni en el mes programado. Es lo que hoy la columna
+   `MES PAGADO` del Excel intenta, a mano.
+
+### 10.3 Cómo se debería registrar el pago de detracciones y retenciones
+
+Son dos pagos distintos de la misma factura, y el Excel los trae como columnas (`DETRACCIÓN`,
+`RETENCIÓN`) que luego nadie suma. El registro correcto:
+
+- **Detracción (SPOT)**: al leer el XML el ERP ya calcula si aplica, la tasa y el monto. El pago
+  se parte en dos: **al proveedor** le llega el neto (total − detracción) y **al Banco de la
+  Nación** va el depósito de detracción, con su constancia. Son dos transacciones enlazadas a la
+  misma factura; la tabla `detracciones` guarda fecha de depósito y número de constancia. La
+  factura se considera pagada cuando ambas están hechas, y el flujo de caja muestra la detracción
+  en la fecha en que se deposita (normalmente dentro del mes siguiente), no en la del pago al
+  proveedor.
+- **Retención (agente de retención, 3 %)**: Memphis paga al proveedor el total − retención y emite
+  el comprobante de retención; lo retenido se paga a SUNAT con el PDT del mes. En
+  `retenciones_percepciones` queda el comprobante y la fecha; en el flujo aparece como un egreso
+  mensual a SUNAT, no como parte del pago al proveedor. El centro de costo `RETENCION 3%` ya
+  existe en el ERP para eso.
+- **Percepciones** (cuando Memphis es el que las sufre al comprar combustible, etc.) van en la
+  misma tabla con `tipo = percepcion` y son crédito contra el IGV, no un gasto.
+
+Para el comité esto importa porque **la deuda con el proveedor y la deuda con SUNAT no son la
+misma deuda**, vencen en fechas distintas y hoy se mezclan en una sola columna del Excel.
+
+### 10.4 Qué agrega esto al plan
+
+Tres pantallas que entran en la fase 0 o 1, porque sin ellas el `dw` no tiene nada real que
+mostrar después de "OC aprobada":
+
+| Pantalla | Dónde | Esfuerzo |
+|---|---|---|
+| Despacho a proyecto y transferencia entre proyectos | Inventario | 2 a 3 días |
+| Registrar pago (parcial, cuenta, voucher) + cuentas bancarias con saldo | Finanzas / Cuentas por pagar | 3 días |
+| Pago de detracción y comprobante de retención, con calendario mensual a SUNAT | Finanzas | 2 días |
+
+Y una decisión más para el GG (la séptima): **quién registra recepciones y facturas en el ERP y
+desde qué fecha.** Es la única pieza que ningún desarrollo reemplaza.
