@@ -3252,3 +3252,17 @@ jueves 16-oct; lineas sin comprobante permitidas (parametro `lotes_permitir_sin_
   ninguno marcado: todo sale como "no aplica" con alerta, Contabilidad corrige en el lote), saldos iniciales, cuenta BN.
 - Nota tecnica: en PL/pgSQL `text[] || 'literal'` falla (lo toma como arreglo); usar `array_append`. El rol temporal del pooler
   no puede crear politicas en storage.objects (no hereda `postgres`): las migraciones con Storage van por `apply_migration`.
+
+## 2026-10-07 - Analisis de las carpetas 01. Contabilidad y 04. Finanzas (SharePoint FINANZAS)
+
+- Entregable: docs/ANALISIS-Carpetas-Contabilidad-Finanzas.md. Contabilidad: 23,667 archivos (PDF/XML de comprobantes por mes,
+  SIRE compras/ventas mensual, constancias de detraccion CSV de SUNAT, macro R13.2 de pago masivo de detracciones BN, control de
+  detracciones 2025-26 con 346 pendientes por S/ 148,596, control de deuda tributaria, listado de proveedores con condicion de
+  retencion). Finanzas: CORREO PAGOS semanal, EECC BBVA por mes, PAGOS 2026MM y acumulados 2024-2026 clasificados con CC.
+- Hallazgos que cambian el plan: Memphis retiene 3 % de forma general (S/ 184,121 en feb-26); detracciones se pagan por txt masivo;
+  SUNAT da CSV de constancias; el SIRE es la fuente masiva de facturas (315 en set-26 vs 40 en el ERP); hay 3 anos de pagos
+  clasificados; deuda tributaria y prestamos/mutuos deben entrar al flujo. Ajustes en sprints 2, 3, 4 y 6 (seccion 3 del analisis).
+- Cargado en produccion (migracion 20261007220000_proveedores_condicion_tributaria_contabilidad): columnas buen_contribuyente,
+  agente_retencion, agente_percepcion; 82 proveedores sujeto_retencion=true, 17 exentos, 40 sin condicion; 12 cuentas bancarias
+  nuevas en cuentas_bancarias (origen contabilidad_2026-10).
+- Seguridad: Contrasenas.xlsx en la raiz de Contabilidad y CLAVE SOL GM.jpeg en una carpeta compartida: mover a un gestor y borrar.

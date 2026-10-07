@@ -89,6 +89,10 @@ Sin esto el sprint 1 arranca a ciegas. Son tres días porque el jueves es feriad
 
 ## Sprint 2 · 20 al 24 de octubre · Tesorería: exportar, pagar, registrar
 
+> **Ajuste 7-oct** (ver [ANALISIS-Carpetas-Contabilidad-Finanzas.md](ANALISIS-Carpetas-Contabilidad-Finanzas.md)): se agrega el `.txt` R13.2 de
+> pago masivo de detracciones del Banco de la Nación generado desde el lote, la importación del CSV de constancias de SUNAT y la
+> pantalla de detracciones pendientes de depósito. El sprint 3 carga 2024–2026 (no solo 2026) e importa el SIRE de compras mensual.
+
 **Objetivo:** que Shirley reciba el lote validado, lo pague en BBVA y lo deje registrado en el ERP con voucher, y que el saldo de cada cuenta se mueva solo.
 
 **Se construye:**
