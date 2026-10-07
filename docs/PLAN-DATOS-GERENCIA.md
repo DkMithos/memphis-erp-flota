@@ -413,3 +413,90 @@ mostrar después de "OC aprobada":
 
 Y una decisión más para el GG (la séptima): **quién registra recepciones y facturas en el ERP y
 desde qué fecha.** Es la única pieza que ningún desarrollo reemplaza.
+
+---
+
+## 11. El circuito de pagos: cómo es hoy y cómo queda dentro del ERP (2026-10-07)
+
+Kevin describió el circuito real con los archivos de un ciclo completo (2 y 18 de octubre, y el
+cierre de setiembre). Se revisaron los siete archivos.
+
+### 11.1 Cómo pagan hoy (8 pasos, 3 personas, 5 archivos por ciclo)
+
+| Paso | Quién | Qué hace | Archivo | Lo que vi en el archivo |
+|---|---|---|---|---|
+| 1 | Miguelángel | Arma la lista de pagos de la semana | `PAGOS 02102026.xlsx` | Hoja `PAGOS PEN-USD`: proveedor, RUC, moneda de cuenta, banco, cuenta/CCI, proyecto, descripción, OC, factura, soles, dólares, porcentaje, detracción, retención, neto. La hoja `proveedores` es **una exportación del ERP** (códigos PROV-0164…, banco, cuenta, CCI, moneda) |
+| 2 | Contabilidad | Valida si cada línea lleva detracción o retención | — | Fórmulas sobre una tabla `TABLARELLENO632` y una hoja `Listas` que resuelve la cuenta por RUC + moneda + banco; ya muestra `#REF!` y `#VALUE!` en 7 líneas |
+| 3 | Contabilidad | Devuelve el archivo | `PAGOS 02102026-revisado.xlsx` | Mismo archivo con comentarios ("FALTA SACAR DETRACCIÓN EN DÓLARES", "FACTURA LA ENVÍAN EN EL TRANSCURSO") |
+| 4 | Miguelángel | Revisa montos y completa el neto si falta | `PAGOS …-validado.xlsx` | Netos calculados a mano: 3 % retención, 8 % recibos por honorarios, 12 % detracción; líneas sin factura ("PENDIENTE", "POR ENVIAR", "LETRA", "NA") |
+| 5 | Miguelángel | Envía a Shirley | mismo archivo | Por correo o Teams |
+| 6 | Shirley | Digita cada transferencia en BBVA | — | Sin banca premium, sin archivo masivo: una por una, soles y dólares, y los depósitos de detracción al Banco de la Nación |
+| 7 | Carolina | Manda los estados de cuenta con vouchers a Contabilidad | `EECC SETIEMBRE 2026 SOLES.pdf` (284 páginas), `…DÓLARES.pdf` (365 páginas) | Las 2 primeras páginas son el estado BBVA (fecha, descripción, n.º operación, cargo/abono, ITF, saldo); las otras 647 son vouchers escaneados |
+| 8 | Contabilidad | Cruza PDF + histórico de BBVA y vuelca todo a un acumulado | `BANCOS2026.xlsx` (18 hojas, una por cuenta y mes, exportación "Histórico de Movimientos" de BBVA) → `Pagos acumulados 2026 con CC.xlsx` | 1,194 movimientos ene–jul digitados a mano con centro de costo, categoría, comprobante, razón social, n.º operación, fecha; resúmenes por CC y por mes (S/ 26.9 M, US$ 5.5 M, de los cuales S/ 18.4 M son cambios de moneda) |
+
+Problemas concretos que el circuito arrastra:
+
+- **Tres versiones del mismo archivo por correo** por ciclo; nadie sabe cuál es la buena hasta que Shirley paga.
+- **La detracción en dólares no se calcula** (comentario literal en la línea de Peruana de Motores, US$ 23,252.80): la detracción se deposita en soles al tipo de cambio del día del pago, y el Excel no lo sabe.
+- **Se pagan líneas sin factura** (adelantos, letras, "por enviar"): es legítimo, pero hoy no queda marcado y después Contabilidad no sabe contra qué factura cerrarlo.
+- **La cuenta del proveedor se resuelve con fórmulas** sobre una copia de la tabla del ERP; si cambia en el ERP, el Excel sigue con la vieja.
+- **Contabilidad reconstruye 1,194 pagos al año a mano** desde PDFs y el histórico del banco, y les pone centro de costo otra vez, cuando la OC ya lo tenía.
+- **El ERP no sabe nada de esto:** 0 transacciones, 0 detracciones, 0 retenciones registradas. Todo lo que el comité pregunta sobre "pagado" sale del acumulado de Contabilidad, con un mes de retraso.
+
+### 11.2 Lo que el ERP ya tiene para esto (verificado)
+
+- `proveedores` (139) ya guarda banco, cuenta, CCI, tipo y moneda de cuenta, **sujeto a detracción
+  con tasa, sujeto a retención, y suspensión de retención de recibos por honorarios con fecha**.
+  Es decir, los pasos 2 y 4 ya se pueden calcular solos.
+- `comprobantes_pago` calcula detracción y retención al leer el XML de la factura.
+- `v_cxp` lista lo pendiente de pago con vencimiento, saldo y moneda; `registrar_pago_compromiso`
+  crea la transacción y cierra la factura cuando el pagado llega al total.
+- Tablas `detracciones` y `retenciones_percepciones` listas para la constancia y el comprobante.
+- Notificaciones por usuario (reemplazan el correo entre Miguelángel, Contabilidad y Shirley).
+
+Lo que **no** existe: cuentas bancarias de Memphis (hoy `transacciones.cuenta_id` no apunta a
+nada), el concepto de "lote de pago", la importación del histórico de BBVA y la conciliación.
+
+### 11.3 Cómo queda el circuito dentro del ERP
+
+**Un solo objeto: el lote de pago.** Nace, se valida, se paga y se concilia sin salir del ERP.
+
+| Paso | Quién | Pantalla | Qué hace el ERP solo |
+|---|---|---|---|
+| 1 | Miguelángel | **Cuentas por pagar → "Nuevo lote de pago"**: marca las facturas o compromisos a pagar (filtros: vence hasta, proyecto, proveedor). Puede agregar líneas sin factura (adelanto, letra, sin comprobante) eligiendo la OC o el compromiso al que se aplican | Trae proveedor, RUC, banco, cuenta/CCI, moneda de cuenta, proyecto, CDC, OC y factura desde la base. **Calcula detracción** (si el proveedor o la factura están sujetos, con la tasa por código SUNAT y el tope de S/ 700, y si la factura es en dólares la convierte al TC SUNAT del día), **retención 3 %** (si Memphis actúa como agente y el proveedor no está exceptuado), **retención de recibos por honorarios 8 %** (salvo suspensión vigente) y el **neto a transferir**. Avisa si la moneda de la factura no coincide con la de la cuenta del proveedor, si falta cuenta o CCI, si el saldo de la factura es menor al monto o si la línea no tiene comprobante |
+| 2 y 3 | Contabilidad | Mismo lote, estado **"En revisión"**. Ve cada línea con el cálculo y puede corregir tasa o condición con motivo (queda en bitácora). Botón "Validar" | Notificación a Miguelángel. Ya no hay archivo "-revisado" |
+| 4 y 5 | Miguelángel | Lote **"Validado"**: revisa totales por moneda y "Enviar a tesorería" | Notificación a Shirley. Ya no hay archivo "-validado" |
+| 6 | Shirley | Lote **"Por pagar"**: botón **"Exportar para el banco"** (Excel ordenado como lo digita: primero BBVA mismo banco, luego interbancarias por CCI, separado soles y dólares, más la lista de depósitos de detracción al Banco de la Nación con código y monto). Paga en BBVA una por una como hoy. Luego, en cada línea: **"Marcar pagada"** con fecha, cuenta de origen, n.º de operación y voucher (foto o PDF) | Crea la transacción (`registrar_pago_compromiso`), descuenta la factura, registra la detracción con su constancia y la retención con su comprobante. Si el día que se tenga banca premium BBVA acepta archivo masivo, el mismo botón genera ese archivo |
+| 7 | Carolina | **Bancos → "Importar histórico"**: sube la exportación de BBVA (el mismo Excel `BANCOS2026`, una hoja por cuenta y mes) o la pega | Guarda los movimientos en `movimientos_bancarios` por cuenta, con n.º de operación, fecha, importe y concepto |
+| 8 | Contabilidad | **Conciliación**: el ERP cruza cada movimiento del banco con las transacciones del lote por n.º de operación, y si no, por importe y fecha. Lo que no cruza (ITF, comisiones, cambio de moneda, abonos, caja chica) se clasifica con un clic y queda con CC | El acumulado "Pagos acumulados con CC" **lo genera el ERP** con el CC que ya traía la OC; los resúmenes por CC y por mes son vistas. Los PDFs de sustento quedan adjuntos a cada transacción y el estado de cuenta mensual al periodo |
+
+Qué desaparece: los tres Excel de pagos por ciclo, el acumulado a mano, el cruce de PDFs y el
+correo de ida y vuelta. Qué no cambia: Shirley sigue digitando en BBVA (no hay API ni banca
+premium), pero recibe la lista ya validada y en el orden en que la digita.
+
+### 11.4 Lo que hay que construir
+
+| Pieza | Detalle | Esfuerzo |
+|---|---|---|
+| `cuentas_bancarias` de Memphis | BBVA 806 soles, BBVA 830 dólares, detracciones Banco de la Nación; saldo inicial y fecha; vincula `transacciones.cuenta_id` | 1 día |
+| `lotes_pago` + `lotes_pago_items` | Estados borrador → en revisión → validado → por pagar → pagado → conciliado; cálculo de detracción/retención/neto en SQL con parámetros SUNAT (tasas por código, tope S/ 700, 3 %, 8 %); bitácora de correcciones | 4 días |
+| Pantalla del lote | Selección desde `v_cxp`, líneas sin factura, alertas, validación de Contabilidad, exportación para el banco, marcar pagada con voucher | 4 días |
+| `movimientos_bancarios` + importador | Lector del "Histórico de Movimientos" de BBVA (xlsx) por cuenta y mes; detecta duplicados por n.º de operación | 2 días |
+| Conciliación | Cruce automático por n.º de operación / importe + fecha; clasificación de lo no cruzado (ITF, comisiones, cambio de moneda, abonos); vistas de acumulado por CC y por mes | 3 días |
+| Permisos y notificaciones | Compras arma, Contabilidad valida, Tesorería paga, Contabilidad concilia; avisos por usuario en cada cambio de estado | 1 día |
+
+Unas **tres semanas**. Encaja como la primera entrega de la fase 0 del plan general, porque es lo
+que llena de datos reales los pasos 8 y 9 del flujo de Kevin (pagos, detracciones y retenciones)
+y, de paso, resuelve el saldo bancario que hoy está en cero.
+
+### 11.5 Decisiones antes de empezar
+
+1. **Desde qué lote se empieza en el ERP** (propuesta: el primer lote de noviembre) y si se cargan
+   los pagos de enero a octubre desde el acumulado de Contabilidad para tener el año completo
+   (1,194 filas ya con CC: un importador de un día).
+2. **Quién puede corregir una tasa de detracción o retención** en el lote (propuesta: solo
+   Contabilidad, con motivo).
+3. **Si se permiten líneas sin factura** y con qué tope o aprobación (hoy se pagan adelantos y
+   letras sin comprobante).
+4. **Cuentas bancarias y saldos iniciales** al 1 de enero de 2026, para que la conciliación cuadre
+   con los estados de cuenta desde el primer mes.
