@@ -114,6 +114,7 @@ const FinanzasTransacciones = lazyModulo(() => import('./components/modules/fina
 const CuentasPorPagar = lazyModulo(() => import('./components/modules/finanzas/CuentasPorPagar').then(m => ({ default: m.CuentasPorPagar })));
 const LotesPago = lazyModulo(() => import('./components/modules/finanzas/LotesPago').then(m => ({ default: m.LotesPago })));
 const LotePagoDetalle = lazyModulo(() => import('./components/modules/finanzas/LotePagoDetalle').then(m => ({ default: m.LotePagoDetalle })));
+const Detracciones = lazyModulo(() => import('./components/modules/finanzas/Detracciones').then(m => ({ default: m.Detracciones })));
 const FinanzasPresupuestosModule = lazyModulo(() => import('./components/modules/finanzas/FinanzasPresupuestosModule').then(m => ({ default: m.FinanzasPresupuestosModule })));
 const FinanzasCajaChica = lazyModulo(() => import('./components/modules/finanzas/FinanzasCajaChica').then(m => ({ default: m.FinanzasCajaChica })));
 const FlujoFinanciero = lazyModulo(() => import('./components/modules/finanzas/FlujoFinanciero').then(m => ({ default: m.FlujoFinanciero })));
@@ -679,6 +680,7 @@ export default function App() {
       if (currentRoute === '/finanzas/presupuestos') return <FinanzasPresupuestosModule onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/cuentas-pagar') return <CuentasPorPagar onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/lotes-pago') return <LotesPago onNavigate={navigateTo} />;
+      if (currentRoute === '/finanzas/detracciones') return <Detracciones />;
       if (/^\/finanzas\/lotes-pago\/[^/]+$/.test(currentRoute)) return <LotePagoDetalle loteId={currentRoute.split('/')[3]} onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/caja-chica') return <FinanzasCajaChica onNavigate={navigateTo} />;
       if (currentRoute === '/finanzas/flujo-caja') return <FinanzasFlujoCaja onNavigate={navigateTo} />;

@@ -110,6 +110,9 @@ Sin esto el sprint 1 arranca a ciegas. Son tres días porque el jueves es feriad
 
 ---
 
+> **Avance 8-oct (sprint 2):** archivo de pago masivo de detracciones BN, importación de constancias SUNAT y pantalla
+> `/finanzas/detracciones` construidos y probados. Queda del sprint 2: probarlo con el lote real del 16/10 y el número de la cuenta BN de Memphis.
+
 ## Sprint 3 · 27 al 31 de octubre · Bancos: importar y conciliar
 
 **Objetivo:** que Contabilidad deje de reconstruir pagos a mano desde PDFs.

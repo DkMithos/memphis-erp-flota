@@ -3281,3 +3281,22 @@ jueves 16-oct; lineas sin comprobante permitidas (parametro `lotes_permitir_sin_
 - Verificado con usuario QA de rol Gerencia (borrado): 6 de 9 ordenes (las que ya tienen comprador+operaciones), lista filtrada
   a 6 de 1,396, dialogo abre y se cancela sin firmar. No se aprobo ninguna orden real.
 - Pendiente: la campana sigue mostrando "Aprobacion requerida" de todas las OC a todo el que tenga compras.aprobar.
+
+## 2026-10-08 - Sprint 2: detracciones (archivo BN, constancias SUNAT, pantalla)
+
+- Migracion `20261008090000_detracciones_lote_bn_y_constancias.sql` (aplicada): tabla `detraccion_lotes`; columnas nuevas en
+  `detracciones` (ruc_proveedor, razon_social, cuenta_detraccion, tipo_comprobante, serie, numero, tipo_operacion,
+  fecha_pago_proveedor, lote_bn_id, origen, observaciones) que `lote_pago_marcar_pagada` ya llena; `detraccion_vence()` (5.o dia
+  habil del mes siguiente, sin feriados); `bn_texto()`; `detraccion_lote_generar(ids)` arma el archivo de PAGO MASIVO DE
+  DETRACCIONES del Banco de la Nacion (formato NPD/R13.2 de la macro de Contabilidad: nombre D<RUC><AA><SSSS>.TXT, cabecera
+  "*"+RUC+razon social(35)+AA+SSSS+total en centavos(15) = 68 chars, detalle de 107 chars por detraccion, CRLF, soles enteros);
+  `detraccion_lote_anular`; `detracciones_importar_constancias(jsonb)` lee la consulta de constancias de SUNAT (cierra pendientes
+  por RUC+serie+numero o RUC+monto+periodo; lo desconocido se registra como depositado con origen 'sunat'); vista `v_detracciones`.
+- Frontend: `/finanzas/detracciones` (Detracciones.tsx + lib/finanzas/detracciones.ts): KPIs (pendientes, sin archivo, en archivo
+  sin constancia, vencidas/7 dias, depositadas del mes), tabla con casillas, "Generar archivo BN" (descarga el .txt), lista de
+  archivos (re-descargar, anular), "Importar constancias SUNAT" (CSV `;` o Excel, columnas por nombre, vista previa, resumen).
+  Entrada en el menu de Finanzas y guard de ruta (lotes_pagar | lotes_validar | contabilidad.ver | finanzas.ver).
+- Probado en SQL y navegador con usuario QA (borrado): archivo generado con 2 lineas (68/107/107 chars), vencimientos
+  17-sep -> 7-oct y 7-oct -> 6-nov, importacion cierra 1 y registra 1 nueva (MOTLIMA, de SUNAT). Datos de prueba borrados.
+- Pendiente: la cabecera del archivo usa `tenants.nombre` ("MEMPHIS MAQUINARIAS", sin "SAC"); si SUNAT lo exige exacto, agregar
+  `tenants.razon_social`. Falta el numero de la cuenta de detracciones de Memphis en `cuentas_bancarias` (Kevin).
