@@ -3219,3 +3219,36 @@ participantes · Página 1 de 7".
 - Agregada seccion 10 a docs/PLAN-DATOS-GERENCIA.md: el "flujo correcto" de Kevin (15 pasos) cruzado contra el ERP. 12 de 15 ya tienen modelo; faltan 3 pantallas (despacho a proyecto, registrar pago parcial con cuenta bancaria, pago de detraccion/retencion) y disciplina de registro en recepciones (1) y facturas (40). Septima decision para el GG: quien registra recepciones y facturas y desde cuando.
 - Seccion 11 en docs/PLAN-DATOS-GERENCIA.md: circuito de pagos actual (8 pasos, 3 personas, 5 archivos por ciclo: PAGOS xlsx x3, EECC PDF con vouchers, BANCOS2026 historico BBVA, Pagos acumulados con CC a mano) y como queda en el ERP como "lote de pago" (arma Compras, valida Contabilidad, paga Tesoreria con exportacion para BBVA, marca pagada con voucher, importa historico BBVA y concilia). proveedores ya tiene banco/CCI/detraccion/retencion; faltan cuentas_bancarias, lotes_pago, movimientos_bancarios, conciliacion. ~3 semanas. 4 decisiones previas.
 - Plan de accion por sprints en docs/PLAN-ACCION-SPRINTS-PAGOS.md: sprint 0 (7-10 oct, decisiones y datos maestros), 1 lote de pago armar/validar (13-17 oct), 2 tesoreria (20-24 oct), 3 bancos y conciliacion + carga historica (27-31 oct), 4 corte a ERP + cron flujo-import + despacho a proyecto (3-7 nov), 5 dw (10-14 nov), 6 indicadores (17-21 nov), 7 Power BI o plan B (24-28 nov), 8 boton presentaciones (1-5 dic), 9 modo TV (10-12 dic), 10+ el ERP manda. Regla: paralelo con el Excel hasta cuadrar dos lotes; corte con el lote del 6-nov.
+
+## 2026-10-07 - Sprint 1 del plan de pagos: LOTES DE PAGO (construido y probado)
+
+Decision de Kevin: "Arranquemos. Solo Contabilidad corrige." Supuestos mientras no decida lo demas: lote de arranque el del
+jueves 16-oct; lineas sin comprobante permitidas (parametro `lotes_permitir_sin_comprobante`); saldos iniciales en 0.
+
+- Migracion `20261007180000_lotes_de_pago.sql` (aplicada): permisos `finanzas.lotes_armar` (Compras, Proyectos, Administrador),
+  `finanzas.lotes_validar` (Contabilidad, Administrador), `finanzas.lotes_pagar` (Administracion, Administrador); parametros
+  tributarios (`detraccion_tope` 700, `retencion_igv_tasa` 0.03, `retencion_rh_tasa` 0.08, `retencion_rh_tope` 1500,
+  `agente_retencion` 1); tabla `detraccion_codigos` (Anexo 3 SUNAT, 28 codigos, Contabilidad confirma); `cuentas_bancarias`
+  (BBVA 806 PEN, BBVA 830 USD, BN detracciones) + `transacciones.cuenta_bancaria_id` + `v_cuentas_bancarias_saldo`;
+  `lotes_pago`, `lotes_pago_items`, `lotes_pago_bitacora` con RLS; funciones `lote_pago_crear/agregar/agregar_libre/fijar_monto/
+  quitar/ajustar/desajustar/cambiar_estado/marcar_pagada/excluir/fijar_voucher` y el calculo `lote_pago_recalcular`;
+  vistas `v_lotes_pago`, `v_lotes_pago_items`; bucket `vouchers-pagos`; realtime en `lotes_pago`.
+- Reglas del calculo: detraccion si la factura (XML) o el proveedor estan sujetos, sobre el TOTAL del comprobante, solo si supera
+  S/ 700, en soles enteros, y en USD convertida al TC SUNAT de la fecha de emision (un comprobante con tipo_cambio <= 1 se
+  ignora y se usa SUNAT: hay 36 facturas USD asi); retencion IGV 3 % si `proveedores.sujeto_retencion` y no hay detraccion;
+  4ta 8 % en RH > 1,500 salvo suspension; neto = monto - detraccion - retencion. Alertas (no bloquean): sin cuenta, moneda
+  distinta, sin CCI en otro banco, sin comprobante, supera saldo, sin condicion tributaria, sin cuenta de detracciones.
+- Al marcar pagada: 3 transacciones enlazadas al compromiso (neto desde la cuenta, detraccion a la cuenta BN, retencion como
+  obligacion SUNAT) para que la factura se cierre por el bruto; filas en `detracciones` (pendiente de constancia) y
+  `retenciones_percepciones`. `recalc_pago_compromiso` ya cierra factura/compromiso.
+- Frontend: `/finanzas/lotes-pago` (lista, "esperando mi accion", cuentas bancarias con saldo inicial editable),
+  `/finanzas/lotes-pago/:id` (detalle: agregar desde CxP, linea libre, corregir (solo lotes_validar, con motivo), enviar a
+  revision/validar/devolver/enviar a tesoreria/anular, marcar pagada con voucher, excluir, exportar para el banco en Excel
+  por moneda + hoja de detracciones BN, bitacora); Cuentas por pagar con casillas y "Crear lote de pago (N)". Entrada en el
+  menu de Finanzas, guard de ruta y mapa de notificaciones (`lote_pago`).
+- Probado: en SQL con usuario QA (crear, 6 lineas reales, 2 correcciones, validar, por pagar, 2 pagos, 1 exclusion) y en el
+  navegador (lista, detalle, marcar pagada, crear lote desde CxP, enviar a revision). Datos de prueba y usuario QA
+  `qa.lotes.tmp@memphis.pe` eliminados. Pendiente de sprint 0: proveedores con `sujeto_detraccion`/`sujeto_retencion` (hoy
+  ninguno marcado: todo sale como "no aplica" con alerta, Contabilidad corrige en el lote), saldos iniciales, cuenta BN.
+- Nota tecnica: en PL/pgSQL `text[] || 'literal'` falla (lo toma como arreglo); usar `array_append`. El rol temporal del pooler
+  no puede crear politicas en storage.objects (no hereda `postgres`): las migraciones con Storage van por `apply_migration`.

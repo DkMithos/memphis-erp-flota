@@ -24,6 +24,7 @@ import { Input } from '../../ui/input';
 import { PageNav } from '../../shared/PageNav';
 import { supabase } from '../../../lib/supabase/client';
 import { usePermissions } from '@/lib/rbac/usePermissions';
+import { crearLote, agregarCompromisos } from '@/lib/finanzas/lotes-pago';
 import { toast } from 'sonner';
 
 interface Cxp {
@@ -76,6 +77,9 @@ const POR_PAGINA = 25;
 export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => void }) {
   const { can } = usePermissions();
   const puedeEditar = can('finanzas', 'editar') || can('finanzas', 'flujo');
+  const puedeArmarLote = can('finanzas', 'lotes_armar');
+  const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
+  const [creandoLote, setCreandoLote] = useState(false);
   const [filas, setFilas] = useState<Cxp[]>([]);
   const [proyectos, setProyectos] = useState<{ id: string; codigo: string; nombre: string }[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -248,6 +252,25 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
     void cargar();
   };
 
+  // Lote de pago: lo marcado se convierte en un lote en borrador y se abre.
+  const toggleSel = (id: string) => setSeleccion(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const seleccionTotal = useMemo(() => filas.filter(f => seleccion.has(f.id)).reduce((s, f) => s + f.pendienteSoles, 0), [filas, seleccion]);
+  const crearLoteConSeleccion = async () => {
+    if (seleccion.size === 0) return;
+    setCreandoLote(true);
+    try {
+      const id = await crearLote(null, null);
+      const n = await agregarCompromisos(id, Array.from(seleccion));
+      toast.success(`Lote creado con ${n} línea(s)`);
+      setSeleccion(new Set());
+      onNavigate?.(`/finanzas/lotes-pago/${id}`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setCreandoLote(false);
+    }
+  };
+
   const chipOrigen = (o: Cxp['origen']) => (
     <Badge variant={o === 'real' ? 'default' : o === 'comprometido' ? 'secondary' : 'outline'} className="text-[10px]">
       {o === 'real' ? 'Real' : o === 'comprometido' ? 'OC' : 'Proy.'}
@@ -265,7 +288,16 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
             <b> Proyectado</b> = estimación o recurrencia cargada del Excel. Montos en soles al TC de cada compromiso.
           </p>
         </div>
-        <Button variant="outline" onClick={() => onNavigate?.('/finanzas/flujo-financiero')}>Ver flujo financiero</Button>
+        <div className="flex gap-2 flex-wrap">
+          {puedeArmarLote && (
+            <Button disabled={seleccion.size === 0 || creandoLote} onClick={crearLoteConSeleccion} title="Crea un lote de pago en borrador con lo marcado">
+              {creandoLote ? <Loader2 className="size-4 animate-spin" /> : `Crear lote de pago (${seleccion.size})`}
+              {seleccion.size > 0 && !creandoLote && <span className="ml-1 text-xs opacity-80">{soles(seleccionTotal)}</span>}
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => onNavigate?.('/finanzas/lotes-pago')}>Lotes de pago</Button>
+          <Button variant="outline" onClick={() => onNavigate?.('/finanzas/flujo-financiero')}>Ver flujo financiero</Button>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -473,6 +505,13 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
           <table className="w-full text-sm">
             <thead className="text-xs text-muted-foreground border-b bg-muted/30">
               <tr>
+                {puedeArmarLote && (
+                  <th className="px-2 py-2">
+                    <input type="checkbox" title="Marcar todo lo visible en esta página"
+                      checked={paginado.length > 0 && paginado.every(f => seleccion.has(f.id))}
+                      onChange={e => setSeleccion(prev => { const n = new Set(prev); paginado.forEach(f => e.target.checked ? n.add(f.id) : n.delete(f.id)); return n; })} />
+                  </th>
+                )}
                 <th className="text-left font-medium px-3 py-2">Vence</th>
                 <th className="text-left font-medium px-3 py-2">Concepto</th>
                 <th className="text-left font-medium px-3 py-2">Proveedor</th>
@@ -485,7 +524,10 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
             </thead>
             <tbody className="divide-y">
               {paginado.map(f => (
-                <tr key={f.id} className={f.vencido ? 'bg-red-50/40 dark:bg-red-950/20' : ''}>
+                <tr key={f.id} className={`${f.vencido ? 'bg-red-50/40 dark:bg-red-950/20' : ''} ${seleccion.has(f.id) ? 'bg-primary/5' : ''}`}>
+                  {puedeArmarLote && (
+                    <td className="px-2 py-1.5"><input type="checkbox" checked={seleccion.has(f.id)} onChange={() => toggleSel(f.id)} /></td>
+                  )}
                   <td className="px-3 py-1.5 whitespace-nowrap tabular-nums">
                     {f.vence ?? (f.pagoLigadoA === 'ciprl' ? 'al cobrar CIPRL' : '—')}
                     {f.vencido && <Badge variant="destructive" className="ml-1 text-[10px]">vencido</Badge>}
@@ -518,7 +560,7 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
                 </tr>
               ))}
               {paginado.length === 0 && !cargando && (
-                <tr><td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">Sin compromisos pendientes.</td></tr>
+                <tr><td colSpan={puedeArmarLote ? 9 : 8} className="px-3 py-6 text-center text-muted-foreground">Sin compromisos pendientes.</td></tr>
               )}
             </tbody>
           </table>

@@ -43,6 +43,9 @@ export type Accion =
   | 'recepcionar'
   | 'cargos'
   | 'flujo'
+  | 'lotes_armar'
+  | 'lotes_validar'
+  | 'lotes_pagar'
   | 'gestionar_usuarios'
   | 'gestionar_roles';
 

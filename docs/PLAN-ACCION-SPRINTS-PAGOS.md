@@ -66,6 +66,9 @@ Sin esto el sprint 1 arranca a ciegas. Son tres días porque el jueves es feriad
 
 ## Sprint 1 · 13 al 17 de octubre · Lote de pago: armar y validar
 
+> **Avance 7-oct:** construido y probado en base y navegador (ver CONTEXTO-SESION 2026-10-07). Incluye ya el "Marcar pagada"
+> con voucher y la exportación para el banco del sprint 2. Falta: datos maestros del sprint 0 y la prueba en paralelo con el lote real del 16/10.
+
 **Objetivo:** que Miguelángel arme el lote en el ERP y Contabilidad lo valide ahí, sin Excel de ida y vuelta.
 
 **Se construye:**

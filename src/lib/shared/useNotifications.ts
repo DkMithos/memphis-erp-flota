@@ -53,6 +53,7 @@ const RUTA_DE_ENTIDAD: Record<string, string> = {
   factura: '/compras',
   proveedor: '/proveedores',
   caja_chica: '/finanzas',
+  lote_pago: '/finanzas/lotes-pago',
   transaccion: '/finanzas',
   presupuesto: '/finanzas',
   orden_trabajo: '/flota',

@@ -89,6 +89,18 @@ const EXCEPCIONES: { prefijo: string; requisitos: RequisitoRuta[] }[] = [
       { modulo: 'finanzas', accion: 'ver' },
     ],
   },
+  // Lotes de pago: Compras arma (lotes_armar), Contabilidad valida
+  // (lotes_validar), Tesorería paga (lotes_pagar). Quien ve Finanzas también
+  // entra. Va antes que '/finanzas' porque gana el prefijo más largo.
+  {
+    prefijo: '/finanzas/lotes-pago',
+    requisitos: [
+      { modulo: 'finanzas', accion: 'lotes_armar' },
+      { modulo: 'finanzas', accion: 'lotes_validar' },
+      { modulo: 'finanzas', accion: 'lotes_pagar' },
+      { modulo: 'finanzas', accion: 'ver' },
+    ],
+  },
   // Admin: cada pantalla pide su permiso fino
   { prefijo: '/admin/usuarios', requisitos: [{ modulo: 'admin', accion: 'gestionar_usuarios' }] },
   { prefijo: '/admin/roles', requisitos: [{ modulo: 'admin', accion: 'gestionar_roles' }] },
