@@ -141,6 +141,20 @@ export function etapasRequeridas(
   return determinarNivelAprobacion(total, moneda, config).etapas;
 }
 
+/**
+ * La etapa que está EN TURNO: la primera requerida que aún no tiene firma.
+ * El circuito es secuencial (comprador → operaciones → gerencia): Gerencia no
+ * debería ver una orden hasta que Compras y Operaciones la hayan firmado. Así
+ * a cada quien le aparecen solo las que de verdad esperan su firma.
+ */
+export function etapaEnTurno(
+  requeridas: EtapaAprobacion[],
+  firmadas: Iterable<string>,
+): EtapaAprobacion | undefined {
+  const f = new Set(firmadas);
+  return requeridas.find(e => !f.has(e));
+}
+
 /** ¿Alguno de los roles de esta persona puede firmar esta etapa? */
 export function puedeFirmarEtapa(
   misRoles: string[],

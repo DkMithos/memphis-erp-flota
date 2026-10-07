@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { usePersistedState } from '../../../lib/shared/usePersistedState';
-import { Plus, Search, Filter, Download, Eye, Edit, FileText, ShoppingBag, Clock, Activity, DollarSign } from 'lucide-react';
+import { Plus, Search, Filter, Download, Eye, Edit, FileText, ShoppingBag, Clock, Activity, DollarSign, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { PageNav } from '../../shared/PageNav';
@@ -23,8 +23,10 @@ import {
 } from '../../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { Alert, AlertDescription } from '../../ui/alert';
-import { useOrdenesStore } from '../../../lib/compras/ordenes-store';
+import { useOrdenesStore, type Orden } from '../../../lib/compras/ordenes-store';
 import { useMisPendientesOC } from '../../../lib/compras/mis-pendientes';
+import { AprobarOrdenDialog } from './AprobarOrdenDialog';
+import { ETIQUETA_ETAPA } from '../../../lib/compras/approval-flow';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { usePagination } from '../../../lib/shared/usePagination';
 import { 
@@ -49,9 +51,11 @@ interface OrdenesListaProps {
 export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
   const { ordenes, usuarioActual } = useOrdenesStore();
   // Permisos reales del usuario (RBAC), no el rol suelto de profiles
-  const { can } = usePermissions();
+  const { can, isAdmin } = usePermissions();
   // Cada usuario descarga su propia data: se exige <modulo>.exportar
   const puedeExportar = can('compras', 'exportar');
+  // Quien solo aprueba (Gerencia) entra a ver lo que le toca firmar, no todo.
+  const esSoloAprobador = can('compras', 'aprobar') && !can('compras', 'crear') && !isAdmin;
   const { proyectos } = useProyectos();
   const { cotizaciones } = useCotizacionesStore();
 
@@ -77,8 +81,15 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
   const [tabActual, setTabActual] = usePersistedState<'activas' | 'completas' | 'anuladas' | 'todas'>('ordenes.tabActual', 'activas');
   // "Pendientes" son las que ME toca firmar, como en el sistema anterior; el
   // recuadro se puede pulsar para ver solo esas.
-  const [soloMias, setSoloMias] = usePersistedState<boolean>('ordenes.soloMias', false);
-  const { misPendientes, meTocaFirmar, edicionesPendientes } = useMisPendientesOC(ordenes);
+  // Se guarda null hasta que la persona toque el recuadro: mientras tanto, quien
+  // solo aprueba (Gerencia) arranca en "solo las mías" y los demás en "todas".
+  // Los permisos llegan después del primer render, por eso no sirve un default fijo.
+  const [soloMiasElegido, setSoloMiasElegido] = usePersistedState<boolean | null>('ordenes.soloMias.v2', null);
+  const soloMias = soloMiasElegido ?? esSoloAprobador;
+  const setSoloMias = (f: (v: boolean) => boolean) => setSoloMiasElegido(f(soloMias));
+  const { misPendientes, meTocaFirmar, etapaMia, firmasPorOrden, edicionesPendientes } = useMisPendientesOC(ordenes);
+  // Aprobar en un paso desde la lista (sin abrir el detalle).
+  const [aprobando, setAprobando] = useState<Orden | null>(null);
 
   // Órdenes filtradas por tab
   const ordenesPorTab = useMemo(() => {
@@ -419,6 +430,41 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
       {/* Tabs por Estado */}
       <Card>
         <CardContent className="p-0">
+          {/* Lo que me toca firmar, arriba y con un botón: es lo que Gerencia
+              necesita ver primero, sin filtros ni abrir cada orden. */}
+          {misPendientes.length > 0 && (
+            <div className="mb-4 rounded-lg border border-yellow-500/50 bg-yellow-50/40 dark:bg-yellow-950/20">
+              <div className="px-4 py-2 flex items-center gap-2 text-sm font-medium">
+                <ShieldCheck className="size-4 text-yellow-600" /> Te toca firmar ({misPendientes.length})
+                <span className="text-xs font-normal text-muted-foreground">Solo las que ya tienen las firmas anteriores y esperan la tuya.</span>
+              </div>
+              <Table>
+                <TableBody>
+                  {misPendientes.slice(0, 25).map(o => (
+                    <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onNavigate?.(`/compras/ordenes/${o.id}`)}>
+                      <TableCell className="font-mono text-sm font-medium whitespace-nowrap">{o.id}</TableCell>
+                      <TableCell>
+                        <p className="font-medium">{o.proveedorNombre}</p>
+                        <p className="text-xs text-muted-foreground truncate max-w-[420px]">{o.items.slice(0, 2).map(i => i.descripcion).join(' · ')}{o.items.length > 2 ? ' …' : ''}</p>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        {(() => { const f = Array.from(firmasPorOrden.get(o._dbId ?? '') ?? []); return f.length ? `Firmaron ${f.map(e => ETIQUETA_ETAPA[e as keyof typeof ETIQUETA_ETAPA] ?? e).join(' y ')}` : 'Sin firmas aún'; })()}
+                      </TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">{formatearMonto(o.total, o.moneda)}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-2" onClick={e => e.stopPropagation()}>
+                          <Button size="sm" onClick={() => setAprobando(o)}><ShieldCheck className="size-4" /> Aprobar</Button>
+                          <Button size="sm" variant="ghost" onClick={() => onNavigate?.(`/compras/ordenes/${o.id}`)}><Eye className="size-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {misPendientes.length > 25 && <p className="px-4 py-2 text-xs text-muted-foreground">… y {misPendientes.length - 25} más abajo, en la lista.</p>}
+            </div>
+          )}
+
           <Tabs value={tabActual} onValueChange={(v) => setTabActual(v as typeof tabActual)}>
             <div className="border-b px-6 pt-6">
               <TabsList>
@@ -513,6 +559,11 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
                           <TableCell className="font-medium">{formatearMonto(orden.total, orden.moneda)}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                              {meTocaFirmar.has(orden.id) && (
+                                <Button size="sm" onClick={() => setAprobando(orden)} title="Aprobar sin abrir el detalle">
+                                  <ShieldCheck className="size-4" /> Aprobar
+                                </Button>
+                              )}
                               <Button 
                                 variant="ghost" 
                                 size="sm"
@@ -556,6 +607,14 @@ export function OrdenesLista({ onNavigate }: OrdenesListaProps) {
           </Tabs>
         </CardContent>
       </Card>
+      {aprobando && (
+        <AprobarOrdenDialog
+          orden={aprobando}
+          etapa={etapaMia.get(aprobando.id) ?? null}
+          firmadas={Array.from(firmasPorOrden.get(aprobando._dbId ?? '') ?? [])}
+          onClose={() => setAprobando(null)}
+        />
+      )}
     </div>
   );
 }

@@ -3266,3 +3266,18 @@ jueves 16-oct; lineas sin comprobante permitidas (parametro `lotes_permitir_sin_
   agente_retencion, agente_percepcion; 82 proveedores sujeto_retencion=true, 17 exentos, 40 sin condicion; 12 cuentas bancarias
   nuevas en cuentas_bancarias (origen contabilidad_2026-10).
 - Seguridad: Contrasenas.xlsx en la raiz de Contabilidad y CLAVE SOL GM.jpeg en una carpeta compartida: mover a un gestor y borrar.
+
+## 2026-10-07 - Aprobacion de ordenes mas simple y solo las que me toca firmar (pedido de William Belevan, Gerencia)
+
+- Diagnostico: William tiene rol Gerencia (compras.ver/aprobar/exportar). La lista de ordenes mostraba las 9 en aprobacion y el
+  filtro "solo las mias" venia apagado; ademas la regla "me toca" era paralela (cualquier etapa sin firma que su rol pudiera
+  firmar), asi que una orden > S/ 10,000 recien enviada le aparecia aunque Compras y Operaciones no hubieran firmado.
+- Cambios: `etapaEnTurno()` en approval-flow (circuito secuencial comprador -> operaciones -> gerencia); `useMisPendientesOC`
+  expone `etapaMia` y marca "me toca" solo cuando la etapa en turno es la mia; OrdenDetalle usa la misma regla y muestra
+  "Esperando la firma de X; despues te toca a ti"; OrdenesLista: panel "Te toca firmar (N)" arriba de la tabla con boton
+  Aprobar por fila, boton Aprobar tambien en la fila de la tabla, y quien solo aprueba (aprobar sin crear, no admin) arranca
+  con "solo las mias" (clave `ordenes.soloMias.v2`, null hasta que la persona toque el recuadro). Nuevo `AprobarOrdenDialog`
+  (proveedor, total, items, observaciones recortadas, sobregiro de partidas, un boton) que llama a `firmarEtapa` como el detalle.
+- Verificado con usuario QA de rol Gerencia (borrado): 6 de 9 ordenes (las que ya tienen comprador+operaciones), lista filtrada
+  a 6 de 1,396, dialogo abre y se cancela sin firmar. No se aprobo ninguna orden real.
+- Pendiente: la campana sigue mostrando "Aprobacion requerida" de todas las OC a todo el que tenga compras.aprobar.

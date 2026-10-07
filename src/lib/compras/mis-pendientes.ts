@@ -3,10 +3,11 @@
  *
  * "Pendientes" no es "todas las órdenes enviadas a aprobación": es lo que a
  * ESTA persona le toca firmar, como en el sistema anterior. Una orden le toca
- * a alguien cuando alguna de las etapas que su monto exige (comprador →
- * operaciones → gerencia) sigue sin firma y uno de sus roles puede firmarla.
- * Es la misma regla que usa el detalle de la orden para mostrar "Te toca
- * firmar como …".
+ * a alguien cuando la etapa EN TURNO (la primera que su monto exige y aún no
+ * tiene firma: comprador → operaciones → gerencia) la puede firmar uno de sus
+ * roles. Gerencia, por ejemplo, no ve una orden hasta que Compras y
+ * Operaciones firmaron (pedido de William, 2026-10-07). Es la misma regla que
+ * usa el detalle de la orden para mostrar "Te toca firmar como …".
  *
  * Las firmas de las órdenes pendientes se leen de `orden_aprobaciones` en una
  * sola consulta (son pocas: solo las enviadas a aprobación).
@@ -17,7 +18,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { usePermissions } from '../rbac/usePermissions';
 import { useRoles } from '../rbac/roles-store';
 import { useFlujoAprobacion } from './flujo-aprobacion-store';
-import { etapasRequeridas, puedeFirmarEtapa } from './approval-flow';
+import { etapasRequeridas, puedeFirmarEtapa, etapaEnTurno, type EtapaAprobacion } from './approval-flow';
 import type { Orden } from './ordenes-store';
 
 export interface MisPendientesOC {
@@ -27,6 +28,8 @@ export interface MisPendientesOC {
   misPendientes: Orden[];
   /** ids (número) de las órdenes que me toca firmar, para filtrar listas. */
   meTocaFirmar: Set<string>;
+  /** Para cada orden que me toca, la etapa que firmo (la que está en turno). */
+  etapaMia: Map<string, EtapaAprobacion>;
   /** Firmas ya puestas por orden (uuid → etapas firmadas). */
   firmasPorOrden: Map<string, Set<string>>;
   /** Órdenes con solicitud de edición pendiente que me toca resolver (compras.aprobar). */
@@ -78,17 +81,18 @@ export function useMisPendientesOC(ordenes: Orden[]): MisPendientesOC {
     [usuarios, user?.id],
   );
 
-  const meTocaFirmar = useMemo(() => {
-    const set = new Set<string>();
-    if (!user) return set;
+  const etapaMia = useMemo(() => {
+    const m = new Map<string, EtapaAprobacion>();
+    if (!user) return m;
     pendientes.forEach(o => {
       const etapas = etapasRequeridas(o.total, o.moneda as 'PEN' | 'USD', config);
       const firmadas = firmasPorOrden.get(o._dbId ?? '') ?? new Set<string>();
-      const meToca = etapas.some(e => !firmadas.has(e) && (isAdmin || puedeFirmarEtapa(misRoles, e, config)));
-      if (meToca) set.add(o.id);
+      const turno = etapaEnTurno(etapas, firmadas);
+      if (turno && (isAdmin || puedeFirmarEtapa(misRoles, turno, config))) m.set(o.id, turno);
     });
-    return set;
+    return m;
   }, [pendientes, firmasPorOrden, misRoles, isAdmin, config, user]);
+  const meTocaFirmar = useMemo(() => new Set(etapaMia.keys()), [etapaMia]);
 
   const misPendientes = useMemo(
     () => pendientes.filter(o => meTocaFirmar.has(o.id)),
@@ -102,5 +106,5 @@ export function useMisPendientesOC(ordenes: Orden[]): MisPendientesOC {
     [ordenes, isAdmin, can],
   );
 
-  return { pendientes, misPendientes, meTocaFirmar, firmasPorOrden, edicionesPendientes };
+  return { pendientes, misPendientes, meTocaFirmar, etapaMia, firmasPorOrden, edicionesPendientes };
 }

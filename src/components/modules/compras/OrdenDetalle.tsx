@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, Edit, CheckCircle, XCircle, Ban, Truck, Package, FileText, Calendar, DollarSign, ShieldAlert, ShieldCheck, Users, ShoppingBag } from 'lucide-react';
 import {
   loadFlujoAprobacion, determinarNivelAprobacion, nivelAprobacionColor,
-  etapasRequeridas, puedeFirmarEtapa, ETIQUETA_ETAPA, type EtapaAprobacion,
+  etapasRequeridas, puedeFirmarEtapa, etapaEnTurno, ETIQUETA_ETAPA, type EtapaAprobacion,
 } from '../../../lib/compras/approval-flow';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useRoles } from '../../../lib/rbac/roles-store';
@@ -178,8 +178,13 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
    */
   const etapas = etapasRequeridas(orden.total, orden.moneda as 'PEN' | 'USD', flujoConfig);
   const firmadas = new Set(aprobaciones.map(a => a.etapa));
-  const miEtapaPendiente = etapas.find(e =>
-    !firmadas.has(e) && (isAdmin || puedeFirmarEtapa(misRoles, e, flujoConfig)));
+  // Secuencial: solo se firma la etapa en turno. Si mi etapa viene después,
+  // la orden "está esperando" a otro y no me aparece como pendiente.
+  const etapaTurno = etapaEnTurno(etapas, firmadas);
+  const miEtapaPendiente = etapaTurno && (isAdmin || puedeFirmarEtapa(misRoles, etapaTurno, flujoConfig)) ? etapaTurno : undefined;
+  const miEtapaPosterior = !miEtapaPendiente && etapaTurno
+    ? etapas.find(e => !firmadas.has(e) && e !== etapaTurno && (isAdmin || puedeFirmarEtapa(misRoles, e, flujoConfig)))
+    : undefined;
   const rolActualPuedeAprobarEsteNivel = !!miEtapaPendiente ||
     etapas.some(e => isAdmin || puedeFirmarEtapa(misRoles, e, flujoConfig));
 
@@ -627,6 +632,8 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
                 <div className="flex items-center gap-1 pt-0.5">
                   {miEtapaPendiente
                     ? <><ShieldCheck className="size-3" /> <span>Te toca firmar como {ETIQUETA_ETAPA[miEtapaPendiente]}</span></>
+                    : miEtapaPosterior && etapaTurno
+                      ? <><ShieldAlert className="size-3" /> <span>Esperando la firma de {ETIQUETA_ETAPA[etapaTurno]}; después te toca a ti</span></>
                     : rolActualPuedeAprobarEsteNivel
                       ? <><ShieldCheck className="size-3" /> <span>Tu etapa ya está firmada</span></>
                       : <><ShieldAlert className="size-3" /> <span>Tu rol no firma en este circuito</span></>
