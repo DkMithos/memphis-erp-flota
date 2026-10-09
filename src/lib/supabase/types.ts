@@ -1218,7 +1218,7 @@ export interface ArticuloDB {
 export interface MovimientoInventarioDB {
   id: string; tenant_id: string; articulo_id: string; almacen_id: string; numero: string;
   tipo: 'entrada' | 'salida' | 'ajuste' | 'transferencia';
-  motivo: 'compra' | 'devolucion' | 'consumo' | 'mantenimiento' | 'ajuste_positivo' | 'ajuste_negativo' | 'transferencia_entrada' | 'transferencia_salida' | 'merma' | 'inicial';
+  motivo: 'compra' | 'devolucion' | 'consumo' | 'mantenimiento' | 'ajuste_positivo' | 'ajuste_negativo' | 'transferencia_entrada' | 'transferencia_salida' | 'merma' | 'inicial' | 'despacho_proyecto' | 'transferencia_proyecto';
   cantidad: number; stock_anterior: number; stock_nuevo: number;
   precio_unitario?: number | null; costo_total?: number | null;
   referencia_id?: string | null; referencia_tipo?: string | null;

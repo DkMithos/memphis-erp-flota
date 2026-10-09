@@ -47,6 +47,8 @@ const LABELS_MOTIVO: Record<MotivoMovimiento, string> = {
   transferencia_salida: 'Transferencia salida',
   merma: 'Merma',
   inicial: 'Stock inicial',
+  despacho_proyecto: 'Despacho a proyecto',
+  transferencia_proyecto: 'Transferencia entre proyectos',
 };
 
 function TipoBadge({ tipo }: { tipo: TipoMovimiento }) {

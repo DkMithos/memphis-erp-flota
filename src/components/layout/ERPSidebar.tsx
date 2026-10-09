@@ -180,6 +180,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         { label: t('nav.sub.productos'), href: '/inventario/productos' },
         { label: t('nav.sub.almacenes'), href: '/inventario/almacenes' },
         { label: t('nav.sub.movimientos'), href: '/inventario/movimientos' },
+        { label: 'Despacho a proyecto', href: '/inventario/despacho' },
         { label: t('nav.sub.stock_critico'), href: '/inventario/stock-critico' }
       ]
     },

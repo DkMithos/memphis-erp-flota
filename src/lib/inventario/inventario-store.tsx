@@ -116,6 +116,8 @@ interface InventarioContextValue {
   // Movimientos
   registrarMovimiento: (input: NuevoMovimientoInput) => Promise<Movimiento>;
   cargarKardex: (articuloDbId: string) => Promise<Movimiento[]>;
+  /** Vuelve a leer artículos, almacenes y movimientos (tras un despacho u otra escritura externa). */
+  recargar: () => Promise<void>;
 }
 
 // ============================================================================
@@ -480,6 +482,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     actualizarAlmacen,
     registrarMovimiento,
     cargarKardex,
+    recargar: fetchAll,
   };
 
   return (
