@@ -92,6 +92,16 @@ const EXCEPCIONES: { prefijo: string; requisitos: RequisitoRuta[] }[] = [
   // Lotes de pago: Compras arma (lotes_armar), Contabilidad valida
   // (lotes_validar), Tesorería paga (lotes_pagar). Quien ve Finanzas también
   // entra. Va antes que '/finanzas' porque gana el prefijo más largo.
+  // Bancos: Tesorería/Contabilidad importan el extracto y concilian.
+  {
+    prefijo: '/finanzas/bancos',
+    requisitos: [
+      { modulo: 'finanzas', accion: 'lotes_pagar' },
+      { modulo: 'finanzas', accion: 'lotes_validar' },
+      { modulo: 'contabilidad', accion: 'ver' },
+      { modulo: 'finanzas', accion: 'ver' },
+    ],
+  },
   // Detracciones: Tesorería genera el archivo del BN, Contabilidad importa constancias.
   {
     prefijo: '/finanzas/detracciones',

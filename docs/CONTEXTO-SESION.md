@@ -3300,3 +3300,30 @@ jueves 16-oct; lineas sin comprobante permitidas (parametro `lotes_permitir_sin_
   17-sep -> 7-oct y 7-oct -> 6-nov, importacion cierra 1 y registra 1 nueva (MOTLIMA, de SUNAT). Datos de prueba borrados.
 - Pendiente: la cabecera del archivo usa `tenants.nombre` ("MEMPHIS MAQUINARIAS", sin "SAC"); si SUNAT lo exige exacto, agregar
   `tenants.razon_social`. Falta el numero de la cuenta de detracciones de Memphis en `cuentas_bancarias` (Kevin).
+
+## 2026-10-09 - Tareas de Kevin + Sprint 3 (parte 1): Bancos, importar y conciliar
+
+- dmendez@memphis.pe (Diego Mendez): ya existia en auth (login Microsoft) sin tenant ni rol. Se le puso tenant_id en
+  app_metadata, profile, usuarios_tenant (cargo Contabilidad) y rol Contabilidad (incluye compras.ver -> /compras/facturas y
+  finanzas.lotes_validar). Debe cerrar sesion y volver a entrar para que el JWT traiga el tenant.
+- Cuenta de detracciones de Memphis en BN: 00048101550 (cuentas_bancarias). `tenants.razon_social` = MEMPHIS MAQUINARIAS SAC y la
+  cabecera del archivo BN la usa (migracion 20261009090000).
+- Migracion `20261009100000_bancos_movimientos_y_conciliacion.sql` (aplicada): `movimientos_bancarios` (unico por cuenta + n.o
+  doc + fecha + importe), `saldos_bancarios` (los "Saldo Final" diarios), `transacciones.movimiento_bancario_id/conciliado_en`,
+  `bancos_importar_movimientos(cuenta, filas, saldos, archivo)` que inserta sin duplicar y llama a `bancos_conciliar_auto`
+  (1.o por n.o de operacion = transacciones.referencia_numero, 2.o por importe y fecha +-3 dias), `bancos_clasificar_concepto`
+  (ITF, comision, SUNAT, planilla/AFP, detraccion/SPOT, cambio de moneda, caja chica, prestamo, abono, pago_proveedor),
+  `bancos_vincular/desvincular/registrar_movimiento/clasificar`, vistas `v_movimientos_bancarios`, `v_bancos_resumen`
+  (saldo ERP vs saldo banco), `v_pagos_acumulados` (mes x CC x categoria, reemplaza "Pagos acumulados con CC").
+- Lector `src/lib/finanzas/bancos-bbva.ts` del Historico de Movimientos BBVA: lee cuenta y moneda de la cabecera de cada hoja
+  (hay hojas mal tituladas: "806 202609 PEN" es la 830 USD), columnas por nombre, saldos inicial/final y control de cuadre.
+  Test `bancos-bbva.test.ts` contra el BANCOS2026.xlsx real (copia en scratchpad; se salta si no existe): 18 hojas OK.
+- Pantalla `/finanzas/bancos` (Bancos.tsx + lib/finanzas/bancos.ts): tarjetas por cuenta (saldo ERP vs banco, diferencia, sin
+  conciliar), importar (vista previa por hoja con cuenta detectada), conciliar automatico, tabla con clasificacion editable,
+  Vincular (candidatas +-15 dias) y Registrar (crea la transaccion con CC/proyecto), acumulado por CC con exportacion.
+  Guard: lotes_pagar | lotes_validar | contabilidad.ver | finanzas.ver.
+- Probado en SQL y navegador con usuario QA (borrado): 8 filas -> 7 nuevas + 1 duplicada, 1 conciliada por operacion y 1 por
+  importe, clasificacion automatica correcta, ITF registrado como transaccion. Datos QA borrados.
+- Queda del sprint 3: carga historica 2024-2026 desde los acumulados de Contabilidad (necesita mapa CC del Excel -> codigo del
+  ERP: OFICINA CENTRAL->OFCENTRAL, GORE-HUANUCO->GHUANUCOPNP, GOREC-AMB->GCUSCOAMBU, GOREC-2 PATRULLEROS->GCUSCOPNP,
+  GORE.ICA->GOREICAPNP, GORE-AMAZONAS->GAMAZONPNP, INM PAN->INMPAN, SAN MIGUEL->MPSANMIGUEL, MDI, MSS-30...) e importador SIRE.

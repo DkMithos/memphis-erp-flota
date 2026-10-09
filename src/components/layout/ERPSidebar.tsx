@@ -226,6 +226,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         { label: t('nav.sub.cuentas_pagar'), href: '/finanzas/cuentas-pagar' },
         { label: 'Lotes de pago', href: '/finanzas/lotes-pago' },
         { label: 'Detracciones', href: '/finanzas/detracciones' },
+        { label: 'Bancos', href: '/finanzas/bancos' },
         { label: t('nav.sub.caja_chica'), href: '/finanzas/caja-chica' },
         { label: t('nav.sub.flujo_caja'), href: '/finanzas/flujo-caja' },
         { label: 'Flujo financiero', href: '/finanzas/flujo-financiero' },
