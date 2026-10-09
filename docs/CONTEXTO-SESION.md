@@ -3327,3 +3327,18 @@ jueves 16-oct; lineas sin comprobante permitidas (parametro `lotes_permitir_sin_
 - Queda del sprint 3: carga historica 2024-2026 desde los acumulados de Contabilidad (necesita mapa CC del Excel -> codigo del
   ERP: OFICINA CENTRAL->OFCENTRAL, GORE-HUANUCO->GHUANUCOPNP, GOREC-AMB->GCUSCOAMBU, GOREC-2 PATRULLEROS->GCUSCOPNP,
   GORE.ICA->GOREICAPNP, GORE-AMAZONAS->GAMAZONPNP, INM PAN->INMPAN, SAN MIGUEL->MPSANMIGUEL, MDI, MSS-30...) e importador SIRE.
+
+## 2026-10-09 - Sprint 3 (parte 2): carga historica de pagos 2024-2026
+
+- 3,346 transacciones cargadas (referencia_tipo = 'historico_contabilidad', creado_por 'migracion:acumulado-contabilidad',
+  numero HIST-AAAA-NNNN): 2024 = 787 PEN (S/ 10.3 M) + 306 USD (US$ 3.76 M); 2025 = 868 PEN (S/ 23.5 M) + 191 USD (US$ 4.19 M);
+  2026 = 760 PEN (S/ 26.9 M) + 427 USD (US$ 5.47 M) + 7 ingresos USD (cambio de moneda). Cuadra con los resumenes de los Excel.
+  Fuente: "PAGOS ACUMULADO 2024 y 2025.xlsx" (hoja CAJA, solo filas con fecha de pago) y "Pagos acumulados 2026 con CC.xlsx"
+  (hoja DATA). Scripts en `scripts/historico-pagos/` (1-extraer.py con el mapa CC Excel->ERP, 2-cargar.mjs por el pooler con rol
+  temporal `mig_hist_tmp`, ya eliminado). Cuentas historicas creadas (inactivas): "BBVA Soles 545 (hasta 2025)" y
+  "BBVA Dolares 553 (hasta 2025)". 139 sin centro de costo (136 en blanco en el Excel, 2 ECUADOR, 1 CONSORCIO; la etiqueta
+  original queda en la descripcion como "[CC Excel: ...]"). El numero de operacion (OPE) va en referencia_numero: al importar
+  BANCOS2026 por /finanzas/bancos, el 2026 se concilia solo.
+- Efecto en saldos: las cuentas 806/830 quedan negativas (solo egresos cargados) hasta que Finanzas fije el saldo inicial al
+  01-01-2026 e importe los extractos (abonos). La tabla "acumulado por CC" excluye la categoria CAMBIO DE MONEDA.
+- Para recargar: borrar `referencia_tipo = 'historico_contabilidad'` y correr los dos scripts (el loader ya lo hace).

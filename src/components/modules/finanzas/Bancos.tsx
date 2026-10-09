@@ -305,7 +305,8 @@ function AcumuladoTabla({ filas }: { filas: AcumuladoFila[] }) {
   const meses = useMemo(() => Array.from(new Set(filas.map(f => f.mes))).sort(), [filas]);
   const porCc = useMemo(() => {
     const m = new Map<string, Map<string, number>>();
-    for (const f of filas.filter(x => x.tipo === 'egreso')) {
+    // Los cambios de moneda salen de una cuenta y entran en otra: no son gasto de ningún centro de costo.
+    for (const f of filas.filter(x => x.tipo === 'egreso' && !/CAMBIO DE MONEDA/i.test(x.categoria))) {
       const fila = m.get(f.centroCosto) ?? new Map<string, number>();
       fila.set(f.mes, (fila.get(f.mes) ?? 0) + f.montoSoles); m.set(f.centroCosto, fila);
     }
