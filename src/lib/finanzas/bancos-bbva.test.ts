@@ -44,7 +44,9 @@ describe('leerHojaBbva (sintética)', () => {
 });
 
 describe('leerHojaBbva (archivo real)', () => {
-  it.skipIf(!existsSync(RUTA))('la hoja "806 202609 PEN" es en realidad la 830 en dólares y cuadra el saldo', async () => {
+  // La hoja "806 202609 PEN" trae pegada la cabecera de la 830 USD, pero sus movimientos son de la 806 en soles
+  // (el saldo inicial de agosto, 21,295.42, es el saldo final de la hoja de julio de la 806): el nombre de la hoja manda y se avisa.
+  it.skipIf(!existsSync(RUTA))('la hoja "806 202609 PEN" tiene cabecera de la 830: se detecta la cuenta por el nombre y se avisa', async () => {
     const XLSX = await import('xlsx');
     const wb = XLSX.read(readFileSync(RUTA), { type: 'buffer', cellDates: true });
     const ws = wb.Sheets['806 202609 PEN'];
@@ -55,7 +57,9 @@ describe('leerHojaBbva (archivo real)', () => {
     expect(h.movimientos.length).toBeGreaterThan(100);
     expect(h.saldoInicial?.saldo).toBe(7103595.17);
     expect(h.saldos[h.saldos.length - 1].saldo).toBe(166837.81);
-    expect(h.avisos).toEqual([]);
+    expect(h.cuentaSegunNombre).toBe('806');
+    expect(h.avisos).toHaveLength(1);
+    expect(h.avisos[0]).toContain('se importa a la cuenta 806');
     // todas las hojas del libro se leen sin cabeceras perdidas
     for (const nombre of wb.SheetNames) {
       const f = XLSX.utils.sheet_to_json(wb.Sheets[nombre], { header: 1, raw: true, defval: null }) as (string | number | Date | null)[][];

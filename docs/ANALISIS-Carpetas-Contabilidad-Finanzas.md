@@ -136,6 +136,18 @@ Lo que no cambia: el orden de los sprints ni el paralelo con el Excel hasta cuad
 
 ---
 
+## 5b. Cargado el 2026-10-09 (segunda pasada: "sube al sistema lo que falte")
+
+| Fuente | Qué entró | Dónde se ve |
+|---|---|---|
+| `BANCOS2026.xlsx` (importado por Kevin) | 2,088 movimientos ene–set 2026 y saldos diarios; agosto y setiembre de soles reubicados a la 806 (la cabecera del Excel decía 830) | `/finanzas/bancos` |
+| `2024/sire 2024.xlsx`, `2025/SIRE2025/SIRE COMPRAS ENE-DIC 2025.xlsx`, `2026/<mes>/1. Compras (PDF)/MM-2026 SIRE COMPRAS…xlsx` | 6,412 facturas (865 pagadas con su pago histórico, 210 conformes de setiembre, 5,337 históricas) | `/compras/facturas` (filtro "Históricas del SIRE") y CxP |
+| `AA. Txt detracciones/Detracciones D. 2024-2025-2026.csv` | 1,458 constancias depositadas, 1,144 enlazadas a su factura | `/finanzas/detracciones` |
+| `PAGOS ACUMULADO 2024 y 2025.xlsx`, `Pagos acumulados 2026 con CC.xlsx` (sesión anterior) | 3,346 pagos históricos; 1,092 de los 1,194 de 2026 conciliados con el banco | `/finanzas/bancos`, `/finanzas/transacciones` |
+
+No cargado todavía: deuda tributaria, préstamos y mutuos (sprint 4), caja chica 2025-2026, CIPRL cobrados, SIRE de ventas,
+comprobantes de retención. Detalle en [CONTEXTO-SESION.md](CONTEXTO-SESION.md) (2026-10-09).
+
 ## 6. Observaciones que conviene atender fuera del plan
 
 - **`Contraseñas.xlsx` en la raíz de Contabilidad y `CLAVE SOL GM.jpeg` en `GUILLERMO MACHER/`**: credenciales

@@ -4,8 +4,9 @@
  * Columnas por nombre, no por posición: "Periodo", "Fecha de emisión",
  * "Fecha Vcto/Pago", "Tipo CP/Doc.", "Serie del CDP", "Nro CP o Doc. Nro Inicial
  * (Rango)", "Nro Doc Identidad", "Apellidos Nombres/ Razón Social", "BI Gravado DG",
- * "IGV / IPM DG", "Valor Adq. NG", "Total CP", "M", "Tipo de Cambio", "Detracción",
- * "Est. Comp.". La cabecera puede no estar en la fila 1.
+ * "IGV / IPM DG", "Valor Adq. NG", "Total CP", "M" (o "Moneda"), "Tipo de Cambio" (o "T/C"),
+ * "Detracción" (o "D"), "Est. Comp.". La cabecera puede no estar en la fila 1. Un archivo puede
+ * traer varias hojas (la propuesta, "BIENES Y DET", "COMPRAS A DECLARAR"): se unen sin repetir.
  */
 import { supabase } from '../supabase/client';
 import { fechaISO, numero } from '../finanzas/bancos-bbva';
@@ -32,11 +33,14 @@ export function leerHojaSire(filas: Celda[][]): { filas: FilaSire[]; avisos: str
   const c = {
     periodo: col('periodo'), fe: col('fechadeemision'), fv: col('fechavcto'), tipo: col('tipocpdoc'), serie: col('seriedelcdp'),
     num: col('nrocpodocnroinicial', 'nrocp'), ruc: col('nrodocidentidad'), razon: col('apellidosnombres', 'razonsocial'),
-    bi: col('bigravadodg'), igv: col('igvipmdg'), ng: col('valoradqng'), total: col('totalcp'), m: col('m'), tc: col('tipodecambio'),
+    bi: col('bigravadodg'), igv: col('igvipmdg'), ng: col('valoradqng'), total: col('totalcp'), m: -1, tc: col('tipodecambio'),
     det: col('detraccion'), est: col('estcomp'),
   };
-  // "m" es una columna de una letra: buscarla exacta para no confundirla con otras
-  c.m = h.findIndex(x => x === 'm');
+  // columnas de una o dos letras: exactas, para no confundirlas con otras
+  const exacta = (...nombres: string[]) => { for (const n of nombres) { const i = h.findIndex(x => x === n); if (i >= 0) return i; } return -1; };
+  c.m = exacta('moneda', 'm');
+  if (c.tc < 0) c.tc = exacta('tc');
+  if (c.det < 0) c.det = exacta('d');
   if (c.ruc < 0 || c.total < 0 || c.serie < 0) avisos.push('Faltan columnas clave (RUC, serie o total).');
   const g = (r: Celda[], i: number) => (i >= 0 ? r[i] : null);
   const out: FilaSire[] = [];
@@ -67,15 +71,32 @@ export async function leerLibroSire(archivo: File): Promise<{ hoja: string; fila
   });
 }
 
-export interface ResultadoSire { nuevas: number; yaExistian: number; enlazadas: number; notasCredito: number; saltadas: number; sinProveedor: number }
+/** Une las hojas con datos de un libro sin repetir comprobantes (tipo + serie + número + RUC); la hoja con más filas manda. */
+export function unirHojasSire(hojas: { hoja: string; filas: FilaSire[]; avisos: string[] }[]): { hoja: string; filas: FilaSire[]; avisos: string[] } {
+  const conDatos = hojas.filter(h => h.filas.length > 0).sort((a, b) => b.filas.length - a.filas.length);
+  if (conDatos.length === 0) return { hoja: '', filas: [], avisos: [hojas[0]?.avisos.join(' ') || 'El archivo no tiene filas del SIRE'] };
+  const vistas = new Map<string, FilaSire>();
+  for (const h of conDatos) for (const f of h.filas) {
+    const k = `${f.tipo}|${f.serie}|${f.numero.replace(/^0+/, '')}|${f.ruc}`;
+    if (!vistas.has(k)) vistas.set(k, f);
+  }
+  return { hoja: conDatos.map(h => h.hoja).join(' + '), filas: [...vistas.values()], avisos: conDatos[0].avisos };
+}
 
-export async function importarSire(filas: FilaSire[], archivo: string): Promise<ResultadoSire> {
-  const acc: ResultadoSire = { nuevas: 0, yaExistian: 0, enlazadas: 0, notasCredito: 0, saltadas: 0, sinProveedor: 0 };
+export interface ResultadoSire { nuevas: number; yaExistian: number; enlazadas: number; historicas: number; notasCredito: number; saltadas: number; sinProveedor: number }
+
+/**
+ * `corte` (AAAAMM, opcional): las facturas de periodos anteriores sin pago identificado quedan "históricas"
+ * (no entran a Cuentas por pagar). Sin corte, todas las nuevas nacen "conforme" (uso mensual).
+ */
+export async function importarSire(filas: FilaSire[], archivo: string, corte?: string): Promise<ResultadoSire> {
+  const acc: ResultadoSire = { nuevas: 0, yaExistian: 0, enlazadas: 0, historicas: 0, notasCredito: 0, saltadas: 0, sinProveedor: 0 };
   for (let i = 0; i < filas.length; i += 150) {
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-    const { data, error } = await (supabase as any).rpc('sire_importar_compras', { p_filas: filas.slice(i, i + 150), p_archivo: archivo });
+    const { data, error } = await (supabase as any).rpc('sire_importar_compras', { p_filas: filas.slice(i, i + 150), p_archivo: archivo, p_corte: corte ?? null });
     if (error) throw new Error(error.message);
     acc.nuevas += Number(data?.nuevas ?? 0); acc.yaExistian += Number(data?.ya_existian ?? 0); acc.enlazadas += Number(data?.enlazadas_a_pago_historico ?? 0);
+    acc.historicas += Number(data?.historicas_sin_pago ?? 0);
     acc.notasCredito += Number(data?.notas_credito_omitidas ?? 0); acc.saltadas += Number(data?.saltadas ?? 0); acc.sinProveedor += Number(data?.sin_proveedor_en_directorio ?? 0);
   }
   return acc;

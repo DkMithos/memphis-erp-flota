@@ -34,6 +34,8 @@ export interface HojaBbva {
   movimientos: MovimientoBbva[];
   saldos: { fecha: string; saldo: number }[];   // "Saldo Final" por día
   saldoInicial: { fecha: string; saldo: number } | null;
+  /** Últimos dígitos de cuenta que aparecen en el nombre de la hoja ("806 202608 PEN" → "806"), por si la cabecera pegada es de otra cuenta. */
+  cuentaSegunNombre: string | null;
   avisos: string[];
 }
 
@@ -75,7 +77,9 @@ export function numero(v: Celda): number | null {
 
 /** Interpreta una hoja ya convertida a matriz de celdas (fila 0 = primera fila de Excel). */
 export function leerHojaBbva(nombre: string, filas: Celda[][]): HojaBbva {
-  const out: HojaBbva = { hoja: nombre, numeroCuenta: null, moneda: null, periodo: null, movimientos: [], saldos: [], saldoInicial: null, avisos: [] };
+  const out: HojaBbva = { hoja: nombre, numeroCuenta: null, moneda: null, periodo: null, movimientos: [], saldos: [], saldoInicial: null, cuentaSegunNombre: null, avisos: [] };
+  const mn = nombre.match(/(?:^|\D)(\d{3})(?:\D|$)/);
+  if (mn) out.cuentaSegunNombre = mn[1];
   let cabecera = -1;
   for (let i = 0; i < Math.min(filas.length, 40); i++) {
     const a = texto(filas[i]?.[0]);
@@ -120,6 +124,9 @@ export function leerHojaBbva(nombre: string, filas: Celda[][]): HojaBbva {
     });
   }
   if (!out.numeroCuenta) out.avisos.push('La hoja no indica "Cuenta Actual".');
+  if (out.numeroCuenta && out.cuentaSegunNombre && !out.numeroCuenta.endsWith(out.cuentaSegunNombre)) {
+    out.avisos.push(`La hoja se llama "${nombre}" pero su cabecera dice cuenta ...${out.numeroCuenta.slice(-3)} ${out.moneda ?? ''}: se importa a la cuenta ${out.cuentaSegunNombre} del nombre. Revisa la cabecera del Excel.`);
+  }
   if (out.movimientos.length === 0) out.avisos.push('La hoja no tiene movimientos.');
   // Control: saldo inicial + Σ importes = último saldo final
   if (out.saldoInicial && out.saldos.length) {

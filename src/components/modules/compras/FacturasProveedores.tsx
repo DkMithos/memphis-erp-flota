@@ -26,7 +26,7 @@ import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabase/client';
 import { useAuth } from '../../../auth/AuthProvider';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
-import { leerLibroSire, importarSire, type FilaSire } from '../../../lib/compras/sire';
+import { leerLibroSire, unirHojasSire, importarSire, type FilaSire } from '../../../lib/compras/sire';
 import { usePagination } from '../../../lib/shared/usePagination';
 
 interface Props { onNavigate: (route: string) => void; }
@@ -67,6 +67,8 @@ const ESTADOS: Record<string, { label: string; variant: 'default' | 'secondary' 
   programada_pago: { label: 'Prog. pago', variant: 'default' },
   pagada: { label: 'Pagada', variant: 'default' },
   anulada: { label: 'Anulada', variant: 'destructive' },
+  // Cargada del SIRE de un periodo ya cerrado sin pago identificado en el ERP: no es deuda viva hasta que Contabilidad lo diga.
+  historica: { label: 'Histórica (SIRE)', variant: 'outline' },
 };
 
 const fmt = (monto: number, moneda: string) =>
@@ -89,12 +91,16 @@ export function FacturasProveedores({ onNavigate }: Props) {
 
   const cargar = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('comprobantes_pago')
-      .select('id, numero_completo, fecha_emision, fecha_vencimiento, conforme_en, total, moneda, estado_flujo, motivo_observacion, xml_path, pdf_path, subido_por_proveedor, creado_en, orden_compra_numero, orden_compra_id, ruc_emisor, razon_social_emisor')
-      .eq('direccion', 'recibido')
-      .order('creado_en', { ascending: false })
-      .limit(1000);
+    // Con el SIRE cargado hay varios miles de facturas: se traen por páginas de 1,000 (tope de PostgREST).
+    const COLS = 'id, numero_completo, fecha_emision, fecha_vencimiento, conforme_en, total, moneda, estado_flujo, motivo_observacion, xml_path, pdf_path, subido_por_proveedor, creado_en, orden_compra_numero, orden_compra_id, ruc_emisor, razon_social_emisor';
+    let data: any[] = []; let error: { message: string } | null = null;
+    for (let desde = 0; ; desde += 1000) {
+      const r = await supabase.from('comprobantes_pago').select(COLS).eq('direccion', 'recibido')
+        .order('fecha_emision', { ascending: false }).order('creado_en', { ascending: false }).range(desde, desde + 999);
+      if (r.error) { error = r.error; break; }
+      data = data.concat(r.data ?? []);
+      if ((r.data ?? []).length < 1000) break;
+    }
     if (error) {
       console.error('[FACTURAS-PROV] Error al cargar:', error.message);
       toast.error('No se pudieron cargar las facturas');
@@ -170,10 +176,9 @@ export function FacturasProveedores({ onNavigate }: Props) {
   const elegirSire = async (archivo: File | null) => {
     if (!archivo) return;
     try {
-      const hojas = await leerLibroSire(archivo);
-      const mejor = hojas.filter(h => h.filas.length > 0).sort((a, b) => b.filas.length - a.filas.length)[0];
-      if (!mejor) { toast.error(hojas[0]?.avisos.join(' ') || 'El archivo no tiene filas del SIRE'); return; }
-      setSire({ archivo: `${archivo.name} · ${mejor.hoja}`, filas: mejor.filas, avisos: mejor.avisos });
+      const union = unirHojasSire(await leerLibroSire(archivo));
+      if (union.filas.length === 0) { toast.error(union.avisos.join(' ')); return; }
+      setSire({ archivo: `${archivo.name} · ${union.hoja}`, filas: union.filas, avisos: union.avisos });
     } catch (e) { toast.error((e as Error).message); }
   };
   const confirmarSire = async () => {
@@ -367,6 +372,7 @@ export function FacturasProveedores({ onNavigate }: Props) {
                 <SelectItem value="conforme">Conformes</SelectItem>
                 <SelectItem value="programada_pago">Programadas de pago</SelectItem>
                 <SelectItem value="pagada">Pagadas</SelectItem>
+                <SelectItem value="historica">Históricas del SIRE (sin pago identificado)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -486,6 +492,18 @@ export function FacturasProveedores({ onNavigate }: Props) {
                             onClick={() => actualizarEstado(f.id, { estado_flujo: 'pagada' }, `Factura ${f.numeroCompleto} marcada como pagada`)}>
                             <BadgeCheck className="size-4" /> Marcar pagada
                           </Button>
+                        )}
+                        {f.estadoFlujo === 'historica' && (
+                          <>
+                            <Button size="sm" variant="outline" disabled={trabajando}
+                              onClick={() => actualizarEstado(f.id, { estado_flujo: 'pagada' }, `Factura ${f.numeroCompleto} marcada como pagada fuera del ERP`)}>
+                              <BadgeCheck className="size-4" /> Ya se pagó
+                            </Button>
+                            <Button size="sm" variant="outline" disabled={trabajando}
+                              onClick={() => actualizarEstado(f.id, { estado_flujo: 'conforme', conforme_en: new Date().toISOString() }, `Factura ${f.numeroCompleto} pasa a Cuentas por pagar`)}>
+                              <AlertTriangle className="size-4" /> Sigue pendiente
+                            </Button>
+                          </>
                         )}
                       </div>
                     </TableCell>}

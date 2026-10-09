@@ -3364,3 +3364,41 @@ jueves 16-oct; lineas sin comprobante permitidas (parametro `lotes_permitir_sin_
   `conforme` y se pagan por lotes. Los tres errores de tsc en FacturasProveedores.tsx (lineas 204/510/549) ya existian en HEAD.
 - Sprint 3 completo: bancos (543d74d4), carga historica (c2f01658) y SIRE. Pendiente de Finanzas: saldo inicial de 806/830 al
   01-01-2026, importar BANCOS2026 por /finanzas/bancos (el 2026 se concilia solo por OPE) y probar el lote real del 16-oct.
+
+## 2026-10-09 - Carga de lo que faltaba de las carpetas Contabilidad y Finanzas (pedido de Kevin: "sube al sistema lo que falte")
+
+Kevin importo BANCOS2026 por /finanzas/bancos. Revision de lo cargado y carga del resto:
+
+- **BANCOS2026 corregido.** Las hojas "806 202608 PEN" y "806 202609 PEN" traian pegada la cabecera de la cuenta 830 USD
+  ("Cuenta Actual: ...830 USD"), asi que agosto y setiembre de soles habian entrado a la cuenta de dolares. Prueba: el saldo
+  inicial de agosto (21,295.42) es el saldo final de julio de la 806. Se movieron 389 movimientos y 11 saldos a la 806 (SQL de
+  reparacion, no migracion). El lector (`bancos-bbva.ts`) ahora saca la cuenta del nombre de la hoja cuando no coincide con la
+  cabecera y avisa; `Bancos.tsx` usa esa cuenta. Test corregido (antes asumia que la hoja era de la 830).
+- **Conciliacion por grupo.** `bancos_conciliar_auto` suma la pasada b): varias transacciones con el mismo n.o de operacion
+  cuya suma es el importe del movimiento (un pago del banco = varias facturas). Pasaron de 448 a 1,092 de 1,194 pagos
+  historicos 2026 vinculados; los 102 restantes (feb: 33 PEN + 67 USD, may: 2) tienen el OPE mal asignado en el Excel
+  (p. ej. honorarios con OPE 1190/1192 mezclados) y se vinculan a mano.
+- **SIRE de compras 2024-2026 cargado** (`scripts/sire-historico/`, funcion real `sire_importar_compras` con `p_corte = 202609`):
+  6,412 facturas nuevas (2024: 1,718 · 2025: 2,378 · 2026: 2,316), 876 ya existian entre archivos (las propuestas mensuales se
+  solapan), 382 NC/ND omitidas, 11 saltadas. Estados: 865 `pagada` (enlazadas a un pago historico por numero de comprobante
+  o por proveedor+importe; si el pago es el neto sin detraccion/retencion y cubre >= 85 % se da por pagada y la diferencia
+  queda anotada en el compromiso), 210 `conforme` (setiembre 2026: deuda viva, S/ 537 k + US$ 2.79 M, 45 con detraccion),
+  5,337 `historica` (periodo cerrado sin pago identificado o con pago parcial que no cierra: 662). 3,853 sin proveedor en el
+  directorio (quedan con RUC y razon social, sin `proveedor_id`).
+  - Estado nuevo `historica`: no crea compromiso ni asiento, no entra a CxP; en /compras/facturas filtro "Historicas del
+    SIRE" con botones "Ya se pago" / "Sigue pendiente". Lector SIRE acepta "Moneda", "T/C" y "D" (variantes por mes) y une
+    las hojas de un libro sin repetir; la pantalla trae las facturas por paginas de 1,000 (ya son 6,457).
+  - Unicidad de comprobantes ahora incluye el RUC (`comprobantes_pago_unico_por_emisor`): dos proveedores pueden emitir
+    E001-13. Las facturas de periodos < 2026 no generan asiento (`app.sin_asiento`). 25 facturas 2026 quedaron con
+    `contabilizacion_error` "no cuadra" (redondeos/ICBPER de SUNAT): la factura esta, el asiento no.
+- **Constancias de detraccion SUNAT 2024-2026 cargadas**: 1,458 unicas (el CSV traia 129 repetidas), todas `depositado`
+  (S/ 3.81 M), 1,144 enlazadas a su factura (1,140 facturas marcadas con detraccion desde la constancia), 314 sin factura
+  (2022-2023: 46; otras no estan en el SIRE).
+- Migracion `20261009180000_sire_historico_y_conciliacion_por_grupo.sql`. QA: usuario `qa.carga.tmp` y rol `carga_sire_tmp`
+  borrados; la factura FP30-1842 de prueba no se volvio a crear.
+- Lo que NO se cargo (no corresponde a Compras/Finanzas o es sprint 4+): deuda tributaria (CONTROL DE LA DEUDA), prestamos
+  y mutuos, caja chica 2025-2026 (hay modulo pero el Excel de 25 cajas necesita mapa de cajas), CIPRL cobrados, SIRE de
+  ventas, comprobantes de retencion (solo febrero 2026). Pendiente de Finanzas: saldo inicial de 806/830 al 01-01-2026 (hoy
+  "Saldo ERP" negativo), vincular a mano los 102 pagos de feb/may, revisar las historicas.
+- Bug visto de paso: el tour de bienvenida (TutorialOnboarding.tsx:227) revienta si se pulsa "Siguiente" mas alla del
+  ultimo paso ("Cannot read properties of undefined (reading 'icon')").

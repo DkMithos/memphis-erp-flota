@@ -91,7 +91,14 @@ export function Bancos() {
       setImportando({ archivo: archivo.name, hojas: utiles });
     } catch (e) { toast.error((e as Error).message); }
   };
-  const cuentaPorNumero = (n: string | null) => cuentas.find(c => c.nombre && n && cuentasNumero[c.cuentaId] && cuentasNumero[c.cuentaId] === n);
+  // Si el nombre de la hoja trae otra cuenta que la cabecera (cabecera pegada de otra hoja), manda el nombre.
+  const cuentaPorNumero = (n: string | null, segunNombre?: string | null) => {
+    if (segunNombre && n && !n.endsWith(segunNombre)) {
+      const porNombre = cuentas.find(c => cuentasNumero[c.cuentaId]?.endsWith(segunNombre));
+      if (porNombre) return porNombre;
+    }
+    return cuentas.find(c => c.nombre && n && cuentasNumero[c.cuentaId] && cuentasNumero[c.cuentaId] === n);
+  };
   const [cuentasNumero, setCuentasNumero] = useState<Record<string, string>>({});
   useEffect(() => {
     supabase.from('cuentas_bancarias').select('id, numero').then(({ data }) => setCuentasNumero(Object.fromEntries(((data ?? []) as any[]).map(c => [c.id, String(c.numero ?? '').replace(/\D/g, '')]))));
@@ -103,7 +110,7 @@ export function Bancos() {
     const resumen: string[] = [];
     try {
       for (const h of importando.hojas) {
-        const c = cuentaPorNumero(h.numeroCuenta);
+        const c = cuentaPorNumero(h.numeroCuenta, h.cuentaSegunNombre);
         if (!c) { resumen.push(`${h.hoja}: sin cuenta en el ERP para ${h.numeroCuenta ?? '?'}`); continue; }
         const r = await importarHoja(c.cuentaId, h, importando.archivo);
         resumen.push(`${h.hoja} → ${c.nombre}: ${r.nuevos} nuevos, ${r.duplicados} repetidos, conciliados ${r.porOperacion + r.porImporte}`);
@@ -276,7 +283,7 @@ export function Bancos() {
             <table className="w-full text-sm">
               <thead className="text-xs text-muted-foreground bg-muted/30"><tr><th className="text-left px-2 py-1">Hoja</th><th className="text-left px-2 py-1">Cuenta</th><th className="text-left px-2 py-1">Periodo</th><th className="text-right px-2 py-1">Movs.</th><th className="text-right px-2 py-1">Saldo inicial → final</th><th className="text-left px-2 py-1">Avisos</th></tr></thead>
               <tbody className="divide-y">
-                {importando.hojas.map(h => { const c = cuentaPorNumero(h.numeroCuenta); return (
+                {importando.hojas.map(h => { const c = cuentaPorNumero(h.numeroCuenta, h.cuentaSegunNombre); return (
                   <tr key={h.hoja}>
                     <td className="px-2 py-1 font-mono text-xs">{h.hoja}</td>
                     <td className="px-2 py-1">{c ? c.nombre : <span className="text-red-600">No está en el ERP: {h.numeroCuenta}</span>}<div className="text-xs text-muted-foreground">{h.moneda}</div></td>

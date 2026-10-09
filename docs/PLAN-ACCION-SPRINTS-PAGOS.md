@@ -132,6 +132,9 @@ Sin esto el sprint 1 arranca a ciegas. Son tres días porque el jueves es feriad
 > **Avance 9-oct (sprint 3):** importador BBVA y conciliación (`/finanzas/bancos`), carga histórica 2024-2026 (3,346 pagos) e
 > importador del SIRE de compras (botón "Importar SIRE" en `/compras/facturas`) construidos y probados. Queda del sprint 3: que
 > Finanzas fije el saldo inicial de las cuentas 806/830, importe `BANCOS2026` y se compare el acumulado por CC con el de Contabilidad.
+> **9-oct (tarde):** `BANCOS2026` importado (agosto y setiembre de soles reubicados: el Excel traía cabecera de la 830), conciliación por
+> grupo de operación (1,092 de 1,194 pagos 2026 cruzados), SIRE de compras 2024-2026 cargado (6,412 facturas; 210 de setiembre
+> quedan como deuda viva, el resto pagadas o "históricas") y 1,458 constancias de detracción. Falta: saldo inicial 806/830.
 
 ---
 
