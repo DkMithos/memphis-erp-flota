@@ -154,6 +154,10 @@ Sin esto el sprint 1 arranca a ciegas. Son tres días porque el jueves es feriad
 
 **Hecho cuando:** Miguelángel, Contabilidad y Shirley confirman que no abrieron el Excel de pagos esa semana.
 
+> **Avance 9-oct (sprint 4, parte 1):** cron `flujo-import-2xdia` (06:00 y 15:00) con bitácora y "última lectura" en pantalla, botón
+> "Actualizar desde el Excel", y pantalla `/finanzas/reconciliacion` (Excel vs ERP por área y mes con la causa de cada fila). Queda:
+> Flujo GM Directorio como vista del ERP, despacho a proyecto y transferencia entre proyectos, deuda tributaria y mutuos como compromisos.
+
 ---
 
 ## Sprint 5 · 10 al 14 de noviembre · Capa analítica `dw`

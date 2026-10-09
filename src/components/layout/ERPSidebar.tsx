@@ -230,6 +230,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         { label: t('nav.sub.caja_chica'), href: '/finanzas/caja-chica' },
         { label: t('nav.sub.flujo_caja'), href: '/finanzas/flujo-caja' },
         { label: 'Flujo financiero', href: '/finanzas/flujo-financiero' },
+        { label: 'Reconciliación Excel vs ERP', href: '/finanzas/reconciliacion' },
         { label: t('nav.sub.reportes'), href: '/finanzas/reportes' }
       ]
     },

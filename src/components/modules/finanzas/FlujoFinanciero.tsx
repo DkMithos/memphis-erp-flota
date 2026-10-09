@@ -30,6 +30,7 @@ import { supabase } from '../../../lib/supabase/client';
 import { useAuth } from '../../../auth/AuthProvider';
 import { toast } from 'sonner';
 import { ImportarFlujoDialog } from './ImportarFlujoDialog';
+import { RefreshCw } from 'lucide-react';
 import { CompromisoFlujoDialog, type CompromisoEdit } from './CompromisoFlujoDialog';
 import { useTipoCambio } from '../../../lib/shared/tipo-cambio-store';
 import { FlujoCajaMensual } from './FlujoCajaMensual';
@@ -118,6 +119,34 @@ export function FlujoFinanciero() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<CompromisoEdit | null>(null);
+
+  // Última lectura de cada base del Excel (BD CONTA, BD TI, Administración, Proyectos).
+  // El cron `flujo-import-2xdia` las lee a las 06:00 y 15:00; el botón las fuerza ahora.
+  type Lectura = { area: string; archivo: string | null; archivo_modificado: string | null; importado_en: string; modo: string; compromisos: number | null };
+  const [lecturas, setLecturas] = useState<Lectura[]>([]);
+  const [actualizando, setActualizando] = useState(false);
+  const cargarLecturas = async () => {
+    const { data } = await supabase.from('v_flujo_ultima_lectura').select('area, archivo, archivo_modificado, importado_en, modo, compromisos').order('area');
+    setLecturas((data ?? []) as Lectura[]);
+  };
+  useEffect(() => { void cargarLecturas(); }, []);
+  const actualizarDesdeExcel = async () => {
+    setActualizando(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('flujo-import', { body: { accion: 'importar_todo', forzar: true } });
+      if (error) throw new Error(error.message);
+      const res = (data?.resultados ?? []) as { area: string; estado: string; compromisos?: number; error?: string }[];
+      if (data?.error) throw new Error(String(data.error));
+      const ok = res.filter(r => r.estado === 'ok');
+      const mal = res.filter(r => r.estado === 'error' || r.estado === 'sin_archivo');
+      if (mal.length) toast.warning(`Leídas ${ok.length} bases; con problema: ${mal.map(r => `${etiquetaArea(r.area)} (${r.error})`).join(' · ')}`, { duration: 12000 });
+      else toast.success(`Excel leído: ${ok.map(r => `${etiquetaArea(r.area)} ${r.compromisos ?? 0}`).join(' · ')} compromisos`);
+      await Promise.all([cargar(), cargarLecturas()]);
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setActualizando(false); }
+  };
+  const fechaCorta = (iso: string | null | undefined) => iso ? new Date(iso).toLocaleString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+  const ultimaLectura = lecturas.reduce<string | null>((m, l) => (!m || l.importado_en > m ? l.importado_en : m), null);
 
   const cargar = async () => {
     setCargando(true);
@@ -262,8 +291,21 @@ export function FlujoFinanciero() {
           <Button onClick={() => { setEditando(null); setDialogOpen(true); }} disabled={areas.length === 0}>
             <Plus className="size-4" /> Nuevo compromiso
           </Button>
-          <ImportarFlujoDialog onImportado={cargar} />
+          <Button variant="outline" onClick={actualizarDesdeExcel} disabled={actualizando} title="Lee ahora las cuatro bases de la carpeta de flujo en SharePoint">
+            <RefreshCw className={`size-4 ${actualizando ? 'animate-spin' : ''}`} /> {actualizando ? 'Leyendo el Excel…' : 'Actualizar desde el Excel'}
+          </Button>
+          <ImportarFlujoDialog onImportado={() => { void cargar(); void cargarLecturas(); }} />
         </div>
+      </div>
+
+      {/* Última lectura del Excel por base (el cron lee a las 06:00 y 15:00) */}
+      <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span>Última lectura del Excel: <b className="text-foreground">{fechaCorta(ultimaLectura)}</b>{ultimaLectura ? '' : ' (todavía ninguna registrada)'} · se lee solo a las 06:00 y 15:00.</span>
+        {lecturas.map(l => (
+          <span key={l.area} title={`${l.archivo ?? ''} · modificado en SharePoint ${fechaCorta(l.archivo_modificado)} · ${l.modo}`}>
+            {etiquetaArea(l.area)}: {fechaCorta(l.importado_en)} ({l.compromisos ?? 0})
+          </span>
+        ))}
       </div>
 
       {/* Área */}

@@ -3402,3 +3402,33 @@ Kevin importo BANCOS2026 por /finanzas/bancos. Revision de lo cargado y carga de
   "Saldo ERP" negativo), vincular a mano los 102 pagos de feb/may, revisar las historicas.
 - Bug visto de paso: el tour de bienvenida (TutorialOnboarding.tsx:227) revienta si se pulsa "Siguiente" mas alla del
   ultimo paso ("Cannot read properties of undefined (reading 'icon')").
+
+## 2026-10-09 - Cierre de pendientes de Kevin + Sprint 4 (parte 1): cron del flujo, ultima lectura y reconciliacion Excel vs ERP
+
+Pendientes de Kevin resueltos:
+- Saldo inicial al 01-01-2026: 806 Soles = 3,796.06 y 830 Dolares = 1,120.51 (Contabilidad confirma que el saldo del 03/07-ene es el
+  del 1 de enero). OJO: el "Saldo ERP" de Bancos seguira negativo hasta que los movimientos del banco que no son pagos (ITF,
+  comisiones, SUNAT, abonos, cambio de moneda: ~1,500 sin conciliar) se registren como transacciones (boton Registrar o una carga
+  masiva, candidata al sprint 4/5).
+- Excel "Pagos 2026 sin cruzar con el banco.xlsx" (102 filas, 35 OPE) con la causa por fila: OPE que no existe, OPE ya usado por
+  otras filas, grupo que no suma lo del banco, OPE en la otra cuenta, y candidatos por importe. Excel "Facturas SIRE por revisar.xlsx"
+  (resumen, 2026 por revisar = 1,891, 2024-2025 = 3,446, setiembre deuda viva = 210, sin asiento = 25). Entregados a Kevin.
+- Tour de bienvenida: era un error real (TypeError al pasar del ultimo paso, p. ej. si los permisos cargan despues y la lista de pasos
+  se acorta); guard en TutorialOnboarding.tsx (`pasos[Math.min(step, pasos.length - 1)]`).
+
+Sprint 4, parte 1:
+- `flujo-import` reescrita: accion `importar_todo` (las cuatro bases de la raiz de la carpeta de flujo, una por area, la mas reciente;
+  sin `forzar` solo reimporta la que cambio en SharePoint), modo cron con `x-cron-secret` (verify_jwt = false, como fianzas-import),
+  bitacora `flujo_importaciones` (ok / omitido / error, fecha de modificacion del archivo, compromisos) y vista `v_flujo_ultima_lectura`.
+  Cron `flujo-import-2xdia` a las 06:00 y 15:00 Lima (11 y 20 UTC). Primera corrida (manual por net.http_post): CONTA 157, TI 56,
+  ADMIN 1,061, PROYECTOS 1,421 compromisos; las bases estaban en el ERP desde el 23-set.
+- Pantalla Flujo financiero: linea "Ultima lectura del Excel" por base y boton "Actualizar desde el Excel" (importar_todo con forzar).
+- `flujo_reconciliar(p_area, p_mes)` + pantalla /finanzas/reconciliacion (sidebar "Reconciliacion Excel vs ERP", mismas puertas que
+  el flujo): cruce por OC, por referencia normalizada (`flujo_ref_norm`: MM-290 = MM-000290, F040-0010915 = F040-10915) o por
+  proveedor + importe (+-1); el mes no cruza, asi el desfase sale como "mes distinto". Causas: OC no registrada / OC sin compromiso,
+  factura no registrada / sin compromiso, proyeccion sin documento, gasto pagado sin documento, OC o factura del ERP que el Excel no
+  tiene, pagado en un lado y pendiente en el otro. Octubre 2026: 114 solo Excel (proyecciones), 194 solo ERP, 10 cruzadas (9 con mes
+  distinto). pg_safeupdate rechaza `delete` sin where desde PostgREST: la tabla temporal se vacia con `truncate`.
+- Migraciones `20261009210000_flujo_importaciones_y_cron.sql` y `20261009213000_flujo_reconciliar_excel_vs_erp.sql`. QA con usuario
+  temporal (borrado). Queda del sprint 4: unificar Flujo GM / Directorio como vista del ERP, despacho a proyecto y transferencia entre
+  proyectos en Inventario, deuda tributaria y prestamos como compromisos, comprobante de retencion mensual, y el corte del lote del 6-nov.

@@ -89,6 +89,14 @@ const EXCEPCIONES: { prefijo: string; requisitos: RequisitoRuta[] }[] = [
       { modulo: 'finanzas', accion: 'ver' },
     ],
   },
+  // Reconciliación Excel vs ERP del flujo: mismas puertas que el flujo financiero.
+  {
+    prefijo: '/finanzas/reconciliacion',
+    requisitos: [
+      { modulo: 'finanzas', accion: 'flujo' },
+      { modulo: 'finanzas', accion: 'ver' },
+    ],
+  },
   // Lotes de pago: Compras arma (lotes_armar), Contabilidad valida
   // (lotes_validar), Tesorería paga (lotes_pagar). Quien ve Finanzas también
   // entra. Va antes que '/finanzas' porque gana el prefijo más largo.

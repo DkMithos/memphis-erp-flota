@@ -121,8 +121,9 @@ export function TutorialOnboarding({ onComplete }: TutorialOnboardingProps) {
 
   const pasos = useMemo(() => construirPasos(modulosDelUsuario(can)), [can]);
 
-  const current = pasos[step];
-  const isLast = step === pasos.length - 1;
+  // Los pasos dependen de los permisos (cargan después): si el índice se pasa, se queda en el último paso en vez de reventar.
+  const current = pasos[Math.min(step, pasos.length - 1)];
+  const isLast = step >= pasos.length - 1;
   const isFirst = step === 0;
 
   const handleComplete = async () => {
