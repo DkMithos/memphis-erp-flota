@@ -3432,3 +3432,26 @@ Sprint 4, parte 1:
 - Migraciones `20261009210000_flujo_importaciones_y_cron.sql` y `20261009213000_flujo_reconciliar_excel_vs_erp.sql`. QA con usuario
   temporal (borrado). Queda del sprint 4: unificar Flujo GM / Directorio como vista del ERP, despacho a proyecto y transferencia entre
   proyectos en Inventario, deuda tributaria y prestamos como compromisos, comprobante de retencion mensual, y el corte del lote del 6-nov.
+
+## 2026-10-09 - Sprint 4 (parte 2): despacho a proyecto, vista directorio
+
+- **Despacho a proyecto y transferencia entre proyectos** (`/inventario/despacho`, commit 12bdcc6f): `inventario_despachar(p_almacen,
+  p_proyecto_destino, p_lineas, p_proyecto_origen, p_referencia, p_notas)` valida el stock del origen (almacen general = proyecto nulo,
+  u otro proyecto) y por cada linea deja dos movimientos del kardex con el mismo numero DSP-AAAA-NNNN: salida del origen y entrada al
+  destino, motivos nuevos `despacho_proyecto` / `transferencia_proyecto` (check de `movimientos_inventario` ampliado, tipos TS
+  actualizados). `articulos.stock_actual` no cambia (sale y entra), `stock_almacen` y `v_stock_proyecto` si; el costo va al proyecto al
+  TC del dia. Vista `v_despachos` (un despacho por fila con su detalle). Probado en SQL con rollback: despacho 3 de 5, transferencia 2
+  entre proyectos, exceso rechazado con el mensaje "hay X y se pide Y". Hoy solo hay 1 articulo en el ERP (ICAPNP24): la pantalla
+  cobra sentido cuando las recepciones alimenten el kardex (bloque 4).
+- **Vista directorio** (`DirectorioKPI.tsx` dentro de /bi/gerencia): KPI mensual del "Flujo GM Directorio" (ingresos, egresos, flujo
+  neto, acumulado, liquidez operativa = ingresos/egresos) calculado con `flujo_caja` para la empresa, y boton "Exportar para el
+  directorio" con una hoja por area (Empresa, Proyectos, Oficina central, Contabilidad, TI). Con esto el Directorio deja de ser una
+  copia del Flujo GM. La tarjeta de Flujo Gerencia que decia "faltan las facturas" se actualizo: la deuda esta en CxP/Bancos.
+  El "Prestamo Socios" (propuesta de financiamiento) y el "FINAL" (saldos CIPRL) del Excel no tienen tabla en el ERP: quedan en el
+  archivo hasta que se decida modelar CIPRL/financiamiento (sprint 4 pendiente: deuda tributaria y mutuos como compromisos).
+- Saldo inicial de caja del flujo (`fijar_saldo_caja`) fijado al 01-01-2026 = 806 (3,796.06) + 830 (1,120.51 x TC del dia). El
+  acumulado del flujo de caja sigue muy negativo porque los compromisos "reales" incluyen los pagos 2024-2025 cargados y los
+  ingresos (CIPRL) solo estan como proyeccion/compromiso del Excel: es un tema de modelo de ingresos, no de carga.
+- Queda del sprint 4: corte del lote del 6-nov (proceso), deuda tributaria y prestamos/mutuos como compromisos (CONTROL DE LA DEUDA,
+  contratos de mutuo), comprobante de retencion mensual desde el ERP, registro masivo de los movimientos de banco que no son pagos
+  (ITF, comisiones, SUNAT, abonos) para que el saldo ERP cuadre con el banco.

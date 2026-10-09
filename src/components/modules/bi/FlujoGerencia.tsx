@@ -5,10 +5,10 @@
  * compromiso mensual, por proyecto, por centro de costo y concentración de
  * proveedores.
  *
- * Lo que NO está y se dice en pantalla: deuda, vencido y calendario de pagos.
- * Esas cifras salen de facturas, y `comprobantes_pago` está vacía hasta que
- * exista el módulo de CxP. Se rotula el hueco en vez de mostrar S/0, porque un
- * cero donde hay millones invita a decidir mal.
+ * Desde el 9-oct-2026 las facturas (portal + SIRE 2024-2026) y los pagos están
+ * en el ERP: la deuda y lo vencido se ven en Cuentas por pagar y Bancos. Aquí
+ * entra además la "Vista directorio" (KPI mensual), que reemplaza al archivo
+ * Flujo GM Directorio.
  */
 import { useMemo } from 'react';
 import {
@@ -23,6 +23,7 @@ import {
 } from '../../ui/table';
 import { BotonExportar } from '../../shared/BotonExportar';
 import { useGerencia, concentracion } from '../../../lib/bi/gerencia-store';
+import { DirectorioKPI } from './DirectorioKPI';
 
 const money = (n: number, sim: string) =>
   `${sim} ${Math.round(n).toLocaleString('es-PE')}`;
@@ -89,16 +90,18 @@ export function FlujoGerencia() {
         />
       </div>
 
-      {/* Lo que todavía no se puede mostrar, dicho de frente */}
+      {/* Vista directorio: KPI mensual (reemplaza al Flujo GM Directorio.xlsx) */}
+      <DirectorioKPI />
+
       <Card className="border-l-4 border-l-amber-500">
         <CardContent className="p-4 flex gap-3">
           <AlertCircle className="size-5 text-amber-600 shrink-0 mt-0.5" />
           <div className="text-sm">
-            <p className="font-medium">Falta la mitad de deuda, y es a propósito</p>
+            <p className="font-medium">Deuda y vencidos: en Cuentas por pagar y Bancos</p>
             <p className="text-muted-foreground mt-1">
-              La deuda total, lo vencido y el calendario de pagos salen de las facturas de
-              proveedor, que todavía no están cargadas en el sistema. Se mostrarán cuando entre el
-              módulo de Cuentas por Pagar. Preferimos decirlo a enseñar S/0 donde hay millones.
+              Las facturas de proveedor (portal y SIRE 2024-2026) y los pagos ya están en el ERP. La deuda viva, lo vencido y el calendario
+              de pagos se ven en Finanzas › Cuentas por pagar y Lotes de pago; el saldo real de bancos, en Finanzas › Bancos. Lo de aquí abajo
+              sigue siendo lo comprometido por órdenes y proyectos.
             </p>
           </div>
         </CardContent>

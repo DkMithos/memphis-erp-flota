@@ -157,6 +157,10 @@ Sin esto el sprint 1 arranca a ciegas. Son tres días porque el jueves es feriad
 > **Avance 9-oct (sprint 4, parte 1):** cron `flujo-import-2xdia` (06:00 y 15:00) con bitácora y "última lectura" en pantalla, botón
 > "Actualizar desde el Excel", y pantalla `/finanzas/reconciliacion` (Excel vs ERP por área y mes con la causa de cada fila). Queda:
 > Flujo GM Directorio como vista del ERP, despacho a proyecto y transferencia entre proyectos, deuda tributaria y mutuos como compromisos.
+>
+> **Avance 9-oct (sprint 4, parte 2):** despacho a proyecto y transferencia entre proyectos (`/inventario/despacho`, DSP-AAAA-NNNN) y
+> "Vista directorio" (KPI mensual + exportación por área) dentro de Flujo Gerencia: el Directorio deja de ser un segundo archivo. Queda:
+> corte del lote del 6-nov, deuda tributaria y mutuos como compromisos, comprobante de retención, registro masivo de ITF/comisiones/abonos.
 
 ---
 
