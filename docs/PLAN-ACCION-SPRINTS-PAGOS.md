@@ -129,6 +129,10 @@ Sin esto el sprint 1 arranca a ciegas. Son tres días porque el jueves es feriad
 
 **Hecho cuando:** dos lotes seguidos (16 y 23 de octubre) cuadraron al céntimo con el Excel y el acumulado del ERP coincide con el de Contabilidad para setiembre. Esa es la condición para el corte del sprint 4.
 
+> **Avance 9-oct (sprint 3):** importador BBVA y conciliación (`/finanzas/bancos`), carga histórica 2024-2026 (3,346 pagos) e
+> importador del SIRE de compras (botón "Importar SIRE" en `/compras/facturas`) construidos y probados. Queda del sprint 3: que
+> Finanzas fije el saldo inicial de las cuentas 806/830, importe `BANCOS2026` y se compare el acumulado por CC con el de Contabilidad.
+
 ---
 
 ## Sprint 4 · 3 al 7 de noviembre · Corte a ERP y cierre del desfase del flujo

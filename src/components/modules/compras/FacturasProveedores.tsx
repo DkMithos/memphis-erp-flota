@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePersistedState } from '../../../lib/shared/usePersistedState';
-import { FileText, Search, X, RefreshCw, CheckCircle2, AlertTriangle, FileDown, CalendarClock, BadgeCheck } from 'lucide-react';
+import { FileText, Search, X, RefreshCw, CheckCircle2, AlertTriangle, FileDown, CalendarClock, BadgeCheck, Upload, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
@@ -20,14 +20,13 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../../ui/table';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '../../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../ui/dialog';
 import { Textarea } from '../../ui/textarea';
 import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabase/client';
 import { useAuth } from '../../../auth/AuthProvider';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
+import { leerLibroSire, importarSire, type FilaSire } from '../../../lib/compras/sire';
 import { usePagination } from '../../../lib/shared/usePagination';
 
 interface Props { onNavigate: (route: string) => void; }
@@ -164,6 +163,29 @@ export function FacturasProveedores({ onNavigate }: Props) {
   const { paged, page, totalPages, setPage } = usePagination(filtradas);
   const { can } = usePermissions();
   const puedeGestionar = can('compras', 'editar');
+  // SIRE de compras: el Excel mensual de SUNAT con todas las facturas recibidas.
+  const puedeImportarSire = can('compras', 'editar') || can('contabilidad', 'editar') || can('finanzas', 'lotes_validar');
+  const [sire, setSire] = useState<{ archivo: string; filas: FilaSire[]; avisos: string[] } | null>(null);
+  const [importandoSire, setImportandoSire] = useState(false);
+  const elegirSire = async (archivo: File | null) => {
+    if (!archivo) return;
+    try {
+      const hojas = await leerLibroSire(archivo);
+      const mejor = hojas.filter(h => h.filas.length > 0).sort((a, b) => b.filas.length - a.filas.length)[0];
+      if (!mejor) { toast.error(hojas[0]?.avisos.join(' ') || 'El archivo no tiene filas del SIRE'); return; }
+      setSire({ archivo: `${archivo.name} · ${mejor.hoja}`, filas: mejor.filas, avisos: mejor.avisos });
+    } catch (e) { toast.error((e as Error).message); }
+  };
+  const confirmarSire = async () => {
+    if (!sire) return;
+    setImportandoSire(true);
+    try {
+      const r = await importarSire(sire.filas, sire.archivo);
+      toast.success(`SIRE: ${r.nuevas} facturas nuevas, ${r.yaExistian} ya estaban, ${r.enlazadas} enlazadas a pagos históricos, ${r.notasCredito} notas de crédito omitidas, ${r.sinProveedor} sin proveedor en el directorio, ${r.saltadas} saltadas.`, { duration: 12000 });
+      setSire(null); await cargar();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setImportandoSire(false); }
+  };
 
   const totalPorPagar = useMemo(() => facturas
     .filter(f => ['conforme', 'programada_pago'].includes(f.estadoFlujo))
@@ -247,6 +269,12 @@ export function FacturasProveedores({ onNavigate }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {puedeImportarSire && (
+            <label className="inline-flex">
+              <input type="file" className="hidden" accept=".xlsx,.xls" onChange={e => { elegirSire(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+              <span className="inline-flex items-center gap-2 h-9 px-3 rounded-md border text-sm cursor-pointer hover:bg-accent"><Upload className="size-4" /> Importar SIRE</span>
+            </label>
+          )}
           <BotonExportar
             modulo="compras" nombre="facturas-proveedores" hoja="Facturas"
             datos={filtradas.map(f => ({
@@ -542,6 +570,36 @@ export function FacturasProveedores({ onNavigate }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {sire && (
+        <Dialog open onOpenChange={(o: boolean) => { if (!o) setSire(null); }}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Importar SIRE de compras</DialogTitle>
+              <DialogDescription>
+                {sire.archivo}: {sire.filas.length} filas ({sire.filas.filter(f => f.tipo === '01' || f.tipo === '03').length} facturas/boletas, {sire.filas.filter(f => f.tipo === '07' || f.tipo === '08').length} notas de crédito/débito que se omiten).
+                Las que ya existen (misma serie y número) no se duplican. Las nuevas entran como "conforme"; si un pago histórico las menciona, quedan pagadas.
+                {sire.avisos.length > 0 && <span className="text-amber-700"> {sire.avisos.join(' ')}</span>}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[50vh] overflow-y-auto border rounded-md">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/30 sticky top-0"><tr><th className="text-left px-2 py-1">Fecha</th><th className="text-left px-2 py-1">Tipo</th><th className="text-left px-2 py-1">Comprobante</th><th className="text-left px-2 py-1">RUC</th><th className="text-left px-2 py-1">Proveedor</th><th className="text-right px-2 py-1">Total</th><th className="text-left px-2 py-1">Det.</th></tr></thead>
+                <tbody className="divide-y">
+                  {sire.filas.slice(0, 400).map((f, i) => (
+                    <tr key={i} className={f.tipo === '07' || f.tipo === '08' ? 'text-muted-foreground line-through' : ''}>
+                      <td className="px-2 py-1 whitespace-nowrap">{f.fecha_emision}</td><td className="px-2 py-1">{f.tipo}</td><td className="px-2 py-1 font-mono">{f.serie}-{f.numero}</td><td className="px-2 py-1">{f.ruc}</td><td className="px-2 py-1 truncate max-w-[240px]">{f.razon_social}</td><td className="px-2 py-1 text-right tabular-nums whitespace-nowrap">{f.moneda} {f.total.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td><td className="px-2 py-1">{f.detraccion}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSire(null)}>Cancelar</Button>
+              <Button disabled={importandoSire} onClick={confirmarSire}>{importandoSire ? <Loader2 className="size-4 animate-spin" /> : `Importar ${sire.filas.filter(f => f.tipo !== '07' && f.tipo !== '08').length}`}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

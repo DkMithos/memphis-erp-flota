@@ -3342,3 +3342,25 @@ jueves 16-oct; lineas sin comprobante permitidas (parametro `lotes_permitir_sin_
 - Efecto en saldos: las cuentas 806/830 quedan negativas (solo egresos cargados) hasta que Finanzas fije el saldo inicial al
   01-01-2026 e importe los extractos (abonos). La tabla "acumulado por CC" excluye la categoria CAMBIO DE MONEDA.
 - Para recargar: borrar `referencia_tipo = 'historico_contabilidad'` y correr los dos scripts (el loader ya lo hace).
+
+## 2026-10-09 - Sprint 3 (parte 3): importador del SIRE de compras
+
+- El SIRE de compras que Contabilidad baja de SUNAT cada mes trae TODAS las facturas recibidas (315 en setiembre 2026 frente a
+  40 que entraron al ERP por el portal). Boton "Importar SIRE" en /compras/facturas (compras.editar | contabilidad.editar |
+  finanzas.lotes_validar): se elige el Excel, se muestra la vista previa (facturas/boletas vs notas de credito que se omiten) y
+  se importa en bloques de 150 filas a `sire_importar_compras(p_filas, p_archivo)`.
+- Reglas: columnas por nombre (la cabecera puede no estar en la fila 1); se saltan 07/08 (NC/ND, se cuentan), filas sin RUC,
+  serie, fecha o total; no se duplica si ya existe tipo+serie+numero (sin ceros a la izquierda); la nueva nace `conforme`
+  (deuda real en CxP, el trigger crea el compromiso), con `origen = 'sire'`, `periodo_sire`, proveedor por RUC (si no esta en el
+  directorio se cuenta en "sin proveedor") y `tiene_detraccion` cuando la columna Detraccion trae "D". USD con TC <= 1 queda en 1
+  y el lote de pago usa tc_vigente.
+- `sire_enlazar_pago_historico`: si un pago historico (HIST-AAAA-NNNN) menciona "SERIE-NUMERO" en la descripcion y coincide el
+  proveedor (5 primeras letras), se enlaza la transaccion al comprobante y al compromiso y `recalc_pago_compromiso` deja la
+  factura `pagada` y el compromiso PAGADO. Probado con FP30-1842 (HIST-2026-0038): factura pagada, compromiso PAGADO; QA borrado
+  (factura, compromiso, asiento, registro de compras; la transaccion volvio a comprobante_id/compromiso_id nulos).
+- Migracion `20261009140000_sire_importar_compras.sql`; lib `src/lib/compras/sire.ts` (+ test con el SIRE real de setiembre:
+  315 filas, 304 facturas, 11 NC, 138 con D, total 4,171,038).
+- Al importar el SIRE real: los pagos historicos solo cubren lo pagado hasta agosto 2026; las facturas de setiembre quedaran
+  `conforme` y se pagan por lotes. Los tres errores de tsc en FacturasProveedores.tsx (lineas 204/510/549) ya existian en HEAD.
+- Sprint 3 completo: bancos (543d74d4), carga historica (c2f01658) y SIRE. Pendiente de Finanzas: saldo inicial de 806/830 al
+  01-01-2026, importar BANCOS2026 por /finanzas/bancos (el 2026 se concilia solo por OPE) y probar el lote real del 16-oct.
