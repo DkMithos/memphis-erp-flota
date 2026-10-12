@@ -3455,3 +3455,19 @@ Sprint 4, parte 1:
 - Queda del sprint 4: corte del lote del 6-nov (proceso), deuda tributaria y prestamos/mutuos como compromisos (CONTROL DE LA DEUDA,
   contratos de mutuo), comprobante de retencion mensual desde el ERP, registro masivo de los movimientos de banco que no son pagos
   (ITF, comisiones, SUNAT, abonos) para que el saldo ERP cuadre con el banco.
+
+## 2026-10-12 - Analisis de las carpetas Administracion y Proyectos + evaluacion de skills externos
+
+- Doc: `docs/ANALISIS-Carpetas-Administracion-Proyectos.md`. Administracion (1,291 archivos): legajos, planillas BUK, EPS/vida ley,
+  vacaciones, 29 cajas chicas (modulo existe, sin cargar), viaticos (797 reservas 2026, sin modulo), fianzas (ya sincronizadas),
+  pagos BBVA semanales (reemplazados por lotes), `Libro obligaciones` (prestamos y cheques diferidos: pendiente del sprint 4).
+  Proyectos (20,435 archivos): expediente por proyecto (19 subcarpetas), `Seguimiento de proyectos` semanal (12 copias),
+  `SEGUIMIENTO CARTAS` (5,600 filas de correspondencia, sin modulo), valorizaciones mensuales en Excel, 16 cronogramas .mpp,
+  inventario La Sirena con 555 series (el inventario del ERP es por cantidad), evaluacion de ideas con ROI.
+- Propuesta de orden tras el sprint 4: obligaciones financieras, importador de caja chica, informe semanal de proyectos, viaticos,
+  correspondencia, unidades serializadas, cronogramas desde Project. RR. HH./planilla no entran (BUK).
+- Skills: claude-cookbooks = referencia para la IA embebida (no instalar); financial-services = solo `audit-xls` y `clean-data-xls`
+  sirven; scientific-agent-skills = no; using-superpowers = ya instalado aqui, usar verification/debugging y no forzar TDD/brainstorming
+  en cambios chicos ni cargas de datos. Recomendado: un skill propio del proyecto con las reglas de trabajo y uno de carga de Excel.
+- Seguridad: legajos y remuneraciones en el sitio compartido de Administracion; cuentas bancarias de proveedores en los Excel de pagos.
+
