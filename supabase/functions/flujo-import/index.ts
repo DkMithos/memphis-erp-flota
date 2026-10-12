@@ -71,8 +71,14 @@ async function graph(token: string, url: string): Promise<any> {
 const norm = (s: unknown): string =>
   String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
 
-// Alias de centros de costo con nombre distinto entre la BD y el ERP.
-const ALIAS_CC: Record<string, string> = { database: 'base de datos' }
+// Alias de centros de costo con nombre distinto entre la BD y el ERP (clave y valor ya normalizados: minúsculas, sin acentos).
+// Los tres últimos son códigos de proyecto mal escritos en el Flujo de proyectos.xlsx (semana 2 del plan de carga).
+const ALIAS_CC: Record<string, string> = {
+  database: 'base de datos',
+  gcuzcoambu: 'gcuscoambu',          // GORE Cusco - Ambulancias (02CUSAMB25)
+  mpcuscopnp: 'mpcuscoserenazgo',    // MP Cusco - Serenazgo (01CUSMUN24)
+  mss: 'mss-30',                     // Municipalidad de Santiago de Surco, contrato 030-2022
+}
 
 /**
  * Área canónica a partir del nombre del archivo:
@@ -273,6 +279,12 @@ async function importarArchivo(ctx: Ctx, p: { area?: string; driveId: string; it
     for (let i = 0; i < filas.length; i += 200) {
       const { error } = await ctx.admin.from('flujo_compromisos').insert(filas.slice(i, i + 200))
       if (error) throw new Error(`Error al cargar: ${error.message}`)
+    }
+    // Las valorizaciones del ERP se deduplican contra los CIPRL del Excel (±8 %): tras reemplazar el
+    // Excel de PROYECTOS hay que volver a sincronizarlas para que el flujo no pierda ni duplique cobros.
+    if (area === 'PROYECTOS') {
+      const { error: eSync } = await ctx.admin.rpc('valorizaciones_resincronizar')
+      if (eSync) console.warn('valorizaciones_resincronizar:', eSync.message)
     }
 
     await anotar(ctx, {

@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob, Bash, Write, Edit
 
 Este guion ya se usó cuatro veces (pagos históricos 2024-2026, extracto BBVA, SIRE 2024-2026 + constancias,
 obligaciones). Los scripts de referencia están en `scripts/historico-pagos/`, `scripts/sire-historico/` y
-`scripts/obligaciones/` y `scripts/semana1-conexiones/` (conectar CDC→proyecto, proveedores desde el SIRE, CDC heredado); los lectores de navegador en `src/lib/finanzas/bancos-bbva.ts` y
+`scripts/obligaciones/`, `scripts/semana1-conexiones/` (conectar CDC→proyecto, proveedores desde el SIRE, CDC heredado) y `scripts/semana2-ingresos/` (valorizaciones reales desde RESUMEN PROYECTOS); los lectores de navegador en `src/lib/finanzas/bancos-bbva.ts` y
 `src/lib/compras/sire.ts`. Antes de cargar lee `docs/PLAN-CARGA-DATOS-ERP.md` (qué puede romper cada dato).
 
 ## 1. Copiar y perfilar (nunca editar el original)

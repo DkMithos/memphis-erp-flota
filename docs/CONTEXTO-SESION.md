@@ -3561,3 +3561,47 @@ en la base) y el runner `dry.mjs` ya no hace `set role`. Las facturas se tocan c
 completa cuenta y condición de los proveedores `migrado_de = 'sire'` antes de pagarles por lote (filtro por observaciones
 "Creado el 12/10/2026 desde el SIRE"). Siguiente: semana 2 del plan (valorizaciones desde el Seguimiento, SIRE de ventas,
 registro masivo de ITF/comisiones/abonos).
+
+## 2026-10-12 - Semana 2 del plan de carga (parte 1): valorizaciones reales como lado de ingresos
+
+Pedido de Kevin: "Arranca con la semana 2, empieza por las valorizaciones" (#4 de `docs/PLAN-CARGA-DATOS-ERP.md`).
+
+**Lo que se encontró.** El `Seguimiento de proyectos dd.mm.26.xlsx` (12 versiones, la última del 05.10.26) trae UNA fila por
+proyecto con totales (inversión, ejecutado, cobrado CIPRL, por cobrar), no una fila por valorización. El detalle por
+valorización está en el bloque "N° Valorización | Fecha | Importe | Mes CIPRL" de cada hoja "#" del `RESUMEN PROYECTOS.xlsx`
+(OPERACIONES TEAM), que es lo que ya intenta espejar `excel-sync`. La tabla `valorizaciones` no estaba vacía: tenía 16 filas de
+EJEMPLO creadas el 25/05/2026 (admin@kesa.com, montos redondos: 4 000 000, 18 000 000…) que generaban 7 compromisos de cobro
+ficticios (p. ej. "VAL-1 01CUSMUN24 4 M PAGADO sep-2026") y falseaban el Proyecto 360.
+
+**Qué se hizo** (`scripts/semana2-ingresos/1-valorizaciones-resumen.sql`, dry-run con rollback y luego commit por el pooler con
+rol temporal `semana2_tmp`, borrado al final):
+- Se borraron las 16 valorizaciones de ejemplo (ningún cobro registrado sobre ellas; sus compromisos cayeron por trigger).
+- Se cargaron las **13 valorizaciones reales con importe > 0** de los 6 proyectos OXI en ejecución (MP Cusco Serenazgo 3, GORE
+  Cusco Ambulancias 1, GORE Huánuco PNP 2, GORE Loreto Bomberos 1, GORE Amazonas PNP 4, GORE Cusco PNP 2): S/ 77.84 M en 9
+  pagadas y S/ 12.15 M en 4 presentadas. Estado `pagada` = su CIPRL ya se cobró (cruce con el Seguimiento y con los CIPRL
+  PAGADO del Flujo de proyectos); `presentada` = CIPRL por cobrar. Fechas aproximadas al día 1 del mes (presentación = mes de la
+  valorización; cobro = mes del CIPRL); todo anotado en `observaciones`. Las valorizaciones con importe 0 (informes mensuales sin
+  monto) no se cargaron. GORE Cusco Hidroambulancias no tiene ninguna con monto.
+- Migración `20261012170000_valorizaciones_cobro_ciprl.sql`: `sync_compromiso_de_valorizacion` deduplica contra el Excel con
+  tolerancia **±8 %** (antes 1 %) y también para pendientes, porque el CIPRL se emite neto de la supervisión y difiere de la
+  valorización (Cusco Serenazgo: valo 6.48 M vs CIPRL 6.01 M). Resultado: las 13 quedaron deduplicadas (0 compromisos ERP de
+  valorización mientras el área PROYECTOS venga del Excel), así el flujo no duplica ingresos. Nueva función
+  `valorizaciones_resincronizar()` que `flujo-import` (v10) llama tras reemplazar el Excel de PROYECTOS: cuando se corte el
+  Excel, las valorizaciones del ERP toman el relevo solas.
+- `flujo-import` v10 también mapea los CDC mal escritos del Flujo de proyectos: `GCUZCOAMBU` → GCUSCOAMBU (02CUSAMB25),
+  `MPCUSCOPNP` → MPCUSCOSERENAZGO (01CUSMUN24), `MSS` → MSS-30. Las 519 filas ya cargadas se re-enlazaron (el trigger
+  `trg_flujo_proyecto` les puso el proyecto): el flujo Excel pasa de 1,097 a **1,399 filas con proyecto**; en el área PROYECTOS
+  solo quedan sin proyecto 22 filas de CDC administrativos (ALMACEN 18, OFCENTRAL 2, BANCOS 2), que no deben tenerlo.
+- `proyectos.monto_cobrado` tomó el "Monto Cobrado CIPRL" del Seguimiento del 05.10.26 en los 7 proyectos OXI (antes 02CUSAMB25
+  y 05AMAPNP25 figuraban con 0 cobrado).
+
+**Proyecto 360 ahora (valorizado / cobrado, S/):** 01CUSMUN24 7.55 M / 6.48 M (CIPRL cobrado 6.01 M), 02CUSAMB25 35.89 M /
+35.89 M, 03HNCPNP25 6.94 M / 6.94 M, 04LORBOM25 16.54 M / 16.54 M, 05AMAPNP25 12.19 M / 1.10 M (11.08 M por cobrar),
+06CUSPNP25 10.88 M / 10.88 M. "Cobrado" es la valorización cuyo CIPRL se cobró; el importe efectivamente cobrado es
+`monto_cobrado` (Seguimiento). La diferencia es la supervisión que descuenta el CIPRL.
+
+**Fuera de alcance / pendiente.** Los proyectos liquidados (ICAPNP24, Loreto PNP/SC/Ambulancias) solo tienen valorizaciones en
+PDF: no se cargaron. La tarjeta "Valorizaciones del Excel" (`ValorizacionesExcel.tsx`) sigue vacía porque `datos_raw` de
+`proyectos_excel_sync` no trae la lista (los registros del 10/09 tienen otra estructura: items/comentarios/fianza/suspensiones);
+revisar quién los escribe antes de tocar `excel-sync`. Siguiente: #5 SIRE de ventas 2024-2026 y #6 registro masivo de
+ITF/comisiones/abonos.
