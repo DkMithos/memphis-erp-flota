@@ -89,6 +89,15 @@ const EXCEPCIONES: { prefijo: string; requisitos: RequisitoRuta[] }[] = [
       { modulo: 'finanzas', accion: 'ver' },
     ],
   },
+  // Obligaciones financieras: préstamos, cheques diferidos, SUNAT. Quien ve Finanzas, Contabilidad o el flujo.
+  {
+    prefijo: '/finanzas/obligaciones',
+    requisitos: [
+      { modulo: 'finanzas', accion: 'ver' },
+      { modulo: 'finanzas', accion: 'flujo' },
+      { modulo: 'contabilidad', accion: 'ver' },
+    ],
+  },
   // Reconciliación Excel vs ERP del flujo: mismas puertas que el flujo financiero.
   {
     prefijo: '/finanzas/reconciliacion',

@@ -3471,3 +3471,32 @@ Sprint 4, parte 1:
   en cambios chicos ni cargas de datos. Recomendado: un skill propio del proyecto con las reglas de trabajo y uno de carga de Excel.
 - Seguridad: legajos y remuneraciones en el sitio compartido de Administracion; cuentas bancarias de proveedores en los Excel de pagos.
 
+
+## 2026-10-12 - Sprint 4 (parte 3): obligaciones financieras
+
+- Modulo nuevo `/finanzas/obligaciones` (sidebar "Obligaciones financieras"; puertas finanzas.ver | finanzas.flujo | contabilidad.ver;
+  escribe quien tiene finanzas.editar/crear o contabilidad.editar). Tablas `obligaciones_financieras` (OBL-AAAA-NNN; tipo prestamo /
+  cheque_diferido / letra / deuda_tributaria / fraccionamiento / otro; acreedor, proveedor_id, moneda, capital, interes_total, tasa,
+  tipo de interes, penalidad, contrato, vencimiento, estado vigente / vencida / pagada / renegociada / anulada, area, cdc) y
+  `obligaciones_cuotas` (numero, vencimiento, capital, interes, total, estado, pagado, fecha_pago, compromiso_id).
+- Cada cuota viva es un compromiso del flujo (`flujo_compromisos.obligacion_cuota_id`, fuente erp, origen real, categoria
+  `financiamiento`, cdc PRESTAMOS / SUNAT / el del Excel): entra al flujo de caja, a Cuentas por pagar y se paga por lotes
+  (`lote_pago_agregar` acepta compromisos sin comprobante, tipo de linea "compromiso"). El pago real cierra la cuota por trigger
+  (`trg_compromiso_a_cuota`); el pago historico se marca a mano (`obligacion_cuota_marcar_pagada`). Funciones: `obligacion_guardar`,
+  `obligacion_cuotas_generar` (n cuotas iguales, mensual o unica), `obligacion_cuotas_fijar` (cronograma explicito), `obligacion_estado`,
+  `obligacion_sincronizar`. Vistas `v_obligaciones` (saldo, vencido, proxima cuota) y `v_obligaciones_cuotas`.
+- Carga inicial (`scripts/obligaciones/carga-inicial-2026-10-12.sql`): 20 obligaciones desde el `Libro obligaciones memphis.xlsx`
+  (Wiese 400K y 200K US$, OXI 70K, Etramed 205K US$ devuelto y 1,000,000 + 50,000 pendiente, Miguel Zegarra 691,567.72 con 434,847
+  devueltos, cheques diferidos Secrex 351,207.54, HFM 55,014.68 US$, Aura 50K US$ devuelto, Cesce 19,555.76, letra Aura 400,199.16 US$),
+  del Flujo Administracion (Imagen Publica, Impacto Tactico, Susan Hoefken: pagados set-2026) y de CONTROL DE LA DEUDA (fraccionamiento
+  perdido IGV mar-2024 y Fraccionamiento Renta 2024 = renegociados; Refinanciamiento I IGV mar-2024 = pagado; Refinanciamiento II Renta
+  2024 = 60 cuotas de 5,822 hasta 2031, 7 pagadas; ITAN 2026 9 cuotas, 6 pagadas; deuda ago-2023 en cobranza 6,725.59). Resultado:
+  12 vivas (saldo S/ 2.15 M + US$ 1.06 M), 9 con cuotas vencidas (S/ 1.50 M + US$ 1.06 M): los estados "vencida" vienen de que el ERP
+  no tiene pago registrado; Contabilidad debe confirmar (Wiese, OXI, Etramed 1 M, Secrex, HFM, Cesce, letra Aura). Fechas aproximadas
+  anotadas en las cuotas (ITAN dia 19; Refinanciamiento II cuotas 2-6; Refinanciamiento I cuotas 10-12).
+- OJO duplicidad transitoria: BD CONTA y Flujo Administracion ya traen estas mismas lineas (SUNAT refinanciamientos, ITAN, PRESTAMOS)
+  como fuente excel; el flujo de caja y CxP las suman dos veces hasta el corte del Excel (sprint 4). La reconciliacion las cruza por
+  proveedor + importe. Cuando se corte el Excel de Contabilidad/Administracion, estas lineas quedan solo en el ERP.
+- No cargado: ordenes de embargo SUNAT 2025 (S/ 639,171 retenidos a terceros), IGV abr-2023 (31,573, "compensacion"), prestamos de
+  Guillermo Macher (los HIST son ambiguos: honorarios vs prestamo), intereses moratorios Etramed del flujo (63,063.70 y US$ 557.77).
+- QA con usuario temporal (borrado). Pantalla probada: lista, KPI, detalle con cronograma.

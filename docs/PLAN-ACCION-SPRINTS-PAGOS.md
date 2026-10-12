@@ -161,6 +161,10 @@ Sin esto el sprint 1 arranca a ciegas. Son tres días porque el jueves es feriad
 > **Avance 9-oct (sprint 4, parte 2):** despacho a proyecto y transferencia entre proyectos (`/inventario/despacho`, DSP-AAAA-NNNN) y
 > "Vista directorio" (KPI mensual + exportación por área) dentro de Flujo Gerencia: el Directorio deja de ser un segundo archivo. Queda:
 > corte del lote del 6-nov, deuda tributaria y mutuos como compromisos, comprobante de retención, registro masivo de ITF/comisiones/abonos.
+>
+> **Avance 12-oct (sprint 4, parte 3):** módulo `/finanzas/obligaciones` (préstamos, cheques diferidos, letras, deuda tributaria y
+> fraccionamientos como cuotas-compromiso del flujo, pagables por lotes) con 20 obligaciones cargadas desde el Libro de obligaciones,
+> el CONTROL DE LA DEUDA y el Flujo Administración. Queda: corte del lote del 6-nov, comprobante de retención, ITF/comisiones/abonos masivo.
 
 ---
 
