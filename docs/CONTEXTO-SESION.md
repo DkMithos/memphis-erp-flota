@@ -3500,3 +3500,19 @@ Sprint 4, parte 1:
 - No cargado: ordenes de embargo SUNAT 2025 (S/ 639,171 retenidos a terceros), IGV abr-2023 (31,573, "compensacion"), prestamos de
   Guillermo Macher (los HIST son ambiguos: honorarios vs prestamo), intereses moratorios Etramed del flujo (63,063.70 y US$ 557.77).
 - QA con usuario temporal (borrado). Pantalla probada: lista, KPI, detalle con cronograma.
+
+## 2026-10-12 - Plan de carga de datos y skills propios
+
+- `docs/PLAN-CARGA-DATOS-ERP.md`: estado de las conexiones medido en la base (6,412 facturas SIRE sin CDC/proyecto, 3,853 sin
+  proveedor = 703 RUC; solo 10 de 79 CDC apuntan a proyecto; 0 valorizaciones; 0 facturas emitidas; 1,558 movimientos de banco sin
+  conciliar), regla de carga (copia, columnas por nombre, dry-run con rollback, claves naturales, triggers, bitacora, limpieza), tabla
+  de 13 datos con "que puede romper" y orden de tres semanas: CDC->proyecto, proveedores desde SIRE, CDC heredado del pago, ajuste del
+  trigger de facturas emitidas (BLOQUEO: `trg_factura_compromiso` crearia compromisos "pagar" para ventas), valorizaciones desde el
+  Seguimiento, SIRE de ventas, registro masivo de ITF/comisiones/abonos, conciliar set-oct, acreedores como proveedores; despues
+  viaticos, correspondencia y unidades con serie.
+- Correccion: la caja chica SI esta cargada y se sincroniza cada 30 min (`excel-sync`, 47 cajas, 1,158 gastos); lo dicho el 12-oct en
+  el analisis de Administracion ("29 cajas sin cargar") estaba mal.
+- Skills propios en `.claude/skills/`: `memphis-erp` (reglas de trabajo: commits como Kevin, migraciones guardadas, permisos, QA con
+  usuario temporal, paginacion, documentacion, no tocar) y `memphis-carga-excel` (guion de carga de Excel/CSV con dry-run, claves,
+  triggers y avisos aprendidos).
+
