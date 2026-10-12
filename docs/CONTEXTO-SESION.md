@@ -3605,3 +3605,42 @@ PDF: no se cargaron. La tarjeta "Valorizaciones del Excel" (`ValorizacionesExcel
 `proyectos_excel_sync` no trae la lista (los registros del 10/09 tienen otra estructura: items/comentarios/fianza/suspensiones);
 revisar quién los escribe antes de tocar `excel-sync`. Siguiente: #5 SIRE de ventas 2024-2026 y #6 registro masivo de
 ITF/comisiones/abonos.
+
+## 2026-10-12 - Semana 2 del plan de carga (parte 2): SIRE de ventas 2025-2026 (facturas emitidas)
+
+Pedido de Kevin: "sigue con el SIRE de ventas" (#5 del plan). Fuente: los 20 `MM-AAAA SIRE VENTAS ...xlsx` de
+`01. Contabilidad/<año>/<mes>/3. Ventas (PDF)` (2025-01 a 2026-09; **no hay SIRE de ventas de 2024 ni de abril 2026**, y
+octubre 2026 aún no existe). Scripts en `scripts/semana2-ingresos/`: `2-parsear-sire-ventas.mjs` (une hojas y archivos, deduplica
+por tipo|serie|número: 2,113 filas → 1,021 documentos, 0 conflictos de monto), `3-cargar-sire-ventas.mjs` (función real
+`sire_importar_ventas`, corte 202601, y resolución de notas de crédito) y `4-ventas-enlaces.sql` (clientes y proyectos). Dry-run
+con rollback y luego commit por el pooler (rol `semana2b_tmp`, borrado al final).
+
+**Migración `20261012190000_sire_ventas.sql`:** `comprobantes_pago.cliente_id` (→ `clientes`) y `sire_importar_ventas(p_filas,
+p_archivo, p_corte)`: emisor = Memphis, receptor = cliente, `direccion = 'emitido'`; periodo < corte → `historica` (sin asiento),
+si no → `emitida`; las notas de crédito entran en positivo (el SIRE las trae negativas) y sin asiento. `trg_factura_compromiso`
+ya ignora emitidos (semana 1) y `trg_comprobante_contabilizar` sí contabiliza las ventas de 2026 (asiento de venta + registro de
+ventas): **464 facturas 2026 contabilizadas, 0 errores**.
+
+**Resultado:** 936 comprobantes emitidos: 734 facturas (73 históricas 2025 por S/ 48.7 M, 464 vivas 2026 por S/ 79.0 M, 197
+anuladas por nota de crédito por S/ 73.9 M) y 202 notas de crédito (S/ 77.8 M). **85 notas de crédito con importe 0** (78 de
+junio 2026, correcciones de glosa) no se cargaron: no tienen efecto financiero. 2 notas apuntan a facturas de 2024 que no están.
+Serie única E001. 48 documentos en USD (4 con TC ≤ 1 → se guarda 1 y manda `tc_vigente`).
+
+**Notas de crédito.** NC por el total de la factura (tipo 1 "anulación de la operación" o tipo 3 con el mismo importe) → la factura
+pasa a `estado_flujo = 'anulada'` (su asiento 2026 queda `anulado` por `anular_contabilizacion_comprobante`) y la NC queda sin
+asiento, para no restar dos veces. NC parcial (3 casos, todos 2025) → observación en la factura. Si una NC de 2026 anulara una
+factura de 2025 se contabilizaría la NC (0 casos). La ola de 197 anulaciones (junio-agosto 2026) es la reemisión masiva que
+Contabilidad explicó en su carta a SUNAT.
+
+**Clientes y proyectos.** La tabla `clientes` del CRM estaba vacía: se crearon **22 clientes** desde el RUC receptor (CLI-0001…, 5
+`gobierno`, origen `sire`); las 936 facturas apuntan a su cliente y 9 proyectos a su entidad. Proyecto en la factura solo cuando no
+hay duda: 221 facturas (Surco → MSS-30, Independencia → MDI, OXI, Inmuebles Panamericana, GORE Huánuco → 03HNCPNP25, GORE
+Amazonas → 05AMAPNP25, y 2 de GORE Cusco por monto ±8 %). **Quedan sin proyecto las ventas a las financistas OXI**: AMAZONAS
+CORPORATION (199 docs, S/ 38.3 M neto), E.I.G.R. CONTRATISTAS (194, S/ 32.3 M), FONDO INVESTA y ALIHCOM (S/ 11.0 M cada una),
+LIGHT & VISION (S/ 6.3 M), GREEN LOS ANGELES y BUSINESS & KNOWLEDGE (S/ 3.0 M), y 226 facturas pequeñas a GORE Cusco (S/ 3.6 M,
+tres proyectos posibles). Operaciones debe decir qué proyecto financia cada empresa; con eso una actualización por RUC termina el
+enlace. El lado de cobro sigue en las valorizaciones (CIPRL), no en la factura emitida.
+
+**Pantallas.** Las emitidas se ven en Contabilidad › Comprobantes (filtro "Emitido"); Facturas de proveedores y Proyecto 360 solo
+miran recibidas. No hay todavía una pantalla de cuentas por cobrar por factura: pendiente de diseño (hoy la CxC se lee por
+valorización). Siguiente: #6 registro masivo de ITF/comisiones/abonos del extracto 2026.

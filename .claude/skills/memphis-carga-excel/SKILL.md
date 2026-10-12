@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob, Bash, Write, Edit
 
 Este guion ya se usó cuatro veces (pagos históricos 2024-2026, extracto BBVA, SIRE 2024-2026 + constancias,
 obligaciones). Los scripts de referencia están en `scripts/historico-pagos/`, `scripts/sire-historico/` y
-`scripts/obligaciones/`, `scripts/semana1-conexiones/` (conectar CDC→proyecto, proveedores desde el SIRE, CDC heredado) y `scripts/semana2-ingresos/` (valorizaciones reales desde RESUMEN PROYECTOS); los lectores de navegador en `src/lib/finanzas/bancos-bbva.ts` y
+`scripts/obligaciones/`, `scripts/semana1-conexiones/` (conectar CDC→proyecto, proveedores desde el SIRE, CDC heredado) y `scripts/semana2-ingresos/` (valorizaciones reales desde RESUMEN PROYECTOS, SIRE de ventas con notas de crédito); los lectores de navegador en `src/lib/finanzas/bancos-bbva.ts` y
 `src/lib/compras/sire.ts`. Antes de cargar lee `docs/PLAN-CARGA-DATOS-ERP.md` (qué puede romper cada dato).
 
 ## 1. Copiar y perfilar (nunca editar el original)
@@ -42,6 +42,7 @@ cp "/c/Users/URSULA/OneDrive - MEMPHIS MAQUINARIAS S.A.C/<carpeta>/<archivo>.xls
 | Dato | Tabla | Clave natural | Marca de origen |
 |---|---|---|---|
 | Facturas | `comprobantes_pago` | tenant + RUC + tipo + serie + número (sin ceros) | `origen = 'sire'`, `periodo_sire` |
+| Facturas emitidas (ventas) | `comprobantes_pago` (`direccion = 'emitido'`) | tipo + serie + número | `origen = 'sire'`; NC en positivo; NC por el total → factura `anulada` |
 | Pagos históricos | `transacciones` | numero `HIST-AAAA-NNNN` | `referencia_tipo = 'historico_contabilidad'`, OPE en `referencia_numero` |
 | Extracto | `movimientos_bancarios` | cuenta + OPE + fecha + importe | `origen_archivo = 'archivo · hoja'` |
 | Constancias | `detracciones` | `numero_constancia` | `origen = 'sunat'` |
@@ -49,7 +50,7 @@ cp "/c/Users/URSULA/OneDrive - MEMPHIS MAQUINARIAS S.A.C/<carpeta>/<archivo>.xls
 | Obligaciones | `obligaciones_financieras` / `_cuotas` | `OBL-AAAA-NNN` + número de cuota | `origen_archivo` |
 | Caja chica, fianzas | ya se sincronizan solas (`excel-sync`, `fianzas-import`): **no recargar** | | |
 
-Preferir la **función real** del ERP (`sire_importar_compras`, `bancos_importar_movimientos`,
+Preferir la **función real** del ERP (`sire_importar_compras`, `sire_importar_ventas`, `bancos_importar_movimientos`,
 `detracciones_importar_constancias`, `obligacion_guardar` + `obligacion_cuotas_fijar`): valida permisos,
 dedupe y dispara los triggers correctos. Un `insert` directo solo si no hay función, y entonces hay que
 decidir a propósito qué triggers deben o no correr (`app.sin_asiento` para años cerrados).
