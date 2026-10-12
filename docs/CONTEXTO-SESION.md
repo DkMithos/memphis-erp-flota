@@ -1,7 +1,7 @@
 # CONTEXTO DE TRABAJO — Memphis ERP
 
 > **Documento vivo.** Se actualiza al cerrar cada tarea o cuando el contexto de la sesión
-> de trabajo se acerca al límite. Última actualización: **2026-10-05**.
+> de trabajo se acerca al límite. Última actualización: **2026-10-12**.
 > Es el punto de re-entrada para retomar el trabajo sin re-derivar contexto.
 
 ---
@@ -3516,3 +3516,48 @@ Sprint 4, parte 1:
   usuario temporal, paginacion, documentacion, no tocar) y `memphis-carga-excel` (guion de carga de Excel/CSV con dry-run, claves,
   triggers y avisos aprendidos).
 
+
+## 2026-10-12 - Semana 1 del plan de carga: CDC → proyecto, proveedores desde el SIRE, CDC heredado del pago, trigger de emitidos
+
+Pedido de Kevin: "Arranca con la semana 1 del plan de carga" (`docs/PLAN-CARGA-DATOS-ERP.md` §4). Son correcciones de
+datos, no módulos nuevos: cada registro ya cargado pasa a apuntar a su proyecto, su CDC y su proveedor.
+
+**Cómo se hizo.** Tres scripts en `scripts/semana1-conexiones/` (`1-cc-a-proyectos.sql`, `2-proveedores-desde-sire.sql`,
+`3-facturas-heredan-cdc.sql`), cada uno corrido primero con `rollback` (mirando contadores) y después con `commit`, por el
+pooler con el rol temporal `semana1_tmp` (borrado al final, `count = 0`). El rol MCP no puede dar membresía en `postgres`
+("permission denied to grant role"), así que el rol temporal lleva grants directos (tablas, secuencias, funciones, `temporary`
+en la base) y el runner `dry.mjs` ya no hace `set role`. Las facturas se tocan con `app.sin_asiento = '1'`: cero asientos nuevos.
+
+| Conexión | Antes | Después |
+|---|---:|---:|
+| Proyectos | 11 | **37** (26 nuevos, `creado_por = 'semana1-conexiones'`) |
+| CDC con proyecto | 10 / 79 | **41 / 79** (los 38 restantes son administración, tributos, bancos, socios: sin proyecto por diseño) |
+| Pagos históricos 2024-2026 con proyecto | 0 / 3,346 | **1,899 · S/ 60.4 M** |
+| Facturas recibidas sin proveedor | 3,853 | **0** (703 proveedores nuevos `PROV-0335` … `PROV-1037`, `migrado_de = 'sire'`) |
+| Facturas del SIRE con CDC | 0 / 6,412 | **858** (todas las pagadas cuyo pago tenía CDC; 7 pagadas quedan sin CDC porque su pago tampoco lo tenía) |
+| Facturas recibidas con proyecto | 46 | **632** |
+| Compromisos nativos (fuente erp) con CDC | 245 / 1,448 | **1,103** (los 210 sin CDC son las facturas 2026 `conforme` aún no pagadas, y 128 de OC/obligaciones) |
+| Compromisos (Excel + ERP) con proyecto | 941 / 4,143 | **1,683** |
+| Detracciones con proveedor | 1,014 / 1,458 | **1,334** (124 sin: 120 constancias con el RUC de Memphis, 4 de dos RUC que no están en el SIRE) |
+| Asientos contables | 1,049 | 1,049 (nada se contabilizó) |
+
+**Decisiones tomadas (revisables).**
+- Mapa CDC → proyecto en la tabla `_mapa` del script 1. Alias unificados: `LORETOAMB` → GLORETOAMB, `MUNSMSERENAZGO` → MPSANMIGUEL,
+  `GSANMARTINBOMB` → SMARTBOM (ya existía), `GLORETOHOSP`/`GLORETOHOSPM` → LORMOVS (ya existía). GAREQUIPA entra `cancelado`
+  (descartado por presupuesto). Los liquidados (GLORETOPNP, GLORETOSC, GLORETOAMB, CMSELVAI, INMPAN, C-OXI) entran `completado`;
+  MPSANMIGUEL `liquidacion` + situación `arbitraje`; las ideas del Status de proyectos entran `planificacion` / fase `idea`.
+- **Nombres inferidos, confirmar con Operaciones:** `MSS-30` = Municipalidad de Santiago de Surco, contrato 030-2022 (flota de
+  serenazgo; S/ 4.6 M pagados, 828 pagos) y `MDI` = Municipalidad Distrital de Independencia (S/ 0.67 M, 176 pagos).
+- Proveedores del SIRE: tipo `servicios` (`persona_natural` si el RUC empieza en 10), categoría `general`, régimen `gravado`,
+  `sujeto_detraccion` si alguna factura trae detracción, **sin cuenta bancaria ni condición**: `observaciones` dice que vienen
+  del SIRE y qué falta completar; el lote de pago seguirá avisando "sin cuenta".
+- CDC heredado solo desde pagos enlazados (el más frecuente si hubo varios CDC). Las 210 facturas 2026 `conforme` siguen sin
+  CDC: lo pone Finanzas al programar el pago (la sugerencia automática es el #3b de la semana 3).
+- Migración `20261012150000_facturas_emitidas_sin_compromiso_pagar.sql`: `trg_factura_compromiso` ignora `direccion = 'emitido'`
+  (una venta no es deuda por pagar; probado en transacción: emitida → 0 compromisos, al volverla recibida → 1), propaga
+  CDC/proyecto/cdc/área/proveedor de la factura al compromiso en cada actualización y dispara también al cambiar `proveedor_id`.
+
+**Pendiente.** Operaciones confirma MSS-30 y MDI y revisa estado/fase de los 26 proyectos nuevos (Proyectos › lista); Compras
+completa cuenta y condición de los proveedores `migrado_de = 'sire'` antes de pagarles por lote (filtro por observaciones
+"Creado el 12/10/2026 desde el SIRE"). Siguiente: semana 2 del plan (valorizaciones desde el Seguimiento, SIRE de ventas,
+registro masivo de ITF/comisiones/abonos).

@@ -92,12 +92,14 @@ Toda carga sigue el mismo guion (es lo que hicimos con SIRE, bancos, constancias
 
 | Semana | Carga | Días | Resultado medible |
 |---|---|---|---|
-| 1 (13-17 oct) | #1 CDC → proyecto · #2 proveedores desde el SIRE · #3a CDC heredado del pago | 3 | Gasto pagado 2024-2026 por proyecto en Proyecto 360; 0 facturas del SIRE sin proveedor |
-| 1 | #5 ajustar el trigger de emitidos (bloqueo) | 0.5 | Listo para ventas |
+| 1 (13-17 oct) | #1 CDC → proyecto · #2 proveedores desde el SIRE · #3a CDC heredado del pago — **hecho el 12-oct** | 3 | Gasto pagado 2024-2026 por proyecto en Proyecto 360; 0 facturas del SIRE sin proveedor |
+| 1 | #5 ajustar el trigger de emitidos (bloqueo) — **hecho el 12-oct** (migración `20261012150000`) | 0.5 | Listo para ventas |
 | 2 (20-24 oct) | #4 valorizaciones desde el Seguimiento · #5 SIRE de ventas 2024-2026 | 3 | Ingresos reales por proyecto; flujo acumulado con los dos lados |
 | 2 | #6 registro masivo de ITF/comisiones/SUNAT/abonos | 1.5 | Saldo ERP = saldo BBVA al día |
 | 3 (27-31 oct) | #3b CDC sugerido para las facturas sin pago · #8 acreedores · #7 conciliar set-oct | 2 | CxP limpia para el lote del 6-nov |
 | 3 | Diseño de #9 viáticos y #11 unidades (sin cargar todavía) | 2 | Especificación lista para el sprint 5 |
+
+**Avance (12-oct, semana 1 ejecutada por adelantado).** Scripts en `scripts/semana1-conexiones/` (dry-run con rollback y luego commit). Resultado: 37 proyectos (26 nuevos desde los CDC; MSS-30 y MDI con nombre inferido, confirmar con Operaciones), 41 de 79 CDC con proyecto (los 38 restantes son de administración/tributos y no deben tenerlo), 1,899 pagos históricos por S/ 60.4 M ya caen en su proyecto, 0 facturas sin proveedor (703 fichas mínimas `migrado_de = 'sire'`, sin cuenta bancaria), 858 facturas del SIRE con CDC heredado del pago, 1,103 de 1,448 compromisos nativos con CDC, cero asientos nuevos. Detalle en `docs/CONTEXTO-SESION.md` (2026-10-12, semana 1).
 
 Después de eso el análisis que pide Gerencia (gasto y margen por proyecto, flujo real vs previsto, deuda por
 acreedor, proveedores concentrados) se puede construir sobre tablas conectadas, y la capa `dw` del sprint 5

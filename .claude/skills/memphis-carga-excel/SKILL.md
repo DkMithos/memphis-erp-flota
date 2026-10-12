@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob, Bash, Write, Edit
 
 Este guion ya se usó cuatro veces (pagos históricos 2024-2026, extracto BBVA, SIRE 2024-2026 + constancias,
 obligaciones). Los scripts de referencia están en `scripts/historico-pagos/`, `scripts/sire-historico/` y
-`scripts/obligaciones/`; los lectores de navegador en `src/lib/finanzas/bancos-bbva.ts` y
+`scripts/obligaciones/` y `scripts/semana1-conexiones/` (conectar CDC→proyecto, proveedores desde el SIRE, CDC heredado); los lectores de navegador en `src/lib/finanzas/bancos-bbva.ts` y
 `src/lib/compras/sire.ts`. Antes de cargar lee `docs/PLAN-CARGA-DATOS-ERP.md` (qué puede romper cada dato).
 
 ## 1. Copiar y perfilar (nunca editar el original)
@@ -60,6 +60,9 @@ decidir a propósito qué triggers deben o no correr (`app.sin_asiento` para añ
   `pg` (instalado en `$SCRATCHPAD/pgtool`). Rol temporal creado por MCP:
   `create role x login bypassrls password '…'` + `grant usage on schema public, auth, extensions` + grants
   select/insert/update/delete en tablas, secuencias y funciones. Al final: `revoke all … ; drop role x`.
+  El rol MCP **no** puede dar membresía en `postgres` (`grant postgres to x` falla), así que nada de `set role postgres`: el
+  rol temporal necesita además `grant temporary on database postgres` para las tablas temporales. Runner de referencia:
+  `scripts/semana1-conexiones/dry.mjs archivo.sql [--commit]` ejecuta el script completo (con su `begin … rollback;` final) y muestra los SELECT.
 - Para funciones que validan permisos: `select set_config('request.jwt.claims', '{"sub":"<uid>", …}', true)`
   dentro de la transacción. El `sub` puede ser un usuario QA temporal (se borra) o el Administrador si es solo
   lectura/atribución.
