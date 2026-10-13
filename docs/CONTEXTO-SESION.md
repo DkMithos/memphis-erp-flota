@@ -3755,3 +3755,21 @@ Sin asientos nuevos. GLORETOBOM ahora: 69 OC, 23 facturas, 349 compromisos, 46 p
 Hallazgo de paso que corrige la guía y la memoria: **la caja chica ya no viene del Excel**. Los 1,006 gastos hasta el 08/09/2026
 son de la migración `caja-excel-2025`; desde el 09/09/2026 Administración registra los gastos directamente en el ERP (163 a la
 fecha). El cron `excel-sync-30min` sincroniza el espejo RESUMEN de proyectos y la configuración de fianzas, no la caja.
+
+## 2026-10-13 - Revisión de los 79 centros de costo: cuatro duplicados más fusionados
+
+Pedido de Kevin: "revisa los 79 centros de costo y fusiona los duplicados". Criterio: dos códigos que apuntan al mismo proyecto.
+Además de Loreto Bomberos (script 2) había cuatro pares (`scripts/semana3-cierre/3-fusionar-cdc-duplicados.sql`, dry-run +
+commit por el pooler, rol temporal borrado):
+
+| Viejo (queda inactivo) | Bueno | Qué se movió |
+|---|---|---|
+| LORETOAMB | GLORETOAMB | 39 pagos, 17 facturas, 32 OC, 17 compromisos (familia GLORETO*) |
+| MUNSMSERENAZGO | MPSANMIGUEL | 7 OC, 2 gastos de caja; MPSANMIGUEL hereda el nombre "MP San Miguel - Serenazgo" |
+| GLORETOHOSPM | GLORETOHOSP | nada (sin uso) |
+| GICAPATRUL (ya inactivo) | GOREICAPNP | 1 OC, 1 factura, 3 líneas de asiento, 1 compromiso |
+
+Resultado: 79 centros de costo, 74 activos y 5 inactivos (los fusionados); **ningún proyecto tiene más de un CDC activo**. Sin
+asientos nuevos. Los demás códigos son distintos entre sí (áreas administrativas, tributos, TI por rubro, SISTEMAS como
+comodín de Compras para TI) y no son duplicados. Observación no tocada: el CDC `BANCOS` tiene área PROYECTOS (debería ser
+ADMINISTRACION o CONTABILIDAD) y `ALMACEN` también; `CAJAOPS1`, `CAJAOPS2`, `ISLASEGURA`, `PDD` y `SISTEMAS` no tienen área.
