@@ -3644,3 +3644,41 @@ enlace. El lado de cobro sigue en las valorizaciones (CIPRL), no en la factura e
 **Pantallas.** Las emitidas se ven en Contabilidad › Comprobantes (filtro "Emitido"); Facturas de proveedores y Proyecto 360 solo
 miran recibidas. No hay todavía una pantalla de cuentas por cobrar por factura: pendiente de diseño (hoy la CxC se lee por
 valorización). Siguiente: #6 registro masivo de ITF/comisiones/abonos del extracto 2026.
+
+## 2026-10-13 - Semana 2 del plan de carga (parte 3): registro masivo de ITF, comisiones, SUNAT, cambios de moneda y abonos
+
+Pedido de Kevin: "Sigue con el registro masivo de ITF, comisiones y abonos" (#6 del plan). Script
+`scripts/semana2-ingresos/5-bancos-registro-masivo.sql` (dry-run con rollback y luego commit por el pooler, rol `semana2c_tmp`
+borrado al final). Usa la función real `bancos_registrar_movimiento`: una transacción pagada por movimiento, enlazada y
+conciliada. El flujo de caja no lee transacciones (solo compromisos): esto alimenta el **saldo ERP por cuenta** (Finanzas › Bancos)
+y los **pagos acumulados por CDC**, sin duplicar nada en el flujo.
+
+**Registrados: 1,330 movimientos de 1,558 sin conciliar.**
+| Grupo | Movimientos | Importe | Categoría · CDC |
+|---|---:|---:|---|
+| ITF | 652 | S/ -4,054 | ITF · BANCOS |
+| Comisiones (incl. "COM SUNAT" de multipagos) | 497 | S/ -9,658 | Comisiones bancarias · BANCOS |
+| Cambio de moneda ("SPOT MER" cargo PEN + abono USD, "TRAS A :…", "MEMPHIS MAQUINARIAS SAC") | 86 | neto S/ -4.03 M | Cambio de moneda · BANCOS |
+| Abonos de terceros | 68 | S/ 51.8 M | Cobro · MUNI DIS → proyecto MDI, INMUEBLE → INMPAN; el resto "cliente por identificar" |
+| Devoluciones (CESCE, PROTECTA, retención judicial, devoluciones CCE) | 8 | S/ 137 k | Devolución / reembolso |
+| Pagos a SUNAT "NPS" | 11 | S/ -651 k | Impuestos SUNAT · **sin CDC** (el tributo no viene en el concepto) |
+| Detracciones depositadas a SUNAT ("SUNAT DETR") | 8 | S/ -216 k | Detracción SPOT · DETRACCIÓN |
+
+**Hallazgos.** (1) `bancos_clasificar_concepto` marcaba como "detracción" los "SPOT MER", que son compras/ventas de dólares
+entre la 806 y la 830 (mismo número de operación en ambas cuentas); se registraron como cambio de moneda, la regla del
+clasificador queda por corregir. (2) Los 7 "TRAS A …806" de enero (venta de dólares) ya están en Pagos acumulados como
+**ingresos** en USD (HIST-2026-0036/0047/0048/0050/0051/0055/0057, "CAMBIO DOLARES TC …"): el Excel los puso con el signo
+contrario, por eso la conciliación automática no los cruzó. Contabilidad debe anular o corregir esas 7 filas (US$ 51 k) para que
+no sumen dos veces. (3) Los abonos grandes "ABONO RECEP. TRANSF." (S/ 15.7 M, 10 M, 9.7 M, 8.6 M, 2.5 M, 1.6 M…) no cuadran con
+ninguna factura emitida por importe: son los pagos de las financistas OXI; quedan como "Cobro · cliente por identificar".
+
+**Saldo ERP vs banco (al 30-sep).** 806: antes S/ -26.9 M, después S/ 10.5 M (banco S/ 189,663). 830: antes US$ -5.4 M, después
+US$ 4.2 M (banco US$ 8.60). Todavía no cuadra porque faltan los **228 movimientos que no se pueden registrar a ciegas**: 123
+pagos a proveedores sin factura identificada (los 102 OPE errados del Excel más las compras grandes: "59 CAMIONETAS SALDO"
+US$ 613 k, "COMPRA DE AMBULANCIAS" S/ 836 k, "FACTURAS VARIAS" US$ 1.33 M), 91 "por clasificar", 4 préstamos (S/ 1.06 M,
+deben cruzarse con las cuotas de Obligaciones), 9 transferencias a caja chica y 1 planilla; además las transacciones 2026 del
+Excel que no tienen movimiento de banco (duplicados o errores de signo como los 7 de enero). Esa limpieza es trabajo de
+Finanzas/Contabilidad desde la pantalla Bancos (vincular / registrar uno a uno).
+
+Las 1,330 transacciones llevan `referencia_tipo = 'banco'`, `creado_por` = Administrador (atribución del permiso) y la
+descripción termina en "registro masivo 13/10/2026": se identifican y se pueden revertir con `bancos_desvincular`.

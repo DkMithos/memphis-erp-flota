@@ -24,7 +24,7 @@ proyecto) depende de que cada registro apunte a su **proyecto**, su **centro de 
 | Órdenes de compra | 1,397 | 1,395 | — | 1,397 | Bien conectadas (migración OC) |
 | Centros de costo | 79 | — | 10 | — | **El eslabón roto principal**: GLORETOPNP, GLORETOSC, GLORETOAMB, GCUSCOBOM, GICAAMB18/27, GAMAZONAMB, GSANMARTIN*, MPSANMIGUEL, MUNSMSERENAZGO… no tienen proyecto |
 | Proyectos | 11 | — | — | — | 10 con presupuesto; **0 valorizaciones** en el ERP (las valorizaciones mensuales viven en Excel por proyecto) |
-| Movimientos de banco 2026 | 2,088 | — | — | — | 1,558 sin conciliar: ITF, comisiones, SUNAT, abonos, cambios de moneda y los 102 pagos con OPE errado |
+| Movimientos de banco 2026 | 2,088 | — | — | — | **228 sin conciliar (13-oct)**: 123 pagos sin factura (incl. los 102 OPE errados), 91 por clasificar, préstamos, caja chica, planilla |
 | Obligaciones financieras | 20 (124 cuotas) | sí | — | 3 | Nuevo (12-oct); 7 acreedores sin ficha de proveedor |
 | Caja chica | 47 cajas · 1,158 gastos | sí | vía CDC | — | Sincronizada cada 30 min desde el Excel de Administración (`excel-sync`); **no hay que recargarla** |
 | Fianzas | 65 cartas | — | sí | — | Sincronizada 2×/día (`fianzas-import`) |
@@ -95,7 +95,7 @@ Toda carga sigue el mismo guion (es lo que hicimos con SIRE, bancos, constancias
 | 1 (13-17 oct) | #1 CDC → proyecto · #2 proveedores desde el SIRE · #3a CDC heredado del pago — **hecho el 12-oct** | 3 | Gasto pagado 2024-2026 por proyecto en Proyecto 360; 0 facturas del SIRE sin proveedor |
 | 1 | #5 ajustar el trigger de emitidos (bloqueo) — **hecho el 12-oct** (migración `20261012150000`) | 0.5 | Listo para ventas |
 | 2 (20-24 oct) | #4 valorizaciones desde el Seguimiento — **hecho el 12-oct** (13 reales desde RESUMEN PROYECTOS; el Seguimiento solo trae totales) · #5 SIRE de ventas 2025-2026 — **hecho el 12-oct** (936 emitidos; no existe SIRE de ventas 2024) | 3 | Ingresos reales por proyecto; flujo acumulado con los dos lados |
-| 2 | #6 registro masivo de ITF/comisiones/SUNAT/abonos | 1.5 | Saldo ERP = saldo BBVA al día |
+| 2 | #6 registro masivo de ITF/comisiones/SUNAT/abonos — **hecho el 13-oct** (1,330 de 1,558; los 228 restantes son pagos sin factura, préstamos y "por clasificar": uno a uno en Bancos) | 1.5 | Saldo ERP = saldo BBVA al día |
 | 3 (27-31 oct) | #3b CDC sugerido para las facturas sin pago · #8 acreedores · #7 conciliar set-oct | 2 | CxP limpia para el lote del 6-nov |
 | 3 | Diseño de #9 viáticos y #11 unidades (sin cargar todavía) | 2 | Especificación lista para el sprint 5 |
 
@@ -104,6 +104,8 @@ Toda carga sigue el mismo guion (es lo que hicimos con SIRE, bancos, constancias
 **Avance (12-oct, semana 2 · #4).** `scripts/semana2-ingresos/`: 16 valorizaciones de ejemplo borradas, 13 reales cargadas (S/ 77.8 M pagadas + 12.1 M presentadas), dedupe valorización vs CIPRL del Excel al ±8 % (migración `20261012170000`), `flujo-import` v10 resincroniza valorizaciones y mapea GCUZCOAMBU/MPCUSCOPNP/MSS; `proyectos.monto_cobrado` desde el Seguimiento 05.10.26. Detalle en `docs/CONTEXTO-SESION.md` (2026-10-12, semana 2 parte 1).
 
 **Avance (12-oct, semana 2 · #5).** 936 comprobantes emitidos 2025-01→2026-09 (734 facturas, 202 NC; 464 vivas 2026 contabilizadas), 22 clientes creados en el CRM, 221 facturas con proyecto; las ventas a las financistas OXI (Amazonas Corporation, E.I.G.R., Fondo Investa, Alihcom…) esperan que Operaciones diga qué proyecto financia cada una. Detalle en `docs/CONTEXTO-SESION.md` (2026-10-12, semana 2 parte 2).
+
+**Avance (13-oct, semana 2 · #6).** 1,330 movimientos registrados con `bancos_registrar_movimiento` (ITF 652, comisiones 497, cambio de moneda 86, abonos 76, SUNAT 19). El saldo ERP aún no cuadra con el banco: faltan 228 movimientos que requieren a Finanzas (102 OPE errados, compras grandes de vehículos, préstamos) y 7 cambios de moneda de enero que el Excel registró con el signo contrario. Detalle en `docs/CONTEXTO-SESION.md` (2026-10-13).
 
 Después de eso el análisis que pide Gerencia (gasto y margen por proyecto, flujo real vs previsto, deuda por
 acreedor, proveedores concentrados) se puede construir sobre tablas conectadas, y la capa `dw` del sprint 5
