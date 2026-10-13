@@ -3782,3 +3782,21 @@ ADMINISTRACION o CONTABILIDAD) y `ALMACEN` también; `CAJAOPS1`, `CAJAOPS2`, `IS
 - Miguelángel Castañeda (mcastaneda@memphis.pe, roles Proyectos + Técnico Flota) tenía en Proveedores solo "ver" y "aprobar".
   El rol **Proyectos** (único usuario: él) recibe además **crear, editar y exportar** proveedores; no "eliminar". Efecto
   inmediato en su próximo ingreso (los permisos se leen al cargar la sesión).
+
+## 2026-10-13 - Correo de Supabase "security vulnerabilities": auth.users expuesto por dos vistas (resuelto)
+
+El advisor de seguridad marcaba 2 ERRORES (`auth_users_exposed`): `v_lotes_pago` y `v_lotes_pago_items` hacían JOIN con
+`auth.users` para mostrar el correo de quien creó/validó/ajustó, y como corrían con permisos del dueño, cualquier llamada a la
+API con la clave anónima podía leer correos. Migración `20261013160000_seguridad_advisor_auth_users_y_vistas.sql`:
+- Las dos vistas toman el correo de `usuarios_tenant` (misma empresa, con RLS) y pasan a `security_invoker = true`.
+- Las otras 11 vistas con permisos del dueño (`v_bancos_resumen`, `v_movimientos_bancarios`, `v_obligaciones`, `v_pagos_acumulados`,
+  `v_detracciones`, `v_despachos`, `v_facturas_cdc_sugerido`…) también pasan a `security_invoker`: leen tablas con RLS por tenant,
+  el usuario autenticado ve lo mismo y el anónimo nada. Verificado en el navegador (usuario QA borrado): Bancos (saldos y
+  movimientos), Lotes de pago y Obligaciones cargan igual.
+- `anon` pierde SELECT en todas las vistas `v_%` y EXECUTE en las funciones SECURITY DEFINER del ERP (quedan para anon solo
+  `vehiculo_public_by_token`, `taller_mis_citas` y los predicados que usan las políticas RLS). Postgres daba EXECUTE a PUBLIC por
+  defecto, así que se revocó a PUBLIC y se concedió explícitamente a `authenticated` y `service_role`; los privilegios por
+  defecto quedan así para las funciones nuevas.
+- 8 funciones pequeñas con `search_path` fijo.
+Quedan como WARN aceptados: `pg_net` en `public` (la instala Supabase y la usan los cron) y "funciones SECURITY DEFINER
+ejecutables por authenticated" (es el diseño del ERP: cada función valida permisos con `auth_tiene_permiso`).
