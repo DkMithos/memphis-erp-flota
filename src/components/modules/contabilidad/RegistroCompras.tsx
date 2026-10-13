@@ -10,6 +10,7 @@ import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { usePeriodosStore } from '../../../lib/contabilidad/periodos-store';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { useComprobantesStore } from '../../../lib/contabilidad/comprobantes-store';
 import { generarLineaPLE81, periodoToString } from '../../../lib/contabilidad/fiscal-peru';
 
@@ -43,6 +44,8 @@ export function RegistroCompras({ onNavigate }: Props) {
     igv: comprasPeriodo.reduce((s,c) => s + c.igv, 0),
     total: comprasPeriodo.reduce((s,c) => s + c.total, 0),
   }), [comprasPeriodo]);
+  // El registro de un mes puede pasar de 300 filas (junio 2026: 359 ventas): 20 por página, los totales siguen siendo del período completo.
+  const pag = usePagination(comprasPeriodo);
 
   function exportarPLE() {
     const lineas = comprasPeriodo.map((c, i) => generarLineaPLE81({
@@ -140,9 +143,9 @@ export function RegistroCompras({ onNavigate }: Props) {
                 <div className="col-span-1 text-right">IGV</div>
                 <div className="col-span-2 text-right">Total</div>
               </div>
-              {comprasPeriodo.map((c, i) => (
+              {pag.paged.map((c, i) => (
                 <div key={c.id} className="grid grid-cols-12 gap-1 px-4 py-2.5 border-b border-border/40 hover:bg-muted/20 text-sm items-center">
-                  <div className="col-span-2 md:col-span-1 text-xs text-muted-foreground">{i+1}</div>
+                  <div className="col-span-2 md:col-span-1 text-xs text-muted-foreground">{(pag.page - 1) * pag.pageSize + i + 1}</div>
                   <div className="col-span-4 md:col-span-2 text-xs">{new Date(c.fechaEmision).toLocaleDateString('es-PE')}</div>
                   <div className="col-span-6 md:col-span-2 font-mono text-xs">{c.numeroCompleto}</div>
                   <div className="col-span-12 md:col-span-3 truncate text-xs">
@@ -154,8 +157,17 @@ export function RegistroCompras({ onNavigate }: Props) {
                   <div className="col-span-4 md:col-span-2 text-right font-mono text-xs font-semibold">{fmt(c.total)}</div>
                 </div>
               ))}
+              {pag.totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t text-sm">
+                  <span className="text-muted-foreground">Mostrando {pag.paged.length} de {pag.totalItems} · página {pag.page} de {pag.totalPages}</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={!pag.hasPrev} onClick={() => pag.setPage(pag.page - 1)}>Anterior</Button>
+                    <Button variant="outline" size="sm" disabled={!pag.hasNext} onClick={() => pag.setPage(pag.page + 1)}>Siguiente</Button>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-12 gap-1 px-4 py-3 bg-muted/30 font-bold text-sm">
-                <div className="col-span-8 text-right text-xs text-muted-foreground pr-2">TOTALES</div>
+                <div className="col-span-8 text-right text-xs text-muted-foreground pr-2">TOTALES DEL PERÍODO</div>
                 <div className="col-span-1 text-right font-mono text-xs">{fmt(totales.baseGravada)}</div>
                 <div className="col-span-1 text-right font-mono text-xs text-red-600">{fmt(totales.igv)}</div>
                 <div className="col-span-2 text-right font-mono text-xs">{fmt(totales.total)}</div>

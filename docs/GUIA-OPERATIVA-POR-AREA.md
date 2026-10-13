@@ -157,7 +157,7 @@ Contabilidad revisa y corrige donde el documento no cuadra.
 | Pantalla | Qué hace | Cómo se usa |
 |---|---|---|
 | **Comprobantes** (7,394: 6,458 recibidos, 936 emitidos) | Facturas, boletas y notas de crédito recibidas y emitidas, con estado, dirección, RUC, totales, asiento | Filtro por dirección/estado/fecha; registro manual de un comprobante; contabilizar o anular contabilización. Paginado de 20 en 20 |
-| **Registro de compras** (619) · **Registro de ventas** (643) | Los registros que exige SUNAT, generados desde los comprobantes contabilizados | Consulta y exportación |
+| **Registro de compras** (619) · **Registro de ventas** (643) | Los registros que exige SUNAT, generados desde los comprobantes contabilizados | Por período; paginado de 20 en 20 con totales del período; exportación PLE |
 | **Libro diario** (1,692 asientos) | Asientos automáticos (compra, venta, pago, cobro, anulación) y manuales | Nuevo asiento manual; anular. Paginado de 20 en 20 |
 | **Plan de cuentas · Periodos** | Catálogo PCGE del tenant y apertura/cierre de periodos | Configuración; se toca poco |
 
@@ -221,7 +221,7 @@ Regla de la casa: toda lista con bastante data se pagina (20 por página) desde 
 | Contabilidad › Comprobantes | 7,394 | Sí | Sí (por bloques de 1,000) | Corregido el 13-oct |
 | Contabilidad › Libro diario | 1,692 | Sí | Sí (por bloques de 1,000) | Corregido el 13-oct |
 | Finanzas › Transacciones | 4,676 | Sí | Sí (por bloques de 1,000) | Corregido el 13-oct |
-| Contabilidad › Registro de compras / ventas | 619 / 643 | No | Sí | Paginar (crece cada mes) |
+| Contabilidad › Registro de compras / ventas | 619 / 643 | Sí | Sí | Corregido el 13-oct (por período, 20 por página; los totales son del período completo) |
 | Proyectos › Lista · CRM › Clientes · Inventario › Movimientos | 37 / 22 / 1 | No | Sí | Paginar cuando crezcan |
 | Dashboards, Proyecto 360, detalles, Flujo Gerencia | resúmenes | No aplica | Sí | — |
 
@@ -293,4 +293,4 @@ CDC sugeridos → entregar RUC/DNI de los acreedores → descargar el SIRE de oc
 **Administración**: seguir en sus Excel de caja chica, fianzas y flujo (el ERP los lee) → cerrar cajas desde el ERP →
 confirmar en el Excel de revisión los 26 proyectos nuevos junto con Operaciones.
 
-**Administrador del sistema**: crear los usuarios que falten, abrir el canal de soporte, paginar Registro de compras/ventas cuando crezcan.
+**Administrador del sistema**: crear los usuarios que falten, abrir el canal de soporte, paginar Proyectos, Clientes e Inventario cuando crezcan.
