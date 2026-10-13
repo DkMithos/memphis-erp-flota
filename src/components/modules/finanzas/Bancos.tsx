@@ -20,7 +20,8 @@ import { exportToExcelMultiHoja } from '@/lib/shared/export-utils';
 import { leerLibroBbva, type HojaBbva } from '@/lib/finanzas/bancos-bbva';
 import {
   cargarResumen, cargarMovimientos, importarHoja, conciliarAuto, candidatas, vincular, desvincular, registrar, clasificar, cargarAcumulado,
-  CLASIFICACION, dinero, type ResumenCuenta, type Movimiento, type Clasificacion, type TransaccionCandidata, type AcumuladoFila,
+  facturasCandidatas, pagarFacturas,
+  CLASIFICACION, dinero, type ResumenCuenta, type Movimiento, type Clasificacion, type TransaccionCandidata, type AcumuladoFila, type FacturaCandidata,
 } from '@/lib/finanzas/bancos';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -45,6 +46,7 @@ export function Bancos() {
   const [importando, setImportando] = useState<{ archivo: string; hojas: HojaBbva[] } | null>(null);
   const [vinculando, setVinculando] = useState<Movimiento | null>(null);
   const [registrando, setRegistrando] = useState<Movimiento | null>(null);
+  const [pagando, setPagando] = useState<Movimiento | null>(null);
   const [acumulado, setAcumulado] = useState<AcumuladoFila[]>([]);
   const [acumDesde, setAcumDesde] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 2); return d.toISOString().slice(0, 7); });
   const [acumHasta, setAcumHasta] = useState(mesActual());
@@ -233,6 +235,7 @@ export function Bancos() {
                       {puedeOperar && !m.transaccionId && (
                         <>
                           <Button size="sm" variant="outline" disabled={ocupado} onClick={() => setVinculando(m)} title="Cruzar con un pago ya registrado en el ERP"><Link2 className="size-4" /> Vincular</Button>
+                          {m.importe < 0 && <Button size="sm" variant="outline" disabled={ocupado} onClick={() => setPagando(m)} title="Este cargo pagó una o varias facturas conformes que no pasaron por un lote (pagos de set-oct fuera del ERP)">Pagar facturas</Button>}
                           <Button size="sm" variant="ghost" disabled={ocupado} onClick={() => setRegistrando(m)} title="Crear la transacción en el ERP (ITF, comisión, abono…)">Registrar</Button>
                         </>
                       )}
@@ -303,6 +306,7 @@ export function Bancos() {
       )}
 
       {vinculando && <VincularDialog mov={vinculando} onClose={() => setVinculando(null)} onHecho={recargar} />}
+      {pagando && <PagarFacturasDialog mov={pagando} onClose={() => setPagando(null)} onHecho={recargar} />}
       {registrando && <RegistrarDialog mov={registrando} centros={centros} proyectos={proyectos} onClose={() => setRegistrando(null)} onHecho={recargar} />}
     </div>
   );
@@ -413,6 +417,67 @@ function RegistrarDialog({ mov, centros, proyectos, onClose, onHecho }: { mov: M
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button disabled={ocupado} onClick={guardar}>{ocupado ? <Loader2 className="size-4 animate-spin" /> : 'Registrar'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Pagar facturas desde un cargo del banco (semana 3 del plan de carga): para los pagos de setiembre-octubre hechos fuera del
+ * ERP. Se eligen las facturas conformes de la misma moneda; la suma pendiente debe coincidir con el cargo (±1 %). Nace una
+ * transacción por factura, el compromiso y la factura quedan pagados y el movimiento conciliado.
+ */
+function PagarFacturasDialog({ mov, onClose, onHecho }: { mov: Movimiento; onClose: () => void; onHecho: () => Promise<void> }) {
+  const [lista, setLista] = useState<FacturaCandidata[]>([]);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [filtro, setFiltro] = useState('');
+  const [cargando, setCargando] = useState(true);
+  const [ocupado, setOcupado] = useState(false);
+  useEffect(() => { facturasCandidatas(mov.id).then(setLista).catch(e => toast.error((e as Error).message)).finally(() => setCargando(false)); }, [mov]);
+  const objetivo = Math.abs(mov.importe);
+  const suma = lista.filter(f => sel.has(f.comprobanteId)).reduce((a, f) => a + f.pendiente, 0);
+  const diff = suma - objetivo;
+  const cuadra = sel.size > 0 && Math.abs(diff) <= Math.max(objetivo * 0.01, 1);
+  const visibles = lista.filter(f => !filtro || `${f.numero} ${f.proveedor ?? ''}`.toLowerCase().includes(filtro.toLowerCase()));
+  const alternar = (id: string) => setSel(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const pagar = async () => {
+    setOcupado(true);
+    try { const r = await pagarFacturas(mov.id, [...sel]); toast.success(`${r.facturas} factura(s) pagadas con ${dinero(r.monto, mov.cuentaMoneda)}`); await onHecho(); onClose(); }
+    catch (e) { toast.error((e as Error).message); }
+    finally { setOcupado(false); }
+  };
+  return (
+    <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Pagar facturas con este cargo</DialogTitle>
+          <DialogDescription>{fecha(mov.fechaOperacion)} · {mov.concepto} · <strong>{dinero(mov.importe, mov.cuentaMoneda)}</strong> · op. {mov.numeroDoc ?? '—'}. Marca las facturas conformes que pagó este cargo: la suma pendiente debe coincidir con el importe.</DialogDescription>
+        </DialogHeader>
+        <Input placeholder="Buscar por número o proveedor…" value={filtro} onChange={e => setFiltro(e.target.value)} />
+        <div className="max-h-[45vh] overflow-y-auto border rounded-md">
+          {cargando ? <div className="p-6 text-center"><Loader2 className="size-5 animate-spin inline" /></div> : (
+            <table className="w-full text-sm"><tbody className="divide-y">
+              {visibles.map(f => (
+                <tr key={f.comprobanteId} className={`hover:bg-muted/30 cursor-pointer ${sel.has(f.comprobanteId) ? 'bg-primary/5' : ''}`} onClick={() => alternar(f.comprobanteId)}>
+                  <td className="px-2 py-1.5"><input type="checkbox" checked={sel.has(f.comprobanteId)} onChange={() => alternar(f.comprobanteId)} onClick={e => e.stopPropagation()} /></td>
+                  <td className="px-2 py-1.5 font-mono text-xs whitespace-nowrap">{f.numero}</td>
+                  <td className="px-2 py-1.5 max-w-[260px] truncate" title={f.proveedor ?? ''}>{f.proveedor ?? '—'}</td>
+                  <td className="px-2 py-1.5 text-xs text-muted-foreground whitespace-nowrap">{fecha(f.fechaEmision)}{f.fechaVencimiento ? ` · vence ${fecha(f.fechaVencimiento)}` : ''}</td>
+                  <td className={`px-2 py-1.5 text-right tabular-nums whitespace-nowrap ${f.diferencia < 0.01 ? 'font-semibold text-green-700' : ''}`}>{dinero(f.pendiente, f.moneda)}</td>
+                </tr>
+              ))}
+              {visibles.length === 0 && <tr><td className="px-3 py-6 text-center text-muted-foreground">No hay facturas conformes en {mov.cuentaMoneda} pendientes de pago. Si el pago fue de otra cosa, usa "Registrar".</td></tr>}
+            </tbody></table>
+          )}
+        </div>
+        <div className={`text-sm flex items-center justify-between ${cuadra ? 'text-green-700' : sel.size ? 'text-amber-700' : 'text-muted-foreground'}`}>
+          <span>{sel.size} factura(s) · suma {dinero(suma, mov.cuentaMoneda)}</span>
+          <span>{sel.size ? (cuadra ? 'Cuadra con el cargo' : `Diferencia ${dinero(diff, mov.cuentaMoneda)}`) : 'Elige las facturas'}</span>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button disabled={ocupado || !cuadra} onClick={pagar}>{ocupado ? <Loader2 className="size-4 animate-spin" /> : 'Pagar y conciliar'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

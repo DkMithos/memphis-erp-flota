@@ -55,6 +55,9 @@ interface FacturaRow {
   montoPagado: number;
   fechaPagado: string | null;
   mesProgramado: string | null;
+  /** Centro de costo ya asignado (código) y, si no hay, la sugerencia por el historial del proveedor (semana 3). */
+  cdcCodigo: string | null;
+  cdcSugerido: { ccId: string; codigo: string; proyecto: string | null; confianza: number; pagos: number } | null;
 }
 
 interface RecepcionOpcion { id: string; numero: string; fecha: string | null; estado: string; }
@@ -92,7 +95,7 @@ export function FacturasProveedores({ onNavigate }: Props) {
   const cargar = useCallback(async () => {
     setLoading(true);
     // Con el SIRE cargado hay varios miles de facturas: se traen por páginas de 1,000 (tope de PostgREST).
-    const COLS = 'id, numero_completo, fecha_emision, fecha_vencimiento, conforme_en, total, moneda, estado_flujo, motivo_observacion, xml_path, pdf_path, subido_por_proveedor, creado_en, orden_compra_numero, orden_compra_id, ruc_emisor, razon_social_emisor';
+    const COLS = 'id, numero_completo, centro_costo_id, centros_costo(codigo), fecha_emision, fecha_vencimiento, conforme_en, total, moneda, estado_flujo, motivo_observacion, xml_path, pdf_path, subido_por_proveedor, creado_en, orden_compra_numero, orden_compra_id, ruc_emisor, razon_social_emisor';
     let data: any[] = []; let error: { message: string } | null = null;
     for (let desde = 0; ; desde += 1000) {
       const r = await supabase.from('comprobantes_pago').select(COLS).eq('direccion', 'recibido')
@@ -126,6 +129,14 @@ export function FacturasProveedores({ onNavigate }: Props) {
           });
         });
       }
+      // CDC sugerido (vista v_facturas_cdc_sugerido): solo para las que no tienen centro de costo.
+      const sug = new Map<string, FacturaRow['cdcSugerido']>();
+      const sinCdc = (data ?? []).filter((r: any) => !r.centro_costo_id).map((r: any) => r.id as string);
+      for (let i = 0; i < sinCdc.length; i += 200) {
+        const { data: sg } = await (supabase.from('v_facturas_cdc_sugerido') as any)
+          .select('comprobante_id, centro_costo_id, cdc_codigo, proyecto_codigo, pagos, confianza').in('comprobante_id', sinCdc.slice(i, i + 200)) as { data: any[] | null };
+        (sg ?? []).forEach(x => sug.set(x.comprobante_id, { ccId: x.centro_costo_id, codigo: x.cdc_codigo, proyecto: x.proyecto_codigo ?? null, confianza: Number(x.confianza ?? 0), pagos: Number(x.pagos ?? 0) }));
+      }
       setFacturas((data ?? []).map((r: any): FacturaRow => ({
         id: r.id,
         numeroCompleto: r.numero_completo,
@@ -148,6 +159,8 @@ export function FacturasProveedores({ onNavigate }: Props) {
         montoPagado: pagos.get(r.id)?.pagado ?? (r.estado_flujo === 'pagada' ? Number(r.total ?? 0) : 0),
         fechaPagado: pagos.get(r.id)?.fecha ?? null,
         mesProgramado: pagos.get(r.id)?.mes ?? null,
+        cdcCodigo: r.centros_costo?.codigo ?? null,
+        cdcSugerido: sug.get(r.id) ?? null,
       })));
     }
     setLoading(false);
@@ -250,6 +263,18 @@ export function FacturasProveedores({ onNavigate }: Props) {
     if (ok) { setObservarDe(null); setMotivo(''); }
   };
 
+  /** Aplica el CDC sugerido (o uno elegido) a las facturas: el compromiso y el proyecto se actualizan por trigger. */
+  const aplicarCdc = async (ids: string[], ccId?: string) => {
+    if (ids.length === 0) return;
+    setTrabajando(true);
+    const { data, error } = await (supabase as any).rpc('factura_aplicar_cdc', { p_ids: ids, p_centro_costo: ccId ?? null });
+    setTrabajando(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Centro de costo asignado a ${data ?? ids.length} factura(s)`);
+    await cargar();
+  };
+  const sugeribles = useMemo(() => filtradas.filter(f => !f.cdcCodigo && f.cdcSugerido && f.cdcSugerido.confianza >= 0.8), [filtradas]);
+
   const abrirArchivo = async (path: string | null) => {
     if (!path) return;
     const { data, error } = await supabase.storage.from('facturas-proveedores').createSignedUrl(path, 600);
@@ -280,6 +305,12 @@ export function FacturasProveedores({ onNavigate }: Props) {
               <span className="inline-flex items-center gap-2 h-9 px-3 rounded-md border text-sm cursor-pointer hover:bg-accent"><Upload className="size-4" /> Importar SIRE</span>
             </label>
           )}
+          {puedeGestionar && sugeribles.length > 0 && (
+            <Button variant="outline" disabled={trabajando} title="Asigna a cada factura el centro de costo habitual de su proveedor cuando el historial lo respalda en un 80 % o más"
+              onClick={() => { if (window.confirm(`¿Asignar el CDC sugerido a ${sugeribles.length} factura(s) con confianza ≥ 80 %?`)) aplicarCdc(sugeribles.map(f => f.id)); }}>
+              <BadgeCheck className="size-4" /> Aplicar CDC sugerido ({sugeribles.length})
+            </Button>
+          )}
           <BotonExportar
             modulo="compras" nombre="facturas-proveedores" hoja="Facturas"
             datos={filtradas.map(f => ({
@@ -288,6 +319,8 @@ export function FacturasProveedores({ onNavigate }: Props) {
               ruc: f.proveedorRuc ?? '',
               proveedor: f.proveedorNombre ?? '',
               orden: f.ordenNumero ?? '',
+              cdc: f.cdcCodigo ?? '',
+              cdcSugerido: !f.cdcCodigo && f.cdcSugerido ? `${f.cdcSugerido.codigo} (${Math.round(f.cdcSugerido.confianza * 100)} %)` : '',
               moneda: f.moneda,
               total: Number(f.total ?? 0),
               estado: ESTADOS[f.estadoFlujo]?.label ?? f.estadoFlujo,
@@ -398,6 +431,7 @@ export function FacturasProveedores({ onNavigate }: Props) {
                 <TableHead>Factura</TableHead>
                 <TableHead>Proveedor</TableHead>
                 <TableHead>Orden</TableHead>
+                <TableHead>CDC</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Vence</TableHead>
@@ -408,9 +442,9 @@ export function FacturasProveedores({ onNavigate }: Props) {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
               ) : paged.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   {filtroEstado === 'pendientes' ? 'No hay facturas pendientes de conformidad' : 'Sin resultados'}
                 </TableCell></TableRow>
               ) : paged.map(f => {
@@ -436,6 +470,17 @@ export function FacturasProveedores({ onNavigate }: Props) {
                           {f.ordenNumero}
                         </button>
                       ) : '—'}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {f.cdcCodigo ? <Badge variant="outline" className="font-mono">{f.cdcCodigo}</Badge>
+                        : f.cdcSugerido ? (
+                          <div className="space-y-1">
+                            <p className="text-muted-foreground" title={`${f.cdcSugerido.pagos} pago(s)/factura(s) del proveedor con este CDC`}>Sugerido: <span className="font-mono text-foreground">{f.cdcSugerido.codigo}</span> · {Math.round(f.cdcSugerido.confianza * 100)} %{f.cdcSugerido.proyecto ? ` · ${f.cdcSugerido.proyecto}` : ''}</p>
+                            {puedeGestionar && ['recibida', 'validada', 'conforme', 'programada_pago'].includes(f.estadoFlujo) && (
+                              <Button size="sm" variant="ghost" className="h-6 px-2" disabled={trabajando} onClick={() => aplicarCdc([f.id])}>Aplicar</Button>
+                            )}
+                          </div>
+                        ) : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-right font-medium">{fmt(f.total, f.moneda)}</TableCell>
                     <TableCell>

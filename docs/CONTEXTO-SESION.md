@@ -3682,3 +3682,42 @@ Finanzas/Contabilidad desde la pantalla Bancos (vincular / registrar uno a uno).
 
 Las 1,330 transacciones llevan `referencia_tipo = 'banco'`, `creado_por` = Administrador (atribución del permiso) y la
 descripción termina en "registro masivo 13/10/2026": se identifican y se pueden revertir con `bancos_desvincular`.
+
+## 2026-10-13 - Semana 3 del plan de carga: CxP lista para el lote del 6-nov (#3b, #8, #7) + Excel de revisión
+
+Pedido de Kevin: "Arranca con la semana 3. Pero antes dame los archivos que finanzas y contabilidad deben revisar y corregir".
+
+**Excel de revisión (entregados por chat, generados con `scripts/semana3-cierre/0-informes-revision.mjs`).**
+`Revision-Finanzas-Contabilidad-2026-10-13.xlsx`: banco sin conciliar (228), transacciones 2026 sin banco (109, con los 7
+cambios de moneda de enero marcados "signo invertido"), SUNAT sin CDC (11), abonos sin cliente (76), facturas con error contable
+(25), obligaciones vencidas (9), facturas pagadas sin CDC (7), NC a facturas 2024 (2). `Revision-Operaciones-Compras-2026-10-13.xlsx`:
+ventas sin proyecto por cliente (16) y detalle (715), proyectos nuevos a confirmar (26), proveedores sin cuenta (703). Cada libro
+tiene hoja Léeme con qué hacer y dónde. Se regeneran con el script cuando haga falta.
+
+**#3b CDC sugerido** (migración `20261013100000_semana3_cdc_sugerido_y_pago_desde_banco.sql`): vista `v_facturas_cdc_sugerido` =
+el CDC más frecuente del proveedor en sus pagos y facturas ya clasificadas (`confianza` = proporción, `pagos` = evidencia) para
+las facturas recibidas sin CDC; función `factura_aplicar_cdc(p_ids, p_centro_costo)` (compras/contabilidad/finanzas.editar; el
+compromiso y el proyecto se actualizan por trigger). Pantalla Compras › Facturas de proveedores: columna **CDC** (el asignado, o
+"Sugerido: OFCENTRAL · 100 % · Aplicar") y botón **"Aplicar CDC sugerido (N)"** para las de confianza ≥ 80 % del filtro actual.
+Hoy: 98 de las 248 conformes tienen sugerencia, 55 con un único CDC en todo el historial. **No se aplicó ninguna**: lo confirma
+Contabilidad desde la pantalla (así lo pide el plan).
+
+**#7 Pagar facturas desde el banco**: `bancos_facturas_candidatas(p_mov)` (conformes de la misma moneda, ordenadas por cercanía
+al cargo) y `bancos_pagar_facturas(p_mov, p_comprobantes[], p_descripcion)`: una transacción por factura (como el lote), compromiso
+PAGADO, factura `pagada`, asiento de pago por trigger y movimiento conciliado; exige que la suma pendiente cuadre con el cargo
+(±1 %; si el banco pagó neto de detracción/retención, manda a usar un lote). Pantalla Finanzas › Bancos: botón **"Pagar facturas"**
+en cada cargo sin conciliar → diálogo con buscador, casillas, suma y diferencia en vivo. Probado en transacción con rollback (cargo
+de S/ 50,000 ↔ F001-21325 Etramed: trx, compromiso, factura, asiento y conciliación correctos) y en el navegador con usuario QA
+temporal (borrado). Los 123 pagos a proveedores sin conciliar no se cruzan solos: ninguno coincide por importe con una
+transacción ni con una factura única (son pagos agrupados), por eso el diálogo es manual y multi-factura.
+
+**#8 Acreedores como proveedores** (`scripts/semana3-cierre/1-acreedores-proveedores.sql`): Cesce → PROV-0343, Corporación OXI →
+PROV-0372, Imagen Pública → PROV-0354, Impacto Táctico → PROV-0432; SUNAT creado como PROV-1038 (RUC 20131312955) para los 6
+fraccionamientos/deudas; 110 de 121 cuotas-compromiso con proveedor. Sin proveedor (no hay RUC/DNI y no se inventa): Sandra Wiese,
+Miguel Zegarra, Susan Hoefken, Secrex, HFM Smart Solutions → Contabilidad da el documento y se enlazan desde Obligaciones.
+
+**Diseño #9 viáticos y #11 unidades serializadas:** `docs/DISENO-VIATICOS-Y-UNIDADES.md` (especificación para el sprint 5, sin
+cargar nada).
+
+Pendiente de Kevin: nada bloqueante. Lo que sigue es trabajo de las áreas con los Excel de revisión y las dos pantallas nuevas;
+el ERP queda listo para que el primer lote de pago (6-nov) nazca con la CxP limpia.

@@ -132,3 +132,25 @@ export async function cargarAcumulado(desdeMes: string, hastaMes: string): Promi
 }
 
 export const dinero = (n: number, m: string) => `${m === 'USD' ? 'US$' : 'S/'} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+// ── Semana 3 del plan de carga: pagar facturas conformes directamente desde un cargo del banco ──
+export interface FacturaCandidata {
+  comprobanteId: string; compromisoId: string; numero: string; proveedor: string | null; fechaEmision: string | null; fechaVencimiento: string | null;
+  moneda: string; total: number; pendiente: number; diferencia: number;
+}
+/** Facturas conformes de la misma moneda que podrían explicar el cargo, ordenadas por cercanía al importe. */
+export async function facturasCandidatas(movId: string): Promise<FacturaCandidata[]> {
+  const { data, error } = await db.rpc('bancos_facturas_candidatas', { p_mov: movId });
+  lanzar(error);
+  return (data ?? []).map((r: Record<string, any>): FacturaCandidata => ({
+    comprobanteId: r.comprobante_id, compromisoId: r.compromiso_id, numero: r.numero_completo, proveedor: r.proveedor ?? null,
+    fechaEmision: r.fecha_emision ?? null, fechaVencimiento: r.fecha_vencimiento ?? null, moneda: r.moneda ?? 'PEN',
+    total: num(r.total), pendiente: num(r.pendiente), diferencia: num(r.diferencia),
+  }));
+}
+/** Paga las facturas elegidas con el cargo: una transacción por factura, compromiso y factura pagados, movimiento conciliado. */
+export async function pagarFacturas(movId: string, comprobantes: string[], descripcion?: string): Promise<{ facturas: number; monto: number }> {
+  const { data, error } = await db.rpc('bancos_pagar_facturas', { p_mov: movId, p_comprobantes: comprobantes, p_descripcion: descripcion ?? null });
+  lanzar(error);
+  return { facturas: num(data?.facturas), monto: num(data?.monto) };
+}

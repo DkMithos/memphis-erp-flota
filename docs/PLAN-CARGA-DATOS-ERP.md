@@ -96,8 +96,8 @@ Toda carga sigue el mismo guion (es lo que hicimos con SIRE, bancos, constancias
 | 1 | #5 ajustar el trigger de emitidos (bloqueo) — **hecho el 12-oct** (migración `20261012150000`) | 0.5 | Listo para ventas |
 | 2 (20-24 oct) | #4 valorizaciones desde el Seguimiento — **hecho el 12-oct** (13 reales desde RESUMEN PROYECTOS; el Seguimiento solo trae totales) · #5 SIRE de ventas 2025-2026 — **hecho el 12-oct** (936 emitidos; no existe SIRE de ventas 2024) | 3 | Ingresos reales por proyecto; flujo acumulado con los dos lados |
 | 2 | #6 registro masivo de ITF/comisiones/SUNAT/abonos — **hecho el 13-oct** (1,330 de 1,558; los 228 restantes son pagos sin factura, préstamos y "por clasificar": uno a uno en Bancos) | 1.5 | Saldo ERP = saldo BBVA al día |
-| 3 (27-31 oct) | #3b CDC sugerido para las facturas sin pago · #8 acreedores · #7 conciliar set-oct | 2 | CxP limpia para el lote del 6-nov |
-| 3 | Diseño de #9 viáticos y #11 unidades (sin cargar todavía) | 2 | Especificación lista para el sprint 5 |
+| 3 (27-31 oct) | #3b CDC sugerido · #8 acreedores · #7 conciliar set-oct — **hecho el 13-oct** (vista + botón "Aplicar CDC sugerido"; "Pagar facturas" desde Bancos; 5 acreedores enlazados, SUNAT creado) | 2 | CxP limpia para el lote del 6-nov |
+| 3 | Diseño de #9 viáticos y #11 unidades (sin cargar todavía) — **hecho el 13-oct** (`docs/DISENO-VIATICOS-Y-UNIDADES.md`) | 2 | Especificación lista para el sprint 5 |
 
 **Avance (12-oct, semana 1 ejecutada por adelantado).** Scripts en `scripts/semana1-conexiones/` (dry-run con rollback y luego commit). Resultado: 37 proyectos (26 nuevos desde los CDC; MSS-30 y MDI con nombre inferido, confirmar con Operaciones), 41 de 79 CDC con proyecto (los 38 restantes son de administración/tributos y no deben tenerlo), 1,899 pagos históricos por S/ 60.4 M ya caen en su proyecto, 0 facturas sin proveedor (703 fichas mínimas `migrado_de = 'sire'`, sin cuenta bancaria), 858 facturas del SIRE con CDC heredado del pago, 1,103 de 1,448 compromisos nativos con CDC, cero asientos nuevos. Detalle en `docs/CONTEXTO-SESION.md` (2026-10-12, semana 1).
 
@@ -106,6 +106,8 @@ Toda carga sigue el mismo guion (es lo que hicimos con SIRE, bancos, constancias
 **Avance (12-oct, semana 2 · #5).** 936 comprobantes emitidos 2025-01→2026-09 (734 facturas, 202 NC; 464 vivas 2026 contabilizadas), 22 clientes creados en el CRM, 221 facturas con proyecto; las ventas a las financistas OXI (Amazonas Corporation, E.I.G.R., Fondo Investa, Alihcom…) esperan que Operaciones diga qué proyecto financia cada una. Detalle en `docs/CONTEXTO-SESION.md` (2026-10-12, semana 2 parte 2).
 
 **Avance (13-oct, semana 2 · #6).** 1,330 movimientos registrados con `bancos_registrar_movimiento` (ITF 652, comisiones 497, cambio de moneda 86, abonos 76, SUNAT 19). El saldo ERP aún no cuadra con el banco: faltan 228 movimientos que requieren a Finanzas (102 OPE errados, compras grandes de vehículos, préstamos) y 7 cambios de moneda de enero que el Excel registró con el signo contrario. Detalle en `docs/CONTEXTO-SESION.md` (2026-10-13).
+
+**Avance (13-oct, semana 3).** Dos Excel de revisión entregados (Finanzas/Contabilidad y Operaciones/Compras; se regeneran con `scripts/semana3-cierre/0-informes-revision.mjs`). CDC sugerido en Facturas de proveedores (98 de 248 conformes con sugerencia; Contabilidad confirma), "Pagar facturas" desde Bancos para los pagos de set-oct hechos fuera del ERP, acreedores de obligaciones enlazados a proveedores (faltan 5 sin RUC/DNI). Con esto termina el plan de tres semanas: lo que queda es trabajo de las áreas sobre los Excel de revisión.
 
 Después de eso el análisis que pide Gerencia (gasto y margen por proyecto, flujo real vs previsto, deuda por
 acreedor, proveedores concentrados) se puede construir sobre tablas conectadas, y la capa `dw` del sprint 5
