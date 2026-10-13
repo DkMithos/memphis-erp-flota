@@ -26,6 +26,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '../../ui/dialog';
 import { useCRMStore, type Cliente } from '../../../lib/crm/crm-store';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { toast } from 'sonner';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -118,6 +119,7 @@ export function CRMClientes({ onNavigate }: Props) {
     }
     return list;
   }, [clientes, filtroEstado, filtroTipo, filtroCategoria, busqueda]);
+  const pag = usePagination(filtered);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const openCrear = () => {
@@ -263,6 +265,7 @@ export function CRMClientes({ onNavigate }: Props) {
               {clientes.length === 0 ? 'No hay clientes registrados' : 'Sin resultados para los filtros aplicados'}
             </div>
           ) : (
+            <>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -278,7 +281,7 @@ export function CRMClientes({ onNavigate }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(c => (
+                {pag.paged.map(c => (
                   <TableRow key={c._dbId} className="hover:bg-muted/30">
                     <TableCell className="font-mono text-xs font-medium">{c.id}</TableCell>
                     <TableCell>
@@ -314,6 +317,16 @@ export function CRMClientes({ onNavigate }: Props) {
                 ))}
               </TableBody>
             </Table>
+            {pag.totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t text-sm">
+                <span className="text-muted-foreground">Mostrando {pag.paged.length} de {pag.totalItems} · página {pag.page} de {pag.totalPages}</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled={!pag.hasPrev} onClick={() => pag.setPage(pag.page - 1)}>Anterior</Button>
+                  <Button variant="outline" size="sm" disabled={!pag.hasNext} onClick={() => pag.setPage(pag.page + 1)}>Siguiente</Button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </CardContent>
       </Card>

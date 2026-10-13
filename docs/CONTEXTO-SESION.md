@@ -3733,8 +3733,9 @@ Comprobantes traía solo los 1,000 más recientes de 7,394 (`limit(1000)` en `co
 (`limit(500)` en `asientos-store`) y Finanzas › Transacciones los 1,000 de 4,676 (tope de PostgREST sin `range`). Ahora los tres
 loaders traen todo por bloques de 1,000 y las pantallas paginan de 20 en 20 con `usePagination` (contador "Mostrando 20 de N ·
 página X de Y"). Verificado en el navegador con usuario QA temporal (borrado): 7,394 / 1,692 / 4,676. Registro de compras y Registro de ventas también quedaron paginados (20 por
-período-página, numeración continua, totales del período completo). Siguen sin paginar, por volumen bajo, Proyectos (37),
-Clientes (22) e Inventario › Movimientos (1).
+período-página, numeración continua, totales del período completo). Después, a pedido de Kevin, también
+Proyectos › Lista (tarjetas y tabla comparten la misma página), CRM › Clientes e Inventario › Artículos y Movimientos: ya no
+queda ninguna lista del ERP sin paginar. Verificado en el navegador (37 proyectos en 2 páginas, 22 clientes en 2 páginas).
 
 Sin soporte propio: la guía propone un canal de Teams "Soporte ERP"; el botón "Contacta con soporte" del login sigue
 deshabilitado a propósito.

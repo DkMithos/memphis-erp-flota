@@ -19,6 +19,7 @@ import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { toast } from 'sonner';
 import { useInventarioStore } from '../../../lib/inventario/inventario-store';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { ProyectoSelector } from '../../shared/ProyectoSelector';
 import type { Movimiento, NuevoMovimientoInput } from '../../../lib/inventario/inventario-store';
 
@@ -115,6 +116,7 @@ export function InventarioMovimientos({ onNavigate: _onNavigate }: Props) {
       return true;
     });
   }, [movimientos, filtroTipo, busqueda, fechaDesde, fechaHasta]);
+  const pag = usePagination(movimientosFiltrados);
 
   const handleTipoChange = (tipo: TipoMovimiento) => {
     const motivos = MOTIVOS_POR_TIPO[tipo];
@@ -259,7 +261,7 @@ export function InventarioMovimientos({ onNavigate: _onNavigate }: Props) {
                   </TableCell>
                 </TableRow>
               )}
-              {movimientosFiltrados.map(m => (
+              {pag.paged.map(m => (
                 <TableRow key={m._dbId}>
                   <TableCell className="font-medium text-xs">{m.id}</TableCell>
                   <TableCell className="text-xs">{new Date(m.fecha).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}</TableCell>
@@ -287,6 +289,15 @@ export function InventarioMovimientos({ onNavigate: _onNavigate }: Props) {
               ))}
             </TableBody>
           </Table>
+          {pag.totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t text-sm">
+              <span className="text-muted-foreground">Mostrando {pag.paged.length} de {pag.totalItems} · página {pag.page} de {pag.totalPages}</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={!pag.hasPrev} onClick={() => pag.setPage(pag.page - 1)}>Anterior</Button>
+                <Button variant="outline" size="sm" disabled={!pag.hasNext} onClick={() => pag.setPage(pag.page + 1)}>Siguiente</Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

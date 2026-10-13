@@ -208,7 +208,7 @@ con el Estado. Están diseñados (`docs/DISENO-VIATICOS-Y-UNIDADES.md`) para el 
 
 ## 8. Paginación y límites de datos: lo que está y lo que falta
 
-Regla de la casa: toda lista con bastante data se pagina (20 por página) desde el primer día. Estado real:
+Regla de la casa: toda lista con bastante data se pagina (20 por página) desde el primer día. Estado real: **todas las listas del ERP paginan**; los dashboards y las fichas de detalle muestran resúmenes y no lo necesitan.
 
 | Pantalla | Filas hoy | Paginada | Carga completa | Acción |
 |---|---:|:---:|:---:|---|
@@ -222,7 +222,7 @@ Regla de la casa: toda lista con bastante data se pagina (20 por página) desde 
 | Contabilidad › Libro diario | 1,692 | Sí | Sí (por bloques de 1,000) | Corregido el 13-oct |
 | Finanzas › Transacciones | 4,676 | Sí | Sí (por bloques de 1,000) | Corregido el 13-oct |
 | Contabilidad › Registro de compras / ventas | 619 / 643 | Sí | Sí | Corregido el 13-oct (por período, 20 por página; los totales son del período completo) |
-| Proyectos › Lista · CRM › Clientes · Inventario › Movimientos | 37 / 22 / 1 | No | Sí | Paginar cuando crezcan |
+| Proyectos › Lista · CRM › Clientes · Inventario › Artículos y Movimientos | 37 / 22 / 1 / 1 | Sí | Sí | Corregido el 13-oct |
 | Dashboards, Proyecto 360, detalles, Flujo Gerencia | resúmenes | No aplica | Sí | — |
 
 Las tres pantallas que mostraban solo una parte de los datos (Comprobantes, Libro diario, Transacciones) se corrigieron el 13-oct: cargan todo por bloques y paginan de 20 en 20.
@@ -293,4 +293,4 @@ CDC sugeridos → entregar RUC/DNI de los acreedores → descargar el SIRE de oc
 **Administración**: seguir en sus Excel de caja chica, fianzas y flujo (el ERP los lee) → cerrar cajas desde el ERP →
 confirmar en el Excel de revisión los 26 proyectos nuevos junto con Operaciones.
 
-**Administrador del sistema**: crear los usuarios que falten, abrir el canal de soporte, paginar Proyectos, Clientes e Inventario cuando crezcan.
+**Administrador del sistema**: crear los usuarios que falten y abrir el canal de soporte.

@@ -27,6 +27,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../../ui/table';
 import { useProyectos, type Proyecto } from '../../../lib/proyectos/proyectos-store';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { supabase } from '../../../lib/supabase/client';
 import { useAuth } from '../../../auth/AuthProvider';
 import { toast } from 'sonner';
@@ -502,6 +503,7 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
       return matchBusqueda && matchEstado && matchTipo && matchPrioridad;
     });
   }, [proyectos, busqueda, filtroEstado, filtroTipo, filtroPrioridad]);
+  const pag = usePagination(filtrados);
 
   const abrirNuevo = () => { setEditando(undefined); setDialogOpen(true); };
   const abrirEditar = (p: Proyecto) => { setEditando(p); setDialogOpen(true); };
@@ -653,8 +655,9 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
 
       {/* Vista Cards */}
       {!loading && vista === 'cards' && filtrados.length > 0 && (
+        <>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtrados.map(p => {
+          {pag.paged.map(p => {
             const estadoCfg = ESTADO_CONFIG[p.estado] ?? ESTADO_FALLBACK;
             const priorCfg = PRIORIDAD_CONFIG[p.prioridad] ?? ESTADO_FALLBACK;
             return (
@@ -783,6 +786,16 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
             );
           })}
         </div>
+        {pag.totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t text-sm">
+            <span className="text-muted-foreground">Mostrando {pag.paged.length} de {pag.totalItems} · página {pag.page} de {pag.totalPages}</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={!pag.hasPrev} onClick={() => pag.setPage(pag.page - 1)}>Anterior</Button>
+              <Button variant="outline" size="sm" disabled={!pag.hasNext} onClick={() => pag.setPage(pag.page + 1)}>Siguiente</Button>
+            </div>
+          </div>
+        )}
+        </>
       )}
 
       {/* Vista Tabla */}
@@ -805,7 +818,7 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtrados.map(p => {
+                {pag.paged.map(p => {
                   const estadoCfg = ESTADO_CONFIG[p.estado] ?? ESTADO_FALLBACK;
                   const priorCfg = PRIORIDAD_CONFIG[p.prioridad] ?? ESTADO_FALLBACK;
                   return (
@@ -876,6 +889,15 @@ export function ProyectosLista({ onNavigate, onVerDetalle }: Props) {
                 })}
               </TableBody>
             </Table>
+            {pag.totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t text-sm">
+                <span className="text-muted-foreground">Mostrando {pag.paged.length} de {pag.totalItems} · página {pag.page} de {pag.totalPages}</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled={!pag.hasPrev} onClick={() => pag.setPage(pag.page - 1)}>Anterior</Button>
+                  <Button variant="outline" size="sm" disabled={!pag.hasNext} onClick={() => pag.setPage(pag.page + 1)}>Siguiente</Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

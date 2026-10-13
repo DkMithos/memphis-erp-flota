@@ -19,6 +19,7 @@ import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { toast } from 'sonner';
 import { useInventarioStore } from '../../../lib/inventario/inventario-store';
+import { usePagination } from '../../../lib/shared/usePagination';
 import type { Articulo, EstadoStock } from '../../../lib/inventario/inventario-store';
 
 interface Props {
@@ -119,6 +120,7 @@ export function InventarioArticulos({ onNavigate: _onNavigate }: Props) {
       return true;
     });
   }, [articulos, filtroTipo, filtroCategoria, filtroEstado, busqueda]);
+  const pag = usePagination(articulosFiltrados);
 
   const abrirDetalle = async (a: Articulo) => {
     setArticuloSeleccionado(a);
@@ -315,7 +317,7 @@ export function InventarioArticulos({ onNavigate: _onNavigate }: Props) {
                   </TableCell>
                 </TableRow>
               )}
-              {articulosFiltrados.map(a => (
+              {pag.paged.map(a => (
                 <TableRow key={a._dbId}>
                   <TableCell className="font-medium text-sm">{a.id}</TableCell>
                   <TableCell className="text-sm">{a.nombre}</TableCell>
@@ -341,6 +343,15 @@ export function InventarioArticulos({ onNavigate: _onNavigate }: Props) {
               ))}
             </TableBody>
           </Table>
+          {pag.totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t text-sm">
+              <span className="text-muted-foreground">Mostrando {pag.paged.length} de {pag.totalItems} · página {pag.page} de {pag.totalPages}</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={!pag.hasPrev} onClick={() => pag.setPage(pag.page - 1)}>Anterior</Button>
+                <Button variant="outline" size="sm" disabled={!pag.hasNext} onClick={() => pag.setPage(pag.page + 1)}>Siguiente</Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
