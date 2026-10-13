@@ -48,7 +48,8 @@ cp "/c/Users/URSULA/OneDrive - MEMPHIS MAQUINARIAS S.A.C/<carpeta>/<archivo>.xls
 | Constancias | `detracciones` | `numero_constancia` | `origen = 'sunat'` |
 | Flujo | `flujo_compromisos` | reemplazo por área con `fuente = 'excel'` | `origen_archivo`, bitácora `flujo_importaciones` |
 | Obligaciones | `obligaciones_financieras` / `_cuotas` | `OBL-AAAA-NNN` + número de cuota | `origen_archivo` |
-| Caja chica, fianzas | ya se sincronizan solas (`excel-sync`, `fianzas-import`): **no recargar** | | |
+| Caja chica | se registra en el ERP desde el 09/09/2026 (los 1,006 gastos anteriores son `migrado_de = 'caja-excel-2025'`): **no recargar** | | |
+| Fianzas | se sincronizan solas (`fianzas-import` 2×/día): **no recargar** | | |
 
 Preferir la **función real** del ERP (`sire_importar_compras`, `sire_importar_ventas`, `bancos_importar_movimientos`,
 `detracciones_importar_constancias`, `obligacion_guardar` + `obligacion_cuotas_fijar`): valida permisos,

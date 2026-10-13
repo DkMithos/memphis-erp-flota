@@ -3739,3 +3739,19 @@ queda ninguna lista del ERP sin paginar. Verificado en el navegador (37 proyecto
 
 Sin soporte propio: la guía propone un canal de Teams "Soporte ERP"; el botón "Contacta con soporte" del login sigue
 deshabilitado a propósito.
+
+## 2026-10-13 - Centro de costo duplicado de Loreto Bomberos fusionado (pedido de Kevin)
+
+Había dos CDC para GORE Loreto - Bomberos, ambos de la migración de oc-system (22/06/2026) y ambos apuntando a 04LORBOM25:
+`GLORETOBOM` (el código del Flujo de proyectos de Finanzas: 333 compromisos del Excel, 8 OC, 6 facturas) y `GLOREBOMBE` (el
+código que usaba Compras en oc-system: 61 OC, 36 requerimientos, 17 facturas, 46 pagos históricos, 41 gastos de caja chica).
+Se conservó **GLORETOBOM** (familia GLORETO*, y es el que cada reimportación del flujo vuelve a resolver) y todo lo de
+GLOREBOMBE pasó a GLORETOBOM (`scripts/semana3-cierre/2-fusionar-cdc-loreto-bomberos.sql`, dry-run + commit por el pooler,
+rol temporal borrado): transacciones 46, facturas 17 (sus compromisos se movieron por trigger), OC 61, requerimientos 36,
+cotizaciones 3, líneas de asiento 12, caja chica 41 (+1 ingreso). GLOREBOMBE quedó **inactivo** con el nombre "GLOREBOMBE
+(fusionado en GLORETOBOM el 13/10/2026)": no se borra para conservar la auditoría, y los selectores solo muestran activos.
+Sin asientos nuevos. GLORETOBOM ahora: 69 OC, 23 facturas, 349 compromisos, 46 pagos, 52 gastos de caja, 29 líneas de asiento.
+
+Hallazgo de paso que corrige la guía y la memoria: **la caja chica ya no viene del Excel**. Los 1,006 gastos hasta el 08/09/2026
+son de la migración `caja-excel-2025`; desde el 09/09/2026 Administración registra los gastos directamente en el ERP (163 a la
+fecha). El cron `excel-sync-30min` sincroniza el espejo RESUMEN de proyectos y la configuración de fianzas, no la caja.
