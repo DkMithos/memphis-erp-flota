@@ -3773,3 +3773,12 @@ Resultado: 79 centros de costo, 74 activos y 5 inactivos (los fusionados); **nin
 asientos nuevos. Los demás códigos son distintos entre sí (áreas administrativas, tributos, TI por rubro, SISTEMAS como
 comodín de Compras para TI) y no son duplicados. Observación no tocada: el CDC `BANCOS` tiene área PROYECTOS (debería ser
 ADMINISTRACION o CONTABILIDAD) y `ALMACEN` también; `CAJAOPS1`, `CAJAOPS2`, `ISLASEGURA`, `PDD` y `SISTEMAS` no tienen área.
+
+## 2026-10-13 - Áreas de centros de costo y acceso de Miguelángel a Proveedores (pedido de Kevin)
+
+- Áreas corregidas en `centros_costo`: BANCOS → CONTABILIDAD (estaba en PROYECTOS); CAJAOPS1, CAJAOPS2, ISLASEGURA, PDD y
+  SISTEMAS → ADMINISTRACION (no tenían área); ALMACEN se queda en PROYECTOS. Los compromisos nativos (`fuente = 'erp'`) de esos
+  CDC toman el área nueva; los del Excel conservan el área del archivo hasta la próxima importación.
+- Miguelángel Castañeda (mcastaneda@memphis.pe, roles Proyectos + Técnico Flota) tenía en Proveedores solo "ver" y "aprobar".
+  El rol **Proyectos** (único usuario: él) recibe además **crear, editar y exportar** proveedores; no "eliminar". Efecto
+  inmediato en su próximo ingreso (los permisos se leen al cargar la sesión).
