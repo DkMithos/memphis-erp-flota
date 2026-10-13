@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import { useFinanzas, type Transaccion } from '@/lib/finanzas/finanzas-store';
 import { useAuth } from '@/auth/AuthProvider';
 import { usePermissions } from '@/lib/rbac/usePermissions';
+import { usePagination } from '@/lib/shared/usePagination';
 
 interface Props {
   onNavigate: (route: string) => void;
@@ -130,6 +131,7 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
       return true;
     });
   }, [transacciones, search, filterTipo, filterEstado, filterCategoria, filterDesde, filterHasta]);
+  const pag = usePagination(filtered);
 
   const handleSave = async () => {
     if (!tenantId) return;
@@ -381,7 +383,7 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map(t => (
+                  {pag.paged.map(t => (
                     <TableRow key={t._dbId}>
                       <TableCell className="font-mono text-xs">{t.id}</TableCell>
                       <TableCell className="text-sm">{t.fecha}</TableCell>
@@ -450,6 +452,15 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
                   ))}
                 </TableBody>
               </Table>
+              {pag.totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t text-sm">
+                  <span className="text-muted-foreground">Mostrando {pag.paged.length} de {pag.totalItems} · página {pag.page} de {pag.totalPages}</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={!pag.hasPrev} onClick={() => pag.setPage(pag.page - 1)}>Anterior</Button>
+                    <Button variant="outline" size="sm" disabled={!pag.hasNext} onClick={() => pag.setPage(pag.page + 1)}>Siguiente</Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

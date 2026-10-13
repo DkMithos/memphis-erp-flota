@@ -14,6 +14,7 @@ import { Badge } from '../../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { usePeriodosStore } from '../../../lib/contabilidad/periodos-store';
 import { useAsientosStore, type AsientoContable, type LineaAsiento } from '../../../lib/contabilidad/asientos-store';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { useConfirmAction } from '@/components/shared/ConfirmDialogProvider';
 
 interface Props {
@@ -158,6 +159,7 @@ export function AsientosLista({ onNavigate, detalleNumero }: Props) {
       return true;
     });
   }, [asientos, filtroEstado, filtroPeriodo, query]);
+  const pag = usePagination(filtrados);
 
   // Detalle view
   const detalleAsiento = detalleKey ? obtenerPorNumero(detalleKey) : null;
@@ -247,7 +249,7 @@ export function AsientosLista({ onNavigate, detalleNumero }: Props) {
                 <div className="col-span-1 text-right">Importe</div>
                 <div className="col-span-2 text-center">Estado</div>
               </div>
-              {filtrados.map(a => (
+              {pag.paged.map(a => (
                 <button key={a._dbId} onClick={() => setDetalleKey(a.numero)}
                   className="w-full grid grid-cols-12 gap-2 px-4 py-3 border-b border-border/40 hover:bg-muted/30 transition-colors text-left items-center">
                   <div className="col-span-12 sm:col-span-3">
@@ -267,6 +269,15 @@ export function AsientosLista({ onNavigate, detalleNumero }: Props) {
                   </div>
                 </button>
               ))}
+              {pag.totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t text-sm">
+                  <span className="text-muted-foreground">Mostrando {pag.paged.length} de {pag.totalItems} · página {pag.page} de {pag.totalPages}</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={!pag.hasPrev} onClick={() => pag.setPage(pag.page - 1)}>Anterior</Button>
+                    <Button variant="outline" size="sm" disabled={!pag.hasNext} onClick={() => pag.setPage(pag.page + 1)}>Siguiente</Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </CardContent>

@@ -12,6 +12,7 @@ import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { useComprobantesStore, type ComprobantePago } from '../../../lib/contabilidad/comprobantes-store';
+import { usePagination } from '../../../lib/shared/usePagination';
 import { useConfirmAction } from '@/components/shared/ConfirmDialogProvider';
 import { BotonExportar } from '../../shared/BotonExportar';
 
@@ -68,6 +69,7 @@ export function ComprobantesLista({ onNavigate }: Props) {
   }, [comprobantes, filtroDireccion, filtroEstado, query]);
 
   const pendientes = comprobantes.filter(c => !c.contabilizado && c.estado === 'activo').length;
+  const pag = usePagination(filtrados);
 
   // Lo que Walter necesita para trabajar el comprobante fuera del sistema:
   // el documento completo, con quién, cuánto y en qué estado del flujo.
@@ -175,7 +177,7 @@ export function ComprobantesLista({ onNavigate }: Props) {
                 <div className="col-span-1 text-center">Estado</div>
                 <div className="col-span-1" />
               </div>
-              {filtrados.map(c => (
+              {pag.paged.map(c => (
                 <div key={c.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-b border-border/40 hover:bg-muted/20 transition-colors items-center text-sm">
                   <div className="col-span-6 lg:col-span-2">
                     <p className="font-mono text-xs font-semibold">{c.numeroCompleto}</p>
@@ -233,6 +235,15 @@ export function ComprobantesLista({ onNavigate }: Props) {
                   </div>
                 </div>
               ))}
+              {pag.totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t text-sm">
+                  <span className="text-muted-foreground">Mostrando {pag.paged.length} de {pag.totalItems} · página {pag.page} de {pag.totalPages}</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={!pag.hasPrev} onClick={() => pag.setPage(pag.page - 1)}>Anterior</Button>
+                    <Button variant="outline" size="sm" disabled={!pag.hasNext} onClick={() => pag.setPage(pag.page + 1)}>Siguiente</Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </CardContent>

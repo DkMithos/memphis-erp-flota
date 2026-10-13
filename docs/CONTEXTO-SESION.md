@@ -3721,3 +3721,19 @@ cargar nada).
 
 Pendiente de Kevin: nada bloqueante. Lo que sigue es trabajo de las áreas con los Excel de revisión y las dos pantallas nuevas;
 el ERP queda listo para que el primer lote de pago (6-nov) nazca con la CxP limpia.
+
+## 2026-10-13 - Guía operativa por área + paginación de Comprobantes, Libro diario y Transacciones
+
+Kevin preguntó si las áreas ya pueden usar el ERP y pidió "un super detalle". Respuesta en `docs/GUIA-OPERATIVA-POR-AREA.md`
+(veredicto por área, flujo correcto, qué hace cada submódulo, importaciones, exportaciones, reportes, paginación, soporte y
+lista de arranque); entregada también como HTML autónomo (`scripts/semana3-cierre/md-a-html.mjs` convierte cualquier .md).
+
+Hallazgo corregido el mismo día: tres pantallas no paginaban y además **cortaban los datos sin avisar**: Contabilidad ›
+Comprobantes traía solo los 1,000 más recientes de 7,394 (`limit(1000)` en `comprobantes-store`), Libro diario los 500 de 1,692
+(`limit(500)` en `asientos-store`) y Finanzas › Transacciones los 1,000 de 4,676 (tope de PostgREST sin `range`). Ahora los tres
+loaders traen todo por bloques de 1,000 y las pantallas paginan de 20 en 20 con `usePagination` (contador "Mostrando 20 de N ·
+página X de Y"). Verificado en el navegador con usuario QA temporal (borrado): 7,394 / 1,692 / 4,676. Siguen sin paginar, por
+volumen bajo, Registro de compras/ventas (619/643), Proyectos (37), Clientes (22) e Inventario › Movimientos (1).
+
+Sin soporte propio: la guía propone un canal de Teams "Soporte ERP"; el botón "Contacta con soporte" del login sigue
+deshabilitado a propósito.

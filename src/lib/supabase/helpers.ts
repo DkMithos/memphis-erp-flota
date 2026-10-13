@@ -836,9 +836,20 @@ export const dbActividadesCRM = {
 // =============================================================================
 
 export const dbTransacciones = {
-  list: (tenantId: string) =>
-    supabase.from('transacciones').select('*').eq('tenant_id', tenantId)
-      .order('fecha', { ascending: false }),
+  /** Lista TODAS las transacciones por bloques de 1,000 (tope de PostgREST): con los históricos y el banco ya pasan de 4,600. */
+  list: async (tenantId: string): Promise<{ data: any[] | null; error: any }> => {
+    const PAGE = 1000;
+    const all: any[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase.from('transacciones').select('*').eq('tenant_id', tenantId)
+        .order('fecha', { ascending: false }).order('creado_en', { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (error) return { data: all.length ? all : null, error };
+      all.push(...(data ?? []));
+      if ((data ?? []).length < PAGE) break;
+    }
+    return { data: all, error: null };
+  },
   insert: (data: Omit<TransaccionDB, 'id' | 'creado_en'>) =>
     supabase.from('transacciones').insert(data).select().single(),
   update: (id: string, data: Partial<TransaccionDB>) =>

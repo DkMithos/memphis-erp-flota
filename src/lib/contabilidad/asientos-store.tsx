@@ -165,15 +165,21 @@ export function AsientosProvider({ children }: { children: ReactNode }) {
     if (!tenantId) { setLoading(false); return; }
     setLoading(true);
     try {
-      const { data, error: err } = await supabase
-        .from('asientos_contables')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('fecha', { ascending: false })
-        .order('creado_en', { ascending: false })
-        .limit(500);
-      if (err) throw err;
-      setAsientos((data ?? []).map(r => mapFromDB(r)));
+      // Los asientos nacen solos de compras, ventas y pagos (1,700 y creciendo): se traen por bloques de 1,000, sin cortar.
+      const data: any[] = [];
+      for (let desde = 0; ; desde += 1000) {
+        const { data: bloque, error: err } = await supabase
+          .from('asientos_contables')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .order('fecha', { ascending: false })
+          .order('creado_en', { ascending: false })
+          .range(desde, desde + 999);
+        if (err) throw err;
+        data.push(...(bloque ?? []));
+        if ((bloque ?? []).length < 1000) break;
+      }
+      setAsientos(data.map(r => mapFromDB(r)));
     } catch (e: any) {
       setError(e?.message ?? 'Error al cargar asientos');
     } finally {

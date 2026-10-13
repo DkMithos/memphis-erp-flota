@@ -187,14 +187,21 @@ export function ComprobantesProvider({ children }: { children: ReactNode }) {
     if (!tenantId) { setLoading(false); return; }
     setLoading(true);
     try {
-      const { data, error: err } = await supabase
-        .from('comprobantes_pago')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('fecha_emision', { ascending: false })
-        .limit(1000);
-      if (err) throw err;
-      setComprobantes((data ?? []).map(r => mapFromDB(r)));
+      // Con el SIRE cargado hay más de 7,000 comprobantes: se traen por bloques de 1,000 (tope de PostgREST), nunca se corta.
+      const data: any[] = [];
+      for (let desde = 0; ; desde += 1000) {
+        const { data: bloque, error: err } = await supabase
+          .from('comprobantes_pago')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .order('fecha_emision', { ascending: false })
+          .order('creado_en', { ascending: false })
+          .range(desde, desde + 999);
+        if (err) throw err;
+        data.push(...(bloque ?? []));
+        if ((bloque ?? []).length < 1000) break;
+      }
+      setComprobantes(data.map(r => mapFromDB(r)));
     } catch (e: any) {
       setError(e?.message ?? 'Error al cargar comprobantes');
     } finally {

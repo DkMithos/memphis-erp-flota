@@ -12,8 +12,8 @@
 | Área | ¿Puede operar hoy? | Con qué | Lo que todavía no está |
 |---|---|---|---|
 | **Compras** | **Sí** | Requerimientos, cotizaciones, órdenes con aprobación por monto, recepciones, facturas de proveedores (portal y SIRE), directorio de 843 proveedores | Nada bloqueante. 703 proveedores creados desde el SIRE necesitan cuenta bancaria y condición antes de pagarles por lote |
-| **Finanzas** | **Sí** | Cuentas por pagar (1,275 pendientes), lotes de pago, detracciones, bancos (extracto BBVA importado y conciliado al 89 %), obligaciones financieras, caja chica, flujo de caja y flujo financiero | El primer lote de pago nace el 6-nov; 228 movimientos del banco esperan cruce manual; la pantalla Transacciones muestra solo los 1,000 más recientes (ver §8) |
-| **Contabilidad** | **Sí, con cuidado** | Comprobantes recibidos y emitidos (7,394), registro de compras y ventas, libro diario con asientos automáticos (1,692), plan de cuentas, periodos | La lista de Comprobantes muestra los 1,000 más recientes y el Libro diario los 500 más recientes (ver §8); el SIRE de ventas se carga por script, aún no desde pantalla |
+| **Finanzas** | **Sí** | Cuentas por pagar (1,275 pendientes), lotes de pago, detracciones, bancos (extracto BBVA importado y conciliado al 89 %), obligaciones financieras, caja chica, flujo de caja y flujo financiero | El primer lote de pago nace el 6-nov; 228 movimientos del banco esperan cruce manual |
+| **Contabilidad** | **Sí** | Comprobantes recibidos y emitidos (7,394), registro de compras y ventas, libro diario con asientos automáticos (1,692), plan de cuentas, periodos | El SIRE de ventas se carga por script, aún no desde pantalla |
 | **Administración** | **Sí** | Caja chica (sincronizada desde su Excel cada 30 min), fianzas (sincronizadas 2 veces al día), documentos, capacitaciones y certificados, obligaciones, flujo financiero de Administración | Viáticos y correspondencia no existen todavía (diseñados para el sprint 5); los usuarios siguen trabajando en Excel y el ERP los lee |
 
 Regla general: **el ERP ya es la fuente para compras, pagos, bancos y facturas**. Caja chica, fianzas y el flujo financiero siguen naciendo en Excel y el ERP los sincroniza solo; no hay que cargarlos a mano.
@@ -122,7 +122,7 @@ Lo que no pasa por un lote (ITF, comisiones, SUNAT, abonos, cambio de moneda) se
 | **Caja chica** (47 cajas, 1,163 gastos) | Espejo del Excel de Administración: cajas, gastos, ingresos, apertura y cierre; cada gasto con centro de costo | Administración | **No se carga a mano**: se sincroniza desde SharePoint cada 30 minutos. En el ERP se consulta, exporta y cierra la caja |
 | **Flujo de caja** | Ingresos y egresos por mes con saldo inicial (S/ 7,569.94 al 1-ene-2026) | Finanzas / Gerencia | Solo lectura; sale de compromisos y cobros |
 | **Flujo financiero** | Las bases del flujo (BD CONTA, BD TI, Flujo Administración, Flujo de proyectos) leídas desde SharePoint 2 veces al día (06:00 y 15:00) o con "Actualizar desde el Excel"; muestra la hora de la última lectura | Finanzas | Mientras cada área no "corte" su Excel, el flujo mezcla Excel + ERP: la **Reconciliación Excel vs ERP** cruza ambos y muestra lo que está en uno y no en otro |
-| **Transacciones** (4,676) | Todos los movimientos de dinero: pagos, cobros, registros bancarios, históricos 2024-2026 | Finanzas / Contabilidad | Consulta y exportación. **Muestra solo los 1,000 más recientes** (ver §8) |
+| **Transacciones** (4,676) | Todos los movimientos de dinero: pagos, cobros, registros bancarios, históricos 2024-2026 | Finanzas / Contabilidad | Consulta y exportación. Paginado de 20 en 20 |
 | **Presupuestos · Reportes** | Presupuesto por centro de costo y reportes básicos | Finanzas | Poco uso todavía; el análisis fuerte está en BI › Flujo Gerencia |
 
 ### 4.3 Carga masiva en Finanzas
@@ -156,9 +156,9 @@ Contabilidad revisa y corrige donde el documento no cuadra.
 
 | Pantalla | Qué hace | Cómo se usa |
 |---|---|---|
-| **Comprobantes** (7,394: 6,458 recibidos, 936 emitidos) | Facturas, boletas y notas de crédito recibidas y emitidas, con estado, dirección, RUC, totales, asiento | Filtro por dirección/estado/fecha; registro manual de un comprobante; contabilizar o anular contabilización. **Muestra los 1,000 más recientes**: para lo anterior usar filtros por fecha o exportar (ver §8) |
+| **Comprobantes** (7,394: 6,458 recibidos, 936 emitidos) | Facturas, boletas y notas de crédito recibidas y emitidas, con estado, dirección, RUC, totales, asiento | Filtro por dirección/estado/fecha; registro manual de un comprobante; contabilizar o anular contabilización. Paginado de 20 en 20 |
 | **Registro de compras** (619) · **Registro de ventas** (643) | Los registros que exige SUNAT, generados desde los comprobantes contabilizados | Consulta y exportación |
-| **Libro diario** (1,692 asientos) | Asientos automáticos (compra, venta, pago, cobro, anulación) y manuales | Nuevo asiento manual; anular. **Muestra los 500 más recientes** (ver §8) |
+| **Libro diario** (1,692 asientos) | Asientos automáticos (compra, venta, pago, cobro, anulación) y manuales | Nuevo asiento manual; anular. Paginado de 20 en 20 |
 | **Plan de cuentas · Periodos** | Catálogo PCGE del tenant y apertura/cierre de periodos | Configuración; se toca poco |
 
 ### 5.3 Carga masiva en Contabilidad
@@ -218,15 +218,14 @@ Regla de la casa: toda lista con bastante data se pagina (20 por página) desde 
 | Cuentas por pagar | 1,275 | Sí (25) | Sí | — |
 | Bancos | 2,088 | Sí (30) | Sí (por mes) | — |
 | Detracciones, Obligaciones, Caja chica, Lotes, Fianzas, Capacitaciones, Reconciliación | — | Sí | Sí | — |
-| **Contabilidad › Comprobantes** | 7,394 | **No** | **Solo los 1,000 más recientes** | Corregir: paginar y cargar por bloques |
-| **Contabilidad › Libro diario** | 1,692 | **No** | **Solo los 500 más recientes** | Corregir: paginar y cargar por bloques |
-| **Finanzas › Transacciones** | 4,676 | **No** | **Solo los 1,000 más recientes** | Corregir: paginar y cargar por bloques |
+| Contabilidad › Comprobantes | 7,394 | Sí | Sí (por bloques de 1,000) | Corregido el 13-oct |
+| Contabilidad › Libro diario | 1,692 | Sí | Sí (por bloques de 1,000) | Corregido el 13-oct |
+| Finanzas › Transacciones | 4,676 | Sí | Sí (por bloques de 1,000) | Corregido el 13-oct |
 | Contabilidad › Registro de compras / ventas | 619 / 643 | No | Sí | Paginar (crece cada mes) |
 | Proyectos › Lista · CRM › Clientes · Inventario › Movimientos | 37 / 22 / 1 | No | Sí | Paginar cuando crezcan |
 | Dashboards, Proyecto 360, detalles, Flujo Gerencia | resúmenes | No aplica | Sí | — |
 
-Las tres filas en negrita son las únicas que hoy pueden engañar a un usuario (no ve datos antiguos y no lo sabe). Son una
-corrección de una tarde y conviene hacerla antes de que Contabilidad empiece a trabajar sobre Comprobantes.
+Las tres pantallas que mostraban solo una parte de los datos (Comprobantes, Libro diario, Transacciones) se corrigieron el 13-oct: cargan todo por bloques y paginan de 20 en 20.
 
 ---
 
@@ -277,7 +276,6 @@ falta) y esta guía.
 - Viáticos, correspondencia con el Estado, equipamiento por serie: diseñados, no construidos.
 - Flota: en rediseño.
 - Reportes financieros en PDF y la pantalla para importar el SIRE de ventas.
-- Corrección de las tres listas sin paginar (§8).
 
 ---
 
@@ -295,5 +293,4 @@ CDC sugeridos → entregar RUC/DNI de los acreedores → descargar el SIRE de oc
 **Administración**: seguir en sus Excel de caja chica, fianzas y flujo (el ERP los lee) → cerrar cajas desde el ERP →
 confirmar en el Excel de revisión los 26 proyectos nuevos junto con Operaciones.
 
-**Administrador del sistema**: crear los usuarios que falten, abrir el canal de soporte, programar la corrección de las tres
-listas sin paginar.
+**Administrador del sistema**: crear los usuarios que falten, abrir el canal de soporte, paginar Registro de compras/ventas cuando crezcan.
