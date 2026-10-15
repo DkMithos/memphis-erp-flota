@@ -3800,3 +3800,21 @@ API con la clave anónima podía leer correos. Migración `20261013160000_seguri
 - 8 funciones pequeñas con `search_path` fijo.
 Quedan como WARN aceptados: `pg_net` en `public` (la instala Supabase y la usan los cron) y "funciones SECURITY DEFINER
 ejecutables por authenticated" (es el diseño del ERP: cada función valida permisos con `auth_tiene_permiso`).
+
+## 2026-10-15 - Reclamo de Shirley: "el ERP no se actualiza con mi Excel en tiempo real"
+
+Shirley Bujaico (Asistente de Administración; roles Administración + Fianzas) llena dos Excel que el ERP lee de SharePoint:
+`Flujo Administración.xlsx` (flujo-import) y `STATUS DE FIANZAS ACTUALIZADO 2026.xlsx` (fianzas-import). Los dos cron corrían
+solo a las 06:00 y 15:00 hora Perú: un cambio hecho a las 16:12 (bitácora del 14/10) recién entró a las 06:00 del día
+siguiente, 14 horas después. El reclamo es correcto: no era tiempo real por diseño.
+
+Cambio (`supabase/migrations/20261015100000_cron_flujo_y_fianzas_cada_15_min.sql`): `flujo-import-15min` (*/15) y
+`fianzas-import-15min` (:03, :18, :33, :48). flujo-import solo reimporta la base cuya fecha de modificación cambió, así que
+el costo es una lectura de metadatos cada 15 minutos; fianzas-import lee un solo libro. Retraso máximo ahora: 15 minutos.
+Para el "ahora mismo" Shirley ya tenía permiso para los dos botones: **"Actualizar desde el Excel"** en Finanzas › Flujo
+financiero (finanzas.flujo) y **"Traer del Excel"** en Fianzas (fianzas.editar); ambas pantallas muestran la hora de la última
+lectura. Textos de pantalla, comentarios de las funciones, guía operativa, plan y skill actualizados ("cada 15 minutos").
+
+Si Gerencia quiere tiempo real de verdad (segundos), el siguiente paso es suscribirse a las notificaciones de cambio de
+Microsoft Graph sobre esos archivos (webhook → flujo-import); requiere una función receptora y renovar la suscripción cada
+3 días. No se hizo: 15 minutos cubre el uso y no agrega piezas que mantener.

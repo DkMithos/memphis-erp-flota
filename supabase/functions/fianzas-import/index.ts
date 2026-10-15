@@ -26,7 +26,7 @@
  * de cálculo no es una opción.
  *
  * Auth: usuario del tenant con `fianzas.editar`, o el cron de Supabase con
- * `x-cron-secret` (job `fianzas-import-2xdia`, 06:00 y 15:00 hora Perú). Por eso
+ * `x-cron-secret` (job `fianzas-import-15min`, cada 15 minutos; hasta el 15/10/2026 era 06:00 y 15:00). Por eso
  * la función se despliega con verify_jwt=false y valida la sesión ella misma.
  * En modo cron encadena `fianzas-cargos-import` (los PDF de SharePoint).
  * Graph: app-only, solo lectura (`Files.Read.All`) — el mismo permiso que ya usa

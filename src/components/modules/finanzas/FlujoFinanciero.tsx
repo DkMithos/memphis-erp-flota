@@ -121,7 +121,7 @@ export function FlujoFinanciero() {
   const [editando, setEditando] = useState<CompromisoEdit | null>(null);
 
   // Última lectura de cada base del Excel (BD CONTA, BD TI, Administración, Proyectos).
-  // El cron `flujo-import-2xdia` las lee a las 06:00 y 15:00; el botón las fuerza ahora.
+  // El cron `flujo-import-15min` las lee cada 15 minutos (solo la que cambió); el botón las fuerza ahora.
   type Lectura = { area: string; archivo: string | null; archivo_modificado: string | null; importado_en: string; modo: string; compromisos: number | null };
   const [lecturas, setLecturas] = useState<Lectura[]>([]);
   const [actualizando, setActualizando] = useState(false);
@@ -298,7 +298,7 @@ export function FlujoFinanciero() {
         </div>
       </div>
 
-      {/* Última lectura del Excel por base (el cron lee a las 06:00 y 15:00) */}
+      {/* Última lectura del Excel por base (el cron lee cada 15 minutos) */}
       <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
         <span>Última lectura del Excel: <b className="text-foreground">{fechaCorta(ultimaLectura)}</b>{ultimaLectura ? '' : ' (todavía ninguna registrada)'} · se lee solo a las 06:00 y 15:00.</span>
         {lecturas.map(l => (

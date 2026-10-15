@@ -14,7 +14,7 @@
 | **Compras** | **Sí** | Requerimientos, cotizaciones, órdenes con aprobación por monto, recepciones, facturas de proveedores (portal y SIRE), directorio de 843 proveedores | Nada bloqueante. 703 proveedores creados desde el SIRE necesitan cuenta bancaria y condición antes de pagarles por lote |
 | **Finanzas** | **Sí** | Cuentas por pagar (1,275 pendientes), lotes de pago, detracciones, bancos (extracto BBVA importado y conciliado al 89 %), obligaciones financieras, caja chica, flujo de caja y flujo financiero | El primer lote de pago nace el 6-nov; 228 movimientos del banco esperan cruce manual |
 | **Contabilidad** | **Sí** | Comprobantes recibidos y emitidos (7,394), registro de compras y ventas, libro diario con asientos automáticos (1,692), plan de cuentas, periodos | El SIRE de ventas se carga por script, aún no desde pantalla |
-| **Administración** | **Sí** | Caja chica (se registra en el ERP desde el 9-sep-2026), fianzas (sincronizadas 2 veces al día), documentos, capacitaciones y certificados, obligaciones, flujo financiero de Administración | Viáticos y correspondencia no existen todavía (diseñados para el sprint 5); los usuarios siguen trabajando en Excel y el ERP los lee |
+| **Administración** | **Sí** | Caja chica (se registra en el ERP desde el 9-sep-2026), fianzas (sincronizadas cada 15 minutos), documentos, capacitaciones y certificados, obligaciones, flujo financiero de Administración | Viáticos y correspondencia no existen todavía (diseñados para el sprint 5); los usuarios siguen trabajando en Excel y el ERP los lee |
 
 Regla general: **el ERP ya es la fuente para compras, pagos, bancos, facturas y caja chica**. Fianzas y el flujo financiero siguen naciendo en Excel y el ERP los sincroniza solo; no hay que cargarlos a mano.
 
@@ -121,7 +121,7 @@ Lo que no pasa por un lote (ITF, comisiones, SUNAT, abonos, cambio de moneda) se
 | **Obligaciones financieras** (20) | Préstamos, cheques diferidos, letras, deuda tributaria y fraccionamientos SUNAT con su cronograma de cuotas; cada cuota es un compromiso del flujo pagable por lote | Finanzas / Contabilidad | Nueva → cuotas (generar por periodicidad o fijar a mano) → marcar pagadas desde el lote |
 | **Caja chica** (47 cajas, 1,169 gastos) | Cajas, gastos, ingresos, apertura y cierre; cada gasto con centro de costo y proyecto | Administración | Desde el 9-sep-2026 los gastos se registran directamente en el ERP (el Excel quedó congelado al 8-sep con 1,006 gastos migrados). Consulta, exportación y cierre de caja |
 | **Flujo de caja** | Ingresos y egresos por mes con saldo inicial (S/ 7,569.94 al 1-ene-2026) | Finanzas / Gerencia | Solo lectura; sale de compromisos y cobros |
-| **Flujo financiero** | Las bases del flujo (BD CONTA, BD TI, Flujo Administración, Flujo de proyectos) leídas desde SharePoint 2 veces al día (06:00 y 15:00) o con "Actualizar desde el Excel"; muestra la hora de la última lectura | Finanzas | Mientras cada área no "corte" su Excel, el flujo mezcla Excel + ERP: la **Reconciliación Excel vs ERP** cruza ambos y muestra lo que está en uno y no en otro |
+| **Flujo financiero** | Las bases del flujo (BD CONTA, BD TI, Flujo Administración, Flujo de proyectos) leídas desde SharePoint cada 15 minutos (solo la base que cambió) o al instante con "Actualizar desde el Excel"; muestra la hora de la última lectura | Finanzas | Mientras cada área no "corte" su Excel, el flujo mezcla Excel + ERP: la **Reconciliación Excel vs ERP** cruza ambos y muestra lo que está en uno y no en otro |
 | **Transacciones** (4,676) | Todos los movimientos de dinero: pagos, cobros, registros bancarios, históricos 2024-2026 | Finanzas / Contabilidad | Consulta y exportación. Paginado de 20 en 20 |
 | **Presupuestos · Reportes** | Presupuesto por centro de costo y reportes básicos | Finanzas | Poco uso todavía; el análisis fuerte está en BI › Flujo Gerencia |
 
@@ -181,11 +181,11 @@ Contabilidad revisa y corrige donde el documento no cuadra.
 | Pantalla | Qué hace | Cómo se usa |
 |---|---|---|
 | **Caja chica** | Ver §4.2 | Los gastos e ingresos se registran en el ERP con su centro de costo; el ERP calcula saldos, numera y cierra cajas |
-| **Fianzas › Tablero** (65 cartas) y **Cargos** | Cartas fianza por proyecto con vencimientos y renovaciones; cargos bancarios de fianzas | Sincronizado 2 veces al día desde "STATUS DE FIANZAS"; los cargos se importan desde pantalla |
+| **Fianzas › Tablero** (65 cartas) y **Cargos** | Cartas fianza por proyecto con vencimientos y renovaciones; cargos bancarios de fianzas | Sincronizado cada 15 minutos desde "STATUS DE FIANZAS" (o al instante con "Traer del Excel"); los cargos se importan desde pantalla |
 | **Documentos** | Carpetas de SharePoint enlazadas al ERP (lectura) | Navegar y abrir; no se suben archivos al ERP |
 | **Proyectos › Capacitaciones y certificados** (138 certificados) | Asistencia con firma, certificados con QR, portal público por DNI, plantillas por consorcio | Crear capacitación → participantes → firmar → emitir; exportación masiva |
 | **Obligaciones financieras** | Ver §4.2 | Registro y seguimiento de préstamos y deudas |
-| **Flujo financiero › Administración** | Su Excel de flujo leído 2 veces al día | Seguir llenando el Excel hasta el corte |
+| **Flujo financiero › Administración** | Su Excel de flujo leído cada 15 minutos (o al instante con "Actualizar desde el Excel") | Seguir llenando el Excel hasta el corte |
 | **Administración › Usuarios y roles · Catálogos · Flujo de aprobación · Centros de costo** | Alta de usuarios, permisos, catálogos (tipos, categorías), niveles de aprobación por monto, centros de costo y su proyecto | Solo el administrador del sistema |
 
 **Lo que Administración todavía hace en Excel y el ERP no cubre:** viáticos y pasajes (797 reservas al año) y correspondencia

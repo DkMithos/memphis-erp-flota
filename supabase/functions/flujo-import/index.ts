@@ -21,7 +21,7 @@
  *
  * Auth: usuario del tenant con `finanzas.crear`, `finanzas.editar` o
  * `finanzas.flujo`; o el cron de Supabase (`x-cron-secret`, job
- * `flujo-import-2xdia`, 06:00 y 15:00 hora Perú) que corre `importar_todo`
+ * `flujo-import-15min`, cada 15 minutos) que corre `importar_todo`
  * para cada tenant con carpeta de flujo. Cada lectura queda en
  * `flujo_importaciones` (sprint 4: "hora de última lectura en pantalla").
  * Graph: app-only, solo lectura (`Files.Read.All`).

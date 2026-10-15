@@ -27,7 +27,7 @@ proyecto) depende de que cada registro apunte a su **proyecto**, su **centro de 
 | Movimientos de banco 2026 | 2,088 | — | — | — | **228 sin conciliar (13-oct)**: 123 pagos sin factura (incl. los 102 OPE errados), 91 por clasificar, préstamos, caja chica, planilla |
 | Obligaciones financieras | 20 (124 cuotas) | sí | — | 3 | Nuevo (12-oct); 7 acreedores sin ficha de proveedor |
 | Caja chica | 47 cajas · 1,158 gastos | sí | vía CDC | — | Sincronizada cada 30 min desde el Excel de Administración (`excel-sync`); **no hay que recargarla** |
-| Fianzas | 65 cartas | — | sí | — | Sincronizada 2×/día (`fianzas-import`) |
+| Fianzas | 65 cartas | — | sí | — | Sincronizada cada 15 min (`fianzas-import`) |
 | Vehículos | 414 | — | sí | — | Migrados; las unidades nuevas de Perumotor entran por Flota |
 | Inventario | 1 artículo | — | — | — | Vacío en la práctica; el equipamiento por serie vive en Excel |
 | Facturas emitidas (ventas) | 936 (12-oct) | — | 221 | 936 (cliente) | Cargadas del SIRE de ventas 2025-2026; falta proyecto en las ventas a financistas OXI |

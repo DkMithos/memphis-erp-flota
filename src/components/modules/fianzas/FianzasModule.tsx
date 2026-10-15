@@ -71,7 +71,7 @@ export function FianzasModule() {
    * cabecera porque durante tres semanas (16/09 → 05/10/2026) el ERP estuvo
    * desactualizado sin que nadie lo notara: la importación era un botón
    * escondido en el menú Exportar y nadie lo pulsaba. Ahora además corre sola
-   * dos veces al día (cron `fianzas-import-2xdia`).
+   * cada 15 minutos (cron `fianzas-import-15min`; hasta el 15/10/2026 era dos veces al día).
    */
   const [ultimaLectura, setUltimaLectura] = useState<{ fecha: string | null; estado: string | null; error: string | null } | null>(null);
   const cargarUltimaLectura = async () => {
