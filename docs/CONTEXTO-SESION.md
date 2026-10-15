@@ -3852,3 +3852,17 @@ en la v8 en la misma hora). Resultado: 65 cartas, **12 vigentes, S/ 4,787,909.32
 debía contar). Las fianzas que quedan con dos vigentes son cartas distintas de verdad (AMAZONAS `*3002025040324-3` +
 `*3002026044672-1`, MUNI CUSCO `0509-006` + `1887-006`, SAN MARTIN `1976-000` + `1978-001`). La etiqueta del tablero
 cuando pasó la fecha de renovación ya no dice "venció" (la carta sigue vigente hasta su fin) sino "renovación atrasada N d".
+
+## 2026-10-15 - El Excel de fianzas queda en solo lectura (pedido de Shirley vía Kevin)
+
+Shirley pidió que nadie pueda modificar `STATUS DE FIANZAS ACTUALIZADO 2026.xlsx` (sitio Administración de SharePoint,
+carpeta Administración/Fianzas). Hecho con PnP.PowerShell y la cuenta de Kevin (`scripts/sharepoint/fianzas-solo-lectura.ps1`,
+permisos antes/después guardados al lado en JSON):
+- El archivo ya tenía permisos propios pero con **tres vínculos "cualquiera de la organización puede editar"**: eliminados.
+- Grupo **Integrantes de la Administración** (los miembros del equipo de Teams): de Editar a **Leer**.
+- **Propietarios Administración** conservan Control total (son los dueños del equipo de Teams; un propietario siempre puede
+  cambiar permisos, eso no se puede quitar desde el archivo).
+- **Shirley Bujaico** (sbujaico@memphis.pe): **Editar** directo sobre el archivo. Única editora además de los propietarios.
+El ERP no cambia: `fianzas-import` lee con permiso de aplicación (Files.Read.All) y nunca escribe en el archivo; verificado con
+una corrida del cron tras el cambio. Si alguien más debe editar, se le da Editar sobre el archivo desde "Administrar acceso"
+en SharePoint o se añade a `$editores` del script.

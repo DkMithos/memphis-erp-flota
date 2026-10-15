@@ -1,0 +1,71 @@
+{
+  "archivo": "/sites/Administracin54/Documentos compartidos/Administración/Fianzas/STATUS DE FIANZAS ACTUALIZADO 2026.xlsx",
+  "permisosUnicos": true,
+  "vinculos": [
+    {
+      "id": "14a6a0b4-e073-4470-abcc-3fd50cc7ded5",
+      "tipo": "Edit",
+      "alcance": "Organization"
+    },
+    {
+      "id": "aad92dc8-999b-47c2-9d3d-74fd696ab3e0",
+      "tipo": "Edit",
+      "alcance": "Organization"
+    },
+    {
+      "id": "7bae4e61-ba03-4b71-83ec-d96c55289fc5",
+      "tipo": "Edit",
+      "alcance": "Organization"
+    }
+  ],
+  "asignaciones": [
+    {
+      "principal": "Propietarios Administración",
+      "login": "Propietarios Administración",
+      "tipo": "SharePointGroup",
+      "roles": [
+        "Control total"
+      ]
+    },
+    {
+      "principal": "Visitantes de la Administración",
+      "login": "Visitantes de la Administración",
+      "tipo": "SharePointGroup",
+      "roles": [
+        "Leer"
+      ]
+    },
+    {
+      "principal": "Integrantes de la Administración",
+      "login": "Integrantes de la Administración",
+      "tipo": "SharePointGroup",
+      "roles": [
+        "Editar"
+      ]
+    },
+    {
+      "principal": "SharingLinks.fe2eb8f2-19bc-4d1b-9fa8-d635c35780c3.OrganizationEdit.aad92dc8-999b-47c2-9d3d-74fd696ab3e0",
+      "login": "SharingLinks.fe2eb8f2-19bc-4d1b-9fa8-d635c35780c3.OrganizationEdit.aad92dc8-999b-47c2-9d3d-74fd696ab3e0",
+      "tipo": "SharePointGroup",
+      "roles": [
+        "Colaborar"
+      ]
+    },
+    {
+      "principal": "SharingLinks.3acfad00-68d2-4e41-a2e8-1e85f7458470.OrganizationEdit.7bae4e61-ba03-4b71-83ec-d96c55289fc5",
+      "login": "SharingLinks.3acfad00-68d2-4e41-a2e8-1e85f7458470.OrganizationEdit.7bae4e61-ba03-4b71-83ec-d96c55289fc5",
+      "tipo": "SharePointGroup",
+      "roles": [
+        "Colaborar"
+      ]
+    },
+    {
+      "principal": "SharingLinks.214a937f-3cdb-42bd-8d91-fac4cbf38404.OrganizationEdit.14a6a0b4-e073-4470-abcc-3fd50cc7ded5",
+      "login": "SharingLinks.214a937f-3cdb-42bd-8d91-fac4cbf38404.OrganizationEdit.14a6a0b4-e073-4470-abcc-3fd50cc7ded5",
+      "tipo": "SharePointGroup",
+      "roles": [
+        "Colaborar"
+      ]
+    }
+  ]
+}

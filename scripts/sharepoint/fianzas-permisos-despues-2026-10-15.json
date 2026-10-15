@@ -1,0 +1,39 @@
+{
+  "archivo": "/sites/Administracin54/Documentos compartidos/Administración/Fianzas/STATUS DE FIANZAS ACTUALIZADO 2026.xlsx",
+  "permisosUnicos": true,
+  "vinculos": [],
+  "asignaciones": [
+    {
+      "principal": "Propietarios Administración",
+      "login": "Propietarios Administración",
+      "tipo": "SharePointGroup",
+      "roles": [
+        "Control total"
+      ]
+    },
+    {
+      "principal": "Visitantes de la Administración",
+      "login": "Visitantes de la Administración",
+      "tipo": "SharePointGroup",
+      "roles": [
+        "Leer"
+      ]
+    },
+    {
+      "principal": "Integrantes de la Administración",
+      "login": "Integrantes de la Administración",
+      "tipo": "SharePointGroup",
+      "roles": [
+        "Leer"
+      ]
+    },
+    {
+      "principal": "Shirley Bujaico",
+      "login": "i:0#.f|membership|sbujaico@memphis.pe",
+      "tipo": "User",
+      "roles": [
+        "Editar"
+      ]
+    }
+  ]
+}
