@@ -28,6 +28,7 @@ import {
   BarChart3,
   BoxIcon,
   ArrowRightLeft,
+  Cpu,
   PackageSearch,
   FileBarChart,
   Receipt,
@@ -181,6 +182,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         { label: t('nav.sub.almacenes'), href: '/inventario/almacenes' },
         { label: t('nav.sub.movimientos'), href: '/inventario/movimientos' },
         { label: 'Despacho a proyecto', href: '/inventario/despacho' },
+        { label: 'Unidades con serie', href: '/inventario/unidades' },
         { label: t('nav.sub.stock_critico'), href: '/inventario/stock-critico' }
       ]
     },
@@ -392,6 +394,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
     if (href.includes('productos') || href.includes('articulos')) return <BoxIcon className="size-4" />;
     if (href.includes('almacenes')) return <Archive className="size-4" />;
     if (href.includes('movimientos')) return <ArrowRightLeft className="size-4" />;
+    if (href.includes('unidades')) return <Cpu className="size-4" />;
     if (href.includes('ordenes')) return <ListChecks className="size-4" />;
     if (href.includes('stock')) return <AlertCircle className="size-4" />;
     // Contabilidad

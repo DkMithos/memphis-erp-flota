@@ -23,6 +23,7 @@ import { VehicleQRSection } from './VehicleQRSection';
 import { ContratoTab } from './vehiculo/ContratoTab';
 import { PlanPreventivoTab } from './vehiculo/PlanPreventivoTab';
 import { DocumentosTab } from './vehiculo/DocumentosTab';
+import { EquipamientoTab } from './vehiculo/EquipamientoTab';
 import { SaldoPreventivoCard } from './SaldoPreventivoCard';
 import { toast } from 'sonner';
 
@@ -417,10 +418,11 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4" id="vehiculo-tabs">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
           <TabsTrigger value="contrato">Contrato</TabsTrigger>
           <TabsTrigger value="plan-preventivo">Plan Preventivo</TabsTrigger>
+          <TabsTrigger value="equipamiento">Equipamiento</TabsTrigger>
         </TabsList>
         <TabsContent value="documentos" className="space-y-4">
           <DocumentosTab vehiculoId={vehiculoId} vehiculo={vehiculo} />
@@ -430,6 +432,9 @@ export function VehiculoDetalle({ vehiculoId, onBack, onNavigate, initialTab }: 
         </TabsContent>
         <TabsContent value="plan-preventivo" className="space-y-4">
           <PlanPreventivoTab vehiculoId={vehiculoId} vehiculo={vehiculo} />
+        </TabsContent>
+        <TabsContent value="equipamiento" className="space-y-4">
+          <EquipamientoTab vehiculo={vehiculo} onNavigate={onNavigate} />
         </TabsContent>
       </Tabs>
 

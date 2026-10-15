@@ -70,6 +70,11 @@ si el viajero rinde él mismo en el ERP (necesita usuario) o lo hace Administrac
 
 ## 2. Equipamiento con número de serie
 
+> **HECHO el 2026-10-15** (migración `20261015140000_inventario_unidades_serializadas.sql`, pantalla `/inventario/unidades`,
+> pestaña Equipamiento del vehículo, tarjeta en el Proyecto 360, acta PDF, 546 unidades de LA SIRENA cargadas). Decisiones
+> tomadas por defecto: instalado en vehículo = `instalada`, `entregada` solo con acta; series las mantiene quien tenga
+> `inventario.crear/editar`. Detalle en CONTEXTO-SESION.md (2026-10-15).
+
 ### 2.1 Qué resuelve
 Bodycams, radios, tablets, NVR, arneses, GPS: se compran por lote, se instalan en una unidad concreta (camioneta, moto) o se
 entregan al Estado **por número de serie**, y se devuelven al proveedor también por serie (devolución a SUMTEC con guía). El

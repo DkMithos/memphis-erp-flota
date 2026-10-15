@@ -22,7 +22,7 @@ import {
   ArrowLeft, Car, Wrench, ShoppingCart, DollarSign,
   Users, Calendar, MapPin, FileText,
   ChevronRight, ChevronLeft, ChevronDown, AlertTriangle, Activity, Wallet,
-  RefreshCw, Heart, Receipt, CheckCircle, Clock, XCircle,
+  RefreshCw, Heart, Receipt, CheckCircle, Clock, XCircle, Cpu,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
@@ -46,6 +46,8 @@ import { calcSaldoPreventivo } from '../../../lib/flota/vehiculos-config';
 import { useTipoCambio } from '../../../lib/shared/tipo-cambio-store';
 import { supabase } from '../../../lib/supabase/client';
 import { FlujoCajaMensual } from '../finanzas/FlujoCajaMensual';
+import { UnidadesCompacta } from '../inventario/UnidadesCompacta';
+import { cargarUnidadesDeProyecto, type Unidad } from '../../../lib/inventario/unidades';
 import {
   calcularFinancieroProyecto,
   colorEjecucion,
@@ -131,6 +133,13 @@ function Pagination({ page, totalPages, onPageChange }: {
 export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
   const { proyectos } = useProyectos();
   const { vehiculos } = useVehiculos();
+  // Equipamiento con número de serie entregado/instalado en este proyecto (sprint 5)
+  const [unidadesProyecto, setUnidadesProyecto] = useState<Unidad[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    cargarUnidadesDeProyecto(proyectoDbId).then(u => { if (vivo) setUnidadesProyecto(u); }).catch(() => { if (vivo) setUnidadesProyecto([]); });
+    return () => { vivo = false; };
+  }, [proyectoDbId]);
   const { ordenes } = useOTStore();
   const { requerimientos } = useRequerimientosStore();
   const { cotizaciones } = useCotizacionesStore();
@@ -1022,6 +1031,16 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
 
         {/* ══════ Tab: Flota ══════ */}
         <TabsContent value="flota" className="space-y-4">
+          {/* Equipamiento por número de serie (bodycams, tablets…) instalado o entregado en este proyecto */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2"><Cpu className="size-4" /> Equipamiento por serie ({unidadesProyecto.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <UnidadesCompacta unidades={unidadesProyecto} titulo={`EQUIPAMIENTO · ${proyecto.id}`} proyecto={`${proyecto.id} · ${proyecto.nombre}`}
+                vacio="Ningún equipo con número de serie está asignado a este proyecto todavía." onIrAUnidades={() => onNavigate?.('/inventario/unidades')} />
+            </CardContent>
+          </Card>
           {/* KPIs principales de flota */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card>

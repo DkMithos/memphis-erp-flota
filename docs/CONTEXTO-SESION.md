@@ -3866,3 +3866,53 @@ permisos antes/después guardados al lado en JSON):
 El ERP no cambia: `fianzas-import` lee con permiso de aplicación (Files.Read.All) y nunca escribe en el archivo; verificado con
 una corrida del cron tras el cambio. Si alguien más debe editar, se le da Editar sobre el archivo desde "Administrar acceso"
 en SharePoint o se añade a `$editores` del script.
+
+## 2026-10-15 - Sprint 5 (1/2): equipamiento con número de serie (#11) — construido y cargado
+
+Kevin: "Continuemos con el sprint 5". Se tomó el orden del diseño (`docs/DISENO-VIATICOS-Y-UNIDADES.md` §3): primero
+unidades serializadas (destraba actas de entrega y la devolución a SUMTEC), después viáticos. Las dos decisiones que el
+diseño dejaba a Kevin se tomaron por defecto y están escritas en la migración para cambiarlas si hace falta: (a) el equipo
+instalado en un vehículo queda **instalada**; **entregada** al Estado es un acto aparte con acta (`documento_salida`), porque
+inmatriculación y acta no siempre coinciden; (b) mantienen las series quienes tengan `inventario.crear/editar` (Logística),
+sin módulo de permisos nuevo.
+
+**Base** (`supabase/migrations/20261015140000_inventario_unidades_serializadas.sql`): `inventario_unidades` (una fila por
+serie; `serie` null = pendiente de serie; única por tenant+artículo; estados en_almacen · instalada · entregada · devuelta ·
+en_reparacion · baja; almacén, proyecto, vehículo, proveedor, factura, OC, valores US$/S/ + TC, documento de salida, origen) e
+`inventario_unidades_mov` (historial: de → a, documento, enlace al movimiento del kardex). RLS por tenant. Funciones:
+`inventario_unidades_alta(artículo, series[], sin_serie, …, p_kardex)` (limpia/deduplica series, salta las que ya existen,
+crea las sin serie como "Pendiente de serie", y si `p_kardex` registra UNA entrada al kardex por la cantidad),
+`inventario_unidades_mover(ids[], estado, fecha, documento, proyecto, vehículo, almacén, proveedor, notas, p_kardex)` (instalar
+exige vehículo y hereda su proyecto; entregar exige acta y proyecto —propio, del vehículo o el que ya tenía—; devolver exige
+guía y proveedor; devolución/baja dan salida en el kardex solo si se pide) e `inventario_unidad_serie(id, serie)`. Vistas
+`v_inventario_unidades` (con nombres) y `v_unidades_por_articulo` (series vs stock del kardex, columna `diferencia`).
+**El kardex por cantidad no cambia**: instalar/entregar no lo tocan (el stock por proyecto se mueve con el despacho).
+
+**Pantallas**: `Inventario › Unidades con serie` (`/inventario/unidades`, `InventarioUnidades.tsx`): conteo por estado,
+cuadro por artículo contra el kardex, filtros persistidos (texto, artículo, estado, proyecto), tabla paginada 20/pág. con
+casillas, **Registrar unidades** (pegar series del Excel + unidades sin serie + factura/valores + kardex opcional),
+**Cambiar estado** sobre la selección (vehículo buscable por placa, proyecto, acta/guía, kardex opcional), lápiz para
+completar la serie pendiente, **Historial** por unidad, **Acta** (entrega/devolución/inventario en PDF por `window.print`,
+`unidades-acta.ts`) y exportación Excel. Pestaña **Equipamiento** en el detalle del vehículo (`EquipamientoTab.tsx`) y tarjeta
+"Equipamiento por serie" en la pestaña Flota del Proyecto 360 (`UnidadesCompacta.tsx`). Pruebas: `unidades.test.ts`
+(parseo de series pegadas).
+
+**Carga del Excel LA SIRENA** (`scripts/sprint5-unidades/1-cargar-la-sirena.sql`, hoja "DEVOLUCIÓN " de
+`MEMPHIS_IVENTARIO LA SIRENA ULTIMO.xlsx`, 551 filas = 546 unidades + 5 de totales): almacén nuevo **ALM-002 "La Sirena -
+Lurín (custodia)"** (Corporación La Sirena guarda el equipamiento), 4 artículos nuevos tipo equipo (ART-0002 Bodycam Hikvision
+DS-MCW407, ART-0003 Arnés de pecho Hikvision, ART-0004 Lightman LED rojo DKT, ART-0005 Tablet Lenovo P11) y 546 unidades
+`en_almacen`: 70 bodycams y 40 tablets **con serie**; 236 arneses y 200 lightman **sin serie** (el Excel dice "NA"). Enlazadas
+a su factura real del SIRE (F002-5489 SUMTEC; F001-1 y F001-2 DKT) y proveedor; valores y TC del Excel (S/ 240,750.06 en
+total, igual que la hoja); fecha de ingreso = fecha de la factura (el Excel no trae fecha; anotado en cada unidad). Una entrada
+al kardex por artículo (motivo inicial): stock 70/236/200/40, `diferencia = 0` en las cuatro. **No se cargó**: las 166 bodycams
+devueltas a SUMTEC el 20/10/2025 (guía EG07-00000067, hoja "DEVOLUCIÓN SUMTEC"): la hoja no da sus series; cuando Logística las
+tenga, se registran como alta + estado devuelta con esa guía.
+
+**Verificado** con usuario QA temporal (Administrador, borrado al cerrar) en el navegador: lista con 546, alta de 2 series de
+prueba sin kardex (el cuadro marcó `diferencia -2`, como debe), instalación en EX9290 (proyecto ICAPNP24 heredado), pestaña
+Equipamiento del vehículo con las 2 unidades; por SQL con el mismo usuario: entrega con acta y devolución a SUMTEC con guía,
+historial completo (ingreso → instalación → entrega → devolución). Unidades de prueba eliminadas.
+
+Queda para Kevin/Logística: confirmar las dos decisiones por defecto; pedir a La Sirena/SUMTEC las series de los arneses y
+lightman si existen (hoy "pendiente de serie"); registrar la devolución de las 166 bodycams cuando tengan la lista. Sigue el
+sprint 5 (2/2): viáticos y pasajes (depende de quién aprueba, montos y tabla de tarifas).

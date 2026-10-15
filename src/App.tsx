@@ -138,6 +138,7 @@ const InventarioArticulos = lazyModulo(() => import('./components/modules/invent
 const InventarioMovimientos = lazyModulo(() => import('./components/modules/inventario/InventarioMovimientos').then(m => ({ default: m.InventarioMovimientos })));
 const InventarioAlmacenes = lazyModulo(() => import('./components/modules/inventario/InventarioAlmacenes').then(m => ({ default: m.InventarioAlmacenes })));
 const InventarioDespacho = lazyModulo(() => import('./components/modules/inventario/InventarioDespacho').then(m => ({ default: m.InventarioDespacho })));
+const InventarioUnidades = lazyModulo(() => import('./components/modules/inventario/InventarioUnidades').then(m => ({ default: m.InventarioUnidades })));
 
 // BI (carga diferida — incluye recharts)
 const BIDashboard = lazyModulo(() => import('./components/modules/bi/BIDashboard').then(m => ({ default: m.BIDashboard })));
@@ -703,6 +704,7 @@ export default function App() {
       if (currentRoute === '/inventario/movimientos') return <InventarioMovimientos onNavigate={navigateTo} />;
       if (currentRoute === '/inventario/almacenes') return <InventarioAlmacenes onNavigate={navigateTo} />;
       if (currentRoute === '/inventario/despacho') return <InventarioDespacho onNavigate={navigateTo} />;
+      if (currentRoute === '/inventario/unidades') return <InventarioUnidades onNavigate={navigateTo} />;
       if (currentRoute === '/inventario/ordenes') return <InventarioMovimientos onNavigate={navigateTo} />;
       if (currentRoute === '/inventario/stock-critico') return <InventarioDashboard onNavigate={navigateTo} />;
       return <InventarioDashboard onNavigate={navigateTo} />;
@@ -926,7 +928,7 @@ export default function App() {
           return <VehicleQRPrint vehiculoId={param} onNavigate={navigateTo} />;
         }
 
-        if (param && param !== 'nuevo' && (!action || ['documentos', 'contrato', 'plan-preventivo'].includes(action))) {
+        if (param && param !== 'nuevo' && (!action || ['documentos', 'contrato', 'plan-preventivo', 'equipamiento'].includes(action))) {
           return (
             <VehiculoDetalle
               vehiculoId={param}
