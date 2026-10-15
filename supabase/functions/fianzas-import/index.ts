@@ -20,6 +20,9 @@
  *   migración.
  * - Una carta NUEVA busca su fianza por convenio+entidad y, si no, por
  *   proyecto+entidad. Solo si no encuentra ninguna se crea una fianza.
+ * - La cadena manda sobre la columna VIGENCIA (15/10/2026): una carta con
+ *   sucesora en su misma cadena (-005 → -006) entra como `renovada` aunque una
+ *   fila repetida de la hoja diga SI. Ver `agruparFilas` en formato.ts.
  *
  * Nada se borra. Si una fila desaparece del Excel, su carta se queda en el ERP
  * y se reporta aparte: perder una fianza por un borrado accidental en una hoja

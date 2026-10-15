@@ -215,6 +215,17 @@ export function leerFila(celdas: unknown[]): FilaFianza | null {
   };
 }
 
+/** El número sin el sufijo de renovación: 15411-0429-2025-006 → 15411-0429-2025. */
+export function baseCarta(numero: string): string {
+  return numero.trim().toUpperCase().replace(/-\d+$/, '');
+}
+
+/** El sufijo de renovación como número: …-006 → 6; sin sufijo → -1. */
+export function sufijoCarta(numero: string): number {
+  const m = numero.trim().match(/-(\d+)$/);
+  return m ? Number(m[1]) : -1;
+}
+
 /**
  * La identidad de una carta: su número MÁS su fecha de inicio.
  *
@@ -264,6 +275,27 @@ export function agruparFilas(filas: FilaFianza[]): {
     // Los datos de cabecera se toman de la carta más reciente, que es la que
     // lleva el monto de contrato actualizado.
     g.datos = g.cartas[0];
+  }
+
+  // Una carta que ya tiene sucesora en su propia cadena (mismo número base:
+  // 15411-0429-2025-005 → -006) no puede seguir "vigente" aunque alguna fila
+  // lo diga. Caso real (15/10/2026): la hoja repite abajo las vigentes y la
+  // copia de abajo de la -005 se quedó con el SI viejo; como gana la última
+  // fila, el ERP mostraba dos vigentes y "venció hace 3 d" en una carta ya
+  // renovada. La cadena manda sobre la columna VIGENCIA.
+  for (const g of grupos.values()) {
+    for (const c of g.cartas) {
+      if (c.estado !== 'vigente') continue;
+      const base = baseCarta(c.numero);
+      const seq = sufijoCarta(c.numero);
+      // Sucesora = misma cadena, sufijo MAYOR y fecha de inicio POSTERIOR. Las dos
+      // condiciones: en BOMBEROS SAN MARTIN la -000 figura con inicio 27/08 y la
+      // -001 (vigente) con 26/08, y solo por fecha la -001 habría quedado renovada.
+      const haySucesora = g.cartas.some(o =>
+        o !== c && baseCarta(o.numero) === base
+        && sufijoCarta(o.numero) > seq && (o.inicio ?? '') > (c.inicio ?? ''));
+      if (haySucesora) c.estado = 'renovada';
+    }
   }
 
   return { fianzas: [...grupos.values()], repetidas: [...new Set(repetidas)] };

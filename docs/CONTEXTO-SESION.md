@@ -3840,3 +3840,15 @@ arreglo) por la clave `número + inicio`, comparando además fin, monto afianzad
 - `15411-0041-2026-000` trae fechas e importe como texto ("S/ 97.778.82"); el lector lo interpreta bien (97,778.82).
 Cron `fianzas-import-15min` corriendo cada 15 minutos sin errores (última lectura ok). Pendiente de Shirley: corregir las 3
 fechas y borrar las 2 filas repetidas en su hoja; el ERP no necesita nada más.
+
+**Corrección de la tarde (pedido de Kevin, captura de GORE CUSCO AMBULANCIAS):** la carta `15411-0429-2025-005` salía
+"Vigente" con "venció hace 3 d" aunque la renovación `-006` ya estaba en el Excel y en el ERP. Causa: la `-005` está DOS
+veces en la hoja, en la cadena con VIG "NO" y al final (fila 47, copia vieja) con VIG "SI"; como gana la última fila, el ERP
+tenía dos vigentes. Arreglo en `fianzas-import` v8 (`agruparFilas`, formato.ts, 34 pruebas): **la cadena manda sobre la
+columna VIGENCIA**: una carta con sucesora en su misma cadena (mismo número base, sufijo mayor y fecha de inicio posterior)
+entra como `renovada` aunque alguna fila diga SI. Las dos condiciones hacen falta: en BOMBEROS SAN MARTIN la `-000` figura
+con inicio 27/08 y la `-001` (vigente) con 26/08, y solo por fecha la `-001` se bajaba a renovada (pasó en la v7, corregido
+en la v8 en la misma hora). Resultado: 65 cartas, **12 vigentes, S/ 4,787,909.32** (antes 13 y 6,280,041.22: la `-005` no
+debía contar). Las fianzas que quedan con dos vigentes son cartas distintas de verdad (AMAZONAS `*3002025040324-3` +
+`*3002026044672-1`, MUNI CUSCO `0509-006` + `1887-006`, SAN MARTIN `1976-000` + `1978-001`). La etiqueta del tablero
+cuando pasó la fecha de renovación ya no dice "venció" (la carta sigue vigente hasta su fin) sino "renovación atrasada N d".

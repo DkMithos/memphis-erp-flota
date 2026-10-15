@@ -165,6 +165,38 @@ describe('agrupar cartas en fianzas', () => {
     expect(a1.estado).toBe('vigente');
   });
 
+  it('una carta con sucesora en su cadena nunca queda vigente (copia vieja con SI al final de la hoja)', () => {
+    // Caso real 15/10/2026: la -005 está en la cadena con NO y repetida abajo con SI.
+    // Ganaba la última fila y el ERP mostraba dos vigentes; la -006 manda.
+    const { fianzas, repetidas } = agruparFilas([
+      fila({ numero: '15411-0429-2025-006', inicio: '2026-10-18', estado: 'vigente' }),
+      fila({ numero: '15411-0429-2025-005', inicio: '2026-07-20', estado: 'renovada' }),
+      fila({ numero: '15411-0429-2025-005', inicio: '2026-07-20', estado: 'vigente' }),
+    ]);
+    expect(repetidas).toEqual(['15411-0429-2025-005']);
+    const estados = Object.fromEntries(fianzas[0].cartas.map(c => [c.numero, c.estado]));
+    expect(estados).toEqual({ '15411-0429-2025-006': 'vigente', '15411-0429-2025-005': 'renovada' });
+  });
+
+  it('una renovación con fecha anterior a su antecesora (error de la hoja) no se baja a renovada', () => {
+    // Caso real BOMBEROS SAN MARTIN: la -000 figura con inicio 27/08 y la -001 vigente con 26/08.
+    const { fianzas } = agruparFilas([
+      fila({ numero: '15411-1978-2026-000', inicio: '2026-08-27', estado: 'renovada' }),
+      fila({ numero: '15411-1978-2026-001', inicio: '2026-08-26', estado: 'vigente' }),
+    ]);
+    const estados = Object.fromEntries(fianzas[0].cartas.map(c => [c.numero, c.estado]));
+    expect(estados).toEqual({ '15411-1978-2026-000': 'renovada', '15411-1978-2026-001': 'vigente' });
+  });
+
+  it('dos cadenas distintas de la misma fianza pueden estar vigentes a la vez', () => {
+    // Caso real: MUNI CUSCO SERENAZGO tiene 15411-0509-2025-006 y 15411-1887-2024-006, las dos SI.
+    const { fianzas } = agruparFilas([
+      fila({ numero: '15411-0509-2025-006', inicio: '2026-10-03', estado: 'vigente' }),
+      fila({ numero: '15411-1887-2024-006', inicio: '2026-10-06', estado: 'vigente' }),
+    ]);
+    expect(fianzas[0].cartas.every(c => c.estado === 'vigente')).toBe(true);
+  });
+
   it('las cartas quedan de la más reciente hacia atrás', () => {
     const { fianzas } = agruparFilas([
       fila({ numero: 'B-0', inicio: '2024-01-01' }),

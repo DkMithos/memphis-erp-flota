@@ -58,7 +58,7 @@ const ETIQUETA_ESTADO: Record<string, string> = {
 };
 
 function textoDias(d: number) {
-  if (d < 0) return `venció hace ${Math.abs(d)} d`;
+  if (d < 0) return `renovación atrasada ${Math.abs(d)} d`;
   if (d === 0) return 'renueva hoy';
   return `en ${d} días`;
 }
