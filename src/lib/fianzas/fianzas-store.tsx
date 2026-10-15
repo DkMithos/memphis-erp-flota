@@ -11,7 +11,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { supabase } from '../supabase/client';
 import { useAuth } from '../../auth/AuthProvider';
 
-export type EstadoCarta = 'vigente' | 'renovada' | 'devuelta';
+export type EstadoCarta = 'vigente' | 'renovada' | 'devuelta' | 'retirada'; // retirada = vino del Excel y ya no figura en él (15/10/2026)
 
 export interface CartaFianza {
   id: string;

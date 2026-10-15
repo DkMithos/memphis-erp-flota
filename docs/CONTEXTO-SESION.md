@@ -1,7 +1,7 @@
 # CONTEXTO DE TRABAJO — Memphis ERP
 
 > **Documento vivo.** Se actualiza al cerrar cada tarea o cuando el contexto de la sesión
-> de trabajo se acerca al límite. Última actualización: **2026-10-12**.
+> de trabajo se acerca al límite. Última actualización: **2026-10-15**.
 > Es el punto de re-entrada para retomar el trabajo sin re-derivar contexto.
 
 ---
@@ -3818,3 +3818,25 @@ lectura. Textos de pantalla, comentarios de las funciones, guía operativa, plan
 Si Gerencia quiere tiempo real de verdad (segundos), el siguiente paso es suscribirse a las notificaciones de cambio de
 Microsoft Graph sobre esos archivos (webhook → flujo-import); requiere una función receptora y renovar la suscripción cada
 3 días. No se hizo: 15 minutos cubre el uso y no agrega piezas que mantener.
+
+## 2026-10-15 - ¿El Excel de fianzas y el ERP están iguales? Cruce fila por fila (pedido de Kevin)
+
+Cruce del `STATUS DE FIANZAS ACTUALIZADO 2026.xlsx` (67 filas con número de carta) contra `fianza_cartas` (67 cartas antes del
+arreglo) por la clave `número + inicio`, comparando además fin, monto afianzado y vigencia. Resultado:
+- **2 cartas sobrantes en el ERP** que ya no existen en el Excel porque Shirley corrigió el número en su hoja:
+  `15411-0429-2025-005` con inicio 18/10/2026 (hoy es la `-006`) y `15411-1978-2026-000` por 5,023 (en realidad era la
+  `1976-000`). El importador nunca retiraba filas ("nada se borra"), así que quedaban como vigentes. **Se eliminaron** (no
+  tenían cargos enlazados) y el ERP queda en **65 cartas, 13 vigentes, S/ 6,280,041.22 afianzado vigente**, igual que el Excel.
+- **Nuevo estado `retirada`** (migración `20261015110000_fianza_cartas_estado_retirada.sql`; `fianzas-import` v6): una carta
+  que vino del Excel (`migrado_de` = nombre del archivo, ahora relleno en las 65) y que desaparece de la hoja pasa a
+  `retirada` con la nota "Ya no figura en el Excel de Administración (lectura del dd/mm/aaaa)". No se borra: si Shirley la
+  vuelve a escribir, el mismo cruce la reactiva. Las cartas creadas a mano en el ERP (sin `migrado_de`) no se tocan. La
+  respuesta del importador trae `retiradas` y `solo_en_el_erp`; la exportación muestra "RETIRADA (ya no está en el Excel)".
+- **3 fechas FIN que Shirley tecleó a mano** y difieren de su propia fórmula (el ERP calcula fin = inicio + plazo − 1, por
+  diseño): `15411-0972-2025-000` (hoja 18/09/2025, ERP 23/08/2025), `15411-0972-2025-002` y `-003` (hoja 17/03/**2025**, error
+  de año; ERP 17/03/2026) y `15411-1887-2024-004` (fórmula sin el −1: hoja 08/07, ERP 07/07). Son de la hoja, no del ERP.
+- **2 filas duplicadas en el Excel**: `*3002025040324-3` (dos veces, idénticas) y `15411-0429-2025-005` (dos veces con las
+  mismas fechas, una con VIG "NO" y otra "SI"; manda la última, vigente). No afectan al ERP (clave única) pero conviene limpiarlas.
+- `15411-0041-2026-000` trae fechas e importe como texto ("S/ 97.778.82"); el lector lo interpreta bien (97,778.82).
+Cron `fianzas-import-15min` corriendo cada 15 minutos sin errores (última lectura ok). Pendiente de Shirley: corregir las 3
+fechas y borrar las 2 filas repetidas en su hoja; el ERP no necesita nada más.

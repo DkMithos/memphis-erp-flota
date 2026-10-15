@@ -23,7 +23,10 @@
  *
  * Nada se borra. Si una fila desaparece del Excel, su carta se queda en el ERP
  * y se reporta aparte: perder una fianza por un borrado accidental en una hoja
- * de cálculo no es una opción.
+ * de cálculo no es una opción. Pero desde el 15/10/2026 una carta que vino del
+ * Excel y ya no figura en él pasa a estado `retirada` (deja de contar como
+ * vigente y queda la nota de cuándo dejó de estar); si vuelve a aparecer, el
+ * mismo cruce por número+inicio la reactiva con lo que diga el Excel.
  *
  * Auth: usuario del tenant con `fianzas.editar`, o el cron de Supabase con
  * `x-cron-secret` (job `fianzas-import-15min`, cada 15 minutos; hasta el 15/10/2026 era 06:00 y 15:00). Por eso
@@ -199,11 +202,12 @@ export default {
       const { data: fianzasBD } = await admin
         .from('fianzas').select('id, concurso, nombre_proyecto, entidad').eq('tenant_id', tenantId)
       const { data: cartasBD } = await admin
-        .from('fianza_cartas').select('id, fianza_id, numero, inicio').eq('tenant_id', tenantId)
+        .from('fianza_cartas').select('id, fianza_id, numero, inicio, estado, migrado_de, notas').eq('tenant_id', tenantId)
+      const archivoNombre = decodeURIComponent(String(cfg.excel_url ?? '').split('/').pop() ?? '') || 'STATUS DE FIANZAS ACTUALIZADO 2026.xlsx'
 
-      const cartaPorClave = new Map<string, { id: string; fianza_id: string }>()
+      const cartaPorClave = new Map<string, { id: string; fianza_id: string; estado: string | null; migrado_de: string | null; notas: string | null }>()
       for (const c of cartasBD ?? []) {
-        cartaPorClave.set(claveCarta(c.numero ?? '', c.inicio ?? null), { id: c.id, fianza_id: c.fianza_id })
+        cartaPorClave.set(claveCarta(c.numero ?? '', c.inicio ?? null), { id: c.id, fianza_id: c.fianza_id, estado: c.estado ?? null, migrado_de: c.migrado_de ?? null, notas: c.notas ?? null })
       }
       const fianzaPorConvenio = new Map<string, string>()
       const fianzaPorProyecto = new Map<string, string>()
@@ -220,6 +224,7 @@ export default {
         grupos: grupos.length,
         repetidas_en_el_excel: repetidas,
         solo_en_el_erp: [] as string[],
+        retiradas: [] as string[],
         problemas: [] as string[],
       }
 
@@ -321,6 +326,7 @@ export default {
             // Lo que decía la columna de renovación cuando no era una fecha
             // ("DEVUELTA A CESE", "TERMINA") es información, no basura.
             notas: c.notaRenovacion || null,
+            migrado_de: archivoNombre,
             actualizado_en: new Date().toISOString(),
           }
           if (ya) {
@@ -335,9 +341,21 @@ export default {
         }
       }
 
-      // Lo que está en el ERP y ya no aparece en el Excel. No se borra: se avisa.
-      for (const clave of cartaPorClave.keys()) {
-        if (!vistasEnExcel.has(clave)) resumen.solo_en_el_erp.push(clave.split('@')[0])
+      // Lo que está en el ERP y ya no aparece en el Excel. No se borra: se avisa, y si
+      // vino del Excel y seguía "vigente" pasa a `retirada` para no inflar el tablero.
+      for (const [clave, c] of cartaPorClave.entries()) {
+        if (vistasEnExcel.has(clave)) continue
+        resumen.solo_en_el_erp.push(clave.split('@')[0])
+        if (!soloLeer && c.migrado_de && c.estado === 'vigente') {
+          const hoy = new Date().toLocaleDateString('es-PE', { timeZone: 'America/Lima' })
+          const { error } = await admin.from('fianza_cartas').update({
+            estado: 'retirada',
+            notas: [c.notas, `Ya no figura en el Excel de Administración (lectura del ${hoy})`].filter(Boolean).join(' · '),
+            actualizado_en: new Date().toISOString(),
+          }).eq('id', c.id)
+          if (error) resumen.problemas.push(`Carta ${clave.split('@')[0]}: ${error.message}`)
+          else resumen.retiradas.push(clave.split('@')[0])
+        }
       }
 
       if (!soloLeer) {

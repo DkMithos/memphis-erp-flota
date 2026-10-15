@@ -54,7 +54,7 @@ const COLOR_URGENCIA: Record<Urgencia, string> = {
 };
 
 const ETIQUETA_ESTADO: Record<string, string> = {
-  vigente: 'Vigente', renovada: 'Renovada', devuelta: 'Devuelta',
+  vigente: 'Vigente', renovada: 'Renovada', devuelta: 'Devuelta', retirada: 'Retirada (ya no está en el Excel)',
 };
 
 function textoDias(d: number) {
@@ -234,7 +234,7 @@ export function FianzasModule() {
     porcentaje: f.porcentaje === null ? '' : `${(f.porcentaje * 100).toFixed(0)}%`,
     afianzado: c.montoAfianzado ?? 0, costo: c.costoRenovacion ?? 0,
     encaje: c.encaje ?? 0,
-    vigencia: c.estado === 'vigente' ? 'SI' : c.estado === 'devuelta' ? 'DEVUELTA' : 'NO',
+    vigencia: c.estado === 'vigente' ? 'SI' : c.estado === 'devuelta' ? 'DEVUELTA' : c.estado === 'retirada' ? 'RETIRADA (ya no está en el Excel)' : 'NO',
   })));
 
   const hoy = () => new Date().toISOString().slice(0, 10);

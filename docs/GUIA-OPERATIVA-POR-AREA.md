@@ -181,7 +181,7 @@ Contabilidad revisa y corrige donde el documento no cuadra.
 | Pantalla | Qué hace | Cómo se usa |
 |---|---|---|
 | **Caja chica** | Ver §4.2 | Los gastos e ingresos se registran en el ERP con su centro de costo; el ERP calcula saldos, numera y cierra cajas |
-| **Fianzas › Tablero** (65 cartas) y **Cargos** | Cartas fianza por proyecto con vencimientos y renovaciones; cargos bancarios de fianzas | Sincronizado cada 15 minutos desde "STATUS DE FIANZAS" (o al instante con "Traer del Excel"); los cargos se importan desde pantalla |
+| **Fianzas › Tablero** (65 cartas) y **Cargos** | Cartas fianza por proyecto con vencimientos y renovaciones; cargos bancarios de fianzas | Sincronizado cada 15 minutos desde "STATUS DE FIANZAS" (o al instante con "Traer del Excel"); una carta que desaparece de la hoja queda como "Retirada", no se borra; los cargos se importan desde pantalla |
 | **Documentos** | Carpetas de SharePoint enlazadas al ERP (lectura) | Navegar y abrir; no se suben archivos al ERP |
 | **Proyectos › Capacitaciones y certificados** (138 certificados) | Asistencia con firma, certificados con QR, portal público por DNI, plantillas por consorcio | Crear capacitación → participantes → firmar → emitir; exportación masiva |
 | **Obligaciones financieras** | Ver §4.2 | Registro y seguimiento de préstamos y deudas |
