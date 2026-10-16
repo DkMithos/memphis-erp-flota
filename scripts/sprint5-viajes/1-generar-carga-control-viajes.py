@@ -11,7 +11,9 @@ from datetime import date
 src = sys.argv[1]
 d = json.load(open(src, encoding='utf-8'))
 T = 'e4b16a80-8500-418e-afaa-0e976b7d9b13'
-KEVIN = 'de040564-3d98-45cf-8fb5-6383e1c95df6'   # solicitado_por del histórico (dueño del ERP); no hubo flujo de aprobación
+# solicitado_por del histórico: el propio viajero si tiene usuario; si no, Carolina (Administración llevaba el Excel). NO Kevin:
+# la RLS muestra a cada persona lo que solicitó, y Kevin veía los 109 viajes (corregido el 16/10/2026).
+SOLICITANTE_DEFECTO = "(select user_id from usuarios_tenant where email = 'cokamura@memphis.pe' and tenant_id = v_t)"
 
 PROY = {  # nombre del Excel → código del proyecto en el ERP (misma lógica que el mapa de CDC de la semana 1)
   'GORE CUSCO PATRULLEROS': '06CUSPNP25', 'AMAZONAS': '05AMAPNP25', 'GORE CUSCO AMBULANCIAS': '02CUSAMB25',
@@ -88,10 +90,10 @@ for i, r in enumerate(res):
     w("  insert into viajes (tenant_id, numero, proyecto_id, centro_costo_id, motivo, origen, destino, fecha_salida, fecha_retorno, requiere_pasajes, requiere_viaticos, con_hospedaje, estado, solicitado_por, solicitado_en, aprobado_en, presupuesto_viaticos, observaciones, origen_datos, cerrado_en)")
     motivo = 'Viaje a %s (%s)' % ((dest or '').strip() or '—', (proy or 'sin proyecto').strip())
     obs_full = ' · '.join(x for x in [(obs or '').strip() or None, 'Histórico del Excel CONTROL DE VIAJES 2026 (Administración); aprobaciones y comprobantes en papel/PDF'] if x)
-    w("  values (v_t, %s, v_proy, v_cdc, %s, %s, %s, %s, %s, %s, %s, true, '%s', '%s', %s::timestamptz, %s::timestamptz, %s, %s, 'excel-control-viajes', %s)" % (
+    w(("  values (v_t, %s, v_proy, v_cdc, %s, %s, %s, %s, %s, %s, %s, true, '%s', coalesce(v_user, " + SOLICITANTE_DEFECTO + "), %s::timestamptz, %s::timestamptz, %s, %s, 'excel-control-viajes', %s)") % (
         q(cod), q(motivo), q((ori or 'LIMA').strip().upper()), q((dest or '—').strip().upper()), q(fs), q(fr),
         'true' if n(pasajes_s) > 0 else 'false', 'true' if n(adel) > 0 or n(rendido) > 0 else 'false',
-        estado, KEVIN, q(fs), q(fs), n(adel), q(obs_full), ("%s::timestamptz" % q(fr)) if estado == 'cerrado' else 'null'))
+        estado, q(fs), q(fs), n(adel), q(obs_full), ("%s::timestamptz" % q(fr)) if estado == 'cerrado' else 'null'))
     w("  returning id into v_id;")
     w("  insert into viaje_pasajeros (tenant_id, viaje_id, user_id, nombre, es_externo, dias, con_hospedaje, tarifa_diaria, viatico_calculado, viatico_solicitado, viatico_aprobado, adelanto_entregado, adelanto_fecha, adelanto_medio)")
     w("  values (v_t, v_id, v_user, %s, %s, %d, true, 0, %s, %s, %s, %s, %s, %s) returning id into v_pa;" % (
