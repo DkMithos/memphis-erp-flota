@@ -22,7 +22,7 @@ import { usePermissions } from '@/lib/rbac/usePermissions';
 import { RendicionEditor } from './RendicionEditor';
 import {
   ESTADO_RENDICION, ESTADO_VIAJE, RESULTADO, anularViaje, aprobarRendicion, aprobarViaje, borrarReserva, cargarPasajeros, cargarRendiciones, cargarReservas, cargarViaje, cerrarViaje,
-  fechaCorta, guardarReserva, liquidarRendicion, rechazarViaje, registrarAdelanto, revisarRendicion, soles, type Pasajero, type Rendicion, type Reserva, type Viaje,
+  fechaCorta, guardarReserva, liquidarRendicion, rangoFechas, rechazarViaje, registrarAdelanto, revisarRendicion, soles, type Pasajero, type Rendicion, type Reserva, type Viaje,
 } from '../../../lib/viajes/viajes';
 
 const hoy = () => new Date().toISOString().slice(0, 10);
@@ -84,7 +84,7 @@ export function ViajeDetalle({ viajeId, onNavigate, modoApp = false, onVolver }:
             <Badge className={E.clase}>{E.label}</Badge>
             {viaje.tope_excedido && <Badge className="bg-amber-100 text-amber-900"><AlertTriangle className="size-3 mr-1" />Excede tarifa</Badge>}
           </div>
-          <p className="text-sm text-muted-foreground">{viaje.origen} → {viaje.destino} · {fechaCorta(viaje.fecha_salida)} al {fechaCorta(viaje.fecha_retorno)}{viaje.proyecto_codigo ? ` · ${viaje.proyecto_codigo}` : ' · oficina'}</p>
+          <p className="text-sm text-muted-foreground">{viaje.origen} → {viaje.destino} · {rangoFechas(viaje.fecha_salida, viaje.fecha_retorno)}{viaje.proyecto_codigo ? ` · ${viaje.proyecto_codigo}` : ' · oficina'}</p>
           <p className="text-sm">{viaje.motivo}</p>
         </div>
         <div className="flex flex-wrap gap-2">

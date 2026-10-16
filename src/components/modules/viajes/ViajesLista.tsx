@@ -19,7 +19,7 @@ import { usePermissions } from '@/lib/rbac/usePermissions';
 import { usePagination } from '../../../lib/shared/usePagination';
 import { usePersistedState } from '../../../lib/shared/usePersistedState';
 import { NuevoViajeForm } from './NuevoViajeForm';
-import { ESTADO_VIAJE, cargarRendiciones, cargarViajes, fechaCorta, pendientesDe, soles, type EstadoViaje, type Rendicion, type Viaje } from '../../../lib/viajes/viajes';
+import { ESTADO_VIAJE, cargarRendiciones, cargarViajes, pendientesDe, rangoFechas, soles, type EstadoViaje, type Rendicion, type Viaje } from '../../../lib/viajes/viajes';
 
 const ESTADOS = Object.keys(ESTADO_VIAJE) as EstadoViaje[];
 
@@ -54,7 +54,7 @@ export function ViajesLista({ onNavigate }: { onNavigate?: (r: string) => void }
   const pag = usePagination(filtrados, 20);
 
   const exportacion = useMemo(() => filtrados.map(v => ({
-    numero: v.numero, estado: ESTADO_VIAJE[v.estado].corto, proyecto: v.proyecto_codigo ?? '', origen: v.origen, destino: v.destino, salida: v.fecha_salida, retorno: v.fecha_retorno,
+    numero: v.numero, estado: ESTADO_VIAJE[v.estado].corto, proyecto: v.proyecto_codigo ?? '', origen: v.origen, destino: v.destino, salida: v.fecha_salida, retorno: v.fecha_retorno ?? '',
     viajeros: v.viajeros_nombres ?? '', motivo: v.motivo, viaticos_solicitados: v.presupuesto_viaticos, adelantos: v.adelantos, pasajes_soles: v.reservas_soles, rendido: v.rendido, saldo_rendiciones: v.saldo_rendiciones,
     solicitante: v.solicitante ?? '', excede_tarifa: v.tope_excedido ? 'SI' : '',
   })), [filtrados]);
@@ -112,7 +112,7 @@ export function ViajesLista({ onNavigate }: { onNavigate?: (r: string) => void }
                 <TableRow key={v.id} className="cursor-pointer" onClick={() => ir(v.id)}>
                   <TableCell className="font-mono text-sm whitespace-nowrap">{v.numero}</TableCell>
                   <TableCell><Badge className={`text-xs ${ESTADO_VIAJE[v.estado].clase}`}>{ESTADO_VIAJE[v.estado].corto}</Badge>{v.tope_excedido ? <div className="text-xs text-amber-700">excede tarifa</div> : null}</TableCell>
-                  <TableCell className="text-sm">{v.origen} → {v.destino}<div className="text-xs text-muted-foreground">{fechaCorta(v.fecha_salida)} al {fechaCorta(v.fecha_retorno)}</div></TableCell>
+                  <TableCell className="text-sm">{v.origen} → {v.destino}<div className="text-xs text-muted-foreground">{rangoFechas(v.fecha_salida, v.fecha_retorno)}</div></TableCell>
                   <TableCell className="text-sm">{v.viajeros_nombres}</TableCell>
                   <TableCell className="text-sm">{v.proyecto_codigo ?? <span className="text-muted-foreground">oficina</span>}</TableCell>
                   <TableCell className="text-right text-sm whitespace-nowrap">{soles(v.presupuesto_viaticos)}{Number(v.adelantos) > 0 ? <div className="text-xs text-muted-foreground">adel. {soles(v.adelantos)}</div> : null}</TableCell>

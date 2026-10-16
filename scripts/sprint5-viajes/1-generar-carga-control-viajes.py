@@ -78,8 +78,10 @@ for i, r in enumerate(res):
     if (proy or '').strip() and pcode is None and (proy or '').strip() not in PROY: sin_proy.append((cod, proy))
     fs, fr = fecha(sal), fecha(ret)
     if not fs: fs = fr or '2026-01-01'
-    if not fr or fr < fs: fr = fs
-    dias = max(1, (date.fromisoformat(fr) - date.fromisoformat(fs)).days + 1)
+    if fr and fr < fs: fr = fs
+    # sin retorno en el Excel = viaje abierto (fecha_retorno null; 11 casos el 16/10/2026)
+    dias = max(1, (date.fromisoformat(fr) - date.fromisoformat(fs)).days + 1) if fr else 1
+    frx = fr or fs   # fecha de referencia para rendición/cierre
     estado = ESTADO.get((est or '').strip(), 'cerrado')
     nombre = (trab or 'SIN NOMBRE').strip()
     email = USER.get(nombre)
@@ -91,9 +93,9 @@ for i, r in enumerate(res):
     motivo = 'Viaje a %s (%s)' % ((dest or '').strip() or '—', (proy or 'sin proyecto').strip())
     obs_full = ' · '.join(x for x in [(obs or '').strip() or None, 'Histórico del Excel CONTROL DE VIAJES 2026 (Administración); aprobaciones y comprobantes en papel/PDF'] if x)
     w(("  values (v_t, %s, v_proy, v_cdc, %s, %s, %s, %s, %s, %s, %s, true, '%s', coalesce(v_user, " + SOLICITANTE_DEFECTO + "), %s::timestamptz, %s::timestamptz, %s, %s, 'excel-control-viajes', %s)") % (
-        q(cod), q(motivo), q((ori or 'LIMA').strip().upper()), q((dest or '—').strip().upper()), q(fs), q(fr),
+        q(cod), q(motivo), q((ori or 'LIMA').strip().upper()), q((dest or '—').strip().upper()), q(fs), q(fr) if fr else 'null',
         'true' if n(pasajes_s) > 0 else 'false', 'true' if n(adel) > 0 or n(rendido) > 0 else 'false',
-        estado, q(fs), q(fs), n(adel), q(obs_full), ("%s::timestamptz" % q(fr)) if estado == 'cerrado' else 'null'))
+        estado, q(fs), q(fs), n(adel), q(obs_full), ("%s::timestamptz" % q(frx)) if estado == 'cerrado' else 'null'))
     w("  returning id into v_id;")
     w("  insert into viaje_pasajeros (tenant_id, viaje_id, user_id, nombre, es_externo, dias, con_hospedaje, tarifa_diaria, viatico_calculado, viatico_solicitado, viatico_aprobado, adelanto_entregado, adelanto_fecha, adelanto_medio)")
     w("  values (v_t, v_id, v_user, %s, %s, %d, true, 0, %s, %s, %s, %s, %s, %s) returning id into v_pa;" % (
@@ -107,12 +109,12 @@ for i, r in enumerate(res):
         liq_medio = 'histórico' if r_est == 'liquidada' else None
         w("  insert into viaje_rendiciones (tenant_id, viaje_id, pasajero_id, numero, fecha, estado, entregado, gastado, saldo, resultado, presentada_en, aprobada_en, liquidada_en, liquidacion_medio, notas)")
         w("  values (v_t, v_id, v_pa, %s, %s, '%s', %s, %s, %s, %s, %s, %s, %s, %s, %s) returning id into v_rd;" % (
-            q('RD-%s-H%03d' % (anio, rd)), q(fr), r_est, n(adel), n(rendido), saldo, q(rest if n(rendido) > 0 else 'cuadra'),
-            ("%s::timestamptz" % q(fr)) if n(rendido) > 0 else 'null', ("%s::timestamptz" % q(fr)) if r_est in ('aprobada', 'liquidada') else 'null',
-            ("%s::timestamptz" % q(fr)) if r_est == 'liquidada' else 'null', q(liq_medio),
+            q('RD-%s-H%03d' % (anio, rd)), q(frx), r_est, n(adel), n(rendido), saldo, q(rest if n(rendido) > 0 else 'cuadra'),
+            ("%s::timestamptz" % q(frx)) if n(rendido) > 0 else 'null', ("%s::timestamptz" % q(frx)) if r_est in ('aprobada', 'liquidada') else 'null',
+            ("%s::timestamptz" % q(frx)) if r_est == 'liquidada' else 'null', q(liq_medio),
             q('Resumen del Excel: reembolso empresa %s · devolución trabajador %s · pendiente %s' % (n(reemb), n(devol), n(pend)))))
         if n(rendido) > 0:
-            w("  insert into viaje_rendicion_items (tenant_id, rendicion_id, fecha, tipo_gasto, descripcion, comprobante_tipo, moneda, monto, tc, sustentado) values (v_t, v_rd, %s, 'otro', 'Rendición histórica (total del Excel; comprobantes en el Formato Único en PDF)', 'otro', 'PEN', %s, 1, true);" % (q(fr), n(rendido)))
+            w("  insert into viaje_rendicion_items (tenant_id, rendicion_id, fecha, tipo_gasto, descripcion, comprobante_tipo, moneda, monto, tc, sustentado) values (v_t, v_rd, %s, 'otro', 'Rendición histórica (total del Excel; comprobantes en el Formato Único en PDF)', 'otro', 'PEN', %s, 1, true);" % (q(frx), n(rendido)))
     # reservas enlazadas por código
     for cod_res in sorted(res_de_viaje.get(cod, [])):
         rr = reservas.get(cod_res)

@@ -38,7 +38,7 @@ export const RESULTADO: Record<string, string> = { empresa_reembolsa: 'La empres
 
 export interface Viaje {
   id: string; numero: string; proyecto_id: string | null; centro_costo_id: string | null; motivo: string; origen: string; destino: string;
-  fecha_salida: string; fecha_retorno: string; hora_salida: string | null; hora_retorno: string | null; medio_sugerido: string | null;
+  fecha_salida: string; fecha_retorno: string | null; hora_salida: string | null; hora_retorno: string | null; medio_sugerido: string | null;
   requiere_pasajes: boolean; requiere_viaticos: boolean; con_hospedaje: boolean; estado: EstadoViaje;
   solicitado_por: string; solicitado_en: string;
   aprobado_jefatura_por: string | null; aprobado_jefatura_en: string | null; comentario_jefatura: string | null;
@@ -65,7 +65,7 @@ export interface Rendicion {
   resultado: 'empresa_reembolsa' | 'trabajador_devuelve' | 'cuadra' | null; tope_excedido: boolean; justificacion: string | null; presentada_en: string | null;
   revisada_por: string | null; revisada_en: string | null; comentario_jefatura: string | null; aprobada_por: string | null; aprobada_en: string | null; comentario_aprobacion: string | null;
   observacion: string | null; liquidada_en: string | null; liquidacion_medio: string | null; liquidacion_referencia: string | null; notas: string | null;
-  viajero: string; viajero_user_id: string | null; viatico_aprobado: number | null; adelanto_entregado: number; viaje_numero: string; destino: string; fecha_salida: string; fecha_retorno: string;
+  viajero: string; viajero_user_id: string | null; viatico_aprobado: number | null; adelanto_entregado: number; viaje_numero: string; destino: string; fecha_salida: string; fecha_retorno: string | null;
   proyecto_id: string | null; proyecto_codigo: string | null; viaje_estado: EstadoViaje; items: number; items_sin_sustento: number;
 }
 export interface RendicionItem {
@@ -127,7 +127,7 @@ const rpc = async <T,>(fn: string, args: Record<string, unknown>): Promise<T> =>
 
 export interface PasajeroInput { user_id?: string | null; nombre: string; dni?: string; cargo?: string; es_externo?: boolean; dias?: number; con_hospedaje?: boolean; viatico_solicitado?: number | null; cuenta_abono?: string; notas?: string }
 export interface SolicitudViaje {
-  proyecto_id?: string | null; centro_costo_id?: string | null; motivo: string; origen?: string; destino: string; fecha_salida: string; fecha_retorno: string;
+  proyecto_id?: string | null; centro_costo_id?: string | null; motivo: string; origen?: string; destino: string; fecha_salida: string; fecha_retorno?: string | null;
   hora_salida?: string; hora_retorno?: string; medio_sugerido?: string; requiere_pasajes?: boolean; requiere_viaticos?: boolean; con_hospedaje?: boolean;
   justificacion_tope?: string; observaciones?: string; origen_datos?: 'erp' | 'app'; pasajeros: PasajeroInput[];
 }
@@ -176,7 +176,9 @@ export async function urlSustento(path: string): Promise<string | null> {
 export const soles = (n: number | null | undefined) => `S/ ${Number(n ?? 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 export const fechaCorta = (iso: string | null | undefined) =>
   iso ? new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
-export const diasEntre = (a: string, b: string) => Math.max(1, Math.round((new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86400000) + 1);
+export const diasEntre = (a: string, b: string | null | undefined) => (b ? Math.max(1, Math.round((new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86400000) + 1) : 1);
+/** "16/10/2026 al 18/10/2026" o "16/10/2026 · sin fecha de retorno" (viaje abierto). */
+export const rangoFechas = (salida: string, retorno: string | null | undefined) => retorno ? `${fechaCorta(salida)} al ${fechaCorta(retorno)}` : `${fechaCorta(salida)} · sin fecha de retorno`;
 /** Pendientes de aprobación para quien tiene el permiso: lo que la app muestra en "Por aprobar". */
 export function pendientesDe(viajes: Viaje[], rendiciones: Rendicion[], puedeJefatura: boolean, puedeFinal: boolean) {
   return {

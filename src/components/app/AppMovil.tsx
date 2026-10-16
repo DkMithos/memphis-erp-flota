@@ -16,7 +16,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { usePermissions } from '@/lib/rbac/usePermissions';
 import { NuevoViajeForm } from '../modules/viajes/NuevoViajeForm';
 import { ViajeDetalle } from '../modules/viajes/ViajeDetalle';
-import { ESTADO_VIAJE, cargarRendiciones, cargarViajes, fechaCorta, pendientesDe, soles, type Rendicion, type Viaje } from '../../lib/viajes/viajes';
+import { ESTADO_VIAJE, cargarRendiciones, cargarViajes, fechaCorta, pendientesDe, rangoFechas, soles, type Rendicion, type Viaje } from '../../lib/viajes/viajes';
 
 type Pantalla = 'inicio' | 'nuevo' | 'viaje' | 'aprobar' | 'perfil';
 
@@ -64,7 +64,7 @@ export function AppMovil({ ruta, onNavigate }: { ruta: string; onNavigate: (r: s
         <div className="font-semibold">{v.destino}</div>
         <Badge className={`text-xs ${ESTADO_VIAJE[v.estado].clase}`}>{ESTADO_VIAJE[v.estado].corto}</Badge>
       </div>
-      <div className="text-xs text-muted-foreground">{v.numero} · {fechaCorta(v.fecha_salida)} al {fechaCorta(v.fecha_retorno)}{v.proyecto_codigo ? ` · ${v.proyecto_codigo}` : ''}</div>
+      <div className="text-xs text-muted-foreground">{v.numero} · {rangoFechas(v.fecha_salida, v.fecha_retorno)}{v.proyecto_codigo ? ` · ${v.proyecto_codigo}` : ''}</div>
       <div className="text-sm mt-1 line-clamp-1">{v.motivo}</div>
       <div className="text-xs mt-1 flex justify-between"><span>{v.viajeros_nombres}</span><span>viáticos {soles(v.presupuesto_viaticos)}{Number(v.adelantos) > 0 ? ` · adel. ${soles(v.adelantos)}` : ''}</span></div>
     </button>

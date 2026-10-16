@@ -3985,3 +3985,10 @@ el rol **Administrador** y **Contabilidad** pierden los permisos del módulo `vi
 de dar el comodín de Administrador para `viajes`. Quedan con todo: Gerencia y Proyectos (jefatura) y Administración (Carolina y
 Shirley, que gestiona pasajes). Kevin y Adrián usan /app para sus propios viajes; si Kevin necesita ver todo se le da Gerencia o
 el permiso `viajes.ver`.
+
+**Dos ajustes más (16/10):** (1) Kevin: "el rol Administrador debe poder ver toda la información del sistema" → migración
+`20261016140000_viajes_admin_ve_todo_y_sin_retorno.sql` devuelve al Administrador todos los permisos de viajes y `can()` vuelve
+al comodín para todos los módulos (regla anotada en memoria: nunca restringir un módulo al Administrador). Contabilidad sigue
+sin ver viajes ajenos. (2) Hay viajes **sin fecha de retorno**: `viajes.fecha_retorno` pasa a opcional; en la solicitud hay
+casilla "Sin fecha de retorno" y se indican los días de viático; las pantallas muestran "sin fecha de retorno"; los 11 viajes del
+histórico que no tenían retorno en el Excel quedaron abiertos (antes se habían cargado con retorno = salida).

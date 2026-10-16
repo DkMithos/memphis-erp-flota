@@ -260,9 +260,8 @@ export function usePermissions() {
 
   const can = useCallback(
     (modulo: Modulo, accion: Accion): boolean => {
-      // Viajes es información personal: el Administrador del sistema NO ve ni aprueba los viajes de otros
-      // (Kevin, 16/10/2026: "solo a los jefes y Carolina les figura todo"). Solo valen los permisos reales del rol.
-      if (isAdmin && modulo !== 'viajes') return true;
+      // Regla de Kevin (16/10/2026): el Administrador ve TODA la información del sistema, sin excepciones por módulo.
+      if (isAdmin) return true;
       return permisos.some(p => p.modulo === modulo && p.accion === accion);
     },
     [permisos, isAdmin],
@@ -270,7 +269,7 @@ export function usePermissions() {
 
   const canAny = useCallback(
     (modulo: Modulo, acciones: Accion[]): boolean => {
-      if (isAdmin && modulo !== 'viajes') return true;
+      if (isAdmin) return true;
       return acciones.some(a => can(modulo, a));
     },
     [can, isAdmin],

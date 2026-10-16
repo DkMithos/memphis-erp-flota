@@ -30,7 +30,7 @@ export function NuevoViajeForm({ onCreado, onCancelar, compacto = false }: { onC
   const yo = useMemo<Persona>(() => ({ user_id: user?.id ?? '', nombre: profile?.nombre ?? (user?.user_metadata as { nombre?: string } | undefined)?.nombre ?? user?.email ?? 'Yo', cargo: null, email: user?.email ?? '' }), [user, profile]);
 
   const [f, setF] = useState({ proyectoId: null as string | null, motivo: '', origen: 'LIMA', destino: '', fechaSalida: hoy(), fechaRetorno: hoy(), horaSalida: '', horaRetorno: '',
-    medio: 'aereo', requierePasajes: true, requiereViaticos: true, conHospedaje: true, justificacion: '', observaciones: '' });
+    medio: 'aereo', requierePasajes: true, requiereViaticos: true, conHospedaje: true, justificacion: '', observaciones: '', sinRetorno: false, diasAbierto: '1' });
   const [pasajeros, setPasajeros] = useState<(PasajeroInput & { _k: number; montoManual: string })[]>([{ _k: 1, user_id: yo.user_id, nombre: yo.nombre, es_externo: false, montoManual: '' }]);
   const [guardando, setGuardando] = useState(false);
 
@@ -44,7 +44,7 @@ export function NuevoViajeForm({ onCreado, onCancelar, compacto = false }: { onC
   // El perfil (nombre) llega después del primer render: el viajero "yo" toma el nombre real cuando aparece.
   useEffect(() => { setPasajeros(ps => ps.map((p, i) => (i === 0 && !p.es_externo && (!p.user_id || p.user_id === yo.user_id) ? { ...p, user_id: yo.user_id, nombre: yo.nombre } : p))); }, [yo]);
 
-  const dias = diasEntre(f.fechaSalida, f.fechaRetorno);
+  const dias = f.sinRetorno ? Math.max(1, Number(f.diasAbierto) || 1) : diasEntre(f.fechaSalida, f.fechaRetorno);
   const tarifa = tarifaVigente(tarifas, f.conHospedaje ? 'adelanto_con_hospedaje' : 'adelanto_sin_hospedaje', f.fechaSalida);
   const calculado = f.requiereViaticos ? tarifa * dias : 0;
   const total = pasajeros.reduce((s, p) => s + (p.montoManual ? Number(p.montoManual) : calculado), 0);
@@ -62,14 +62,14 @@ export function NuevoViajeForm({ onCreado, onCancelar, compacto = false }: { onC
   const enviar = async () => {
     if (!f.motivo.trim()) { toast.error('Escribe el motivo del viaje'); return; }
     if (!f.destino.trim()) { toast.error('Indica el destino'); return; }
-    if (f.fechaRetorno < f.fechaSalida) { toast.error('El retorno no puede ser antes de la salida'); return; }
+    if (!f.sinRetorno && f.fechaRetorno < f.fechaSalida) { toast.error('El retorno no puede ser antes de la salida'); return; }
     if (pasajeros.some(p => !p.nombre.trim())) { toast.error('Todos los viajeros necesitan nombre'); return; }
     if (excede && !f.justificacion.trim()) { toast.error('Pides más que la tarifa de la política: escribe la justificación'); return; }
     setGuardando(true);
     try {
       const r = await solicitarViaje({
         proyecto_id: f.proyectoId, motivo: f.motivo.trim(), origen: f.origen.trim() || 'LIMA', destino: f.destino.trim().toUpperCase(),
-        fecha_salida: f.fechaSalida, fecha_retorno: f.fechaRetorno, hora_salida: f.horaSalida || undefined, hora_retorno: f.horaRetorno || undefined,
+        fecha_salida: f.fechaSalida, fecha_retorno: f.sinRetorno ? null : f.fechaRetorno, hora_salida: f.horaSalida || undefined, hora_retorno: f.horaRetorno || undefined,
         medio_sugerido: f.medio, requiere_pasajes: f.requierePasajes, requiere_viaticos: f.requiereViaticos, con_hospedaje: f.conHospedaje,
         justificacion_tope: f.justificacion.trim() || undefined, observaciones: f.observaciones.trim() || undefined, origen_datos: compacto ? 'app' : 'erp',
         pasajeros: pasajeros.map(p => ({ user_id: p.user_id ?? null, nombre: p.nombre.trim(), cargo: p.cargo, es_externo: p.es_externo, dias, con_hospedaje: f.conHospedaje,
@@ -90,7 +90,12 @@ export function NuevoViajeForm({ onCreado, onCancelar, compacto = false }: { onC
         <div><Label>Origen</Label><Input value={f.origen} onChange={e => setF(x => ({ ...x, origen: e.target.value }))} /></div>
         <div><Label>Destino *</Label><Input value={f.destino} onChange={e => setF(x => ({ ...x, destino: e.target.value }))} placeholder="CUSCO" /></div>
         <div><Label>Salida *</Label><Input type="date" value={f.fechaSalida} onChange={e => setF(x => ({ ...x, fechaSalida: e.target.value, fechaRetorno: x.fechaRetorno < e.target.value ? e.target.value : x.fechaRetorno }))} /></div>
-        <div><Label>Retorno *</Label><Input type="date" value={f.fechaRetorno} min={f.fechaSalida} onChange={e => setF(x => ({ ...x, fechaRetorno: e.target.value }))} /></div>
+        <div><Label>Retorno {f.sinRetorno ? '' : '*'}</Label>
+          {f.sinRetorno
+            ? <Input type="number" min={1} value={f.diasAbierto} onChange={e => setF(x => ({ ...x, diasAbierto: e.target.value }))} placeholder="Días de viático" />
+            : <Input type="date" value={f.fechaRetorno} min={f.fechaSalida} onChange={e => setF(x => ({ ...x, fechaRetorno: e.target.value }))} />}
+          <label className="flex items-center gap-2 text-xs mt-1"><Checkbox checked={f.sinRetorno} onCheckedChange={(v: boolean | 'indeterminate') => setF(x => ({ ...x, sinRetorno: v === true }))} /> Sin fecha de retorno (indicar días de viático)</label>
+        </div>
         <div><Label>Hora salida</Label><Input type="time" value={f.horaSalida} onChange={e => setF(x => ({ ...x, horaSalida: e.target.value }))} /></div>
         <div><Label>Hora retorno</Label><Input type="time" value={f.horaRetorno} onChange={e => setF(x => ({ ...x, horaRetorno: e.target.value }))} /></div>
         <div>
