@@ -3992,3 +3992,17 @@ al comodín para todos los módulos (regla anotada en memoria: nunca restringir 
 sin ver viajes ajenos. (2) Hay viajes **sin fecha de retorno**: `viajes.fecha_retorno` pasa a opcional; en la solicitud hay
 casilla "Sin fecha de retorno" y se indican los días de viático; las pantallas muestran "sin fecha de retorno"; los 11 viajes del
 histórico que no tenían retorno en el Excel quedaron abiertos (antes se habían cargado con retorno = salida).
+
+## 2026-10-16 - Rendiciones en papel: el ERP imprime el Formato Único de Carolina
+
+Carolina quiere seguir recibiendo las rendiciones en papel: su Formato Único de Reembolso y Liquidación impreso con todas las
+facturas y boletas. Migración `20261016160000_rendicion_formato_unico_papel.sql`: la rendición guarda banco, cuenta, CCI y
+moneda del reembolso (los campos del formato) y los gastos de movilidad llevan lugar de origen y destino (la Planilla de
+movilidad); `rendicion_papel_recibido` (Administración marca que recibió el papel) y `rendicion_marcar_impreso`; la aprobación
+final (`rendicion_aprobar`) **exige el papel recibido**. `src/lib/viajes/rendicion-formato.ts` reproduce el Excel
+`FORMATO ÚNICO DE REEMBOLSO Y LIQUIDACIÓN.xlsx` de Administración (hoja Formato: cabecera, datos bancarios, 20 filas con soles
+y dólares, totales, depositado por el empleador, total a devolver, declaración, notas y firmas; hoja Movilidad cuando hay
+gastos de movilidad/peaje) con `window.print`, botón "Imprimir Formato Único" en la rendición (app y ERP) y texto que indica el
+circuito: imprimir, firmar, adjuntar comprobantes en el orden del detalle y entregar a Carolina. En el detalle del viaje,
+Administración tiene "Marcar papel recibido" y el botón de aprobación final queda deshabilitado hasta entonces. Pruebas en
+`rendicion-formato.test.ts` (5).

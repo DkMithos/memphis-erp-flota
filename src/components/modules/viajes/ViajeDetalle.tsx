@@ -22,7 +22,7 @@ import { usePermissions } from '@/lib/rbac/usePermissions';
 import { RendicionEditor } from './RendicionEditor';
 import {
   ESTADO_RENDICION, ESTADO_VIAJE, RESULTADO, anularViaje, aprobarRendicion, aprobarViaje, borrarReserva, cargarPasajeros, cargarRendiciones, cargarReservas, cargarViaje, cerrarViaje,
-  fechaCorta, guardarReserva, liquidarRendicion, rangoFechas, rechazarViaje, registrarAdelanto, revisarRendicion, soles, type Pasajero, type Rendicion, type Reserva, type Viaje,
+  fechaCorta, guardarReserva, liquidarRendicion, papelRecibido, rangoFechas, rechazarViaje, registrarAdelanto, revisarRendicion, soles, type Pasajero, type Rendicion, type Reserva, type Viaje,
 } from '../../../lib/viajes/viajes';
 
 const hoy = () => new Date().toISOString().slice(0, 10);
@@ -171,8 +171,12 @@ export function ViajeDetalle({ viajeId, onNavigate, modoApp = false, onVolver }:
                   {r && r.estado === 'presentada' && puedeJefatura && <>
                     <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => accion(() => revisarRendicion(r.id, true), 'Rendición revisada y firmada')}><Check className="size-4 mr-1" /> Firmar (jefatura)</Button>
                     <Button size="sm" variant="outline" onClick={() => setDialogo({ tipo: 'observar_rev', id: r.id })}>Observar</Button></>}
+                  {r && ['presentada', 'revisada_jefatura'].includes(r.estado) && puedeEditar && (
+                    r.papel_recibido_en
+                      ? <Button size="sm" variant="ghost" onClick={() => accion(() => papelRecibido(r.id, false), 'Papel desmarcado')}>Papel recibido ✓</Button>
+                      : <Button size="sm" variant="outline" onClick={() => accion(() => papelRecibido(r.id, true), 'Formato Único en papel recibido')}>Marcar papel recibido</Button>)}
                   {r && (r.estado === 'revisada_jefatura' || (r.estado === 'presentada' && puedeJefatura)) && puedeFinal && <>
-                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => accion(() => aprobarRendicion(r.id, true), 'Rendición aprobada')}><Check className="size-4 mr-1" /> Aprobar (Administración)</Button>
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={!r.papel_recibido_en} title={r.papel_recibido_en ? '' : 'Falta el Formato Único en papel con los comprobantes'} onClick={() => accion(() => aprobarRendicion(r.id, true), 'Rendición aprobada')}><Check className="size-4 mr-1" /> Aprobar (Administración)</Button>
                     <Button size="sm" variant="outline" onClick={() => setDialogo({ tipo: 'observar_apr', id: r.id })}>Observar</Button></>}
                   {r && r.estado === 'aprobada' && puedeEditar && <Button size="sm" onClick={() => { setLiq({ medio: r.resultado === 'trabajador_devuelve' ? 'caja_chica' : 'transferencia', ref: '', fecha: hoy() }); setDialogo({ tipo: 'liquidar', id: r.id }); }}>{r.resultado === 'trabajador_devuelve' ? 'Registrar devolución' : 'Registrar reembolso'} {soles(Math.abs(r.saldo))}</Button>}
                 </span>

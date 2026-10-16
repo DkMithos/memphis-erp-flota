@@ -5,7 +5,7 @@
  * adelanto. Los topes de la política se avisan aquí y los valida la base al presentar.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Camera, Plus, Trash2, Loader2, Save, Send, Image as ImageIcon, AlertTriangle } from 'lucide-react';
+import { Camera, Plus, Trash2, Loader2, Save, Send, Image as ImageIcon, AlertTriangle, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -15,13 +15,14 @@ import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { useAuth } from '../../../auth/AuthProvider';
 import {
-  ESTADO_RENDICION, RESULTADO, TIPO_COMPROBANTE, TIPO_GASTO, cargarItemsRendicion, cargarTarifas, guardarRendicion, presentarRendicion, soles, subirSustento, tarifaVigente, urlSustento,
+  ESTADO_RENDICION, RESULTADO, TIPO_COMPROBANTE, TIPO_GASTO, cargarItemsRendicion, cargarTarifas, guardarRendicion, marcarImpreso, presentarRendicion, soles, subirSustento, tarifaVigente, urlSustento,
   type Pasajero, type Rendicion, type RendicionItem, type Tarifa, type TipoComprobante, type TipoGasto, type Viaje,
 } from '../../../lib/viajes/viajes';
+import { imprimirFormatoUnico } from '../../../lib/viajes/rendicion-formato';
 
 type Item = RendicionItem & { _k: number; _subiendo?: boolean };
 const hoy = () => new Date().toISOString().slice(0, 10);
-const nuevoItem = (fecha: string): Item => ({ _k: Date.now() + Math.random(), fecha, tipo_gasto: 'alimentacion', descripcion: '', comprobante_tipo: 'sin_comprobante', comprobante_numero: '', ruc: '', proveedor_nombre: '', moneda: 'PEN', monto: 0, tc: null, sustentado: false, foto_path: null });
+const nuevoItem = (fecha: string): Item => ({ _k: Date.now() + Math.random(), fecha, tipo_gasto: 'alimentacion', descripcion: '', comprobante_tipo: 'sin_comprobante', comprobante_numero: '', ruc: '', proveedor_nombre: '', moneda: 'PEN', monto: 0, tc: null, sustentado: false, foto_path: null, lugar_origen: '', lugar_destino: '' });
 
 export function RendicionEditor({ viaje, pasajero, rendicion, puedeEditar, compacto = false, onCambio }: {
   viaje: Viaje; pasajero: Pasajero; rendicion: Rendicion | null; puedeEditar: boolean; compacto?: boolean; onCambio: () => void;
@@ -30,6 +31,7 @@ export function RendicionEditor({ viaje, pasajero, rendicion, puedeEditar, compa
   const [items, setItems] = useState<Item[]>([]);
   const [notas, setNotas] = useState(rendicion?.notas ?? '');
   const [justificacion, setJustificacion] = useState(rendicion?.justificacion ?? '');
+  const [banco, setBanco] = useState({ banco: rendicion?.banco ?? '', cuenta: rendicion?.cuenta ?? pasajero.cuenta_abono ?? '', cci: rendicion?.cci ?? '', moneda: rendicion?.moneda_reembolso ?? 'PEN' });
   const [tarifas, setTarifas] = useState<Tarifa[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [fotos, setFotos] = useState<Record<string, string>>({});
@@ -40,6 +42,7 @@ export function RendicionEditor({ viaje, pasajero, rendicion, puedeEditar, compa
     if (rendicion) cargarItemsRendicion(rendicion.id).then(is => setItems(is.map(i => ({ ...i, _k: Math.random() })))).catch(() => setItems([]));
     else setItems([]);
     setNotas(rendicion?.notas ?? ''); setJustificacion(rendicion?.justificacion ?? '');
+    setBanco({ banco: rendicion?.banco ?? '', cuenta: rendicion?.cuenta ?? pasajero.cuenta_abono ?? '', cci: rendicion?.cci ?? '', moneda: rendicion?.moneda_reembolso ?? 'PEN' });
   }, [rendicion?.id, rendicion?.estado]);
 
   const gastado = useMemo(() => items.reduce((s, i) => s + Number(i.monto || 0) * (i.moneda === 'USD' ? Number(i.tc || 0) || 0 : 1), 0), [items]);
@@ -77,6 +80,7 @@ export function RendicionEditor({ viaje, pasajero, rendicion, puedeEditar, compa
     setGuardando(true);
     try {
       const r = await guardarRendicion({ viaje_id: viaje.id, pasajero_id: pasajero.id, fecha: hoy(), notas: notas || undefined,
+        banco: banco.banco || undefined, cuenta: banco.cuenta || undefined, cci: banco.cci || undefined, moneda_reembolso: banco.moneda,
         items: validos.map(({ _k: _a, _subiendo: _b, ...i }) => { void _a; void _b; return i; }) });
       if (presentar) {
         const p = await presentarRendicion(r.id, justificacion || undefined);
@@ -88,11 +92,19 @@ export function RendicionEditor({ viaje, pasajero, rendicion, puedeEditar, compa
   };
 
   const grid = compacto ? 'grid grid-cols-2 gap-2' : 'grid grid-cols-2 md:grid-cols-6 gap-2';
+  const imprimir = async () => {
+    if (!rendicion) { toast.error('Guarda la rendición antes de imprimir'); return; }
+    const its = await cargarItemsRendicion(rendicion.id).catch(() => [] as RendicionItem[]);
+    if (!imprimirFormatoUnico(viaje, pasajero, rendicion, its)) { toast.error('El navegador bloqueó la ventana de impresión'); return; }
+    marcarImpreso(rendicion.id).then(onCambio).catch(() => undefined);
+  };
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         {rendicion && <Badge className={ESTADO_RENDICION[rendicion.estado].clase}>{rendicion.numero} · {ESTADO_RENDICION[rendicion.estado].label}</Badge>}
         {!rendicion && <Badge variant="secondary">Sin rendición todavía</Badge>}
+        {rendicion && <Button type="button" size="sm" variant="outline" onClick={imprimir}><Printer className="size-4 mr-1" /> Imprimir Formato Único</Button>}
+        {rendicion?.papel_recibido_en && <Badge className="bg-emerald-100 text-emerald-900">Papel recibido por Administración</Badge>}
         {rendicion?.estado === 'observada' && rendicion.observacion && <span className="text-red-700 dark:text-red-300">Observación: {rendicion.observacion}</span>}
       </div>
       <div className={compacto ? 'grid grid-cols-3 gap-2 text-center' : 'grid grid-cols-3 gap-3 max-w-lg'}>
@@ -103,6 +115,9 @@ export function RendicionEditor({ viaje, pasajero, rendicion, puedeEditar, compa
         </div>
       </div>
 
+      <div className="rounded-md border p-2 text-xs text-muted-foreground">
+        Administración recibe la rendición <b>en papel</b>: cuando termines, pulsa "Imprimir Formato Único", fírmalo, adjunta todas las facturas y boletas en el orden del detalle y entrégalo a Carolina. La aprobación final se da con el papel recibido.
+      </div>
       <div className="space-y-2">
         {items.map(i => (
           <div key={i._k} className="rounded-md border p-2 space-y-2">
@@ -140,6 +155,12 @@ export function RendicionEditor({ viaje, pasajero, rendicion, puedeEditar, compa
                 {editable && <Button type="button" variant="ghost" size="sm" onClick={() => quitar(i._k)}><Trash2 className="size-4" /></Button>}
               </div>
             </div>
+            {(i.tipo_gasto === 'movilidad' || i.tipo_gasto === 'peaje') && (
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={i.lugar_origen ?? ''} disabled={!editable} onChange={e => set(i._k, { lugar_origen: e.target.value })} placeholder="Lugar de origen (ej. aeropuerto)" />
+                <Input value={i.lugar_destino ?? ''} disabled={!editable} onChange={e => set(i._k, { lugar_destino: e.target.value })} placeholder="Lugar de destino (ej. Gobierno Regional)" />
+              </div>
+            )}
             {i.moneda === 'USD' && <div className="text-xs text-muted-foreground">TC <Input type="number" step="0.0001" className="inline-block w-24 h-7 ml-1" value={i.tc ?? ''} disabled={!editable} onChange={e => set(i._k, { tc: Number(e.target.value) || null })} /> → {soles(Number(i.monto || 0) * Number(i.tc || 0))}</div>}
             {!editable && i.observacion && <div className="text-xs text-red-700">{i.observacion}</div>}
           </div>
@@ -157,6 +178,15 @@ export function RendicionEditor({ viaje, pasajero, rendicion, puedeEditar, compa
             {editable && <Textarea className="mt-2" rows={2} value={justificacion} onChange={e => setJustificacion(e.target.value)} placeholder="Justificación (la jefatura la verá al firmar)" />}
             {!editable && justificacion && <div className="mt-1">Justificación: {justificacion}</div>}
           </div>
+        </div>
+      )}
+      {editable && (
+        <div className={compacto ? 'grid grid-cols-1 gap-2' : 'grid grid-cols-2 md:grid-cols-4 gap-2'}>
+          <div><Label className="text-xs">Banco a reembolsar</Label><Input value={banco.banco} onChange={e => setBanco(b => ({ ...b, banco: e.target.value }))} placeholder="BCP / BBVA / Interbank" /></div>
+          <div><Label className="text-xs">N.º de cuenta</Label><Input value={banco.cuenta} onChange={e => setBanco(b => ({ ...b, cuenta: e.target.value }))} inputMode="numeric" /></div>
+          <div><Label className="text-xs">CCI</Label><Input value={banco.cci} onChange={e => setBanco(b => ({ ...b, cci: e.target.value }))} inputMode="numeric" /></div>
+          <div><Label className="text-xs">Moneda a reembolsar</Label>
+            <Select value={banco.moneda} onValueChange={(v: string) => setBanco(b => ({ ...b, moneda: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="PEN">Soles</SelectItem><SelectItem value="USD">Dólares</SelectItem></SelectContent></Select></div>
         </div>
       )}
       {editable && <Textarea rows={2} value={notas} onChange={e => setNotas(e.target.value)} placeholder="Notas de la rendición" />}

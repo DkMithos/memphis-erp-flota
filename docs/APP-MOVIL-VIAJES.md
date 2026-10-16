@@ -51,9 +51,9 @@ npx cap open ios       # Xcode (Mac) → App Store Connect
 | Aprobación 1 | jefatura (`viajes.aprobar`) | app "Por aprobar" o ERP |
 | Aprobación final | Carolina / Administración (`viajes.aprobar_final`) | app o ERP |
 | Pasajes y adelantos | Administración (`viajes.editar`) | ERP (también desde la app) |
-| Rendición | el trabajador, con fotos | app |
+| Rendición | el trabajador, con fotos; luego imprime el **Formato Único** (Anexo 2), lo firma y entrega el papel con todas las facturas y boletas a Carolina | app + papel |
 | Revisión y firma | jefatura | app o ERP |
-| Aprobación y liquidación | Carolina; reembolso o devolución | ERP |
+| Aprobación y liquidación | Carolina, **solo con el papel recibido** (botón "Marcar papel recibido"); reembolso o devolución | ERP |
 
 Topes de la política (tarifas): se sugieren y se marcan cuando se exceden; no bloquean. La justificación queda escrita y la
 aprobación de jefatura o Gerencia la convalida, como dice la política.

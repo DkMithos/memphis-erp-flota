@@ -65,12 +65,14 @@ export interface Rendicion {
   resultado: 'empresa_reembolsa' | 'trabajador_devuelve' | 'cuadra' | null; tope_excedido: boolean; justificacion: string | null; presentada_en: string | null;
   revisada_por: string | null; revisada_en: string | null; comentario_jefatura: string | null; aprobada_por: string | null; aprobada_en: string | null; comentario_aprobacion: string | null;
   observacion: string | null; liquidada_en: string | null; liquidacion_medio: string | null; liquidacion_referencia: string | null; notas: string | null;
-  viajero: string; viajero_user_id: string | null; viatico_aprobado: number | null; adelanto_entregado: number; viaje_numero: string; destino: string; fecha_salida: string; fecha_retorno: string | null;
+  banco: string | null; cuenta: string | null; cci: string | null; moneda_reembolso: string; formato_impreso_en: string | null; papel_recibido_en: string | null; papel_recibido_por: string | null;
+  viajero: string; viajero_dni?: string | null; proyecto_nombre?: string | null; viajero_user_id: string | null; viatico_aprobado: number | null; adelanto_entregado: number; viaje_numero: string; destino: string; fecha_salida: string; fecha_retorno: string | null;
   proyecto_id: string | null; proyecto_codigo: string | null; viaje_estado: EstadoViaje; items: number; items_sin_sustento: number;
 }
 export interface RendicionItem {
   id?: string; fecha: string; tipo_gasto: TipoGasto; descripcion: string | null; comprobante_tipo: TipoComprobante; comprobante_numero: string | null; ruc: string | null;
   proveedor_nombre: string | null; moneda: string; monto: number; tc: number | null; monto_soles?: number; sustentado: boolean; foto_path: string | null; aceptado?: boolean; observacion?: string | null;
+  lugar_origen?: string | null; lugar_destino?: string | null;
 }
 export interface Tarifa { id: string; concepto: string; descripcion: string; monto: number; moneda: string; unidad: string; requiere_sustento: boolean; vigente_desde: string; vigente_hasta: string | null; activo: boolean; notas: string | null }
 
@@ -138,11 +140,14 @@ export const anularViaje = (id: string, motivo?: string) => rpc<void>('viaje_anu
 export const cerrarViaje = (id: string, notas?: string) => rpc<void>('viaje_cerrar', { p_viaje: id, p_notas: notas ?? null });
 export const registrarAdelanto = (pasajeroId: string, monto: number, fecha: string, medio?: string, referencia?: string) =>
   rpc<void>('viaje_registrar_adelanto', { p_pasajero: pasajeroId, p_monto: monto, p_fecha: fecha, p_medio: medio ?? null, p_referencia: referencia ?? null });
-export const guardarRendicion = (p: { viaje_id: string; pasajero_id: string; fecha?: string; notas?: string; items: RendicionItem[] }) =>
+export const guardarRendicion = (p: { viaje_id: string; pasajero_id: string; fecha?: string; notas?: string; banco?: string; cuenta?: string; cci?: string; moneda_reembolso?: string; items: RendicionItem[] }) =>
   rpc<{ id: string; gastado: number; entregado: number; saldo: number }>('rendicion_guardar', { p });
 export const presentarRendicion = (id: string, justificacion?: string) => rpc<{ estado: EstadoRendicion; resultado: string; saldo: number; tope_excedido: boolean }>('rendicion_presentar', { p_rendicion: id, p_justificacion: justificacion ?? null });
 export const revisarRendicion = (id: string, ok: boolean, comentario?: string) => rpc<{ estado: EstadoRendicion }>('rendicion_revisar', { p_rendicion: id, p_ok: ok, p_comentario: comentario ?? null });
 export const aprobarRendicion = (id: string, ok: boolean, comentario?: string) => rpc<{ estado: EstadoRendicion; resultado?: string; saldo?: number }>('rendicion_aprobar', { p_rendicion: id, p_ok: ok, p_comentario: comentario ?? null });
+/** Carolina recibe el Formato Único en papel con los comprobantes: sin eso no hay aprobación final. */
+export const papelRecibido = (id: string, recibido = true) => rpc<void>('rendicion_papel_recibido', { p_rendicion: id, p_recibido: recibido });
+export const marcarImpreso = (id: string) => rpc<void>('rendicion_marcar_impreso', { p_rendicion: id });
 export const liquidarRendicion = (id: string, medio: string, referencia?: string, fecha?: string) =>
   rpc<void>('rendicion_liquidar', { p_rendicion: id, p_medio: medio, p_referencia: referencia ?? null, p_fecha: fecha ?? new Date().toISOString().slice(0, 10) });
 
