@@ -3978,3 +3978,10 @@ Reyes, Mónica Chumán) y crearles cuenta; enlazar adelantos/reembolsos a caja c
 referencia); push nativo cuando se publique en tiendas. Unidades: Logística busca las series de arneses/lightman y la lista
 de las 166 bodycams devueltas; si no existen, los arneses y lightman quedan "pendiente de serie" (válido) y las 166 se
 registran como 166 unidades sin serie en estado devuelta con la guía EG07-00000067 (entrada + salida en el kardex, neto 0).
+
+**Corrección (16/10, tarde):** Kevin entró y no vio viajes (no tiene), pero Adrián (TI, rol Administrador) vio todos. Regla de
+Kevin: cada persona ve solo lo suyo; todo lo ven solo los jefes y Carolina. Migración `20261016120000_viajes_solo_jefes_y_administracion.sql`:
+el rol **Administrador** y **Contabilidad** pierden los permisos del módulo `viajes`; en el frontend `usePermissions.can()` deja
+de dar el comodín de Administrador para `viajes`. Quedan con todo: Gerencia y Proyectos (jefatura) y Administración (Carolina y
+Shirley, que gestiona pasajes). Kevin y Adrián usan /app para sus propios viajes; si Kevin necesita ver todo se le da Gerencia o
+el permiso `viajes.ver`.
