@@ -4006,3 +4006,36 @@ gastos de movilidad/peaje) con `window.print`, botón "Imprimir Formato Único" 
 circuito: imprimir, firmar, adjuntar comprobantes en el orden del detalle y entregar a Carolina. En el detalle del viaje,
 Administración tiene "Marcar papel recibido" y el botón de aprobación final queda deshabilitado hasta entonces. Pruebas en
 `rendicion-formato.test.ts` (5).
+
+## 2026-10-16 - Inventario de equipos de Logística cargado por serie (INVENTARIO DE EQUIPOS ACTUALIZADO.xlsx)
+
+Kevin pidió verlo antes que lo demás. El archivo (Logística/INVENTARIO GENERAL, 17/08/2026) es el control por serie más
+completo: hoja **UBICACIÓN DE STOCK** (1,058 filas: todo lo comprado a SUMTEC con F002-5489/5675/5676 y F003-67, más equipos
+médicos y varios en La Sirena), **DKT Ica** (300: 200 lightman LM0001-LM0200, 50 tablets, 50 faros LED), **Equipos de
+emergencia Momarento** (448 = 112 kits de barra de luces + sirena + mando + CPU, numerados por Momarento) y **MEMPHIS**
+(7 de oficina). Las hojas San Miguel e Ica son subconjuntos del maestro (344 y 614 series coinciden) y no se cargan aparte;
+las hojas de kardex por lote (INVENTARIO, ENTRADAS, SALIDAS) no se cargan: el ERP ya lleva el kardex por cantidad.
+
+Carga (`scripts/sprint5-unidades/3-generar-carga-inventario-equipos.py` → `4-cargar-inventario-equipos.sql`, por el pooler con
+rol temporal `tmp_equipos`, borrado): **1,502 unidades nuevas** y 110 confirmadas (los 70 bodycams y 40 tablets de LA SIRENA
+ya existían), 51 artículos nuevos (ART-0006 a ART-0056, precio en US$ de la hoja INVENTARIO cuando lo trae), 2 almacenes nuevos
+(**ALM-003 Almacén Ursula - Conde de Salvatierra 116**, **ALM-004 Momarento (instalador, custodia)**). Cruce con lo del
+15/10: los 200 lightman "pendiente de serie" recibieron su serie (DKT Ica); los 236 arneses sin serie de LA SIRENA se
+reemplazaron por los 270 arneses con serie del maestro (240 en Almacén Ursula, 21 MP Cusco, 5 Independencia, 2 Panamericana,
+2 oficina; la entrada de kardex anterior quedó revertida). **Las 166 bodycams devueltas a SUMTEC ya tienen serie** (modelo
+DS-MCW407/32G/GPS/WIFI, estado `devuelta`, guía EG07-00000067 del 20/10/2025): cerrado el pendiente de Logística.
+
+Ubicación → estado: almacenes propios = `en_almacen`; PERDIDA ICA / EXTRAVIADO = `baja` con proyecto ICAPNP24 (50 cámaras
+externas, 50 internas, 50 NVR, 50 antenas, 50 SSD, 50 faros, 10 tablets: 310 unidades perdidas en Ica); VENDIDO = `baja` (5
+bodycams); MP CUSCO = `entregada` a 01CUSMUN24; MDI/INDEPENDENCIA = `entregada` a MDI; BZW718/INMUEBLE PANAMERICANA =
+`entregada` a INMPAN (la placa BZW718 no existe en Flota: cuando se cree el vehículo se instala por serie); SURCO/JOY-GIR-VAN =
+`entregada` a MSS-30; LORETO (116 = 29 kits) = `entregada` a **GLORETOSC (supuesto: 29 camionetas; confirmar con Operaciones)**;
+SAN MIGUEL = `entregada` a MPSANMIGUEL. Fecha de ingreso = fecha de la factura (o del archivo cuando no hay). Kardex: una
+entrada por artículo×almacén y salidas por devueltas/bajas, de modo que stock = en almacén + instaladas + entregadas y la
+columna "diferencia" de Inventario › Unidades queda en 0 para todos los artículos. Enlaces: OC (MM-000012, 000047, 000059,
+000097, 000103, 000060, 000083, 000150) y facturas del SIRE donde el Excel las trae.
+
+Discrepancia que debe confirmar Logística: LA SIRENA (01/10/2026) decía 236 arneses en custodia de La Sirena; el maestro
+(17/08/2026) los da en Almacén Ursula. Quedaron según el maestro (con serie); si en realidad están en La Sirena, se mueven
+desde la pantalla con "Cambiar estado → retorno a almacén". También: 16 filas repetidas en el maestro (cámaras CB9084350-64
+en MP CUSCO dos veces) se cargaron una sola vez; 2 unidades sin serie (batería AAA, proyector) quedaron "pendiente de serie".

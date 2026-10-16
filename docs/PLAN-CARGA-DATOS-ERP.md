@@ -29,7 +29,7 @@ proyecto) depende de que cada registro apunte a su **proyecto**, su **centro de 
 | Caja chica | 47 cajas · 1,158 gastos | sí | vía CDC | — | Sincronizada cada 30 min desde el Excel de Administración (`excel-sync`); **no hay que recargarla** |
 | Fianzas | 65 cartas | — | sí | — | Sincronizada cada 15 min (`fianzas-import`) |
 | Vehículos | 414 | — | sí | — | Migrados; las unidades nuevas de Perumotor entran por Flota |
-| Inventario | 5 artículos, 546 unidades con serie | — | — | — | Equipamiento por serie en Inventario › Unidades desde el 15-oct |
+| Inventario | 56 artículos, 1,812 unidades con serie (LA SIRENA + INVENTARIO DE EQUIPOS de Logística) | — | — | — | Equipamiento por serie en Inventario › Unidades desde el 15-oct; 4 almacenes |
 | Facturas emitidas (ventas) | 936 (12-oct) | — | 221 | 936 (cliente) | Cargadas del SIRE de ventas 2025-2026; falta proyecto en las ventas a financistas OXI |
 
 Conclusión: la mitad de las piezas ya está en el ERP, pero el análisis "por proyecto" se corta en dos puntos:
