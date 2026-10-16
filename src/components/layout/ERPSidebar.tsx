@@ -54,7 +54,8 @@ import {
   BookOpenCheck,
   Hash,
   FileSpreadsheet,
-  ShieldCheck
+  ShieldCheck,
+  Plane
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useState, useEffect } from 'react';
@@ -194,6 +195,17 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       subItems: [
         { label: t('nav.sub.fianzas_tablero', 'Tablero'), href: '/fianzas' },
         { label: t('nav.sub.fianzas_cargos', 'Cargos'), href: '/fianzas/cargos' },
+      ]
+    },
+    {
+      id: 'viajes',
+      label: 'Viajes',
+      icon: <Plane className="size-5" />,
+      href: '/viajes',
+      subItems: [
+        { label: 'Viajes y rendiciones', href: '/viajes' },
+        { label: 'Tarifas de viáticos', href: '/viajes/tarifas' },
+        { label: 'App móvil', href: '/app' },
       ]
     },
     {

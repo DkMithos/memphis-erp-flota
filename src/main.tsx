@@ -26,4 +26,10 @@ window.addEventListener('vite:preloadError', (event) => {
   window.location.reload();
 });
 
+// App móvil de viajes (/app): service worker solo para ese alcance, así el ERP de
+// escritorio sigue sin cache y los despliegues se ven al instante.
+if ('serviceWorker' in navigator && window.location.pathname.startsWith('/app') && import.meta.env.PROD) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js', { scope: '/app' }).catch(() => undefined); });
+}
+
 createRoot(document.getElementById("root")!).render(<AuthProvider><App /></AuthProvider>);

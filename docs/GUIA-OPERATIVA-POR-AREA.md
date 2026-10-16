@@ -14,7 +14,7 @@
 | **Compras** | **Sí** | Requerimientos, cotizaciones, órdenes con aprobación por monto, recepciones, facturas de proveedores (portal y SIRE), directorio de 843 proveedores | Nada bloqueante. 703 proveedores creados desde el SIRE necesitan cuenta bancaria y condición antes de pagarles por lote |
 | **Finanzas** | **Sí** | Cuentas por pagar (1,275 pendientes), lotes de pago, detracciones, bancos (extracto BBVA importado y conciliado al 89 %), obligaciones financieras, caja chica, flujo de caja y flujo financiero | El primer lote de pago nace el 6-nov; 228 movimientos del banco esperan cruce manual |
 | **Contabilidad** | **Sí** | Comprobantes recibidos y emitidos (7,394), registro de compras y ventas, libro diario con asientos automáticos (1,692), plan de cuentas, periodos | El SIRE de ventas se carga por script, aún no desde pantalla |
-| **Administración** | **Sí** | Caja chica (se registra en el ERP desde el 9-sep-2026), fianzas (sincronizadas cada 15 minutos), documentos, capacitaciones y certificados, obligaciones, flujo financiero de Administración | Viáticos y correspondencia no existen todavía (diseñados para el sprint 5); los usuarios siguen trabajando en Excel y el ERP los lee |
+| **Administración** | **Sí** | Caja chica (se registra en el ERP desde el 9-sep-2026), fianzas (sincronizadas cada 15 minutos), documentos, capacitaciones y certificados, obligaciones, flujo financiero de Administración | Viajes y viáticos ya están en el ERP y en la app móvil (/app); correspondencia no existe todavía (sprint 6) |
 
 Regla general: **el ERP ya es la fuente para compras, pagos, bancos, facturas y caja chica**. Fianzas y el flujo financiero siguen naciendo en Excel y el ERP los sincroniza solo; no hay que cargarlos a mano.
 
@@ -182,6 +182,7 @@ Contabilidad revisa y corrige donde el documento no cuadra.
 |---|---|---|
 | **Caja chica** | Ver §4.2 | Los gastos e ingresos se registran en el ERP con su centro de costo; el ERP calcula saldos, numera y cierra cajas |
 | **Fianzas › Tablero** (65 cartas) y **Cargos** | Cartas fianza por proyecto con vencimientos y renovaciones; cargos bancarios de fianzas | Sincronizado cada 15 minutos desde "STATUS DE FIANZAS" (o al instante con "Traer del Excel"); una carta que desaparece de la hoja queda como "Retirada", no se borra; los cargos se importan desde pantalla |
+| **Viajes** (`/viajes`) y **app móvil** (`/app`) | Solicitud de viaje y viáticos → jefatura aprueba → Administración aprueba; Administración registra pasajes y adelantos; el viajero rinde desde el celular con la foto del comprobante → jefatura firma → Administración aprueba y liquida (reembolso o devolución); tarifas de la política editables | 109 viajes del CONTROL DE VIAJES 2026 cargados como histórico; el personal entra a /app con el rol **Personal** (sin otros módulos); los topes se avisan, no bloquean |
 | **Documentos** | Carpetas de SharePoint enlazadas al ERP (lectura) | Navegar y abrir; no se suben archivos al ERP |
 | **Proyectos › Capacitaciones y certificados** (138 certificados) | Asistencia con firma, certificados con QR, portal público por DNI, plantillas por consorcio | Crear capacitación → participantes → firmar → emitir; exportación masiva |
 | **Obligaciones financieras** | Ver §4.2 | Registro y seguimiento de préstamos y deudas |

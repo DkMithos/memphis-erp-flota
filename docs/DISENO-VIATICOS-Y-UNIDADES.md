@@ -10,6 +10,11 @@
 
 ## 1. Viáticos y pasajes por proyecto
 
+> **HECHO el 2026-10-16** (migración `20261016100000_viajes_viaticos.sql`, pantallas `/viajes`, `/viajes/:id`, `/viajes/tarifas`,
+> app móvil `/app` como PWA, tarjeta "Gasto de viajes" en el Proyecto 360, 109 viajes históricos cargados). Flujo fijado por Kevin:
+> solicita el personal → aprueba la jefatura → aprueba Carolina; la rendición sigue el mismo circuito. Tarifas = política v01;
+> se sugieren y marcan el exceso, no bloquean. Detalle en CONTEXTO-SESION.md (2026-10-16) y docs/APP-MOVIL-VIAJES.md.
+
 ### 1.1 Qué resuelve
 Hoy el gasto de viaje (pasajes aéreos y terrestres, hospedaje, movilidad, alimentación) se controla en un Excel de
 Administración y **no llega al costo del proyecto**: el Proyecto 360 no sabe cuánto costó mandar a Nicolás a Huánuco a

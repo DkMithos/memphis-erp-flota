@@ -122,6 +122,11 @@ const FinanzasPresupuestosModule = lazyModulo(() => import('./components/modules
 const FinanzasCajaChica = lazyModulo(() => import('./components/modules/finanzas/FinanzasCajaChica').then(m => ({ default: m.FinanzasCajaChica })));
 const FlujoFinanciero = lazyModulo(() => import('./components/modules/finanzas/FlujoFinanciero').then(m => ({ default: m.FlujoFinanciero })));
 const FianzasModule = lazyModulo(() => import('./components/modules/fianzas/FianzasModule').then(m => ({ default: m.FianzasModule })));
+// Viajes y viáticos (sprint 5) + app móvil /app
+const ViajesLista = lazyModulo(() => import('./components/modules/viajes/ViajesLista').then(m => ({ default: m.ViajesLista })));
+const ViajeDetalle = lazyModulo(() => import('./components/modules/viajes/ViajeDetalle').then(m => ({ default: m.ViajeDetalle })));
+const ViaticosTarifas = lazyModulo(() => import('./components/modules/viajes/ViaticosTarifas').then(m => ({ default: m.ViaticosTarifas })));
+const AppMovil = lazyModulo(() => import('./components/app/AppMovil').then(m => ({ default: m.AppMovil })));
 const FianzasCargos = lazyModulo(() => import('./components/modules/fianzas/FianzasCargos').then(m => ({ default: m.FianzasCargos })));
 import { FinanzasProvider } from './lib/finanzas/finanzas-store';
 
@@ -336,6 +341,7 @@ export default function App() {
 
   const isSpecialRoute = () => {
     return (
+      currentRoute === '/app' || currentRoute.startsWith('/app/') || // app móvil de viajes: sin sidebar ni topbar
       currentRoute.startsWith('/v/') ||
       // Impresión de QR (interna, sin sidebar): por vehículo, por flota, o todas
       (currentRoute.startsWith('/flota/vehiculos/') && currentRoute.includes('/print-qr')) ||
@@ -881,6 +887,17 @@ export default function App() {
     if (currentRoute.startsWith('/documentos')) return <Documentos />;
 
     // CRM
+    // App móvil de viajes (cualquier usuario con sesión y rol)
+    if (currentRoute === '/app' || currentRoute.startsWith('/app/')) return <AppMovil ruta={currentRoute} onNavigate={navigateTo} />;
+
+    // Viajes y viáticos (ERP)
+    if (currentRoute.startsWith('/viajes')) {
+      if (currentRoute === '/viajes/tarifas') return <ViaticosTarifas onNavigate={navigateTo} />;
+      const viajeId = currentRoute.split('/')[2];
+      if (viajeId) return <ViajeDetalle viajeId={viajeId} onNavigate={navigateTo} />;
+      return <ViajesLista onNavigate={navigateTo} />;
+    }
+
     if (currentRoute.startsWith('/crm')) {
       if (currentRoute === '/crm/clientes') return <CRMClientes onNavigate={navigateTo} />;
       if (currentRoute === '/crm/oportunidades') return <CRMOportunidades onNavigate={navigateTo} />;

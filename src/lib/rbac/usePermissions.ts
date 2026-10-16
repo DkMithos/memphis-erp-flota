@@ -31,6 +31,7 @@ export type Modulo =
   | 'contabilidad'
   | 'fianzas'
   | 'documentos'
+  | 'viajes'
   | 'admin';
 
 export type Accion =
@@ -39,6 +40,8 @@ export type Accion =
   | 'editar'
   | 'eliminar'
   | 'aprobar'
+  | 'aprobar_final'
+  | 'tarifas'
   | 'exportar'
   | 'recepcionar'
   | 'cargos'

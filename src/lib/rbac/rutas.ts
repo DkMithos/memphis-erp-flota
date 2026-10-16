@@ -47,6 +47,7 @@ const MODULO_POR_PREFIJO: { prefijo: string; modulo: Modulo }[] = [
   { prefijo: '/flota', modulo: 'flota' },
   { prefijo: '/biomedico', modulo: 'biomedico' },
   { prefijo: '/crm', modulo: 'crm' },
+  { prefijo: '/viajes', modulo: 'viajes' },
 ];
 
 /**

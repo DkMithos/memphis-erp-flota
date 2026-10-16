@@ -24,6 +24,7 @@ export const MODULES_DEFAULT: ModuleConfig[] = [
   { id: 'finanzas',    label: 'Finanzas',        descripcion: 'Transacciones, presupuestos y reportes', enabled: true },
   { id: 'proyectos',   label: 'Proyectos',       descripcion: 'Gestión de proyectos y tareas',          enabled: true },
   { id: 'crm',         label: 'CRM',             descripcion: 'Clientes, oportunidades y actividades',  enabled: false },
+  { id: 'viajes',      label: 'Viajes',          descripcion: 'Viajes, pasajes, viáticos y rendiciones (app móvil /app)', enabled: true },
   { id: 'bi',          label: 'BI & Reportería', descripcion: 'Dashboard cruzado de inteligencia',      enabled: true },
 ];
 

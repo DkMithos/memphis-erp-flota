@@ -135,6 +135,14 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
   const { vehiculos } = useVehiculos();
   // Equipamiento con número de serie entregado/instalado en este proyecto (sprint 5)
   const [unidadesProyecto, setUnidadesProyecto] = useState<Unidad[]>([]);
+  // Gasto de viajes del proyecto (pasajes pagados + rendiciones aprobadas), sprint 5
+  const [gastoViajes, setGastoViajes] = useState<{ viajes: number; pasajes_soles: number; rendido_soles: number; total_soles: number; adelantos_soles: number; viajes_abiertos: number } | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    supabase.from('v_gasto_viajes_proyecto').select('*').eq('proyecto_id', proyectoDbId).maybeSingle()
+      .then(({ data }) => { if (vivo) setGastoViajes((data as typeof gastoViajes) ?? null); });
+    return () => { vivo = false; };
+  }, [proyectoDbId]);
   useEffect(() => {
     let vivo = true;
     cargarUnidadesDeProyecto(proyectoDbId).then(u => { if (vivo) setUnidadesProyecto(u); }).catch(() => { if (vivo) setUnidadesProyecto([]); });
@@ -709,6 +717,20 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
         <TabsContent value="finanzas" className="space-y-4">
           {/* Caja del proyecto: cobros − pagos por mes, real vs previsto */}
           <FlujoCajaMensual proyectoId={proyectoDbId} atras={6} adelante={6} compacto />
+
+          {/* Viajes y viáticos cargados al proyecto (sprint 5) */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center justify-between gap-2"><span>Gasto de viajes y viáticos</span>
+                <Button variant="ghost" size="sm" onClick={() => onNavigate?.('/viajes')}>Ver viajes</Button></CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div><div className="text-xs text-muted-foreground">Viajes</div><div className="font-semibold">{gastoViajes?.viajes ?? 0}{gastoViajes?.viajes_abiertos ? <span className="text-xs text-muted-foreground"> · {gastoViajes.viajes_abiertos} abiertos</span> : null}</div></div>
+              <div><div className="text-xs text-muted-foreground">Pasajes y reservas pagadas</div><div className="font-semibold">{fmt(Number(gastoViajes?.pasajes_soles ?? 0), 'PEN')}</div></div>
+              <div><div className="text-xs text-muted-foreground">Viáticos rendidos y aprobados</div><div className="font-semibold">{fmt(Number(gastoViajes?.rendido_soles ?? 0), 'PEN')}</div></div>
+              <div><div className="text-xs text-muted-foreground">Total al proyecto</div><div className="font-semibold">{fmt(Number(gastoViajes?.total_soles ?? 0), 'PEN')}</div></div>
+            </CardContent>
+          </Card>
 
           {/* Contrato + Adendas */}
           <Card>

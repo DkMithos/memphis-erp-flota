@@ -1,7 +1,7 @@
 # CONTEXTO DE TRABAJO — Memphis ERP
 
 > **Documento vivo.** Se actualiza al cerrar cada tarea o cuando el contexto de la sesión
-> de trabajo se acerca al límite. Última actualización: **2026-10-15**.
+> de trabajo se acerca al límite. Última actualización: **2026-10-16**.
 > Es el punto de re-entrada para retomar el trabajo sin re-derivar contexto.
 
 ---
@@ -3916,3 +3916,65 @@ historial completo (ingreso → instalación → entrega → devolución). Unida
 Queda para Kevin/Logística: confirmar las dos decisiones por defecto; pedir a La Sirena/SUMTEC las series de los arneses y
 lightman si existen (hoy "pendiente de serie"); registrar la devolución de las 166 bodycams cuando tengan la lista. Sigue el
 sprint 5 (2/2): viáticos y pasajes (depende de quién aprueba, montos y tabla de tarifas).
+
+## 2026-10-16 - Sprint 5 (2/2): viajes, pasajes y viáticos (#9) + app móvil; cuenta qa.pentest borrada
+
+Kevin cerró las decisiones: (1-2) viaje y viáticos: personal solicita → jefatura aprueba → Carolina da la última aprobación;
+(3) rendición: personal rinde → jefatura revisa y firma → Carolina revisa y aprueba (devolución o reembolso); (4) app móvil
+para el personal en viaje, que cargue todo al ERP; (5) la tabla de tarifas es la política, pero "siempre piden otros topes y
+casi nunca se cumple"; (6) borrar `qa.pentest@proveedores.memphismaquinarias.com` (hecho: cuenta del pentest del portal del
+16/09, sin filas enlazadas; el proveedor PROV-0331 al que apuntaba queda intacto y sin usuario de portal).
+
+**Base** (`supabase/migrations/20261016100000_viajes_viaticos.sql`): módulo de permisos `viajes` (ver, crear, editar, aprobar,
+aprobar_final, exportar, tarifas) repartido así: Administrador todo; Administración ver/crear/editar/aprobar_final/exportar/
+tarifas (Carolina); Gerencia ver/aprobar/aprobar_final/exportar; Proyectos ver/aprobar (jefatura); Contabilidad ver/exportar.
+Rol nuevo **Personal** (sin permisos): con él un trabajador pasa la puerta de acceso y usa la app; Kevin lo asigna en Admin.
+Tablas `viaticos_tarifas` (sembrada con la política v01 del 05/01/2026: alimentación S/150/día sin comprobante, hospedaje
+S/250/noche con comprobante, adelanto S/300/día sin hospedaje y S/550 con hospedaje, movilidad solo con sustento), `viajes`
+(numeración de la política NNN-MM-INICIALES-AAAA, correlativo por viajero y año como el Excel; estados solicitado →
+aprobado_jefatura → aprobado → en_curso → rendido → cerrado, más rechazado/anulado), `viaje_pasajeros` (viático calculado
+con la tarifa, solicitado puede ser mayor → `tope_excedido` + justificación obligatoria), `viaje_reservas` (pasajes, hospedaje;
+costo en soles generado), `viaje_rendiciones` (RD-AAAA-NNNN; borrador → presentada → revisada_jefatura → aprobada → liquidada;
+observada devuelve al viajero; saldo = gastado − adelanto → empresa reembolsa / trabajador devuelve / cuadra) y
+`viaje_rendicion_items` (cada gasto con tipo, comprobante, foto en el bucket privado `viajes-sustentos`). RLS: cada persona ve
+sus viajes (solicitante o viajero); `viajes.ver` ve todos; `viajes.editar` gestiona reservas/adelantos/liquidación. Funciones
+`viaje_solicitar`, `viaje_aprobar` (decide el nivel por el estado), `viaje_rechazar`, `viaje_anular`, `viaje_registrar_adelanto`,
+`rendicion_guardar`, `rendicion_presentar` (valida topes: alimentación por día, hospedaje por noche, sustento en hospedaje/
+movilidad; si excede exige justificación), `rendicion_revisar`, `rendicion_aprobar`, `rendicion_liquidar` (cierra el viaje cuando
+todos liquidaron), `viaje_cerrar`. Vistas `v_viajes`, `v_viaje_rendiciones`, `v_gasto_viajes_proyecto` (pasajes pagados +
+rendiciones aprobadas = costo real del viaje al proyecto). Notificaciones en `notificaciones` (tipo viaje_*, rendicion_*).
+
+**ERP**: menú **Viajes** (`modules-config` + sidebar): `/viajes` (pendientes de ti arriba, filtros persistidos, paginado,
+exportar, "Solicitar viaje"), `/viajes/:id` (aprobaciones, viajeros y viáticos, reservas, adelantos, rendición por viajero con
+firmar/aprobar/observar/liquidar), `/viajes/tarifas`. Tarjeta **Gasto de viajes y viáticos** en la pestaña Finanzas del
+Proyecto 360. Componentes compartidos con la app: `NuevoViajeForm`, `RendicionEditor`, `ViajeDetalle` (`modoApp`).
+
+**App móvil "Memphis Viajes"** (`/app`, `src/components/app/AppMovil.tsx`, `docs/APP-MOVIL-VIAJES.md`): la misma SPA sin el
+shell de escritorio, con barra inferior (Inicio · Solicitar · Aprobar · Cuenta), PWA instalable (`public/manifest.webmanifest`,
+`public/sw.js` con alcance /app, iconos generados; el service worker solo guarda el cascarón). Rendición con foto desde la
+cámara (`<input capture>` → bucket). Para Play Store / App Store el camino es Capacitor apuntando a
+erp.memphismaquinarias.com/app (documentado; requiere cuentas de desarrollador y un Mac para iOS).
+
+**Histórico** (`scripts/sprint5-viajes/1-generar-carga-control-viajes.py` → `2-cargar-control-viajes.sql`, ejecutado por el
+pooler con rol temporal `tmp_viajes`, ya borrado): 109 viajes del `CONTROL DE VIAJES 2026.xlsx` (91 cerrados, 17 en curso, 1
+rendido) con su viajero (59 enlazados a usuarios del ERP por nombre: Lisbet, Humberto, Richard, Miguelángel, Shirley,
+Guillermo), adelantos S/ 80,950.10 y rendido S/ 100,297.80 (iguales al RESUMEN del Excel), 197 reservas (125 códigos de
+pasaje + alojamientos; las reservas compartidas por varios viajeros se prorratearon: pasajes S/ 109,612.55 vs S/ 109,556.54
+del Excel, alojamiento S/ 17,056.55 vs 16,848.06; diferencias de redondeo/TC). Proyectos mapeados por nombre (GORE CUSCO
+PATRULLEROS → 06CUSPNP25, AMAZONAS → 05AMAPNP25, GORE CUSCO AMBULANCIAS → 02CUSAMB25, GORE HUANUCO → 03HNCPNP25, SAN MARTIN
+→ SMARTBOM, GORE LORETO BOMBEROS → 04LORBOM25, MUNI CUSCO → 01CUSMUN24, CUSCO HIDROAMBULANCIAS → 07CUSHAM26; "BUSQUEDA DE
+NUEVOS PROYECTOS" y "PRESENTACION PROPUESTA" van a oficina central: 7 viajes). Las rendiciones históricas son un solo ítem
+resumen (los comprobantes viven en los Formatos Únicos en PDF). No se cargó la única fila "Otro gasto empresa" (S/ 1,480).
+`solicitado_por` = Kevin (no hubo circuito), `origen_datos = 'excel-control-viajes'`.
+
+**Verificado** en el navegador con dos usuarios QA temporales (Administrador y Personal, borrados): el Personal entra a /app
+en vista móvil, solicita (3 días × S/550 = S/1,650), el Admin aprueba como jefatura y como Administración desde /viajes,
+registra el adelanto, el Personal rinde desde la app (alimentación S/1,500 > tope S/450 → pidió justificación), presenta;
+el Admin firma, aprueba, registra la devolución de S/150 y el viaje queda cerrado. Corregido en la prueba: el nombre del
+viajero tomaba el correo antes de cargar el perfil, y el módulo no salía en el menú hasta añadirlo a `modules-config`.
+
+Queda: asignar el rol Personal a los viajeros que no tienen usuario (Gustavo Montero, Gabriela Dunn, Nicolás Rojas, Antonio
+Reyes, Mónica Chumán) y crearles cuenta; enlazar adelantos/reembolsos a caja chica y lotes de pago (hoy se anotan medio y
+referencia); push nativo cuando se publique en tiendas. Unidades: Logística busca las series de arneses/lightman y la lista
+de las 166 bodycams devueltas; si no existen, los arneses y lightman quedan "pendiente de serie" (válido) y las 166 se
+registran como 166 unidades sin serie en estado devuelta con la guía EG07-00000067 (entrada + salida en el kardex, neto 0).
