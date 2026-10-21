@@ -10,7 +10,9 @@
  *
  * Emitir = congelar datos + plantilla en `certificados`; el correlativo y el
  * token del QR los pone la base. Revocar deja el certificado visible como
- * revocado en el portal; "reemitir" lo borra y permite emitir uno nuevo.
+ * revocado en el portal (se conserva, su QR sigue diciendo "revocado"); el
+ * participante vuelve a "por emitir" y "Reemitir" emite uno nuevo con los
+ * datos actuales y nuevo código. Solo puede haber un certificado vigente.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -322,10 +324,10 @@ function Participantes({ cap, parts, tenantId, puedeEditar, plantilla, onCambioC
                         <Button size="sm" variant="outline" onClick={() => setFirmando(p)}><FileSignature className="size-4" /> Firmar</Button>
                       ) : <span className="text-xs text-muted-foreground">Pendiente</span>}
                     </TableCell>
-                    <TableCell className="text-center"><Switch checked={p.asistio !== false} onCheckedChange={v => toggleAsistio(p, v)} disabled={!puedeEditar || !!p.certificado} /></TableCell>
+                    <TableCell className="text-center"><Switch checked={p.asistio !== false} onCheckedChange={v => toggleAsistio(p, v)} disabled={!puedeEditar || p.certificado?.estado === 'emitido'} /></TableCell>
                     <TableCell>
                       {p.certificado?.estado === 'emitido' && <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" variant="outline">{p.certificado.codigo}</Badge>}
-                      {p.certificado?.estado === 'revocado' && <Badge variant="destructive">Revocado</Badge>}
+                      {p.certificado?.estado === 'revocado' && <Badge variant="destructive" title="Corrija los datos (Editar datos) y vuelva a emitir desde la pestaña Certificados">Revocado · por reemitir</Badge>}
                       {!p.certificado && <span className="text-xs text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell>
@@ -555,7 +557,7 @@ function Certificados({ cap, parts, certs, plantillas, tenantId, puedeEmitir, pu
   useEffect(() => { setPlantillaId(cap.plantilla_id ?? sugerida?.id ?? null); }, [cap.plantilla_id, sugerida?.id]);
 
   const plantilla = plantillas.find(p => p.id === plantillaId) ?? null;
-  const pendientes = parts.filter(p => p.asistio !== false && !p.certificado && (!soloFirmados || p.firma_data_url));
+  const pendientes = parts.filter(p => p.asistio !== false && p.certificado?.estado !== 'emitido' && (!soloFirmados || p.firma_data_url));
   const previewPart = parts.find(p => p.asistio !== false) ?? null;
   const qrPreview = useQrDataUrl(plantilla?.mostrar_qr ? urlVerificacion('00000000-0000-0000-0000-000000000000') : null);
   const qrVer = useQrDataUrl(ver && ver.plantilla.mostrar_qr !== false ? urlVerificacion(ver.token) : null);
@@ -633,9 +635,26 @@ function Certificados({ cap, parts, certs, plantillas, tenantId, puedeEmitir, pu
   };
 
   const reemitir = async (c: Certificado) => {
-    const ok = await confirmar({ title: 'Reemitir certificado', description: 'Se elimina el certificado revocado y el participante vuelve a quedar pendiente para una nueva emisión (con nuevo código).', confirmLabel: 'Continuar' });
+    const p = parts.find(x => x.id === c.participante_id);
+    if (!p) { toast.error('El participante ya no está en la lista'); return; }
+    if (!plantilla) { toast.error('Elija la plantilla del certificado'); return; }
+    if (p.certificado?.estado === 'emitido') { toast.error(`Ya tiene un certificado vigente (${p.certificado.codigo})`); return; }
+    const ok = await confirmar({
+      title: `Reemitir a ${p.apellidos}, ${p.nombres}`,
+      description: `Se emite un certificado nuevo, con nuevo código, usando los datos ACTUALES del participante (DNI ${p.dni}, ${p.cargo || 'sin cargo'}${p.institucion ? ` · ${p.institucion}` : ''}). Si todavía no corrigió los datos, cancele y edítelos en la pestaña Participantes. El revocado ${c.codigo} se conserva y su QR seguirá mostrando que fue revocado.`,
+      confirmLabel: 'Emitir nuevo',
+    });
     if (!ok) return;
-    try { await dbCertificados.eliminarRevocado(c.id); await onRecargar(); } catch (e: any) { toast.error(e.message); }
+    setEmitiendo(true);
+    try {
+      const nuevos = await dbCertificados.emitir([{
+        tenant_id: tenantId, capacitacion_id: cap.id, participante_id: p.id,
+        datos: construirDatosCertificado(cap, p, plantilla), plantilla: snapshotPlantilla(plantilla),
+        emitido_por: quien, emitido_por_email: emailQuien,
+      }]);
+      toast.success(nuevos[0] ? `${nuevos[0].codigo} emitido en reemplazo de ${c.codigo}` : 'No se emitió: ya tenía un certificado vigente');
+      await onRecargar();
+    } catch (e: any) { toast.error(e.message); } finally { setEmitiendo(false); }
   };
 
   const enviarCorreo = async (c: Certificado) => {
@@ -771,7 +790,7 @@ function Certificados({ cap, parts, certs, plantillas, tenantId, puedeEmitir, pu
                           <DropdownMenuItem asChild><a href={urlVerificacion(c.token)} target="_blank" rel="noreferrer"><ExternalLink className="size-4" /> Abrir verificación pública</a></DropdownMenuItem>
                           <DropdownMenuItem onClick={() => enviarCorreo(c)} disabled={!c.participante?.email || enviando === c.id}><Mail className="size-4" /> Enviar por correo{c.participante?.email ? '' : ' (sin correo)'}</DropdownMenuItem>
                           {puedeRevocar && c.estado === 'emitido' && <><DropdownMenuSeparator /><DropdownMenuItem className="text-destructive" onClick={() => { setRevocando(c); setMotivo(''); }}><ShieldX className="size-4" /> Revocar</DropdownMenuItem></>}
-                          {puedeRevocar && c.estado === 'revocado' && <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => reemitir(c)}><RefreshCw className="size-4" /> Reemitir (nuevo código)</DropdownMenuItem></>}
+                          {puedeEmitir && c.estado === 'revocado' && <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => reemitir(c)} disabled={emitiendo}><RefreshCw className="size-4" /> Reemitir con los datos actuales (nuevo código)</DropdownMenuItem></>}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -844,7 +863,7 @@ function Certificados({ cap, parts, certs, plantillas, tenantId, puedeEmitir, pu
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Revocar {revocando?.codigo}</DialogTitle>
-            <DialogDescription>El certificado seguirá apareciendo en el portal, pero marcado como revocado, y su QR mostrará el motivo.</DialogDescription>
+            <DialogDescription>El certificado seguirá apareciendo en el portal, pero marcado como revocado, y su QR mostrará el motivo. El participante vuelve a quedar por emitir: corrija sus datos y use "Reemitir" para darle uno nuevo.</DialogDescription>
           </DialogHeader>
           <div className="space-y-1"><Label>Motivo *</Label><Textarea rows={3} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Error en el nombre del participante…" /></div>
           <DialogFooter>

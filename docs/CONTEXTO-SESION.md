@@ -4074,3 +4074,22 @@ DOLARES" de enero (HIST-2026-0036…0057), que ya están cubiertos por TRX-2026 
 **Para Contabilidad:** nada pendiente de su lado; el archivo queda como fuente. Lección en el skill `memphis-carga-excel`:
 los históricos se corrigen por OPE, nunca se recargan ni se cruzan por fila.
 
+## Certificados: reemitir después de revocar, sin borrar el revocado (2026-10-21)
+
+Kevin revocó CERT-2026-00091 (CAP-2026-001, "error en el nombre del participante") y no encontró cómo volver a emitirlo. La
+opción existía pero escondida en el menú ⋯ de la pestaña Certificados, y además **borraba** el certificado revocado (se perdía el
+rastro y su QR pasaba a decir "no existe"). Rediseño:
+
+- **Base:** `participante_id` deja de ser `unique`; índice único parcial `where estado = 'emitido'` → un participante puede tener
+  revocados (se conservan, su QR sigue mostrando "revocado" y el motivo) y como máximo **un** certificado vigente
+  (`20261021120000_certificados_reemision.sql`).
+- **ERP:** el participante con certificado revocado vuelve a contar como "por emitir" (badge "Revocado · por reemitir" en
+  Participantes, con el tooltip de qué hacer); en Certificados, el ⋯ del revocado ofrece **"Reemitir con los datos actuales
+  (nuevo código)"**, que emite uno nuevo para esa persona con los datos corregidos y conserva el anterior. También entra por el
+  botón normal "Emitir" (sale en la lista de pendientes). El diálogo de revocar explica el paso siguiente. El switch "Asistió" solo
+  se bloquea con certificado vigente.
+- **Portal público y ERP** eligen el vigente cuando hay varios (si no hay, el último revocado): `mapPart` en `db.ts` y la
+  Edge Function `capacitaciones-publico` (redesplegada). `eliminarRevocado` se eliminó.
+
+Para Rubén Darío Uscamayta Castro: corregir el nombre en Participantes → Editar datos, y luego Certificados → ⋯ → Reemitir.
+

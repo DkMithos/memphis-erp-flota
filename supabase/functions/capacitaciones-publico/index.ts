@@ -183,7 +183,9 @@ export default {
       const persona = filas[0]
       const capacitaciones = filas.map(p => {
         const cap = p.capacitacion
-        const cert = Array.isArray(p.certificado) ? p.certificado[0] : p.certificado
+        // varios certificados por participante (revocados + vigente): manda el vigente, si no el último
+        const certs: any[] = Array.isArray(p.certificado) ? p.certificado : p.certificado ? [p.certificado] : []
+        const cert = certs.find(c => c.estado === 'emitido') ?? [...certs].sort((a, b) => String(b.emitido_en).localeCompare(String(a.emitido_en)))[0] ?? null
         return {
           id: cap.id,
           codigo: cap.codigo,

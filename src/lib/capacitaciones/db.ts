@@ -146,7 +146,9 @@ function limpiarCap(c: Partial<Capacitacion>): Record<string, unknown> {
 const SELECT_PART = `*, certificado:certificados(id, codigo, token, estado, emitido_en)`;
 
 function mapPart(p: any): Participante {
-  const cert = Array.isArray(p.certificado) ? p.certificado[0] ?? null : p.certificado ?? null;
+  // Puede haber varios (revocados + uno vigente): manda el vigente; si no hay, el último revocado.
+  const certs: any[] = Array.isArray(p.certificado) ? p.certificado : p.certificado ? [p.certificado] : [];
+  const cert = certs.find(c => c.estado === 'emitido') ?? [...certs].sort((a, b) => String(b.emitido_en).localeCompare(String(a.emitido_en)))[0] ?? null;
   return { ...p, certificado: cert };
 }
 
@@ -228,7 +230,7 @@ export const dbCertificados = {
     for (const f of filas) {
       const { data, error } = await t('certificados').insert(f).select(SELECT_CERT).single();
       if (error) {
-        if (String(error.code) === '23505') continue; // ya tenía certificado
+        if (String(error.code) === '23505') continue; // ya tenía certificado vigente (los revocados no bloquean)
         lanzar(error, 'emitir certificado');
       }
       out.push(data);
@@ -240,11 +242,6 @@ export const dbCertificados = {
       estado: 'revocado', revocado_en: new Date().toISOString(), revocado_por: por, motivo_revocacion: motivo,
     }).eq('id', id);
     if (error) lanzar(error, 'revocar certificado');
-  },
-  /** Reemite: borra el revocado y deja al participante listo para una nueva emisión. */
-  async eliminarRevocado(id: string): Promise<void> {
-    const { error } = await t('certificados').delete().eq('id', id).eq('estado', 'revocado');
-    if (error) lanzar(error, 'eliminar certificado revocado');
   },
 };
 
