@@ -4093,3 +4093,25 @@ rastro y su QR pasaba a decir "no existe"). Rediseño:
 
 Para Rubén Darío Uscamayta Castro: corregir el nombre en Participantes → Editar datos, y luego Certificados → ⋯ → Reemitir.
 
+## Viajes: el adelanto y la liquidación mueven la plata de verdad (caja chica y Bancos) (2026-10-21)
+
+Pendiente del sprint 5: "enlazar adelantos/reembolsos a caja chica y lotes de pago (hoy se anotan medio y referencia)". Carolina
+ya estaba registrando a mano el reembolso en caja (GCC-2026-016, 20/10, "REEMBOLSO POR RENDICION DE VIATICOS", Gabriela Dunn).
+
+- **`viaje_registrar_adelanto`** y **`rendicion_liquidar`** reciben además `p_caja` o `p_cuenta`
+  (`20261021140000_viajes_adelantos_enlazados.sql`, helper `viaje_movimiento_dinero`):
+  - caja chica → **gasto** en la caja (adelanto: categoría AUTORIZACIÓN DE VIAJE; reembolso: RENDICIÓN DE VIÁTICOS) a nombre
+    del viajero, con el CDC y el proyecto del viaje; la **devolución** del trabajador entra como **ingreso** de la caja (tipo
+    reembolso). Numeración GCC/ICC, saldo de la caja, bloqueo de caja cerrada y costo real los ponen los triggers de siempre.
+  - transferencia → **transacción TRX-AAAA-NNNN** en la cuenta elegida (egreso o ingreso, categoría "Viáticos y pasajes") con el
+    n.º de operación en `referencia_numero`: Bancos la concilia solo contra el extracto (`referencia_tipo` viaje_adelanto /
+    viaje_reembolso / viaje_devolucion).
+  - efectivo, planilla, lote de pago → solo anotación, como antes.
+  Enlaces en `viaje_pasajeros.adelanto_transaccion_id/adelanto_caja_gasto_id` y `viaje_rendiciones.transaccion_id/caja_gasto_id/
+  caja_ingreso_id` (FKs `on delete set null`); el número generado se agrega a la referencia visible ("OPE 123 · GCC-2026-033").
+- **Pantalla:** en "Entregar adelanto" y "Liquidar rendición", al elegir caja chica aparece la caja (si hay una sola activa viene
+  marcada) y al elegir transferencia la cuenta bancaria (BBVA Soles por defecto) con el campo "N.º de operación"; el toast dice qué
+  movimiento se generó. Probado en la base con rollback (gasto GCC y TRX creados con CDC/proyecto; saldo de caja descontado).
+- Sigue pendiente de ese "Queda": usuarios con rol Personal para Gustavo Montero (17 viajes), Gabriela Dunn (8), Nicolás Rojas (7),
+  Antonio Reyes (7) y Mónica Chumán (2): hacen falta sus correos (Kevin); la fila "EXTERNOS" se queda sin usuario a propósito.
+

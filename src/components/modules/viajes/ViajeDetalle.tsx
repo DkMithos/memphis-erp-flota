@@ -22,7 +22,8 @@ import { usePermissions } from '@/lib/rbac/usePermissions';
 import { RendicionEditor } from './RendicionEditor';
 import {
   ESTADO_RENDICION, ESTADO_VIAJE, RESULTADO, anularViaje, aprobarRendicion, aprobarViaje, borrarReserva, cargarPasajeros, cargarRendiciones, cargarReservas, cargarViaje, cerrarViaje,
-  fechaCorta, guardarReserva, liquidarRendicion, papelRecibido, rangoFechas, rechazarViaje, registrarAdelanto, revisarRendicion, soles, type Pasajero, type Rendicion, type Reserva, type Viaje,
+  cargarCajasActivas, cargarCuentasBancarias, fechaCorta, guardarReserva, liquidarRendicion, papelRecibido, rangoFechas, rechazarViaje, registrarAdelanto, revisarRendicion, soles, textoMovimiento,
+  type CajaActiva, type CuentaBancariaBreve, type Pasajero, type Rendicion, type Reserva, type Viaje,
 } from '../../../lib/viajes/viajes';
 
 const hoy = () => new Date().toISOString().slice(0, 10);
@@ -42,8 +43,20 @@ export function ViajeDetalle({ viajeId, onNavigate, modoApp = false, onVolver }:
   const [ocupado, setOcupado] = useState(false);
   const [dialogo, setDialogo] = useState<null | { tipo: 'rechazar' | 'anular' | 'observar_rev' | 'observar_apr' | 'liquidar' | 'adelanto' | 'reserva' | 'aprobar_j' | 'aprobar_f'; id?: string; r?: Reserva }>(null);
   const [texto, setTexto] = useState('');
-  const [adel, setAdel] = useState({ monto: '', fecha: hoy(), medio: 'transferencia', ref: '' });
-  const [liq, setLiq] = useState({ medio: 'transferencia', ref: '', fecha: hoy() });
+  const [adel, setAdel] = useState({ monto: '', fecha: hoy(), medio: 'transferencia', ref: '', cajaId: '', cuentaId: '' });
+  const [liq, setLiq] = useState({ medio: 'transferencia', ref: '', fecha: hoy(), cajaId: '', cuentaId: '' });
+  // De dónde sale (o a dónde entra) la plata: cajas activas y cuentas bancarias, cargadas al abrir el diálogo.
+  const [cajas, setCajas] = useState<CajaActiva[]>([]);
+  const [cuentas, setCuentas] = useState<CuentaBancariaBreve[]>([]);
+  useEffect(() => {
+    if (dialogo?.tipo !== 'adelanto' && dialogo?.tipo !== 'liquidar') return;
+    Promise.all([cargarCajasActivas(), cargarCuentasBancarias()]).then(([c, k]) => {
+      setCajas(c); setCuentas(k);
+      const cajaDef = c.length === 1 ? c[0].id : ''; const ctaDef = k.find(x => x.moneda === 'PEN')?.id ?? k[0]?.id ?? '';
+      setAdel(a => ({ ...a, cajaId: a.cajaId || cajaDef, cuentaId: a.cuentaId || ctaDef }));
+      setLiq(l => ({ ...l, cajaId: l.cajaId || cajaDef, cuentaId: l.cuentaId || ctaDef }));
+    }).catch(() => { /* sin permiso de leer cajas/cuentas: el diálogo igual deja anotar */ });
+  }, [dialogo?.tipo]);
   const [res, setRes] = useState<Partial<Reserva>>({});
 
   const cargar = async () => {
@@ -59,7 +72,7 @@ export function ViajeDetalle({ viajeId, onNavigate, modoApp = false, onVolver }:
   const rendDe = (pid: string) => rendiciones.find(r => r.pasajero_id === pid) ?? null;
   const accion = async (fn: () => Promise<unknown>, ok: string) => {
     setOcupado(true);
-    try { await fn(); toast.success(ok); setDialogo(null); setTexto(''); await cargar(); }
+    try { const r = await fn(); toast.success(typeof r === 'string' && r ? r : ok); setDialogo(null); setTexto(''); await cargar(); }
     catch (e) { toast.error(e instanceof Error ? e.message : String(e)); }
     finally { setOcupado(false); }
   };
@@ -121,7 +134,7 @@ export function ViajeDetalle({ viajeId, onNavigate, modoApp = false, onVolver }:
                   <TableCell className={`text-right text-sm ${Number(p.viatico_solicitado) > Number(p.viatico_calculado) ? 'text-amber-700 font-medium' : ''}`}>{soles(p.viatico_solicitado)}</TableCell>
                   <TableCell className="text-right text-sm">{soles(p.adelanto_entregado)}{p.adelanto_fecha ? <div className="text-xs text-muted-foreground">{fechaCorta(p.adelanto_fecha)} · {p.adelanto_medio}</div> : null}</TableCell>
                   <TableCell className="text-sm">{r ? <Badge className={`text-xs ${ESTADO_RENDICION[r.estado].clase}`}>{ESTADO_RENDICION[r.estado].label}</Badge> : <span className="text-muted-foreground">—</span>}</TableCell>
-                  {puedeEditar && <TableCell>{['aprobado', 'en_curso'].includes(viaje.estado) && <Button size="sm" variant="outline" onClick={() => { setAdel({ monto: String(Math.max(0, Number(p.viatico_aprobado ?? p.viatico_solicitado) - Number(p.adelanto_entregado))), fecha: hoy(), medio: 'transferencia', ref: '' }); setDialogo({ tipo: 'adelanto', id: p.id }); }}>Adelanto</Button>}</TableCell>}
+                  {puedeEditar && <TableCell>{['aprobado', 'en_curso'].includes(viaje.estado) && <Button size="sm" variant="outline" onClick={() => { setAdel({ monto: String(Math.max(0, Number(p.viatico_aprobado ?? p.viatico_solicitado) - Number(p.adelanto_entregado))), fecha: hoy(), medio: 'transferencia', ref: '', cajaId: '', cuentaId: '' }); setDialogo({ tipo: 'adelanto', id: p.id }); }}>Adelanto</Button>}</TableCell>}
                 </TableRow>); })}
             </TableBody>
           </Table>
@@ -178,7 +191,7 @@ export function ViajeDetalle({ viajeId, onNavigate, modoApp = false, onVolver }:
                   {r && (r.estado === 'revisada_jefatura' || (r.estado === 'presentada' && puedeJefatura)) && puedeFinal && <>
                     <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={!r.papel_recibido_en} title={r.papel_recibido_en ? '' : 'Falta el Formato Único en papel con los comprobantes'} onClick={() => accion(() => aprobarRendicion(r.id, true), 'Rendición aprobada')}><Check className="size-4 mr-1" /> Aprobar (Administración)</Button>
                     <Button size="sm" variant="outline" onClick={() => setDialogo({ tipo: 'observar_apr', id: r.id })}>Observar</Button></>}
-                  {r && r.estado === 'aprobada' && puedeEditar && <Button size="sm" onClick={() => { setLiq({ medio: r.resultado === 'trabajador_devuelve' ? 'caja_chica' : 'transferencia', ref: '', fecha: hoy() }); setDialogo({ tipo: 'liquidar', id: r.id }); }}>{r.resultado === 'trabajador_devuelve' ? 'Registrar devolución' : 'Registrar reembolso'} {soles(Math.abs(r.saldo))}</Button>}
+                  {r && r.estado === 'aprobada' && puedeEditar && <Button size="sm" onClick={() => { setLiq({ medio: r.resultado === 'trabajador_devuelve' ? 'caja_chica' : 'transferencia', ref: '', fecha: hoy(), cajaId: '', cuentaId: '' }); setDialogo({ tipo: 'liquidar', id: r.id }); }}>{r.resultado === 'trabajador_devuelve' ? 'Registrar devolución' : 'Registrar reembolso'} {soles(Math.abs(r.saldo))}</Button>}
                 </span>
               </CardTitle>
               {r && ['presentada', 'revisada_jefatura', 'aprobada', 'liquidada'].includes(r.estado) && (
@@ -223,10 +236,18 @@ export function ViajeDetalle({ viajeId, onNavigate, modoApp = false, onVolver }:
             <div><Label>Medio</Label>
               <Select value={adel.medio} onValueChange={(v: string) => setAdel(a => ({ ...a, medio: v }))}><SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="transferencia">Transferencia</SelectItem><SelectItem value="caja_chica">Caja chica</SelectItem><SelectItem value="efectivo">Efectivo</SelectItem></SelectContent></Select></div>
-            <div><Label>Referencia</Label><Input value={adel.ref} onChange={e => setAdel(a => ({ ...a, ref: e.target.value }))} placeholder="N.º operación / vale" /></div>
+            <div><Label>{adel.medio === 'transferencia' ? 'N.º de operación' : 'Referencia'}</Label><Input value={adel.ref} onChange={e => setAdel(a => ({ ...a, ref: e.target.value }))} placeholder={adel.medio === 'transferencia' ? 'OPE del banco' : 'Vale / recibo'} /></div>
+            {adel.medio === 'caja_chica' && <div className="col-span-2"><Label>Caja</Label>
+              <Select value={adel.cajaId} onValueChange={(v: string) => setAdel(a => ({ ...a, cajaId: v }))}><SelectTrigger><SelectValue placeholder="Elija la caja" /></SelectTrigger>
+                <SelectContent>{cajas.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}{c.responsable ? ` · ${c.responsable}` : ''}</SelectItem>)}</SelectContent></Select>
+              <p className="text-xs text-muted-foreground mt-1">Se registra el gasto en la caja (AUTORIZACIÓN DE VIAJE) a nombre del viajero, con el proyecto del viaje.</p></div>}
+            {adel.medio === 'transferencia' && <div className="col-span-2"><Label>Cuenta bancaria</Label>
+              <Select value={adel.cuentaId} onValueChange={(v: string) => setAdel(a => ({ ...a, cuentaId: v }))}><SelectTrigger><SelectValue placeholder="Elija la cuenta" /></SelectTrigger>
+                <SelectContent>{cuentas.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent></Select>
+              <p className="text-xs text-muted-foreground mt-1">Se crea la transacción en Bancos; con el n.º de operación se concilia sola contra el extracto.</p></div>}
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setDialogo(null)} disabled={ocupado}>Cancelar</Button>
-            <Button disabled={ocupado || !Number(adel.monto)} onClick={() => accion(() => registrarAdelanto(dialogo!.id!, Number(adel.monto), adel.fecha, adel.medio, adel.ref), 'Adelanto registrado')}>Registrar</Button></DialogFooter>
+            <Button disabled={ocupado || !Number(adel.monto) || (adel.medio === 'caja_chica' && !adel.cajaId)} onClick={() => accion(async () => textoMovimiento(await registrarAdelanto(dialogo!.id!, Number(adel.monto), adel.fecha, adel.medio, adel.ref, adel.medio === 'caja_chica' ? adel.cajaId : null, adel.medio === 'transferencia' ? adel.cuentaId || null : null), 'Adelanto registrado'), 'Adelanto registrado')}>Registrar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -238,10 +259,18 @@ export function ViajeDetalle({ viajeId, onNavigate, modoApp = false, onVolver }:
               <Select value={liq.medio} onValueChange={(v: string) => setLiq(l => ({ ...l, medio: v }))}><SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="transferencia">Transferencia</SelectItem><SelectItem value="caja_chica">Caja chica</SelectItem><SelectItem value="efectivo">Efectivo</SelectItem><SelectItem value="planilla">Descuento por planilla</SelectItem><SelectItem value="lote_pago">Lote de pago (línea libre)</SelectItem></SelectContent></Select></div>
             <div><Label>Fecha</Label><Input type="date" value={liq.fecha} onChange={e => setLiq(l => ({ ...l, fecha: e.target.value }))} /></div>
-            <div className="col-span-2"><Label>Referencia</Label><Input value={liq.ref} onChange={e => setLiq(l => ({ ...l, ref: e.target.value }))} placeholder="N.º operación / recibo" /></div>
+            <div className="col-span-2"><Label>{liq.medio === 'transferencia' ? 'N.º de operación' : 'Referencia'}</Label><Input value={liq.ref} onChange={e => setLiq(l => ({ ...l, ref: e.target.value }))} placeholder={liq.medio === 'transferencia' ? 'OPE del banco' : 'Recibo / vale'} /></div>
+            {liq.medio === 'caja_chica' && <div className="col-span-2"><Label>Caja</Label>
+              <Select value={liq.cajaId} onValueChange={(v: string) => setLiq(l => ({ ...l, cajaId: v }))}><SelectTrigger><SelectValue placeholder="Elija la caja" /></SelectTrigger>
+                <SelectContent>{cajas.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}{c.responsable ? ` · ${c.responsable}` : ''}</SelectItem>)}</SelectContent></Select>
+              <p className="text-xs text-muted-foreground mt-1">Reembolso → gasto en la caja (RENDICIÓN DE VIÁTICOS); devolución → ingreso en la caja. Con el proyecto del viaje.</p></div>}
+            {liq.medio === 'transferencia' && <div className="col-span-2"><Label>Cuenta bancaria</Label>
+              <Select value={liq.cuentaId} onValueChange={(v: string) => setLiq(l => ({ ...l, cuentaId: v }))}><SelectTrigger><SelectValue placeholder="Elija la cuenta" /></SelectTrigger>
+                <SelectContent>{cuentas.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent></Select>
+              <p className="text-xs text-muted-foreground mt-1">Se crea la transacción en Bancos (egreso si reembolsa, ingreso si devuelve); se concilia sola por n.º de operación.</p></div>}
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setDialogo(null)} disabled={ocupado}>Cancelar</Button>
-            <Button disabled={ocupado} onClick={() => accion(() => liquidarRendicion(dialogo!.id!, liq.medio, liq.ref, liq.fecha), 'Rendición liquidada')}>Liquidar</Button></DialogFooter>
+            <Button disabled={ocupado || (liq.medio === 'caja_chica' && !liq.cajaId)} onClick={() => accion(async () => textoMovimiento(await liquidarRendicion(dialogo!.id!, liq.medio, liq.ref, liq.fecha, liq.medio === 'caja_chica' ? liq.cajaId : null, liq.medio === 'transferencia' ? liq.cuentaId || null : null), 'Rendición liquidada'), 'Rendición liquidada')}>Liquidar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 

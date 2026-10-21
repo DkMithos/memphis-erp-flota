@@ -138,8 +138,24 @@ export const aprobarViaje = (id: string, comentario?: string) => rpc<{ estado: E
 export const rechazarViaje = (id: string, motivo: string) => rpc<void>('viaje_rechazar', { p_viaje: id, p_motivo: motivo });
 export const anularViaje = (id: string, motivo?: string) => rpc<void>('viaje_anular', { p_viaje: id, p_motivo: motivo ?? null });
 export const cerrarViaje = (id: string, notas?: string) => rpc<void>('viaje_cerrar', { p_viaje: id, p_notas: notas ?? null });
-export const registrarAdelanto = (pasajeroId: string, monto: number, fecha: string, medio?: string, referencia?: string) =>
-  rpc<void>('viaje_registrar_adelanto', { p_pasajero: pasajeroId, p_monto: monto, p_fecha: fecha, p_medio: medio ?? null, p_referencia: referencia ?? null });
+/** Resultado de un adelanto o liquidación: el movimiento real que se generó (gasto/ingreso de caja o transacción bancaria), si el medio lo permite. */
+export interface MovimientoDinero { gasto_id?: string; ingreso_id?: string; transaccion_id?: string; numero?: string }
+/** Adelanto: por caja chica genera el gasto en la caja elegida; por transferencia, la transacción en la cuenta (conciliable por n.º de operación). */
+export const registrarAdelanto = (pasajeroId: string, monto: number, fecha: string, medio?: string, referencia?: string, cajaId?: string | null, cuentaId?: string | null) =>
+  rpc<MovimientoDinero>('viaje_registrar_adelanto', { p_pasajero: pasajeroId, p_monto: monto, p_fecha: fecha, p_medio: medio ?? null, p_referencia: referencia ?? null, p_caja: cajaId ?? null, p_cuenta: cuentaId ?? null });
+export interface CajaActiva { id: string; nombre: string; moneda: string; responsable: string | null }
+export interface CuentaBancariaBreve { id: string; nombre: string; moneda: string }
+export async function cargarCajasActivas(): Promise<CajaActiva[]> {
+  const { data, error } = await supabase.from('cajas_chicas').select('id, nombre, moneda, responsable').eq('estado', 'activo').order('nombre');
+  if (error) throw error; return (data ?? []) as CajaActiva[];
+}
+export async function cargarCuentasBancarias(): Promise<CuentaBancariaBreve[]> {
+  const { data, error } = await supabase.from('cuentas_bancarias').select('id, nombre, moneda').eq('activa', true).order('nombre');
+  if (error) throw error; return (data ?? []) as CuentaBancariaBreve[];
+}
+/** Texto del toast tras un adelanto o liquidación: dice qué movimiento se generó. */
+export const textoMovimiento = (m: MovimientoDinero | null | undefined, base: string) =>
+  m && m.numero ? `${base} · ${m.gasto_id ? 'gasto de caja' : m.ingreso_id ? 'ingreso de caja' : 'transacción'} ${m.numero} generado` : base;
 export const guardarRendicion = (p: { viaje_id: string; pasajero_id: string; fecha?: string; notas?: string; banco?: string; cuenta?: string; cci?: string; moneda_reembolso?: string; items: RendicionItem[] }) =>
   rpc<{ id: string; gastado: number; entregado: number; saldo: number }>('rendicion_guardar', { p });
 export const presentarRendicion = (id: string, justificacion?: string) => rpc<{ estado: EstadoRendicion; resultado: string; saldo: number; tope_excedido: boolean }>('rendicion_presentar', { p_rendicion: id, p_justificacion: justificacion ?? null });
@@ -148,8 +164,9 @@ export const aprobarRendicion = (id: string, ok: boolean, comentario?: string) =
 /** Carolina recibe el Formato Único en papel con los comprobantes: sin eso no hay aprobación final. */
 export const papelRecibido = (id: string, recibido = true) => rpc<void>('rendicion_papel_recibido', { p_rendicion: id, p_recibido: recibido });
 export const marcarImpreso = (id: string) => rpc<void>('rendicion_marcar_impreso', { p_rendicion: id });
-export const liquidarRendicion = (id: string, medio: string, referencia?: string, fecha?: string) =>
-  rpc<void>('rendicion_liquidar', { p_rendicion: id, p_medio: medio, p_referencia: referencia ?? null, p_fecha: fecha ?? new Date().toISOString().slice(0, 10) });
+/** Liquidación: reembolso (egreso) o devolución (ingreso) por caja chica o cuenta bancaria; genera el movimiento real. */
+export const liquidarRendicion = (id: string, medio: string, referencia?: string, fecha?: string, cajaId?: string | null, cuentaId?: string | null) =>
+  rpc<MovimientoDinero>('rendicion_liquidar', { p_rendicion: id, p_medio: medio, p_referencia: referencia ?? null, p_fecha: fecha ?? new Date().toISOString().slice(0, 10), p_caja: cajaId ?? null, p_cuenta: cuentaId ?? null });
 
 /** Reservas y tarifas se editan directo (RLS: viajes.editar / viajes.tarifas). */
 export async function guardarReserva(r: Partial<Reserva> & { viaje_id: string; tenant_id?: string }): Promise<void> {
