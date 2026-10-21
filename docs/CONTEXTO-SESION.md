@@ -1,7 +1,7 @@
 # CONTEXTO DE TRABAJO — Memphis ERP
 
 > **Documento vivo.** Se actualiza al cerrar cada tarea o cuando el contexto de la sesión
-> de trabajo se acerca al límite. Última actualización: **2026-10-16**.
+> de trabajo se acerca al límite. Última actualización: **2026-10-21**.
 > Es el punto de re-entrada para retomar el trabajo sin re-derivar contexto.
 
 ---
@@ -4039,3 +4039,38 @@ Discrepancia que debe confirmar Logística: LA SIRENA (01/10/2026) decía 236 ar
 (17/08/2026) los da en Almacén Ursula. Quedaron según el maestro (con serie); si en realidad están en La Sirena, se mueven
 desde la pantalla con "Cambiar estado → retorno a almacén". También: 16 filas repetidas en el maestro (cámaras CB9084350-64
 en MP CUSCO dos veces) se cargaron una sola vez; 2 unidades sin serie (batería AAA, proyector) quedaron "pendiente de serie".
+
+## Pagos acumulados 2026 corregido por Contabilidad: verificado con el banco y aplicado por OPE (2026-10-21)
+
+Kevin trajo "Pagos acumulados 2026 con CC (1).xlsx" (hoja DATA, 1,255 filas, ene-jul 2026) y pidió verificarlo con bancos 2026.
+
+**Excel vs banco (BBVA 806 y 830, cargos ene-jul):** los **597 números de operación** del Excel cuadran **al céntimo** con el
+banco (suma por OPE), 0 montos distintos, 0 fechas distintas. Del banco solo quedan fuera del Excel ITF, comisiones y un cargo
+de US$ 42 "COM. Y GASTOS LIQ" (24/03), que es lo esperado. Las únicas filas sin OPE son 6 resúmenes de febrero de comisiones/ITF/
+mantenimiento del propio BBVA (S/ 1,628.60 y US$ 3,226.81, sin fecha) y una fila "TOTAL EGRESOS ENE–JUL 2026" al pie: no son
+pagos y no se cargan (el banco ya trae cada comisión).
+
+**Excel vs ERP (HIST-2026, carga del 09/10):** los totales por moneda son idénticos (S/ 26,895,016.14 · US$ 5,524,163.65).
+Contabilidad **renumeró el ITEM**, así que el cruce por fila no sirve (702 desalineadas); se cruzó por moneda+monto+proveedor y
+luego OPE/fecha (`scripts/historico-pagos/4-cruzar-2026.py`). Diferencias reales: 27 pagos del 27/02 que el Excel viejo traía
+en bloque (KPN PERU US$ 131,977.70 / 762,603.57 / 398,466.40, PERUANA DE MOTORES 37,990 × 23, MSCA, G. Macher) y ahora vienen
+**partidos por operación** (83 filas, misma suma: S/ 148,136.84 y US$ 2,302,685.65), 39 OPE corregidos en los saldos chicos de
+PERUANA DE MOTORES (todos al OPE 656) y 3 CC GCUSCOPNP→GAMAZONPNP.
+
+**Qué se hizo (sin recargar: de HIST-2026 cuelgan 370 facturas, 370 compromisos y 429 asientos):** `5-corregir-2026.mjs`
+en una transacción por el pooler con rol temporal (borrado al final): 40 updates (OPE/CC, con nota en la descripción), 29
+filas borradas (sin movimiento ni asiento, verificado), 83 insertadas como HIST-2026-1195…1277 heredando factura/compromiso en
+las 4 partes de MSCA (E001-171 y E001-178), y `bancos_conciliar_auto` para 806 y 830 con los claims de Kevin.
+Dos efectos que hubo que neutralizar: (1) `recalc_pago_compromiso` bajaba los 2 compromisos de MSCA a PARCIAL y cambiaba
+`estado_flujo`, lo que disparaba `trg_comprobante_contabilizar` y generaba asientos **AST-2025** (año cerrado) más 4 asientos de
+pago → `app.sin_asiento = '1'` en la transacción y restauración del estado previo (PAGADO / pagada); (2) la conciliación "por
+importe" había cruzado 9 transferencias iguales (US$ 50,000 del 27/02, S/ 3,000 del 05/05) con la operación equivocada: se
+soltaron y se volvió a conciliar por OPE.
+
+**Resultado final:** 1,248 HIST-2026 (totales intactos), **1,241 conciliadas con su movimiento, 0 con OPE distinto, 0 por
+importe**; de los cargos ene-jul del banco solo queda sin transacción el de US$ 42. Las 7 sin movimiento son los "CAMBIO
+DOLARES" de enero (HIST-2026-0036…0057), que ya están cubiertos por TRX-2026 nativas (ver nota del 10/10). 0 asientos nuevos.
+
+**Para Contabilidad:** nada pendiente de su lado; el archivo queda como fuente. Lección en el skill `memphis-carga-excel`:
+los históricos se corrigen por OPE, nunca se recargan ni se cruzan por fila.
+

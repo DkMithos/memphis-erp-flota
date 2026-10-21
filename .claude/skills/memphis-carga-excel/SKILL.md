@@ -93,5 +93,15 @@ decidir a propósito qué triggers deben o no correr (`app.sin_asiento` para añ
   `p_corte = 'AAAAMM'`; nunca inventar estado "pagada".
 - El Excel de flujo (BD CONTA, Flujo Administración) y los módulos nativos (OC, facturas, obligaciones) se
   duplican en el flujo hasta el corte por área: la pantalla Reconciliación los cruza.
+- **Pagos históricos ya cargados NO se recargan** (de `HIST-*` cuelgan facturas, compromisos y asientos): un Excel
+  "corregido" se cruza por moneda+monto+proveedor y luego OPE/fecha (`scripts/historico-pagos/4-cruzar-2026.py`) y
+  se aplica con updates/borrados/inserciones puntuales (`5-corregir-2026.mjs`). Contabilidad renumera el ITEM: el
+  número de fila nunca sirve de clave.
+- Al borrar/insertar transacciones con factura, `recalc_pago_compromiso` baja el compromiso a PARCIAL y cambia
+  `estado_flujo`, y eso dispara `trg_comprobante_contabilizar` (asientos AST-2025 de un año cerrado): fijar
+  `app.sin_asiento = '1'` en la transacción y restaurar `estado_pago`/`estado_flujo` previos.
+- `bancos_conciliar_auto` concilia "por importe" (±3 días) antes de que la operación correcta llegue: con N transferencias
+  iguales el mismo día (US$50,000 del 27/02) cruza mal. Tras cargar, buscar `conciliado_por = 'auto:importe'` con OPE
+  distinto, soltar y volver a correr.
 - Resultados grandes del MCP (`execute_sql`) se guardan en un archivo: parsear el JSON externo (`result`) y
   luego el interno entre las marcas `untrusted-data`.

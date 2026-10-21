@@ -18,6 +18,8 @@ https://erp.memphismaquinarias.com (Vercel, despliega solo desde `main`). Dueño
   están en `src/lib/rbac/rutas.ts`; los permisos son `modulo.accion` (`usePermissions().can('finanzas','ver')`)
   y en SQL `auth_tiene_permiso(modulo, accion)`. El tenant sale del JWT (`auth_tenant_id()`).
 - Un usuario con dos roles conserva lo que le quitaste en uno: los permisos se suman.
+- El rol **Administrador** ve TODA la información del sistema (regla de Kevin, 16/10/2026): todo módulo nuevo le da todos sus
+  permisos y `can()` mantiene el comodín `isAdmin`; nunca excepciones por módulo. Lo que sí: cada persona común ve lo suyo.
 
 ## 2. Código
 
