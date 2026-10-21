@@ -354,7 +354,8 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         { label: t('nav.sub.usuarios_roles'), href: '/admin/usuarios', id: 'admin-usuarios' },
         { label: t('nav.sub.catalogs'), href: '/admin/catalogos', id: 'admin-catalogos' },
         { label: t('nav.sub.approval_flow'), href: '/admin/flujo-aprobacion', id: 'admin-flujo-aprobacion' },
-        { label: t('nav.sub.cost_centers', 'Centros de Costo'), href: '/admin/centros-costo', id: 'admin-centros-costo' }
+        { label: t('nav.sub.cost_centers', 'Centros de Costo'), href: '/admin/centros-costo', id: 'admin-centros-costo' },
+        { label: 'API e integraciones', href: '/admin/api', id: 'admin-api' }
       ]
     }
   ];

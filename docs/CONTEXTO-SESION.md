@@ -4153,3 +4153,32 @@ análisis del 12/10 decía "5,600 filas": eran filas vacías de Excel; **tiene 3
 - Queda para después: aviso por correo/Teams cuando una carta vence (hoy solo semáforo en pantalla); subir el archivo al bucket en
   lugar de pegar el enlace; que Operaciones ponga plazos a las 100 acciones pendientes y cierre los expedientes terminados.
 
+## API Memphis v1 (2026-10-21) — "¿El ERP tiene API? Si no, hay que hacerlo. Prioriza esto"
+
+Hasta hoy solo existía la API técnica de Supabase (PostgREST con RLS y las Edge Functions puntuales): sin claves por sistema,
+sin contrato documentado, sin bitácora. Ahora hay una API propia, documentada en `docs/API-MEMPHIS.md`:
+
+- **Edge Function `api`** (`supabase/functions/api/index.ts`, Hono, `withSupabase({ auth: 'none' })` porque la credencial es la
+  clave propia; cliente admin filtrando SIEMPRE por el tenant de la clave; desplegada con `verify_jwt = false` por el MCP, el CLI
+  no tiene token). URL: `https://icmuqwgrjgjoebnwunnf.supabase.co/functions/v1/api/v1/…`. `/v1/docs` (Scalar) y `/v1/openapi.json`
+  se generan solos desde el catálogo `RECURSOS` (tabla o vista, columnas permitidas, orden, filtros); `/v1/salud` sin clave.
+- **Claves** `mm_live_…` con alcances por módulo (`proyectos|compras|proveedores|finanzas|inventario|flota|viajes|fianzas:leer`,
+  `proyectos:escribir`), vencimiento opcional, revocación inmediata; tabla `api_claves` (solo SHA-256) y bitácora `api_accesos`
+  (ruta, estado, ms, IP) que además sirve para el tope de **120 llamadas/minuto** (`20261021200000_api_claves.sql`; funciones
+  `api_clave_crear` — devuelve la clave una vez, exige admin.gestionar_usuarios —, `api_clave_revocar`, `api_clave_tocar`).
+- **Recursos (GET, paginados `{data, paginacion}`, máx. 200/pág., `orden=-columna`)**: proyectos (+ `/{id}/financiero` con
+  `proyecto_financiero` y `proyecto_cadena`), valorizaciones, correspondencia, capacitaciones, certificados, órdenes de compra,
+  facturas, proveedores, cuentas por pagar y cobrar, pagos, bancos (cuentas, movimientos), caja chica (cajas, gastos),
+  inventario (artículos, unidades), flota/vehículos, viajes, fianzas, `indicadores/resumen` (proyectos por estado, OC del mes,
+  CxP pendiente y vencida, pagos/cobros del mes, cajas, cartas pendientes). Escritura: `POST /correspondencia`. Nunca salen
+  tokens, rutas de archivos ni firmas.
+- **Pantalla Administración › API e integraciones** (`/admin/api`, permiso admin.gestionar_usuarios): claves con alcances, uso de
+  7 días y total, último uso, revocar; "Nueva clave" (alcances por módulo leer/escribir, vencimiento) muestra la clave UNA vez;
+  URL base, enlace a la documentación, ejemplos curl y Power BI (M); últimas llamadas.
+- Probado contra producción con dos claves temporales (revocadas): listas y filtros, detalle financiero (02CUSAMB25), CxP
+  vencidas, búsqueda `q`, resumen (corregido: PostgREST corta a 1,000 filas, se pagina internamente → 1,286 compromisos,
+  S/ 94.2 M pendientes, S/ 57.0 M vencidos), alcance insuficiente → 403, clave falsa → 401, escritura sin alcance → 403, 404.
+  Pantalla verificada en el preview con usuario QA (borrado).
+- Lo que no entró (cuando haya consumidor): webhooks, escritura de OC/facturas, OAuth, Postman collection. Para Power BI con más
+  de 200 filas: iterar `pagina` (ejemplo en el doc).
+

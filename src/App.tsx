@@ -168,6 +168,7 @@ import { ComprobantesProvider } from './lib/contabilidad/comprobantes-store';
 
 // Admin
 const GestionUsuarios = lazyModulo(() => import('./components/modules/admin/GestionUsuarios').then(m => ({ default: m.GestionUsuarios })));
+const ApiIntegraciones = lazyModulo(() => import('./components/modules/admin/ApiIntegraciones').then(m => ({ default: m.ApiIntegraciones })));
 const GestionCatalogos = lazyModulo(() => import('./components/modules/admin/GestionCatalogos').then(m => ({ default: m.GestionCatalogos })));
 const GestionFlujoAprobacion = lazyModulo(() => import('./components/modules/admin/GestionFlujoAprobacion').then(m => ({ default: m.GestionFlujoAprobacion })));
 const CentrosCostoAdmin = lazyModulo(() => import('./components/modules/admin/CentrosCostoAdmin').then(m => ({ default: m.CentrosCostoAdmin })));
@@ -1000,6 +1001,7 @@ export default function App() {
     // Admin
     if (currentRoute.startsWith('/admin')) {
       if (currentRoute === '/admin/usuarios') return <GestionUsuarios />;
+      if (currentRoute === '/admin/api') return <ApiIntegraciones />;
       if (currentRoute === '/admin/catalogos') return <GestionCatalogos />;
       if (currentRoute === '/admin/flujo-aprobacion') return <GestionFlujoAprobacion />;
       if (currentRoute === '/admin/centros-costo') return <CentrosCostoAdmin />;
