@@ -4115,3 +4115,41 @@ ya estaba registrando a mano el reembolso en caja (GCC-2026-016, 20/10, "REEMBOL
 - Sigue pendiente de ese "Queda": usuarios con rol Personal para Gustavo Montero (17 viajes), Gabriela Dunn (8), Nicolás Rojas (7),
   Antonio Reyes (7) y Mónica Chumán (2): hacen falta sus correos (Kevin); la fila "EXTERNOS" se queda sin usuario a propósito.
 
+## Usuarios con rol Personal para los viajeros (2026-10-21)
+
+Con los correos de Kevin: **gmontero@memphis.pe** (Gustavo Montero, 17 viajes), **gdunn@memphis.pe** (Gabriela Dunn, 8) y
+**nrojas@memphis.pe** (Nicolás Rojas, 7) creados como hace `usuarios-alta` (cuenta confirmada sin clave, entran con Microsoft;
+`usuarios_tenant`, `profiles`, rol Personal) y sus viajes históricos enlazados (`viaje_pasajeros.user_id`). Antonio Reyes ya era
+**consultor@memphis.pe** (Gerencia): solo se enlazaron sus 7 viajes. Mónica Chumán ya no trabaja en Memphis (mchuman@memphis.pe
+deshabilitado): sus 2 viajes quedan sin usuario. La fila "EXTERNOS" y "GERENCIA" tampoco llevan usuario.
+
+## Sprint 6 · Correspondencia con el Estado (2026-10-21)
+
+Módulo nuevo que reemplaza `SEGUIMIENTO CARTAS FALTANTES MEMPHIS.xlsx` (General - PROYECTOS/02. PROYECTOS EN EJECUCIÓN). El
+análisis del 12/10 decía "5,600 filas": eran filas vacías de Excel; **tiene 375 filas con datos en 7 hojas (una por proyecto)**.
+
+- **Base** (`20261021170000_correspondencia.sql`): `correspondencia_hilos` (expediente o hito = META: "DOCUMENTO EQUIVALENTE",
+  "VALORIZACIÓN N°02", "ADENDA N°01"…) y `correspondencia` (cada carta/oficio/informe/memorándum/proveído/resolución o **acción
+  pendiente** sin documento, con etapa = SUB META, emisor, receptor, fecha del documento y de mesa de partes, `requiere_respuesta`,
+  plazo y `fecha_limite` (trigger la calcula), estado registrado/pendiente/respondido/cerrado, `responde_a` (al registrar la
+  respuesta el original pasa a respondido), archivo, observaciones). RLS por tenant; escribir exige proyectos.crear/editar/eliminar.
+  Vista `v_correspondencia` con proyecto, expediente, días para vencer y `vencida`. Importador `correspondencia_importar(proyecto,
+  origen, filas)` re-ejecutable (borra lo del mismo origen).
+- **Carga**: `scripts/correspondencia/1-extraer.py` (hoja → proyecto por título; "S/F" = sin fecha) + `2-carga.sql` por el pooler con
+  rol temporal (borrado): **371 documentos, 101 expedientes, 100 acciones pendientes** en 7 proyectos (01CUSMUN24 63, 02CUSAMB25
+  108, 03HNCPNP25 54, 04LORBOM25 25, 05AMAPNP25 58, 06CUSPNP25 47, 07CUSHAM26 16). Tipos: 102 cartas, 96 informes, 25 memorándums,
+  16 oficios, 12 proveídos, 3 cartas notariales, 2 dictámenes, 2 resoluciones, 1 expediente, 12 "otro" (tipo vacío con número).
+  `sentido` = emitido cuando el emisor es EP/EJ/CO o el número lleva MM-/OXI/CAP/CMSA (62 emitidos); el resto recibido. Las 100
+  acciones ("PENDIENTE RESPUESTA DE ENTIDAD"…) entran como estado pendiente **sin fecha límite** (el Excel no la tiene): Operaciones
+  debe ponerles plazo para que el semáforo funcione. Los errores de tipeo del Excel se cargaron tal cual (p. ej. una fecha de
+  ingreso 22/07/2026 con recepción 22/07/2025).
+- **Pantallas**: `/proyectos/correspondencia` (menú Proyectos › "Correspondencia con el Estado"): KPIs pendientes / vencidas / vencen
+  en 7 días / documentos (clic filtra), búsqueda, proyecto, estado y tipo persistidos, tabla paginada (20) con sentido (↑ emitido
+  ↓ recibido), expediente·etapa, plazo en rojo si venció, exportar (proyectos.exportar); menú ⋯: editar, marcar respondido /
+  pendiente / cerrar, **Registrar respuesta** (precarga sentido inverso, emisor↔receptor y `responde_a`), eliminar. Formulario con
+  expediente existente o nuevo, plazo → fecha límite, "responde a" entre los documentos del proyecto, enlace al archivo. Pestaña
+  **Correspondencia** en el Proyecto 360 (misma pantalla, compacta, 10 por página).
+- Verificado en el preview con usuario QA (borrado): lista global con 100 pendientes / 271 documentos y pestaña del Proyecto 360.
+- Queda para después: aviso por correo/Teams cuando una carta vence (hoy solo semáforo en pantalla); subir el archivo al bucket en
+  lugar de pegar el enlace; que Operaciones ponga plazos a las 100 acciones pendientes y cierre los expedientes terminados.
+

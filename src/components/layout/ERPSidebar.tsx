@@ -265,6 +265,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         { label: 'Presupuesto', href: '/proyectos/presupuesto' },
         { label: t('nav.sub.riesgos'), href: '/proyectos/riesgos' },
         { label: t('nav.sub.documentos'), href: '/proyectos/documentos' },
+        { label: 'Correspondencia con el Estado', href: '/proyectos/correspondencia' },
         { label: 'Capacitaciones y certificados', href: '/proyectos/capacitaciones' }
       ]
     },

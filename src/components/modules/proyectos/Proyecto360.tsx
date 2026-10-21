@@ -23,6 +23,7 @@ import {
   Users, Calendar, MapPin, FileText,
   ChevronRight, ChevronLeft, ChevronDown, AlertTriangle, Activity, Wallet,
   RefreshCw, Heart, Receipt, CheckCircle, Clock, XCircle, Cpu,
+  Mail,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
@@ -45,6 +46,7 @@ import { useEquiposStore } from '../../../lib/biomedico/equipos-store';
 import { calcSaldoPreventivo } from '../../../lib/flota/vehiculos-config';
 import { useTipoCambio } from '../../../lib/shared/tipo-cambio-store';
 import { supabase } from '../../../lib/supabase/client';
+import { ProyectosCorrespondencia } from './ProyectosCorrespondencia';
 import { FlujoCajaMensual } from '../finanzas/FlujoCajaMensual';
 import { UnidadesCompacta } from '../inventario/UnidadesCompacta';
 import { cargarUnidadesDeProyecto, type Unidad } from '../../../lib/inventario/unidades';
@@ -711,7 +713,15 @@ export function Proyecto360({ proyectoDbId, onNavigate }: Proyecto360Props) {
           <TabsTrigger value="equipo" className="gap-1.5">
             <Users className="size-4" /> Equipo ({proyecto.miembros.length})
           </TabsTrigger>
+          <TabsTrigger value="correspondencia" className="gap-1.5">
+            <Mail className="size-4" /> Correspondencia
+          </TabsTrigger>
         </TabsList>
+
+        {/* ══════ Tab: Correspondencia con el Estado ══════ */}
+        <TabsContent value="correspondencia" className="space-y-4">
+          <ProyectosCorrespondencia proyectoId={proyectoDbId} onNavigate={onNavigate} compacto />
+        </TabsContent>
 
         {/* ══════ Tab: Finanzas ══════ */}
         <TabsContent value="finanzas" className="space-y-4">

@@ -105,6 +105,7 @@ const FinanzasReportes = lazyModulo(() => import('./components/modules/finanzas/
 // Proyectos - módulos adicionales
 const ProyectosCronograma = lazyModulo(() => import('./components/modules/proyectos/ProyectosCronograma').then(m => ({ default: m.ProyectosCronograma })));
 const ProyectosValorizaciones = lazyModulo(() => import('./components/modules/proyectos/ProyectosValorizaciones').then(m => ({ default: m.ProyectosValorizaciones })));
+const ProyectosCorrespondencia = lazyModulo(() => import('./components/modules/proyectos/ProyectosCorrespondencia').then(m => ({ default: m.ProyectosCorrespondencia })));
 const ProyectosRiesgos = lazyModulo(() => import('./components/modules/proyectos/ProyectosRiesgos').then(m => ({ default: m.ProyectosRiesgos })));
 const ProyectosDocumentos = lazyModulo(() => import('./components/modules/proyectos/ProyectosDocumentos').then(m => ({ default: m.ProyectosDocumentos })));
 
@@ -654,6 +655,7 @@ export default function App() {
       }
       if (currentRoute === '/proyectos/cronograma') return <ProyectosCronograma onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/valorizaciones') return <ProyectosValorizaciones onNavigate={navigateTo} />;
+      if (currentRoute === '/proyectos/correspondencia') return <ProyectosCorrespondencia onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/presupuesto') return <PresupuestoProyecto />;
       if (currentRoute === '/proyectos/riesgos') return <ProyectosRiesgos onNavigate={navigateTo} />;
       if (currentRoute === '/proyectos/documentos') return <ProyectosDocumentos onNavigate={navigateTo} />;
