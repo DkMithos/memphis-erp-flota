@@ -1,7 +1,7 @@
 # CONTEXTO DE TRABAJO — Memphis ERP
 
 > **Documento vivo.** Se actualiza al cerrar cada tarea o cuando el contexto de la sesión
-> de trabajo se acerca al límite. Última actualización: **2026-10-21**.
+> de trabajo se acerca al límite. Última actualización: **2026-10-26**.
 > Es el punto de re-entrada para retomar el trabajo sin re-derivar contexto.
 
 ---
@@ -4181,4 +4181,28 @@ sin contrato documentado, sin bitácora. Ahora hay una API propia, documentada e
   Pantalla verificada en el preview con usuario QA (borrado).
 - Lo que no entró (cuando haya consumidor): webhooks, escritura de OC/facturas, OAuth, Postman collection. Para Power BI con más
   de 200 filas: iterar `pagina` (ejemplo en el doc).
+
+## Facturas de proveedores: bandeja rápida, conformidad en lote y vista previa (2026-10-26)
+
+Miguelángel: "demora demasiado en cargar y cada vez que doy conformidad se vuelve a actualizar y vuelve a demorar; quiero dar
+conformidad a varias a la vez y previsualizar las facturas". Causa: la pantalla traía las **6,486** facturas recibidas (7 páginas
+de 1,000), luego pedía los pagos en 33 llamadas y el CDC sugerido en 28 llamadas a `v_facturas_cdc_sugerido` (~0.5 s cada una,
+recalcula el historial de todos los proveedores), y repetía todo tras cada acción: unos 70 viajes a la base antes de pintar.
+
+- **Base** (`20261026100000_facturas_bandeja_rapida.sql`): vista `v_facturas_proveedores` (factura + CDC + pago ya resumido
+  desde `flujo_compromisos`, lateral), `facturas_resumen()` (KPIs en una llamada), `facturas_conformar(p_ids, p_recepcion)`
+  (una o varias en una llamada; exige compras.editar; solo recibidas/validadas) e índices `flujo_compromisos(comprobante_id)` y
+  `comprobantes_pago(tenant, direccion, estado_flujo, fecha_emision)`.
+- **Pantalla** (`FacturasProveedores.tsx` reescrita): pide SOLO la página visible (20) con los filtros en la base (estado, búsqueda
+  con 350 ms de espera, `count exact`); CDC sugerido solo para las filas visibles sin CDC (1 llamada); KPIs de `facturas_resumen`
+  (clic filtra). Tras conformidad/observación/programación se actualiza la fila en pantalla y solo se refresca el resumen: ya no
+  recarga la lista. **Selección múltiple** (casilla por fila y "seleccionar pendientes de la página") → "Dar conformidad a N
+  seleccionada(s)" en una llamada. **Vista previa** (panel lateral al hacer clic en el número o en el ojo): datos (emisión,
+  vencimiento, subtotal, IGV, total, detracción/retención, OC, CDC, pago) y el **PDF embebido** (URL firmada 10 min), con
+  "Dar conformidad y pasar a la siguiente", "Conformidad con recepción…", "Observar" y flechas anterior/siguiente. Las del SIRE
+  sin PDF muestran solo los datos (y lo dicen). Exportar trae TODO lo filtrado al momento (bloques de 1,000) con
+  `exportToExcel`, no solo la página.
+- Verificado en el preview con QA (borrado): 13 pendientes, KPIs, vista previa con el PDF de FP30-0003213, botón de lote con
+  13 seleccionadas; no se tocó ninguna factura real. Hoy: 13 pendientes (todas de Perumotor, vía portal), 267 conformes,
+  5,337 históricas del SIRE.
 
