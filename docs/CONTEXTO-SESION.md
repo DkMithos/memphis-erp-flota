@@ -4219,3 +4219,28 @@ Administración no tenía finanzas.eliminar. Ahora:
   `deleteGasto` en el store; los ingresos se borran directo en `ingresos_caja_chica`.
 - Verificado en el preview con un usuario QA de rol Administración (borrado): aparecen Eliminar y Corregir en CAJA 32 SOLES.
 
+## Descuentos de proveedor en cotizaciones y órdenes (2026-10-26)
+
+Compras: "los proveedores dan descuentos por unidad, por ítem, en porcentaje, monto fijo y sobre el subtotal, y no hay dónde
+ponerlos". Hallazgo: `descuento` (monto por ítem) ya existía en `orden_items`/`cotizacion_items` (119 + 91 ítems migrados del
+sistema anterior lo traen y `precio_total` lo descuenta), pero el formulario no lo exponía y `calcularTotales` lo ignoraba.
+Kevin decidió: implementar por ítem (porcentaje, monto por unidad, monto fijo) y global sobre el subtotal; lo escalonado por
+volumen queda fuera por ahora.
+
+- **Regla única** (`src/lib/compras/descuentos.ts`, 10 pruebas): bruto = Σ cantidad×precio de lista → − descuentos por ítem →
+  − descuento global (% o monto sobre el neto de ítems) → **`subtotal` = base imponible** → IGV según régimen sobre la base →
+  total. `subtotal`/`total` conservan su significado para CxP, compromisos, presupuesto, recepción valorizada y cadena del proyecto
+  (`precio_total` del ítem ya era neto). Los descuentos se topan a la línea / al subtotal y nunca son negativos.
+- **Base** (`20261026150000_descuentos_cotizacion_orden.sql`): `descuento_tipo` + `descuento_valor` en los ítems (cómo lo dio el
+  proveedor; `descuento` sigue siendo el monto), `descuento_global_tipo/valor/descuento_global` en cotizaciones y órdenes. Los
+  migrados quedaron como tipo `monto`.
+- **Pantallas**: cotización y orden tienen por ítem "Descuento del proveedor" (Sin descuento · % de la línea · monto por unidad ·
+  monto fijo) + valor, y "Neto del ítem" con lista − dscto.; en totales: subtotal bruto, descuentos por ítem, descuento sobre el
+  subtotal (selector + valor), subtotal (base imponible), IGV, total. La orden hereda los descuentos de la cotización elegida.
+  Detalle de orden y de cotización muestran lista, descuento y neto por línea y las líneas de descuento antes del IGV; el diálogo
+  de aprobación dice el ahorro ya aplicado; el PDF de la orden imprime subtotal bruto, descuentos y descuento global.
+- Verificado en el preview (QA borrado): cotización nueva 10 × 100 con 5 % por ítem y 10 % global → 1,000 → −50 → −95 → base
+  855 → IGV 153.90 → total 1,008.90; la orden migrada MM-001232 muestra lista $123.28 − $30.81 = $92.47 y cuadra con su total.
+- Fuera por ahora: descuentos escalonados por volumen (regla por proveedor/artículo); exponer `descuento_global` en la API
+  (`RECURSOS` de ordenes-compra) cuando alguien lo pida.
+

@@ -26,6 +26,7 @@ import {
   type MonedaOrden,
   type RolUsuario
 } from './ordenes-config';
+import { calcularTotalesConDescuento, descuentoLinea, type TipoDescuentoGlobal, type TipoDescuentoItem } from './descuentos';
 
 // ============================================================================
 // TIPOS FRONTEND
@@ -38,8 +39,11 @@ export interface ItemOrden {
   cantidad: number;
   unidad: string;
   precioUnitario: number;
-  /** Descuento del item en MONTO (no porcentaje). Lo imprime el PDF. */
+  /** Descuento del item en MONTO (resultado). Lo imprime el PDF. */
   descuento: number;
+  /** Cómo lo dio el proveedor: % de la línea, monto por unidad o monto fijo (ver lib/compras/descuentos.ts). */
+  descuentoTipo?: TipoDescuentoItem | null;
+  descuentoValor?: number | null;
   /** Neto: cantidad * precioUnitario - descuento */
   subtotal: number;
   /** Partida del presupuesto del proyecto (heredada de la cotización). */
@@ -126,9 +130,14 @@ export interface Orden {
   items: ItemOrden[];
 
   // Totales
+  /** Base imponible: Σ neto de ítems − descuento global. */
   subtotal: number;
   impuestos: number;
   total: number;
+  /** Descuento sobre el subtotal: cómo lo dio el proveedor y el monto resultante. */
+  descuentoGlobalTipo?: TipoDescuentoGlobal | null;
+  descuentoGlobalValor?: number | null;
+  descuentoGlobal: number;
 
   // Condiciones
   condiciones: string | null;
@@ -176,6 +185,8 @@ export interface NuevaOrdenInput {
   proveedorNombre: string;
   moneda: MonedaOrden;
   items: (Omit<ItemOrden, 'id' | '_dbId' | 'subtotal' | 'descuento'> & { descuento?: number })[];
+  descuentoGlobalTipo?: TipoDescuentoGlobal | null;
+  descuentoGlobalValor?: number | null;
   fechaEntregaEstimada?: string;
   /** Vencimiento de pago fijado a mano; null/undefined = que lo calcule la base. */
   fechaVencimientoPago?: string | null;
@@ -271,7 +282,9 @@ function mapFromDB(row: OrdenWithRelations): Orden {
     cantidad: item.cantidad,
     unidad: item.unidad,
     precioUnitario: item.precio_unitario,
-    descuento: (item as any).descuento ?? 0,
+    descuento: Number((item as any).descuento ?? 0),
+    descuentoTipo: (item as any).descuento_tipo ?? null,
+    descuentoValor: (item as any).descuento_valor ?? null,
     subtotal: item.precio_total,
     partidaId: (item as any).partida_id ?? null, presupuestoLineaId: (item as any).presupuesto_linea_id ?? null,
   }));
@@ -325,6 +338,9 @@ function mapFromDB(row: OrdenWithRelations): Orden {
     subtotal: row.subtotal,
     impuestos: row.igv,
     total: row.total,
+    descuentoGlobalTipo: (row as any).descuento_global_tipo ?? null,
+    descuentoGlobalValor: (row as any).descuento_global_valor ?? null,
+    descuentoGlobal: Number((row as any).descuento_global ?? 0),
     condiciones: row.condiciones_pago,
     proyectoId: row.proyecto_id ?? null,
     centroCostoId: row.centro_costo_id ?? null,
@@ -451,18 +467,16 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
 
       const timestamp = new Date().toISOString();
 
-      const itemsConSubtotal = input.items.map(item => ({
-        ...item,
-        subtotal: item.cantidad * item.precioUnitario,
-      }));
-
-      // El IGV sale del RÉGIMEN (18% gravado; 0 Amazonía / no domiciliado /
-      // inafecto). Sin la tasa, calcularTotales aplicaba 18% siempre y la orden
-      // guardaba IGV aunque dijera "exonerado" (MM-S-000429, MM-001279…).
-      const { subtotal, impuestos, total } = calcularTotales(
-        itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal })),
-        tasaIgv(input.regimenIgv ?? 'gravado'),
-      );
+      // Descuentos: el de cada ítem se calcula de cómo lo dio el proveedor y el
+      // global sobre el subtotal; el IGV sale del RÉGIMEN sobre la base ya
+      // descontada (lib/compras/descuentos.ts).
+      const itemsConSubtotal = input.items.map(item => {
+        const descuento = descuentoLinea(item);
+        return { ...item, descuento, subtotal: item.cantidad * item.precioUnitario - descuento };
+      });
+      const totales = calcularTotalesConDescuento(itemsConSubtotal, tasaIgv(input.regimenIgv ?? 'gravado'),
+        { tipo: input.descuentoGlobalTipo ?? null, valor: input.descuentoGlobalValor ?? null });
+      const { subtotal, impuestos, total } = totales;
 
       const { data: inserted, error: errOrd } = await dbOrdenesCompra.create({
         tenant_id: tenantId,
@@ -481,6 +495,9 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         subtotal,
         igv: impuestos,
         total,
+        descuento_global_tipo: input.descuentoGlobalTipo ?? null,
+        descuento_global_valor: input.descuentoGlobalTipo ? (input.descuentoGlobalValor ?? 0) : null,
+        descuento_global: totales.descuentoGlobal,
         condiciones_pago: input.condiciones?.trim() ?? null,
         lugar_entrega: input.lugarEntrega?.trim() ?? null,
         // La orden arrastra la dimensión de la cotización. `trg_oc_proyecto`
@@ -539,7 +556,9 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         unidad: item.unidad,
         cantidad: item.cantidad,
         precio_unitario: item.precioUnitario,
-        descuento: (item as any).descuento ?? 0,
+        descuento: descuentoLinea(item),
+        descuento_tipo: (item as any).descuentoTipo ?? null,
+        descuento_valor: (item as any).descuentoTipo ? ((item as any).descuentoValor ?? 0) : null,
         partida_id: (item as any).partidaId ?? null, presupuesto_linea_id: (item as any).presupuestoLineaId ?? null,
       }));
       const { data: itemsData, error: errItems } = await supabase
@@ -604,18 +623,23 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
       if (input.regimenIgv !== undefined) updatePayload.regimen_igv = input.regimenIgv;
       if (input.aplicaRetencionRh !== undefined) updatePayload.aplica_retencion_rh = input.aplicaRetencionRh;
 
+      // Descuento global: si el formulario lo manda se guarda; si no, se conserva el de la orden.
+      const globalTipo = input.descuentoGlobalTipo !== undefined ? input.descuentoGlobalTipo : (ordPrevia?.descuentoGlobalTipo ?? null);
+      const globalValor = input.descuentoGlobalTipo !== undefined ? input.descuentoGlobalValor : (ordPrevia?.descuentoGlobalValor ?? null);
+      if (input.descuentoGlobalTipo !== undefined) {
+        updatePayload.descuento_global_tipo = globalTipo;
+        updatePayload.descuento_global_valor = globalTipo ? (globalValor ?? 0) : null;
+      }
       if (input.items !== undefined) {
-        const itemsConSubtotal = input.items.map(item => ({
-          ...item,
-          subtotal: item.cantidad * item.precioUnitario,
-        }));
-        const { subtotal, impuestos, total } = calcularTotales(
-          itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal })),
-          tasaIgv(regimen),
-        );
-        updatePayload.subtotal = subtotal;
-        updatePayload.igv = impuestos;
-        updatePayload.total = total;
+        const itemsConSubtotal = input.items.map(item => {
+          const descuento = descuentoLinea(item);
+          return { ...item, descuento, subtotal: item.cantidad * item.precioUnitario - descuento };
+        });
+        const tot = calcularTotalesConDescuento(itemsConSubtotal, tasaIgv(regimen), { tipo: globalTipo, valor: globalValor });
+        updatePayload.subtotal = tot.subtotal;
+        updatePayload.igv = tot.impuestos;
+        updatePayload.total = tot.total;
+        updatePayload.descuento_global = tot.descuentoGlobal;
       } else if (input.regimenIgv !== undefined && ordPrevia) {
         const impuestos = ordPrevia.subtotal * tasaIgv(regimen);
         updatePayload.igv = impuestos;
@@ -639,7 +663,9 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
           unidad: item.unidad,
           cantidad: item.cantidad,
           precio_unitario: item.precioUnitario,
-          descuento: (item as any).descuento ?? 0,
+          descuento: descuentoLinea(item),
+          descuento_tipo: (item as any).descuentoTipo ?? null,
+          descuento_valor: (item as any).descuentoTipo ? ((item as any).descuentoValor ?? 0) : null,
           partida_id: (item as any).partidaId ?? null, presupuesto_linea_id: (item as any).presupuestoLineaId ?? null,
         }));
         const { data: newItemsData } = await supabase
@@ -658,13 +684,17 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
               cantidad: dbItem.cantidad,
               unidad: dbItem.unidad,
               precioUnitario: dbItem.precio_unitario,
-              descuento: (dbItem as any).descuento ?? 0,
+              descuento: Number((dbItem as any).descuento ?? 0),
+              descuentoTipo: (dbItem as any).descuento_tipo ?? null,
+              descuentoValor: (dbItem as any).descuento_valor ?? null,
               subtotal: dbItem.precio_total,
               partidaId: (dbItem as any).partida_id ?? null, presupuestoLineaId: (dbItem as any).presupuesto_linea_id ?? null,
             }));
-            const { subtotal, impuestos, total } = calcularTotales(newItems);
+            const totLocal = calcularTotalesConDescuento(newItems, tasaIgv(regimen), { tipo: globalTipo, valor: globalValor });
+            const { subtotal, impuestos, total } = totLocal;
             return {
               ...o,
+              descuentoGlobalTipo: globalTipo, descuentoGlobalValor: globalValor ?? null, descuentoGlobal: totLocal.descuentoGlobal,
               ...(input.moneda !== undefined && { moneda: input.moneda }),
               ...(input.condiciones !== undefined && { condiciones: input.condiciones?.trim() ?? null }),
               ...(input.observaciones !== undefined && { observaciones: input.observaciones?.trim() || null }),

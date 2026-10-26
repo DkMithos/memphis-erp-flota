@@ -32,11 +32,11 @@ import {
   ORDEN_TIPO_LABELS,
   ORDEN_MONEDA_LABELS,
   puedeEditarOrden,
-  calcularTotales,
   validarCondiciones,
   type TipoOrden,
   type MonedaOrden
 } from '../../../lib/compras/ordenes-config';
+import { TIPOS_DESCUENTO_GLOBAL, TIPOS_DESCUENTO_ITEM, brutoLinea, calcularTotalesConDescuento, descuentoLinea, netoLinea, type TipoDescuentoGlobal, type TipoDescuentoItem } from '../../../lib/compras/descuentos';
 
 interface OrdenFormProps {
   ordenId?: string; // Para editar
@@ -51,6 +51,10 @@ interface ItemForm {
   cantidad: number;
   unidad: string;
   precioUnitario: number;
+  /** Descuento del proveedor en este ítem: cómo lo dio (tipo + valor) y el monto resultante. */
+  descuento?: number;
+  descuentoTipo?: TipoDescuentoItem | null;
+  descuentoValor?: number | null;
   /** Partida del presupuesto, heredada de la cotización (que la heredó del requerimiento). */
   partidaId?: string | null;
   presupuestoLineaId?: string | null;
@@ -172,6 +176,9 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
   );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  /** Descuento sobre el subtotal (porcentaje o monto), heredado de la cotización. */
+  const [descGlobalTipo, setDescGlobalTipo] = useState<TipoDescuentoGlobal | ''>(ordenExistente?.descuentoGlobalTipo ?? cotizacionPrefill?.descuentoGlobalTipo ?? '');
+  const [descGlobalValor, setDescGlobalValor] = useState<number>(Number(ordenExistente?.descuentoGlobalValor ?? cotizacionPrefill?.descuentoGlobalValor ?? 0));
 
   // Los stores cargan DESPUÉS del primer render. Estos valores no pueden
   // quedarse solo en el estado inicial: al abrir la pantalla por URL o al
@@ -198,6 +205,8 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
       setObservaciones(ordenExistente.observaciones || '');
       setRegimenIgv(ordenExistente.regimenIgv ?? 'gravado');
       setAplicaRetencionRh(ordenExistente.aplicaRetencionRh ?? false);
+      setDescGlobalTipo(ordenExistente.descuentoGlobalTipo ?? '');
+      setDescGlobalValor(Number(ordenExistente.descuentoGlobalValor ?? 0));
       if (ordenExistente.items?.length) setItems(ordenExistente.items);
     } else if (cotizacionPrefill) {
       setTipo(tipoParam || tipoDeCotizacion(cotizacionPrefill.tipo));
@@ -205,6 +214,8 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
       setMoneda(cotizacionPrefill.moneda);
       setCondiciones(cotizacionPrefill.terminos || '');
       setRegimenIgv(cotizacionPrefill.regimenIgv ?? 'gravado');
+      setDescGlobalTipo(cotizacionPrefill.descuentoGlobalTipo ?? '');
+      setDescGlobalValor(Number(cotizacionPrefill.descuentoGlobalValor ?? 0));
       if (cotizacionPrefill.items?.length) setItems(cotizacionPrefill.items);
     }
     setPrefillAplicado(clave);
@@ -212,8 +223,8 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
 
   // Calcular totales en tiempo real
   const totales = useMemo(() => {
-    return calcularTotales(items, tasaIgv(regimenIgv));
-  }, [items, regimenIgv]);
+    return calcularTotalesConDescuento(items, tasaIgv(regimenIgv), { tipo: descGlobalTipo || null, valor: descGlobalValor });
+  }, [items, regimenIgv, descGlobalTipo, descGlobalValor]);
 
   // Verificar si puede editar
   const puedeEditar = !isEditing || (ordenExistente && puedeEditarOrden(ordenExistente.estado));
@@ -247,6 +258,12 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
       if (item.precioUnitario < 0) {
         newErrors[`item-${idx}-precio`] = 'El precio no puede ser negativo';
       }
+      if (item.descuentoTipo && (Number(item.descuentoValor ?? 0) < 0)) {
+        newErrors[`item-${idx}-descuento`] = 'El descuento no puede ser negativo';
+      }
+      if (item.descuentoTipo === 'porcentaje' && Number(item.descuentoValor ?? 0) > 100) {
+        newErrors[`item-${idx}-descuento`] = 'El porcentaje no puede pasar de 100';
+      }
     });
 
     if (condiciones.trim()) {
@@ -269,7 +286,7 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
     setItems(items.filter((_, i) => i !== index));
   };
 
-  const actualizarItem = (index: number, field: keyof ItemForm, value: string | number) => {
+  const actualizarItem = (index: number, field: keyof ItemForm, value: string | number | null) => {
     const nuevosItems = [...items];
     (nuevosItems[index] as any)[field] = value;
     setItems(nuevosItems);
@@ -291,6 +308,8 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
         const res = await actualizarOrden(ordenExistente.id, {
           proveedorNombre: proveedorNombre.trim(),
           moneda,
+          descuentoGlobalTipo: descGlobalTipo || null,
+          descuentoGlobalValor: descGlobalTipo ? descGlobalValor : null,
           fechaEntregaEstimada: fechaEntregaEstimada || undefined,
           fechaVencimientoPago: fechaVencimientoPago || null,
           condiciones: condiciones.trim() || undefined,
@@ -301,6 +320,9 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
             cantidad: item.cantidad,
             unidad: item.unidad.trim(),
             precioUnitario: item.precioUnitario,
+            descuentoTipo: item.descuentoTipo ?? null,
+            descuentoValor: item.descuentoTipo ? Number(item.descuentoValor ?? 0) : null,
+            descuento: descuentoLinea(item),
             partidaId: item.partidaId ?? null, presupuestoLineaId: item.presupuestoLineaId ?? null,
           }))
         });
@@ -316,11 +338,16 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
           cotizacionId,
           proveedorNombre: proveedorNombre.trim(),
           moneda,
+          descuentoGlobalTipo: descGlobalTipo || null,
+          descuentoGlobalValor: descGlobalTipo ? descGlobalValor : null,
           items: items.map(item => ({
             descripcion: item.descripcion.trim(),
             cantidad: item.cantidad,
             unidad: item.unidad.trim(),
             precioUnitario: item.precioUnitario,
+            descuentoTipo: item.descuentoTipo ?? null,
+            descuentoValor: item.descuentoTipo ? Number(item.descuentoValor ?? 0) : null,
+            descuento: descuentoLinea(item),
             partidaId: item.partidaId ?? null, presupuestoLineaId: item.presupuestoLineaId ?? null,
           })),
           fechaEntregaEstimada: fechaEntregaEstimada || undefined,
@@ -701,9 +728,30 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
                 </div>
 
                 <div>
-                  <Label>Subtotal</Label>
-                  <div className="h-10 flex items-center px-3 border rounded-md bg-muted">
-                    {(item.cantidad * item.precioUnitario).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                  <Label htmlFor={`item-${idx}-descuento-tipo`}>Descuento del proveedor</Label>
+                  <div className="flex gap-1">
+                    <Select value={item.descuentoTipo ?? 'ninguno'} onValueChange={(v) => { actualizarItem(idx, 'descuentoTipo', v === 'ninguno' ? null : v); if (v === 'ninguno') actualizarItem(idx, 'descuentoValor', null); }}>
+                      <SelectTrigger id={`item-${idx}-descuento-tipo`} className="w-[150px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ninguno">Sin descuento</SelectItem>
+                        {TIPOS_DESCUENTO_ITEM.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {item.descuentoTipo && (
+                      <Input type="number" min="0" step="0.01" className="w-28" value={item.descuentoValor ?? ''} placeholder={item.descuentoTipo === 'porcentaje' ? '%' : 'monto'}
+                        onChange={(e) => actualizarItem(idx, 'descuentoValor', e.target.value === '' ? null : Number(e.target.value))} />
+                    )}
+                  </div>
+                  {errors[`item-${idx}-descuento`] && (
+                    <p className="text-sm text-red-600 mt-1">{errors[`item-${idx}-descuento`]}</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label>Neto del ítem</Label>
+                  <div className="h-10 flex items-center justify-between px-3 border rounded-md bg-muted text-sm">
+                    <span>{netoLinea(item).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
+                    {descuentoLinea(item) > 0 && <span className="text-xs text-muted-foreground">lista {brutoLinea(item).toLocaleString('es-PE', { minimumFractionDigits: 2 })} − dscto. {descuentoLinea(item).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>}
                   </div>
                 </div>
               </div>
@@ -723,8 +771,35 @@ export function OrdenForm({ ordenId, cotizacionIdParam, tipoParam, onCancel, onS
       <Card>
         <CardContent className="p-6">
           <div className="space-y-2">
+            {(totales.descuentoItems > 0 || !!descGlobalTipo) && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal bruto (precios de lista):</span>
+                <span>{moneda === 'PEN' ? 'S/' : '$'} {totales.bruto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            {totales.descuentoItems > 0 && (
+              <div className="flex justify-between text-green-700">
+                <span>Descuentos por ítem:</span>
+                <span>− {moneda === 'PEN' ? 'S/' : '$'} {totales.descuentoItems.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            {puedeEditar && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2 flex-wrap">Descuento sobre el subtotal:
+                  <Select value={descGlobalTipo || 'ninguno'} onValueChange={(v) => setDescGlobalTipo(v === 'ninguno' ? '' : v as TipoDescuentoGlobal)}>
+                    <SelectTrigger className="w-[150px] h-8"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ninguno">Sin descuento</SelectItem>
+                      {TIPOS_DESCUENTO_GLOBAL.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {descGlobalTipo && <Input type="number" min="0" step="0.01" className="w-28 h-8" value={descGlobalValor} onChange={(e) => setDescGlobalValor(Number(e.target.value))} />}
+                </span>
+                <span className={totales.descuentoGlobal > 0 ? 'text-green-700' : 'text-muted-foreground'}>{totales.descuentoGlobal > 0 ? `− ${moneda === 'PEN' ? 'S/' : '$'} ${totales.descuentoGlobal.toLocaleString('es-PE', { minimumFractionDigits: 2 })}` : '—'}</span>
+              </div>
+            )}
             <div className="flex justify-between">
-              <span>Subtotal:</span>
+              <span>Subtotal{(totales.descuentoItems > 0 || totales.descuentoGlobal > 0) ? ' (base imponible)' : ''}:</span>
               <span className="font-medium">{moneda === 'PEN' ? 'S/' : '$'} {totales.subtotal.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between">

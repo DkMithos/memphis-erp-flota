@@ -10,6 +10,7 @@ import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useRoles } from '../../../lib/rbac/roles-store';
 import { useFlujoAprobacion } from '../../../lib/compras/flujo-aprobacion-store';
 import { llevaIgv, etiquetaRegimen } from '../../../lib/compras/regimen-igv';
+import { etiquetaDescuentoItem } from '../../../lib/compras/descuentos';
 import { useAuth } from '../../../auth/AuthProvider';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -546,8 +547,18 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {(() => {
+              const dItems = orden.items.reduce((acc, i) => acc + Number(i.descuento ?? 0), 0);
+              const dGlobal = Number(orden.descuentoGlobal ?? 0);
+              if (dItems + dGlobal <= 0) return null;
+              return (<>
+                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal bruto (precios de lista)</span><span>{formatearMonto(Number(orden.subtotal) + dItems + dGlobal, orden.moneda)}</span></div>
+                {dItems > 0 && <div className="flex justify-between text-green-700"><span>Descuentos por ítem</span><span>− {formatearMonto(dItems, orden.moneda)}</span></div>}
+                {dGlobal > 0 && <div className="flex justify-between text-green-700"><span>Descuento sobre el subtotal{orden.descuentoGlobalTipo === 'porcentaje' ? ` (${orden.descuentoGlobalValor} %)` : ''}</span><span>− {formatearMonto(dGlobal, orden.moneda)}</span></div>}
+              </>);
+            })()}
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Subtotal</span>
+              <span className="text-muted-foreground">Subtotal{(orden.descuentoGlobal > 0 || orden.items.some(i => Number(i.descuento ?? 0) > 0)) ? ' (base imponible)' : ''}</span>
               <span className="font-medium">{formatearMonto(orden.subtotal, orden.moneda)}</span>
             </div>
             {/* El rótulo dice el régimen real: una orden a un no domiciliado o
@@ -659,6 +670,7 @@ export function OrdenDetalle({ ordenId, onNavigate }: OrdenDetalleProps) {
                     <p className="font-medium">{item.descripcion}</p>
                     <p className="text-sm text-muted-foreground">
                       Cantidad: {item.cantidad} {item.unidad} • Precio unitario: {formatearMonto(item.precioUnitario, orden.moneda)}
+                      {Number(item.descuento ?? 0) > 0 && <span className="text-green-700"> • Descuento{item.descuentoTipo === 'porcentaje' || item.descuentoTipo === 'unidad' ? ` ${etiquetaDescuentoItem(item, orden.moneda)}` : ''}: − {formatearMonto(Number(item.descuento), orden.moneda)}</span>}
                     </p>
                   </div>
                   <div className="text-right">

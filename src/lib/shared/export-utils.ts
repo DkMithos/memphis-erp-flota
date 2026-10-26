@@ -537,6 +537,14 @@ export function exportOrdenPDF(orden: any, proveedor?: any): void {
       <tbody>${filas}</tbody>
     </table>
     <div class="res">
+      ${(() => {
+        const dI = (orden.items ?? []).reduce((acc: number, it: any) => acc + Number(it.descuento ?? 0), 0);
+        const dG = Number(orden.descuentoGlobal ?? orden.descuento_global ?? 0);
+        if (dI + dG <= 0) return '';
+        return `<div><span>Subtotal bruto:</span><span>${money(Number(orden.subtotal) + dI + dG)}</span></div>`
+          + (dI > 0 ? `<div><span>Descuentos por ítem:</span><span>- ${money(dI)}</span></div>` : '')
+          + (dG > 0 ? `<div><span>Descuento sobre el subtotal${orden.descuentoGlobalTipo === 'porcentaje' ? ` (${esc(orden.descuentoGlobalValor)} %)` : ''}:</span><span>- ${money(dG)}</span></div>` : '');
+      })()}
       <div><span>Subtotal:</span><span>${money(orden.subtotal)}</span></div>
       <div><span>${Number(orden.impuestos ?? orden.igv ?? 0) > 0 ? 'IGV (18%):' : 'IGV: no aplica'}</span><span>${money(orden.impuestos ?? orden.igv)}</span></div>
       <div class="tot"><span>Total:</span><span>${money(orden.total)}</span></div>

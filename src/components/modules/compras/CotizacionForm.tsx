@@ -39,10 +39,10 @@ import {
   COTIZACION_TIPO_LABELS,
   COTIZACION_MONEDA_LABELS,
   formatearMonto,
-  calcularTotales,
   type TipoCotizacion,
   type MonedaCotizacion
 } from '../../../lib/compras/cotizaciones-config';
+import { TIPOS_DESCUENTO_GLOBAL, TIPOS_DESCUENTO_ITEM, brutoLinea, calcularTotalesConDescuento, descuentoLinea, netoLinea, type TipoDescuentoGlobal } from '../../../lib/compras/descuentos';
 import { toast } from 'sonner';
 
 interface CotizacionFormProps {
@@ -145,6 +145,8 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
         tarifarioVigencia: cotizacionExistente.tarifarioVigencia ?? null,
         moneda: cotizacionExistente.moneda,
         validezDias: cotizacionExistente.validezDias,
+        descuentoGlobalTipo: cotizacionExistente.descuentoGlobalTipo ?? null,
+        descuentoGlobalValor: cotizacionExistente.descuentoGlobalValor ?? null,
         items: cotizacionExistente.items.map(({ id, subtotal, ...item }) => item),
         terminos: cotizacionExistente.terminos || '',
         observaciones: cotizacionExistente.observaciones || ''
@@ -154,14 +156,11 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
 
   // Calcular totales
   const totales = useMemo(() => {
-    const items = (formData.items || []).map(item => ({
-      cantidad: item.cantidad || 0,
-      precioUnitario: item.precioUnitario || 0
-    }));
-    return calcularTotales(items, tasaIgv(formData.regimenIgv));
+    const items = (formData.items || []).map(item => ({ ...item, cantidad: item.cantidad || 0, precioUnitario: item.precioUnitario || 0 }));
+    return calcularTotalesConDescuento(items, tasaIgv(formData.regimenIgv), { tipo: formData.descuentoGlobalTipo ?? null, valor: formData.descuentoGlobalValor ?? null });
     // El régimen también cambia los totales: sin él en las dependencias, al pasar a
     // "Exonerado" la pantalla seguía mostrando el IGV del 18%.
-  }, [formData.items, formData.regimenIgv]);
+  }, [formData.items, formData.regimenIgv, formData.descuentoGlobalTipo, formData.descuentoGlobalValor]);
 
   // Validar formulario
   const validateForm = (): boolean => {
@@ -718,9 +717,26 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
                         </div>
 
                         <div className="space-y-2">
-                          <Label>Subtotal</Label>
+                          <Label>Descuento del proveedor</Label>
+                          <div className="flex gap-1">
+                            <Select value={item.descuentoTipo ?? 'ninguno'} onValueChange={(v) => { actualizarItem(idx, 'descuentoTipo', v === 'ninguno' ? null : v); if (v === 'ninguno') actualizarItem(idx, 'descuentoValor', null); }}>
+                              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ninguno">Sin descuento</SelectItem>
+                                {TIPOS_DESCUENTO_ITEM.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            {item.descuentoTipo && (
+                              <Input type="number" min="0" step="0.01" className="w-28" value={item.descuentoValor ?? ''} placeholder={item.descuentoTipo === 'porcentaje' ? '%' : 'monto'}
+                                onChange={(e) => actualizarItem(idx, 'descuentoValor', e.target.value === '' ? null : parseFloat(e.target.value))} />
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Neto del ítem</Label>
                           <Input
-                            value={formatearMonto((item.cantidad || 0) * (item.precioUnitario || 0), formData.moneda as MonedaCotizacion)}
+                            value={formatearMonto(netoLinea(item), formData.moneda as MonedaCotizacion) + (descuentoLinea(item) > 0 ? `  (lista ${formatearMonto(brutoLinea(item), formData.moneda as MonedaCotizacion)} − ${formatearMonto(descuentoLinea(item), formData.moneda as MonedaCotizacion)})` : '')}
                             disabled
                             className="bg-muted"
                           />
@@ -734,8 +750,33 @@ export function CotizacionForm({ cotizacionId, requerimientoIdParam, onCancel, o
               {/* Totales */}
               {(formData.items || []).length > 0 && (
                 <div className="border-t pt-4 space-y-2">
+                  {(totales.descuentoItems > 0 || !!formData.descuentoGlobalTipo) && (
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>Subtotal bruto (precios de lista):</span>
+                      <span>{formatearMonto(totales.bruto, formData.moneda as MonedaCotizacion)}</span>
+                    </div>
+                  )}
+                  {totales.descuentoItems > 0 && (
+                    <div className="flex items-center justify-between text-sm text-green-700">
+                      <span>Descuentos por ítem:</span>
+                      <span>− {formatearMonto(totales.descuentoItems, formData.moneda as MonedaCotizacion)}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-sm gap-2">
+                    <span className="text-muted-foreground flex items-center gap-2 flex-wrap">Descuento sobre el subtotal:
+                      <Select value={formData.descuentoGlobalTipo ?? 'ninguno'} onValueChange={(v) => setFormData({ ...formData, descuentoGlobalTipo: v === 'ninguno' ? null : v as TipoDescuentoGlobal, descuentoGlobalValor: v === 'ninguno' ? null : (formData.descuentoGlobalValor ?? 0) })}>
+                        <SelectTrigger className="w-[150px] h-8"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ninguno">Sin descuento</SelectItem>
+                          {TIPOS_DESCUENTO_GLOBAL.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      {formData.descuentoGlobalTipo && <Input type="number" min="0" step="0.01" className="w-28 h-8" value={formData.descuentoGlobalValor ?? ''} onChange={(e) => setFormData({ ...formData, descuentoGlobalValor: e.target.value === '' ? null : parseFloat(e.target.value) })} />}
+                    </span>
+                    <span className={totales.descuentoGlobal > 0 ? 'text-green-700' : 'text-muted-foreground'}>{totales.descuentoGlobal > 0 ? `− ${formatearMonto(totales.descuentoGlobal, formData.moneda as MonedaCotizacion)}` : '—'}</span>
+                  </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal:</span>
+                    <span className="text-muted-foreground">Subtotal{(totales.descuentoItems > 0 || totales.descuentoGlobal > 0) ? ' (base imponible)' : ''}:</span>
                     <span className="font-medium">{formatearMonto(totales.subtotal, formData.moneda as MonedaCotizacion)}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">

@@ -86,6 +86,7 @@ export function AprobarOrdenDialog({ orden, etapa, firmadas = [], onClose, onFir
           <div className="grid grid-cols-[120px_1fr] gap-y-1">
             <span className="text-muted-foreground">Proveedor</span><span className="font-medium">{orden.proveedorNombre}</span>
             <span className="text-muted-foreground">Total</span><span className="font-semibold">{formatearMonto(orden.total, orden.moneda)}</span>
+            {(() => { const d = orden.items.reduce((acc, i) => acc + Number(i.descuento ?? 0), 0) + Number(orden.descuentoGlobal ?? 0); return d > 0 ? (<><span className="text-muted-foreground">Descuentos</span><span className="text-green-700">− {formatearMonto(d, orden.moneda)} <span className="text-xs text-muted-foreground">(ya aplicados en el total)</span></span></>) : null; })()}
             <span className="text-muted-foreground">Ítems</span><span>{orden.items.length} · {recortar(orden.items.slice(0, 2).map(i => i.descripcion).join(' · '), 160)}{orden.items.length > 2 ? ' …' : ''}</span>
             {orden.observaciones && (<><span className="text-muted-foreground">Observaciones</span><span className="text-xs">{recortar(orden.observaciones, 280)}</span></>)}
           </div>

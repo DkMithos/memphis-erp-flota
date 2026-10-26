@@ -27,6 +27,7 @@ import {
 } from '../../ui/table';
 import { useCotizacionesStore } from '../../../lib/compras/cotizaciones-store';
 import { llevaIgv, etiquetaRegimen } from '../../../lib/compras/regimen-igv';
+import { etiquetaDescuentoItem } from '../../../lib/compras/descuentos';
 import { AdjuntosCotizacion } from './AdjuntosCotizacion';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 import { useRoles } from '../../../lib/rbac/roles-store';
@@ -409,7 +410,8 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
                 <TableHead>Cantidad</TableHead>
                 <TableHead>Unidad</TableHead>
                 <TableHead>P. Unitario</TableHead>
-                <TableHead>Subtotal</TableHead>
+                <TableHead>Dscto.</TableHead>
+                <TableHead>Neto</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -420,21 +422,32 @@ export function CotizacionDetalle({ cotizacionId, onNavigate }: CotizacionDetall
                   <TableCell>{item.cantidad}</TableCell>
                   <TableCell className="capitalize">{item.unidad}</TableCell>
                   <TableCell>{formatearMonto(item.precioUnitario, cotizacion.moneda)}</TableCell>
+                  <TableCell className="text-xs text-green-700">{Number(item.descuento ?? 0) > 0 ? `${item.descuentoTipo === 'porcentaje' || item.descuentoTipo === 'unidad' ? etiquetaDescuentoItem(item, cotizacion.moneda) + ' · ' : ''}− ${formatearMonto(Number(item.descuento), cotizacion.moneda)}` : <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell className="font-medium">{formatearMonto(item.subtotal, cotizacion.moneda)}</TableCell>
                 </TableRow>
               ))}
+              {(() => {
+                const dItems = cotizacion.items.reduce((acc, i) => acc + Number(i.descuento ?? 0), 0);
+                const dGlobal = Number(cotizacion.descuentoGlobal ?? 0);
+                if (dItems + dGlobal <= 0) return null;
+                return (<>
+                  <TableRow className="bg-muted/50"><TableCell colSpan={6} className="text-right text-muted-foreground">Subtotal bruto (precios de lista):</TableCell><TableCell>{formatearMonto(Number(cotizacion.subtotal) + dItems + dGlobal, cotizacion.moneda)}</TableCell></TableRow>
+                  {dItems > 0 && <TableRow className="bg-muted/50"><TableCell colSpan={6} className="text-right text-green-700">Descuentos por ítem:</TableCell><TableCell className="text-green-700">− {formatearMonto(dItems, cotizacion.moneda)}</TableCell></TableRow>}
+                  {dGlobal > 0 && <TableRow className="bg-muted/50"><TableCell colSpan={6} className="text-right text-green-700">Descuento sobre el subtotal{cotizacion.descuentoGlobalTipo === 'porcentaje' ? ` (${cotizacion.descuentoGlobalValor} %)` : ''}:</TableCell><TableCell className="text-green-700">− {formatearMonto(dGlobal, cotizacion.moneda)}</TableCell></TableRow>}
+                </>);
+              })()}
               <TableRow className="bg-muted/50">
-                <TableCell colSpan={5} className="text-right font-medium">Subtotal:</TableCell>
+                <TableCell colSpan={6} className="text-right font-medium">Subtotal{(cotizacion.descuentoGlobal > 0 || cotizacion.items.some(i => Number(i.descuento ?? 0) > 0)) ? ' (base imponible)' : ''}:</TableCell>
                 <TableCell className="font-medium">{formatearMonto(cotizacion.subtotal, cotizacion.moneda)}</TableCell>
               </TableRow>
               <TableRow className="bg-muted/50">
-                <TableCell colSpan={5} className="text-right font-medium">
+                <TableCell colSpan={6} className="text-right font-medium">
                   {llevaIgv(cotizacion.regimenIgv) ? 'IGV (18%):' : `Sin IGV — ${etiquetaRegimen(cotizacion.regimenIgv)}:`}
                 </TableCell>
                 <TableCell className="font-medium">{formatearMonto(cotizacion.impuestos, cotizacion.moneda)}</TableCell>
               </TableRow>
               <TableRow className="bg-muted/50 font-semibold">
-                <TableCell colSpan={5} className="text-right">Total:</TableCell>
+                <TableCell colSpan={6} className="text-right">Total:</TableCell>
                 <TableCell className="text-lg text-primary">{formatearMonto(cotizacion.total, cotizacion.moneda)}</TableCell>
               </TableRow>
             </TableBody>

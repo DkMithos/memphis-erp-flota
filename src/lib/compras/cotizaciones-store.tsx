@@ -10,6 +10,7 @@ import { dbCotizaciones } from '../supabase/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { validateTransition, COTIZACION_TRANSITIONS } from '../shared/state-machine';
 import { tasaIgv, type RegimenIgv } from './regimen-igv';
+import { calcularTotalesConDescuento, descuentoLinea, type TipoDescuentoGlobal, type TipoDescuentoItem } from './descuentos';
 import type {
   Cotizacion as CotizacionDB,
   CotizacionItem as CotizacionItemDB,
@@ -37,6 +38,11 @@ export interface ItemCotizacion {
   cantidad: number;
   unidad: string;
   precioUnitario: number;
+  /** Descuento del ítem en MONTO (resultado) y cómo lo dio el proveedor (ver lib/compras/descuentos.ts). */
+  descuento?: number;
+  descuentoTipo?: TipoDescuentoItem | null;
+  descuentoValor?: number | null;
+  /** Neto: cantidad × precio − descuento. */
   subtotal: number;
   /** Partida del presupuesto del proyecto (heredada del requerimiento; viaja a la OC). */
   partidaId?: string | null;
@@ -78,9 +84,13 @@ export interface Cotizacion {
   items: ItemCotizacion[];
 
   // Totales
+  /** Base imponible: Σ neto de ítems − descuento global. */
   subtotal: number;
   impuestos: number;
   total: number;
+  descuentoGlobalTipo?: TipoDescuentoGlobal | null;
+  descuentoGlobalValor?: number | null;
+  descuentoGlobal: number;
 
   // Términos
   terminos: string | null;
@@ -126,6 +136,8 @@ export interface NuevaCotizacionInput {
   moneda: MonedaCotizacion;
   validezDias: number;
   items: Omit<ItemCotizacion, 'id' | '_dbId' | 'subtotal'>[];
+  descuentoGlobalTipo?: TipoDescuentoGlobal | null;
+  descuentoGlobalValor?: number | null;
   terminos?: string;
   observaciones?: string;
 }
@@ -180,6 +192,9 @@ function mapFromDB(row: CotizacionWithRelations): Cotizacion {
     cantidad: item.cantidad,
     unidad: item.unidad,
     precioUnitario: item.precio_unitario,
+    descuento: Number((item as any).descuento ?? 0),
+    descuentoTipo: (item as any).descuento_tipo ?? null,
+    descuentoValor: (item as any).descuento_valor ?? null,
     subtotal: item.precio_total,
     partidaId: (item as any).partida_id ?? null, presupuestoLineaId: (item as any).presupuesto_linea_id ?? null,
   }));
@@ -212,6 +227,9 @@ function mapFromDB(row: CotizacionWithRelations): Cotizacion {
     subtotal: row.subtotal,
     impuestos: row.igv,
     total: row.total,
+    descuentoGlobalTipo: (row as any).descuento_global_tipo ?? null,
+    descuentoGlobalValor: (row as any).descuento_global_valor ?? null,
+    descuentoGlobal: Number((row as any).descuento_global ?? 0),
     terminos: row.condiciones_pago,
     observaciones: row.observaciones,
     proyectoId: row.proyecto_id ?? null,
@@ -345,17 +363,15 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
 
       const timestamp = new Date().toISOString();
 
-      // Calculate items with subtotals
-      const itemsConSubtotal = input.items.map(item => ({
-        ...item,
-        subtotal: item.cantidad * item.precioUnitario,
-      }));
-
-      // El IGV sale del RÉGIMEN, no siempre del 18% (igual que al actualizar).
-      const { subtotal, impuestos, total } = calcularTotales(
-        itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal })),
-        tasaIgv(input.regimenIgv ?? 'gravado'),
-      );
+      // Descuentos por ítem (como los dio el proveedor) y global sobre el subtotal;
+      // el IGV sale del RÉGIMEN sobre la base ya descontada (lib/compras/descuentos.ts).
+      const itemsConSubtotal = input.items.map(item => {
+        const descuento = descuentoLinea(item);
+        return { ...item, descuento, subtotal: item.cantidad * item.precioUnitario - descuento };
+      });
+      const totales = calcularTotalesConDescuento(itemsConSubtotal, tasaIgv(input.regimenIgv ?? 'gravado'),
+        { tipo: input.descuentoGlobalTipo ?? null, valor: input.descuentoGlobalValor ?? null });
+      const { subtotal, impuestos, total } = totales;
 
       const fechaVencimiento = calcularFechaVencimiento(timestamp, input.validezDias);
 
@@ -375,6 +391,9 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
         subtotal,
         igv: impuestos,
         total,
+        descuento_global_tipo: input.descuentoGlobalTipo ?? null,
+        descuento_global_valor: input.descuentoGlobalTipo ? (input.descuentoGlobalValor ?? 0) : null,
+        descuento_global: totales.descuentoGlobal,
         plazo_entrega: null,
         condiciones_pago: input.terminos?.trim() ?? null,
         observaciones: input.observaciones?.trim() ?? null,
@@ -404,6 +423,9 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
         unidad: item.unidad,
         cantidad: item.cantidad,
         precio_unitario: item.precioUnitario,
+        descuento: descuentoLinea(item),
+        descuento_tipo: (item as any).descuentoTipo ?? null,
+        descuento_valor: (item as any).descuentoTipo ? ((item as any).descuentoValor ?? 0) : null,
         partida_id: (item as any).partidaId ?? null, presupuesto_linea_id: (item as any).presupuestoLineaId ?? null,
       }));
       const { data: itemsData, error: errItems } = await supabase
@@ -467,21 +489,24 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
         }
       }
 
+      const regimen = input.regimenIgv ?? cotPrevia?.regimenIgv ?? 'gravado';
+      const globalTipo = input.descuentoGlobalTipo !== undefined ? input.descuentoGlobalTipo : (cotPrevia?.descuentoGlobalTipo ?? null);
+      const globalValor = input.descuentoGlobalTipo !== undefined ? input.descuentoGlobalValor : (cotPrevia?.descuentoGlobalValor ?? null);
+      if (input.descuentoGlobalTipo !== undefined) {
+        updatePayload.descuento_global_tipo = globalTipo;
+        updatePayload.descuento_global_valor = globalTipo ? (globalValor ?? 0) : null;
+      }
       if (input.items !== undefined) {
-        const itemsConSubtotal = input.items.map(item => ({
-          ...item,
-          subtotal: item.cantidad * item.precioUnitario,
-        }));
-        // El IGV sale del RÉGIMEN, no siempre del 18%. Sin esto, editar una
-        // cotización exonerada (Amazonía) o de un no domiciliado le sumaba IGV.
-        const regimen = input.regimenIgv ?? cotPrevia?.regimenIgv ?? 'gravado';
-        const { subtotal, impuestos, total } = calcularTotales(
-          itemsConSubtotal.map(i => ({ ...i, id: '', subtotal: i.subtotal })),
-          tasaIgv(regimen),
-        );
-        updatePayload.subtotal = subtotal;
-        updatePayload.igv = impuestos;
-        updatePayload.total = total;
+        // El IGV sale del RÉGIMEN sobre la base ya descontada (ítems + global).
+        const itemsConSubtotal = input.items.map(item => {
+          const descuento = descuentoLinea(item);
+          return { ...item, descuento, subtotal: item.cantidad * item.precioUnitario - descuento };
+        });
+        const tot = calcularTotalesConDescuento(itemsConSubtotal, tasaIgv(regimen), { tipo: globalTipo, valor: globalValor });
+        updatePayload.subtotal = tot.subtotal;
+        updatePayload.igv = tot.impuestos;
+        updatePayload.total = tot.total;
+        updatePayload.descuento_global = tot.descuentoGlobal;
       }
 
       const { error } = await dbCotizaciones.update(dbId, updatePayload);
@@ -501,6 +526,9 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
           unidad: item.unidad,
           cantidad: item.cantidad,
           precio_unitario: item.precioUnitario,
+          descuento: descuentoLinea(item),
+          descuento_tipo: (item as any).descuentoTipo ?? null,
+          descuento_valor: (item as any).descuentoTipo ? ((item as any).descuentoValor ?? 0) : null,
           partida_id: (item as any).partidaId ?? null, presupuesto_linea_id: (item as any).presupuestoLineaId ?? null,
         }));
         const { data: newItemsData } = await supabase
@@ -519,12 +547,17 @@ export function CotizacionStoreProvider({ children }: { children: React.ReactNod
               cantidad: dbItem.cantidad,
               unidad: dbItem.unidad,
               precioUnitario: dbItem.precio_unitario,
+              descuento: Number((dbItem as any).descuento ?? 0),
+              descuentoTipo: (dbItem as any).descuento_tipo ?? null,
+              descuentoValor: (dbItem as any).descuento_valor ?? null,
               subtotal: dbItem.precio_total,
               partidaId: (dbItem as any).partida_id ?? null, presupuestoLineaId: (dbItem as any).presupuesto_linea_id ?? null,
             }));
-            const { subtotal, impuestos, total } = calcularTotales(newItems);
+            const totLocal = calcularTotalesConDescuento(newItems, tasaIgv(regimen), { tipo: globalTipo, valor: globalValor });
+            const { subtotal, impuestos, total } = totLocal;
             return {
               ...c,
+              descuentoGlobalTipo: globalTipo, descuentoGlobalValor: globalValor ?? null, descuentoGlobal: totLocal.descuentoGlobal,
               ...(input.moneda !== undefined && { moneda: input.moneda }),
               ...(input.validezDias !== undefined && { validezDias: input.validezDias }),
               ...(input.terminos !== undefined && { terminos: input.terminos?.trim() ?? null }),
