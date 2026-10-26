@@ -913,6 +913,8 @@ export const dbGastosCajaChica = {
     supabase.from('gastos_caja_chica').insert(data).select().single(),
   update: (id: string, data: Partial<GastoCajaChicaDB>) =>
     supabase.from('gastos_caja_chica').update(data).eq('id', id).select().single(),
+  /** Borrado físico: la auditoría guarda la fila y el trigger recalcula el saldo de la caja. */
+  remove: (id: string) => supabase.from('gastos_caja_chica').delete().eq('id', id),
 };
 
 // =============================================================================

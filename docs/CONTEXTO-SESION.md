@@ -4206,3 +4206,16 @@ recalcula el historial de todos los proveedores), y repetía todo tras cada acci
   13 seleccionadas; no se tocó ninguna factura real. Hoy: 13 pendientes (todas de Perumotor, vía portal), 267 conformes,
   5,337 históricas del SIRE.
 
+## Caja chica: Carolina puede eliminar movimientos (2026-10-26)
+
+Carolina no podía borrar gastos ni ingresos de caja chica: la pantalla solo tenía "Corregir" (finanzas.editar) y el rol
+Administración no tenía finanzas.eliminar. Ahora:
+
+- **Permiso**: `20261026120000_caja_chica_eliminar_administracion.sql` da finanzas.eliminar al rol Administración.
+- **Pantalla** (`FinanzasCajaChica.tsx`): botón de papelera junto al lápiz en cada gasto y en cada ingreso (salvo el saldo de
+  apertura/arrastre, que no se borra: se corrige o se reabre la caja anterior), solo en cajas abiertas (mismo criterio que
+  corregir), con confirmación. Borrado físico: `fn_caja_tras_movimiento` recalcula el saldo, `trg_auditar` guarda la fila
+  borrada, y los enlaces desde Viajes (adelanto/reembolso por caja) quedan en null. `dbGastosCajaChica.remove` +
+  `deleteGasto` en el store; los ingresos se borran directo en `ingresos_caja_chica`.
+- Verificado en el preview con un usuario QA de rol Administración (borrado): aparecen Eliminar y Corregir en CAJA 32 SOLES.
+

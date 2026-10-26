@@ -247,6 +247,7 @@ interface FinanzasContextValue {
     opciones?: { permitirDescubierto?: boolean },
   ) => Promise<GastoCajaChica>;
   updateGasto: (dbId: string, data: Partial<GastoCajaChicaDB>) => Promise<void>;
+  deleteGasto: (dbId: string) => Promise<void>;
 
   reload: () => Promise<void>;
 }
@@ -453,6 +454,12 @@ export function FinanzasProvider({ children }: { children: React.ReactNode }) {
     await load();
   }, [load]);
 
+  const deleteGasto = useCallback(async (dbId: string) => {
+    const { error } = await dbGastosCajaChica.remove(dbId);
+    if (error) throw new Error(error.message);
+    await load();
+  }, [load]);
+
   const value: FinanzasContextValue = {
     loading,
     transacciones,
@@ -470,6 +477,7 @@ export function FinanzasProvider({ children }: { children: React.ReactNode }) {
     updateCajaChica,
     addGasto,
     updateGasto,
+    deleteGasto,
     reload: load,
   };
 

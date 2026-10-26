@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Wallet, X, Download, FileText, ChevronDown, Coins, FolderOpen, Layers, Pencil, ArrowDownCircle } from 'lucide-react';
+import { Plus, Wallet, X, Download, FileText, ChevronDown, Coins, FolderOpen, Layers, Pencil, ArrowDownCircle, Trash2 } from 'lucide-react';
 import { PageNav } from '@/components/shared/PageNav';
 import { usePermissions } from '@/lib/rbac/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -115,7 +115,7 @@ const defaultGastoForm: NuevoGastoForm = {
 };
 
 export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
-  const { cajasChicas, gastos, addGasto, updateGasto, updateCajaChica, loading, reload } = useFinanzas();
+  const { cajasChicas, gastos, addGasto, updateGasto, deleteGasto, updateCajaChica, loading, reload } = useFinanzas();
   const { can } = usePermissions();
   // Cada usuario descarga su propia data: se exige <modulo>.exportar
   const puedeExportar = can('finanzas', 'exportar');
@@ -405,6 +405,24 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
    * movimientos en una caja cerrada.
    */
   const puedeCorregir = can('finanzas', 'editar') && selectedCaja?.estado !== 'cerrada';
+  /** Eliminar pide finanzas.eliminar (Administración lo tiene desde el 26/10/2026) y, como corregir, solo en caja abierta. */
+  const puedeEliminar = can('finanzas', 'eliminar') && selectedCaja?.estado !== 'cerrada';
+
+  const eliminarGasto = async (g: GastoCajaChica) => {
+    if (!window.confirm(`¿Eliminar el gasto ${g.id} · ${g.descripcion ?? ''} por ${fmt(g.monto, g.moneda ?? selectedCaja?.moneda ?? 'PEN')}?\n\nEl saldo de la caja se recalcula. Queda registro en la auditoría. No se puede deshacer.`)) return;
+    try { await deleteGasto(g._dbId); toast.success(`Gasto ${g.id} eliminado`); }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'No se pudo eliminar'); }
+  };
+
+  const eliminarIngreso = async (i: IngresoCaja) => {
+    if (i.tipo === 'saldo_anterior' || i.tipo === 'apertura') { toast.error('El saldo de apertura no se elimina: si está mal, corrígelo o reabre la caja anterior.'); return; }
+    if (!window.confirm(`¿Eliminar el ingreso ${i.descripcion ?? ''} por ${fmt(i.monto, selectedCaja?.moneda ?? 'PEN')}?\n\nEl saldo de la caja se recalcula. Queda registro en la auditoría. No se puede deshacer.`)) return;
+    const { error } = await (supabase as any).from('ingresos_caja_chica').delete().eq('id', i._dbId);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Ingreso eliminado');
+    setRefrescoIngresos(n => n + 1);
+    await reload?.();
+  };
 
   const abrirEdicionGasto = (g: GastoCajaChica) => {
     setGastoEditando(g);
@@ -1243,6 +1261,15 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                           <Pencil className="size-3.5" />
                         </Button>
                       )}
+                      {puedeEliminar && i.tipo !== 'saldo_anterior' && i.tipo !== 'apertura' && (
+                        <Button
+                          variant="ghost" size="icon" className="size-7 text-destructive"
+                          title="Eliminar este ingreso"
+                          onClick={() => eliminarIngreso(i)}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1265,7 +1292,7 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                       <TableHead>Beneficiario</TableHead>
                       <TableHead className="text-right">Monto</TableHead>
                       <TableHead>Comprobante</TableHead>
-                      {puedeCorregir && <TableHead className="w-16"></TableHead>}
+                      {(puedeCorregir || puedeEliminar) && <TableHead className="w-20"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1281,15 +1308,28 @@ export function FinanzasCajaChica({ onNavigate: _onNavigate }: Props) {
                           {g.comprobanteNumero ?? '—'}
                           {g.comprobanteTipo && <span className="text-xs ml-1">({g.comprobanteTipo})</span>}
                         </TableCell>
-                        {puedeCorregir && (
+                        {(puedeCorregir || puedeEliminar) && (
                           <TableCell>
-                            <Button
-                              variant="ghost" size="icon" className="size-7"
-                              title="Corregir este gasto"
-                              onClick={() => abrirEdicionGasto(g)}
-                            >
-                              <Pencil className="size-3.5" />
-                            </Button>
+                            <div className="flex gap-0.5">
+                              {puedeCorregir && (
+                                <Button
+                                  variant="ghost" size="icon" className="size-7"
+                                  title="Corregir este gasto"
+                                  onClick={() => abrirEdicionGasto(g)}
+                                >
+                                  <Pencil className="size-3.5" />
+                                </Button>
+                              )}
+                              {puedeEliminar && (
+                                <Button
+                                  variant="ghost" size="icon" className="size-7 text-destructive"
+                                  title="Eliminar este gasto"
+                                  onClick={() => eliminarGasto(g)}
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>
