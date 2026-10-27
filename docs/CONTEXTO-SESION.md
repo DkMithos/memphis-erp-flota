@@ -4254,3 +4254,21 @@ Fianzas y Viajes, BI Gerencia) salían sin icono. Ahora hay un mapa de rutas exa
 (círculo) para que ninguna entrada futura quede vacía. Verificado en el preview: 76 entradas, todas con icono, ninguna en el
 fallback. Al agregar un submódulo: icono en el mismo commit (memoria `feedback_iconos_siempre`).
 
+
+## Página pública de contactos comerciales + QR para presentaciones (2026-10-27)
+
+Pedido de Kevin: un QR para proyectar en presentaciones que muestre solo los números de WhatsApp de Memphis como
+"contactos comerciales", sin nombres, con el logo Memphis y enlaces directos al chat.
+
+- **Página:** `public/contactos.html` — HTML autónomo (sin auth, sin dependencias, un solo archivo). Logo Memphis inline
+  (wordmark + símbolo geométrico, colores `#F8C119`/`#BA9113`), título "Contactos Comerciales", fondo oscuro de marca y
+  tres tarjetas de WhatsApp. Cada tarjeta dice "Asesor comercial" + el número (sin nombres) y abre `wa.me` con mensaje
+  pre-cargado ("Hola, quisiera información comercial de Memphis Maquinarias."). Mobile-first. `robots: noindex`.
+  - 951 907 854 → `wa.me/51951907854` · 979 347 412 → `wa.me/51979347412` · 975 897 662 → `wa.me/51975897662`.
+  - Se sirve como archivo estático (gana sobre el rewrite SPA del `vercel.json`), igual que `public/portal/…`.
+- **QR:** apunta a `https://erp.memphismaquinarias.com/contactos.html` (ECC alto). Generado con `qrcode` (Python) en
+  PNG 1372×1372 y SVG vectorial; **verificado** decodificando con OpenCV → la URL coincide exacto. Entregado a Kevin por
+  chat (no se commiteó la imagen al repo).
+- **Pendiente de activación:** la página está en la rama `claude/gallant-knuth-vr7ow6`; el QR recién resuelve cuando
+  `public/contactos.html` llegue a `main` (prod despliega solo desde `main`). El QR es estable: la misma imagen sirve para
+  siempre una vez desplegado.
