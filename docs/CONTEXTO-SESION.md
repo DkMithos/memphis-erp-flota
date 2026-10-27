@@ -4262,7 +4262,7 @@ Pedido de Kevin: un QR para proyectar en presentaciones que muestre solo los nú
 
 - **Página:** `public/contactos.html` — HTML autónomo (sin auth, sin dependencias, un solo archivo). Logo Memphis inline
   (wordmark + símbolo geométrico, colores `#F8C119`/`#BA9113`), título "Contactos Comerciales", fondo oscuro de marca y
-  tres tarjetas de WhatsApp. Cada tarjeta dice "Asesor comercial" + el número (sin nombres) y abre `wa.me` con mensaje
+  tres tarjetas de WhatsApp. Cada tarjeta muestra solo el número (sin nombres, decisión de Kevin) y abre `wa.me` con mensaje
   pre-cargado ("Hola, quisiera información comercial de Memphis Maquinarias."). Mobile-first. `robots: noindex`.
   - 951 907 854 → `wa.me/51951907854` · 979 347 412 → `wa.me/51979347412` · 975 897 662 → `wa.me/51975897662`.
   - Se sirve como archivo estático (gana sobre el rewrite SPA del `vercel.json`), igual que `public/portal/…`.
