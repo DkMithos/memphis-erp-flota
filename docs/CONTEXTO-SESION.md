@@ -1,7 +1,7 @@
 # CONTEXTO DE TRABAJO — Memphis ERP
 
 > **Documento vivo.** Se actualiza al cerrar cada tarea o cuando el contexto de la sesión
-> de trabajo se acerca al límite. Última actualización: **2026-10-26**.
+> de trabajo se acerca al límite. Última actualización: **2026-10-27**.
 > Es el punto de re-entrada para retomar el trabajo sin re-derivar contexto.
 
 ---
@@ -4243,4 +4243,14 @@ volumen queda fuera por ahora.
   855 → IGV 153.90 → total 1,008.90; la orden migrada MM-001232 muestra lista $123.28 − $30.81 = $92.47 y cuadra con su total.
 - Fuera por ahora: descuentos escalonados por volumen (regla por proveedor/artículo); exponer `descuento_global` en la API
   (`RECURSOS` de ordenes-compra) cuando alguien lo pida.
+
+## Menú: todo módulo y submódulo con icono (2026-10-27)
+
+Regla de Kevin: "todo debe tener icono". El mapa de iconos del sidebar (`getSubItemIcon` en `ERPSidebar.tsx`) iba por patrones
+de texto en el href y las entradas nuevas (API, app móvil, facturas de proveedores, asientos, registros de compras/ventas, cargos
+de fianzas, bancos, detracciones, flujo financiero, lotes de pago, obligaciones, reconciliación, confirmaciones y flotas,
+programación, despacho, portal de proveedores, correspondencia, espejo Excel, presupuesto, tarifas de viáticos, tableros de
+Fianzas y Viajes, BI Gerencia) salían sin icono. Ahora hay un mapa de rutas exactas con su icono de lucide y un fallback
+(círculo) para que ninguna entrada futura quede vacía. Verificado en el preview: 76 entradas, todas con icono, ninguna en el
+fallback. Al agregar un submódulo: icono en el mismo commit (memoria `feedback_iconos_siempre`).
 

@@ -54,8 +54,8 @@ import {
   BookOpenCheck,
   Hash,
   FileSpreadsheet,
-  ShieldCheck,
-  Plane
+    ShieldCheck, Plane,
+  KeyRound, Smartphone, LineChart, Landmark, Percent, Banknote, CalendarClock, Scale, QrCode, PackageCheck, Globe, Mail, Tags, FileWarning, Circle
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useState, useEffect } from 'react';
@@ -385,6 +385,38 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
     // Dashboard (genérico) — por href o por label
     if (href.includes('dashboard')) return <LayoutDashboard className="size-4" />;
     if (label && label.toLowerCase() === 'dashboard') return <LayoutDashboard className="size-4" />;
+    // Regla de Kevin (27/10/2026): TODO submódulo lleva icono. Primero las rutas
+    // exactas que los patrones de abajo no cubrían; al final, un fallback.
+    const exactos: Record<string, React.ReactNode> = {
+      '/admin/api': <KeyRound className="size-4" />,
+      '/app': <Smartphone className="size-4" />,
+      '/bi': <BarChart3 className="size-4" />,
+      '/bi/gerencia': <LineChart className="size-4" />,
+      '/compras/facturas': <Receipt className="size-4" />,
+      '/compras/ordenes': <ShoppingBag className="size-4" />,
+      '/contabilidad/asientos': <BookOpenCheck className="size-4" />,
+      '/contabilidad/registro-compras': <ShoppingCart className="size-4" />,
+      '/contabilidad/registro-ventas': <CreditCard className="size-4" />,
+      '/fianzas': <LayoutDashboard className="size-4" />,
+      '/fianzas/cargos': <FileWarning className="size-4" />,
+      '/finanzas/bancos': <Landmark className="size-4" />,
+      '/finanzas/detracciones': <Percent className="size-4" />,
+      '/finanzas/flujo-financiero': <Activity className="size-4" />,
+      '/finanzas/lotes-pago': <Banknote className="size-4" />,
+      '/finanzas/obligaciones': <CalendarClock className="size-4" />,
+      '/finanzas/reconciliacion': <Scale className="size-4" />,
+      '/flota/confirmaciones': <QrCode className="size-4" />,
+      '/flota/flotas': <Truck className="size-4" />,
+      '/flota/programacion': <CalendarDays className="size-4" />,
+      '/inventario/despacho': <PackageCheck className="size-4" />,
+      '/proveedores/portal': <Globe className="size-4" />,
+      '/proyectos/correspondencia': <Mail className="size-4" />,
+      '/proyectos/excel-sync': <FileSpreadsheet className="size-4" />,
+      '/proyectos/presupuesto': <Calculator className="size-4" />,
+      '/viajes': <Plane className="size-4" />,
+      '/viajes/tarifas': <Tags className="size-4" />,
+    };
+    if (exactos[href]) return exactos[href];
     // Flota
     if (href.includes('vehiculos')) return <Car className="size-4" />;
     if (href.includes('mantenimientos') && !href.includes('reporte')) return <Wrench className="size-4" />;
@@ -448,7 +480,8 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
     if (href.includes('catalogos') || href.includes('catalogs')) return <Cog className="size-4" />;
     if (href.includes('flujo-aprobacion') || href.includes('approval')) return <GitBranch className="size-4" />;
     if (href.includes('centros-costo') || href.includes('cost_centers')) return <Hash className="size-4" />;
-    return null;
+    // Nunca sin icono: si una ruta nueva no entró arriba, se nota menos pero se ve.
+    return <Circle className="size-4" />;
   };
 
   const isSubItemActive = (subItemHref: string) => {
