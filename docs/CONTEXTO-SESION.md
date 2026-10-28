@@ -4295,3 +4295,16 @@ activos 1" (contaba solo entre los 5 recientes).
   lleva a BI); Proyectos activos se cuenta en la base (28, no 1).
 - Verificado en el preview con QA (borrado); sin errores de consola.
 
+## Extracto BBVA de octubre: todavía no existe para importar (2026-10-28)
+
+Kevin pidió importar y conciliar octubre. En `04. Finanzas/BANCOS2026.xlsx` (modificado el 26/10) las hojas llegan a
+"806 202609 PEN" y "830 202609 USD"; no hay hoja 202610 y en `BANCOS 2026/` los EECC en PDF llegan a setiembre. Es decir,
+Administración aún no exporta el Histórico de Movimientos de octubre (normalmente lo hace al cierre del mes). Cuando existan las
+hojas "806 202610 PEN" y "830 202610 USD", se importa desde Finanzas › Bancos (el importador ya valida la cabecera de cuenta y
+concilia solo por OPE) o se le pide a Claude.
+
+Mientras tanto se volvió a correr `bancos_conciliar_auto` en las dos cuentas: nada nuevo. Quedan **168** movimientos sin
+transacción (100 de agosto, 67 de setiembre, 1 de marzo): 88 transferencias a proveedores (se registran con "Pagar facturas"
+desde Bancos), 67 por clasificar (préstamos, planilla, AFP, compras de camiones/ambulancias, intereses, cuotas), 8 de caja chica,
+4 préstamos y 1 planilla. En cargos: S/ 10.35 M y US$ 4.16 M sin cruzar.
+
