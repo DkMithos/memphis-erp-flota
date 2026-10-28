@@ -7,20 +7,26 @@
  * reales; para Gerencia eso es peor que no mostrar nada.
  *
  * Los importes van separados por moneda a propósito — el gasto de Memphis es
- * mayoritariamente en dólares y no hay tabla de tipos de cambio por fecha.
+ * mayoritariamente en dólares y una suma mixta engaña; el TC SUNAT diario lo
+ * usan los informes que lo necesitan (Proyecto 360, Flujo Gerencia).
+ *
+ * 28/10/2026: se agregaron las tarjetas de lo que el ERP ya sabe (facturas y
+ * cuentas por pagar, tesorería y bancos, ingresos por proyecto, contabilidad,
+ * viajes, inventario con serie) y la lista de "lo que falta" se calcula con
+ * datos en vez de ser un texto fijo que envejecía.
  */
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import {
   RefreshCw, Loader2, ShoppingCart, Wallet, Truck, Users, FolderKanban,
-  ShieldCheck, ArrowRight, Info, BarChart3,
+  ShieldCheck, ArrowRight, Info, BarChart3, Receipt, Landmark, BookOpenCheck, Plane, Cpu, TrendingUp,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { PageNav } from '../../shared/PageNav';
-import { usePanelBI, PENDIENTES_DE_ALIMENTAR, type MesCompromiso } from '../../../lib/bi/panel';
+import { usePanelBI, pendientesDeAlimentar, type MesCompromiso } from '../../../lib/bi/panel';
 import { nombreMes, type Importe } from '../../../lib/bi/cruzado';
 import { usePermissions } from '../../../lib/rbac/usePermissions';
 
@@ -98,6 +104,11 @@ export function BIDashboard({ onNavigate }: Props) {
   // puede ver ese módulo. Richard ve el compromiso de órdenes, no la caja.
   const verCompras = can('compras', 'ver');
   const verCaja = can('finanzas', 'ver');
+
+  const r = panel?.resumen ?? null;
+  const anio = new Date().getFullYear();
+  const fechaCorta = (s: string | null | undefined) => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : '—';
+  const pendientes = pendientesDeAlimentar(r);
 
   const datosGrafico = (panel?.tendencia ?? []).map((m: MesCompromiso) => ({
     mes: nombreMes(m.mes),
@@ -207,6 +218,93 @@ export function BIDashboard({ onNavigate }: Props) {
                     ? <Badge variant="outline" className="text-amber-600 border-amber-500/50">{panel.proyectos.sinPresupuesto}</Badge>
                     : '—',
                 },
+                ...(r ? [{ etiqueta: 'Cartas con el Estado pendientes', valor: r.operaciones.cartas_vencidas > 0 ? <Badge variant="destructive">{miles(r.operaciones.cartas_pendientes)} · {r.operaciones.cartas_vencidas} vencidas</Badge> : miles(r.operaciones.cartas_pendientes) }] : []),
+              ]}
+            />
+          )}
+
+          {can('proyectos', 'ver') && r && (
+            <TarjetaModulo
+              titulo="Ingresos por proyecto" ruta="/proyectos/valorizaciones" onNavigate={onNavigate}
+              icon={<TrendingUp className="size-4 text-primary" />}
+              lineas={[
+                { etiqueta: `Contratos (${r.proyectos.con_contrato})`, valor: soles(r.proyectos.contrato_total) },
+                { etiqueta: 'Cobrado', valor: soles(r.proyectos.cobrado_total) },
+                { etiqueta: 'Por cobrar', valor: <Plata importe={{ pen: r.cxc.pendiente_pen, usd: r.cxc.pendiente_usd }} /> },
+                { etiqueta: 'Valorizaciones cobradas', valor: `${r.proyectos.valorizaciones_cobradas} de ${r.proyectos.valorizaciones_cobradas + r.proyectos.valorizaciones_por_cobrar}` },
+              ]}
+            />
+          )}
+
+          {can('compras', 'ver') && r && (
+            <TarjetaModulo
+              titulo="Facturas de proveedores" ruta="/compras/facturas" onNavigate={onNavigate}
+              icon={<Receipt className="size-4 text-primary" />}
+              lineas={[
+                { etiqueta: 'Recibidas (SIRE + portal)', valor: miles(r.facturas.recibidas) },
+                { etiqueta: 'Por conformar', valor: r.facturas.por_conformar > 0 ? <Badge variant="outline" className="text-amber-600 border-amber-500/50">{r.facturas.por_conformar}</Badge> : '—' },
+                { etiqueta: 'Conformes por pagar', valor: miles(r.facturas.conformes) },
+                { etiqueta: 'Última emisión', valor: fechaCorta(r.facturas.ultima_emision) },
+              ]}
+            />
+          )}
+
+          {can('finanzas', 'ver') && r && (
+            <TarjetaModulo
+              titulo="Cuentas por pagar" ruta="/finanzas/cuentas-pagar" onNavigate={onNavigate}
+              icon={<Wallet className="size-4 text-primary" />}
+              lineas={[
+                { etiqueta: `Pendiente (${miles(r.cxp.compromisos)})`, valor: <Plata importe={{ pen: r.cxp.pendiente_pen, usd: r.cxp.pendiente_usd }} /> },
+                { etiqueta: `Vencido (${miles(r.cxp.vencidos)})`, valor: <span className={r.cxp.vencidos > 0 ? 'text-red-600' : ''}><Plata importe={{ pen: r.cxp.vencido_pen, usd: r.cxp.vencido_usd }} /></span> },
+              ]}
+            />
+          )}
+
+          {can('finanzas', 'ver') && r && (
+            <TarjetaModulo
+              titulo="Tesorería y bancos" ruta="/finanzas/bancos" onNavigate={onNavigate}
+              icon={<Landmark className="size-4 text-primary" />}
+              lineas={[
+                { etiqueta: `Pagado ${anio} (${miles(r.tesoreria.pagos_anio)})`, valor: <Plata importe={{ pen: r.tesoreria.pagado_pen, usd: r.tesoreria.pagado_usd }} /> },
+                { etiqueta: `Cobrado ${anio}`, valor: <Plata importe={{ pen: r.tesoreria.cobrado_pen, usd: r.tesoreria.cobrado_usd }} /> },
+                { etiqueta: 'Banco sin conciliar', valor: r.bancos.sin_conciliar > 0 ? <Badge variant="outline" className="text-amber-600 border-amber-500/50">{miles(r.bancos.sin_conciliar)}</Badge> : '—' },
+                { etiqueta: 'Extracto hasta', valor: fechaCorta(r.bancos.extracto_hasta) },
+              ]}
+            />
+          )}
+
+          {can('contabilidad', 'ver') && r && (
+            <TarjetaModulo
+              titulo="Contabilidad" ruta="/contabilidad" onNavigate={onNavigate}
+              icon={<BookOpenCheck className="size-4 text-primary" />}
+              lineas={[
+                { etiqueta: 'Asientos', valor: miles(r.contabilidad.asientos) },
+                { etiqueta: 'Periodos abiertos', valor: miles(r.contabilidad.periodos_abiertos) },
+                { etiqueta: 'TC SUNAT al', valor: fechaCorta(r.contabilidad.tc_fecha) },
+                { etiqueta: 'Facturas 2026 sin asiento', valor: r.contabilidad.facturas_sin_contabilizar > 0 ? <Badge variant="outline" className="text-amber-600 border-amber-500/50">{r.contabilidad.facturas_sin_contabilizar}</Badge> : '—' },
+              ]}
+            />
+          )}
+
+          {can('viajes', 'ver') && r && (
+            <TarjetaModulo
+              titulo="Viajes y viáticos" ruta="/viajes" onNavigate={onNavigate}
+              icon={<Plane className="size-4 text-primary" />}
+              lineas={[
+                { etiqueta: 'Viajes abiertos', valor: miles(r.operaciones.viajes_abiertos) },
+                { etiqueta: 'Rendiciones por revisar', valor: r.operaciones.rendiciones_por_revisar > 0 ? <Badge variant="outline" className="text-amber-600 border-amber-500/50">{r.operaciones.rendiciones_por_revisar}</Badge> : '—' },
+              ]}
+            />
+          )}
+
+          {can('inventario', 'ver') && r && (
+            <TarjetaModulo
+              titulo="Inventario con serie" ruta="/inventario/unidades" onNavigate={onNavigate}
+              icon={<Cpu className="size-4 text-primary" />}
+              lineas={[
+                { etiqueta: 'Unidades', valor: miles(r.operaciones.unidades) },
+                { etiqueta: 'En almacén', valor: miles(r.operaciones.unidades_en_almacen) },
+                { etiqueta: 'Instaladas o entregadas', valor: miles(r.operaciones.unidades_instaladas) },
               ]}
             />
           )}
@@ -280,23 +378,28 @@ export function BIDashboard({ onNavigate }: Props) {
         </Card>
       )}
 
-      {/* LO QUE FALTA */}
+      {/* LO QUE FALTA — calculado con los datos de hoy, no un texto fijo */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Info className="size-4 text-muted-foreground" />
-            Lo que todavía no se puede reportar
+            Lo que todavía falta alimentar
           </CardTitle>
+          <p className="text-sm text-muted-foreground">Se calcula con los datos de hoy; cuando algo se carga, desaparece de aquí.</p>
         </CardHeader>
         <CardContent>
-          <dl className="space-y-3">
-            {PENDIENTES_DE_ALIMENTAR.map(p => (
-              <div key={p.titulo}>
-                <dt className="text-sm font-medium">{p.titulo}</dt>
-                <dd className="text-sm text-muted-foreground">{p.detalle}</dd>
-              </div>
-            ))}
-          </dl>
+          {pendientes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nada pendiente: todos los módulos activos tienen datos al día.</p>
+          ) : (
+            <dl className="space-y-3">
+              {pendientes.map(p => (
+                <div key={p.titulo} className={p.ruta ? 'cursor-pointer hover:text-primary' : ''} onClick={() => p.ruta && onNavigate?.(p.ruta)}>
+                  <dt className="text-sm font-medium">{p.titulo}</dt>
+                  <dd className="text-sm text-muted-foreground">{p.detalle}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </CardContent>
       </Card>
     </div>

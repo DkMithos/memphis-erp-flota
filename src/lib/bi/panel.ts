@@ -9,8 +9,14 @@
  * Aquí solo entra lo que tiene datos detrás. Lo que todavía no se alimenta se
  * declara aparte, en `PENDIENTES_DE_ALIMENTAR`, y la pantalla lo dice.
  *
- * PEN y USD nunca se suman: el gasto es mayoritariamente en dólares y no hay
- * tabla de tipos de cambio por fecha.
+ * PEN y USD se muestran separados a propósito: el gasto es mayoritariamente en
+ * dólares y una suma mixta en el panel engaña más de lo que ayuda (el TC SUNAT
+ * diario existe y lo usan los informes que sí lo necesitan).
+ *
+ * Desde octubre de 2026 el ERP tiene facturas, cuentas por pagar y cobrar, pagos
+ * y extracto bancario, valorizaciones, contabilidad, viajes y correspondencia:
+ * `bi_panel_resumen()` los trae en una llamada y `pendientesDeAlimentar()`
+ * calcula con datos (no con texto fijo) qué sigue faltando.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../supabase/client';
@@ -22,6 +28,18 @@ export interface MesCompromiso {
   ocPen: number;
   ocUsd: number;
   cajaPen: number;
+}
+
+/** Lo que devuelve `bi_panel_resumen()` (una llamada, agregados del tenant). */
+export interface Resumen {
+  facturas: { recibidas: number; por_conformar: number; conformes: number; observadas: number; ultima_emision: string | null };
+  cxp: { compromisos: number; pendiente_pen: number; pendiente_usd: number; vencido_pen: number; vencido_usd: number; vencidos: number };
+  cxc: { pendientes: number; pendiente_pen: number; pendiente_usd: number };
+  tesoreria: { pagos_anio: number; pagado_pen: number; pagado_usd: number; cobrado_pen: number; cobrado_usd: number };
+  bancos: { movimientos: number; sin_conciliar: number; extracto_hasta: string | null; cuentas_activas: number; lotes_pago: number };
+  proyectos: { con_contrato: number; contrato_total: number; cobrado_total: number; valorizaciones_cobradas: number; valorizaciones_por_cobrar: number; valorizado_cobrado_pen: number; sin_presupuesto: number };
+  contabilidad: { plan_cuentas: number; periodos_abiertos: number; asientos: number; tc_fecha: string | null; facturas_sin_contabilizar: number };
+  operaciones: { viajes_abiertos: number; rendiciones_por_revisar: number; cartas_pendientes: number; cartas_vencidas: number; unidades: number; unidades_en_almacen: number; unidades_instaladas: number; obligaciones: number; presupuesto_area_lineas: number; equipos_biomedicos: number; oportunidades_crm: number };
 }
 
 export interface Panel {
@@ -42,27 +60,49 @@ export interface Panel {
   proyectos: { enEjecucion: number; total: number; sinPresupuesto: number };
   fianzas: { cartasVigentes: number; venceEn60: number; afianzado: Importe };
   tendencia: MesCompromiso[];
+  resumen: Resumen | null;
 }
 
-/** Lo que la pantalla NO puede mostrar todavía, y por qué. Se muestra tal cual. */
-export const PENDIENTES_DE_ALIMENTAR = [
-  {
-    titulo: 'Deuda con proveedores',
-    detalle: 'Necesita las facturas (cuentas por pagar). Hoy el ERP conoce el compromiso de las órdenes, no lo facturado ni lo pagado.',
-  },
-  {
-    titulo: 'Ingresos y rentabilidad por proyecto',
-    detalle: 'Necesita las valorizaciones cobradas. Sin eso solo hay costo, no margen.',
-  },
-  {
-    titulo: 'Contabilidad',
-    detalle: 'Plan de cuentas, periodos y tipos de cambio están pendientes de Walter.',
-  },
-  {
-    titulo: 'CRM, Inventario y Biomédico',
-    detalle: 'Módulos apagados para Memphis: no se muestran cifras de algo que no se usa.',
-  },
-] as const;
+/**
+ * Lo que todavía falta alimentar, calculado con los datos de hoy. Antes era una
+ * lista fija que decía "no hay facturas ni cuentas por pagar" meses después de
+ * cargarlas; para Gerencia un aviso viejo es peor que ninguno.
+ */
+export function pendientesDeAlimentar(r: Resumen | null): { titulo: string; detalle: string; ruta?: string }[] {
+  if (!r) return [];
+  const out: { titulo: string; detalle: string; ruta?: string }[] = [];
+  const hoy = new Date();
+  const mesActual = hoy.toISOString().slice(0, 7);
+  const fechaCorta = (s: string | null) => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : '—';
+  if (!r.bancos.extracto_hasta || r.bancos.extracto_hasta.slice(0, 7) < mesActual) {
+    out.push({ titulo: 'Extracto bancario del mes', detalle: `La conciliación llega hasta el ${fechaCorta(r.bancos.extracto_hasta)}; falta importar el extracto BBVA del mes en curso (Finanzas › Bancos).`, ruta: '/finanzas/bancos' });
+  }
+  if (r.bancos.sin_conciliar > 0) {
+    out.push({ titulo: `${r.bancos.sin_conciliar} movimientos del banco sin transacción`, detalle: 'Cargos o abonos del extracto que todavía no se cruzaron con un pago, factura o cobro del ERP.', ruta: '/finanzas/bancos' });
+  }
+  if (r.bancos.lotes_pago === 0) {
+    out.push({ titulo: 'Lotes de pago', detalle: 'Todavía no se arma ningún lote en el ERP: los pagos de la semana siguen naciendo en el Excel y entran recién con el extracto.', ruta: '/finanzas/lotes-pago' });
+  }
+  if (r.facturas.por_conformar > 0) {
+    out.push({ titulo: `${r.facturas.por_conformar} facturas de proveedores por conformar`, detalle: 'Hasta la conformidad no cuentan contra la orden ni entran a Cuentas por pagar.', ruta: '/compras/facturas' });
+  }
+  if (r.contabilidad.facturas_sin_contabilizar > 0) {
+    out.push({ titulo: `${r.contabilidad.facturas_sin_contabilizar} facturas de 2026 sin asiento`, detalle: 'Conformes o pagadas, pero sin contabilizar: la contabilización automática espera que Contabilidad confirme cuentas y momento.', ruta: '/contabilidad' });
+  }
+  if (r.proyectos.sin_presupuesto > 0) {
+    out.push({ titulo: `${r.proyectos.sin_presupuesto} proyectos en ejecución sin presupuesto`, detalle: 'Sin presupuesto cargado no hay control por partida ni margen previsto.', ruta: '/proyectos/presupuesto' });
+  }
+  if (r.operaciones.presupuesto_area_lineas === 0) {
+    out.push({ titulo: 'Presupuestos de área', detalle: 'Finanzas no ha cargado presupuesto para el gasto que no es de proyecto: el control por partida solo cubre proyectos.', ruta: '/finanzas/presupuestos' });
+  }
+  if (r.operaciones.cartas_pendientes > 0 && r.operaciones.cartas_vencidas === 0) {
+    out.push({ titulo: `${r.operaciones.cartas_pendientes} acciones de correspondencia sin fecha límite`, detalle: 'Operaciones debe ponerles plazo para que el semáforo de vencidas funcione.', ruta: '/proyectos/correspondencia' });
+  }
+  if (r.operaciones.equipos_biomedicos === 0 && r.operaciones.oportunidades_crm === 0) {
+    out.push({ titulo: 'CRM y Biomédico', detalle: 'No se usan en Memphis: no se muestran cifras de lo que no se alimenta.' });
+  }
+  return out;
+}
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const num = (v: unknown) => (v == null ? 0 : Number(v));
@@ -100,7 +140,7 @@ export function usePanelBI() {
       cajasAbiertas, gastosAnio,
       vehiculosActivos, vehiculosTotal, otAbiertas,
       proveedores, proyectosEjec, proyectosTotal,
-      compromiso, cajaMensual, proyectosSinPpto, cartas,
+      compromiso, cajaMensual, proyectosSinPpto, cartas, resumenRes,
     ] = await Promise.all([
       contar('ordenes_compra', q => q.not('estado', 'in', '("anulada","rechazada")')),
       contar('ordenes_compra', q => q.not('estado', 'in', '("anulada","rechazada")').gte('fecha_emision', inicioAnio)),
@@ -118,6 +158,7 @@ export function usePanelBI() {
       vista('v_gerencia_caja_mensual').select('*').order('mes'),
       supabase.from('proyectos').select('id, presupuesto'),
       supabase.from('fianza_cartas').select('fin, monto_afianzado, estado'),
+      (supabase as any).rpc('bi_panel_resumen'),
     ]);
 
     // ── Tendencia: últimos 12 meses con movimiento ──────────────────────────
@@ -180,6 +221,7 @@ export function usePanelBI() {
         afianzado,
       },
       tendencia,
+      resumen: ((resumenRes as any)?.data ?? null) as Resumen | null,
     });
     setActualizado(new Date().toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }));
     setCargando(false);

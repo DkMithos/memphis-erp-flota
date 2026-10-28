@@ -10,10 +10,10 @@ import {
   AlertTriangle,
   FolderKanban,
   DollarSign,
-  Stethoscope,
+  Receipt,
+  CreditCard,
   ArrowRight,
   Loader2,
-  Activity,
   ChevronRight,
   Users,
 } from 'lucide-react';
@@ -33,8 +33,10 @@ interface DashboardProps {
 interface DashboardKPIs {
   vehiculosActivos: number;
   vehiculosTotal: number;
-  otsPendientes: number;
-  equiposBio: number;
+  facturasPorConformar: number;
+  cxpVencidos: number;
+  cartasVencidas: number;
+  rendicionesPorRevisar: number;
   proyectosActivos: number;
   proveedoresActivos: number;
   ordenesCompraPendientes: number;
@@ -43,8 +45,8 @@ interface DashboardKPIs {
 
 /** De qué módulo depende cada tarjeta, para no mostrarla a quien no lo ve. */
 const MODULO_DE_TARJETA: Record<string, Modulo> = {
-  flota: 'flota', ots: 'flota', alertas: 'flota',
-  proyectos: 'proyectos', biomedico: 'biomedico',
+  flota: 'flota', facturas: 'compras', alertas: 'compras',
+  proyectos: 'proyectos', cxp: 'finanzas',
   oc: 'compras', req: 'compras', prov: 'proveedores',
 };
 
@@ -67,8 +69,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const isDark = useDarkMode();
   const [kpis, setKpis] = useState<DashboardKPIs>({
-    vehiculosActivos: 0, vehiculosTotal: 0, otsPendientes: 0,
-    equiposBio: 0, proyectosActivos: 0, proveedoresActivos: 0,
+    vehiculosActivos: 0, vehiculosTotal: 0, facturasPorConformar: 0, cxpVencidos: 0, cartasVencidas: 0, rendicionesPorRevisar: 0,
+    proyectosActivos: 0, proveedoresActivos: 0,
     ordenesCompraPendientes: 0, requerimientosPendientes: 0,
   });
   const [proyectos, setProyectos] = useState<ProyectoResumen[]>([]);
@@ -83,15 +85,18 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         // Parallel queries for all KPIs — allSettled: una consulta caída no bloquea el resto
         const settled = await Promise.allSettled([
           supabase.from('vehiculos').select('estado', { count: 'exact', head: false }),
-          supabase.from('ordenes_trabajo').select('id', { count: 'exact', head: true }).in('estado', ['abierta', 'en_progreso', 'pendiente']),
-          supabase.from('equipos_biomedicos').select('id', { count: 'exact', head: true }),
+          // Facturas por conformar, cuentas por pagar vencidas, cartas vencidas y rendiciones: una sola llamada.
+          (supabase as any).rpc('bi_panel_resumen'),
           supabase.from('proyectos').select('id, codigo, nombre, estado, porcentaje_avance, presupuesto, costo_real').order('creado_en', { ascending: false }).limit(5),
           supabase.from('proveedores').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
           supabase.from('ordenes_compra').select('id', { count: 'exact', head: true }).in('estado', ['borrador', 'pendiente', 'aprobada']),
           supabase.from('requerimientos_compra').select('id', { count: 'exact', head: true }).in('estado', ['borrador', 'pendiente', 'aprobado']),
+          // Antes "Proyectos activos" contaba solo entre los 5 recientes de la lista y decía 1: se cuenta en la base.
+          supabase.from('proyectos').select('id', { count: 'exact', head: true }).in('estado', ['en_ejecucion', 'planificacion']),
         ]);
         const val = (i: number): any => settled[i].status === 'fulfilled' ? (settled[i] as PromiseFulfilledResult<any>).value : { data: null, count: 0 };
-        const [vehRes, otsRes, eqRes, proyRes, provRes, ocRes, reqRes] = [val(0), val(1), val(2), val(3), val(4), val(5), val(6)];
+        const [vehRes, resRes, proyRes, provRes, ocRes, reqRes, proyActRes] = [val(0), val(1), val(2), val(3), val(4), val(5), val(6)];
+        const resumen: any = resRes.data ?? {};
 
         const vehiculos = vehRes.data ?? [];
         const vehiculosActivos = vehiculos.filter((v: any) => v.estado === 'activo').length;
@@ -99,9 +104,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         setKpis({
           vehiculosActivos,
           vehiculosTotal: vehiculos.length,
-          otsPendientes: otsRes.count ?? 0,
-          equiposBio: eqRes.count ?? 0,
-          proyectosActivos: (proyRes.data ?? []).filter((p: any) => p.estado === 'en_ejecucion' || p.estado === 'planificacion').length,
+          facturasPorConformar: Number(resumen.facturas?.por_conformar ?? 0),
+          cxpVencidos: Number(resumen.cxp?.vencidos ?? 0),
+          cartasVencidas: Number(resumen.operaciones?.cartas_vencidas ?? 0),
+          rendicionesPorRevisar: Number(resumen.operaciones?.rendiciones_por_revisar ?? 0),
+          proyectosActivos: proyActRes.count ?? (proyRes.data ?? []).filter((p: any) => p.estado === 'en_ejecucion' || p.estado === 'planificacion').length,
           proveedoresActivos: provRes.count ?? 0,
           ordenesCompraPendientes: ocRes.count ?? 0,
           requerimientosPendientes: reqRes.count ?? 0,
@@ -158,13 +165,13 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { id: 'flota', label: 'Flota Vehicular', icon: Truck, route: '/flota', value: kpis.vehiculosActivos, sub: `vehículos activos de ${kpis.vehiculosTotal} total`, color: 'bg-blue-500 text-white' },
-          { id: 'ots', label: 'OTs Pendientes', icon: Activity, route: '/flota/mantenimientos', value: kpis.otsPendientes, sub: 'órdenes de trabajo abiertas', color: 'bg-orange-500 text-white' },
+          { id: 'facturas', label: 'Facturas por conformar', icon: Receipt, route: '/compras/facturas', value: kpis.facturasPorConformar, sub: 'de proveedores, esperan conformidad', color: 'bg-orange-500 text-white' },
           { id: 'proyectos', label: 'Proyectos Activos', icon: FolderKanban, route: '/proyectos', value: kpis.proyectosActivos, sub: 'en ejecución o planificación', color: 'bg-green-500 text-white' },
-          { id: 'biomedico', label: 'Equipos Biomédicos', icon: Stethoscope, route: '/biomedico', value: kpis.equiposBio, sub: 'equipos registrados', color: 'bg-purple-500 text-white' },
+          { id: 'cxp', label: 'Cuentas por pagar vencidas', icon: CreditCard, route: '/finanzas/cuentas-pagar', value: kpis.cxpVencidos, sub: 'compromisos con fecha vencida', color: 'bg-purple-500 text-white' },
           { id: 'oc', label: 'OC Pendientes', icon: ShoppingCart, route: '/compras', value: kpis.ordenesCompraPendientes, sub: 'órdenes de compra por procesar', color: 'bg-cyan-500 text-white' },
           { id: 'req', label: 'Requerimientos', icon: Package, route: '/compras/requerimientos', value: kpis.requerimientosPendientes, sub: 'pendientes de atención', color: 'bg-indigo-500 text-white' },
           { id: 'prov', label: 'Proveedores', icon: Users, route: '/proveedores', value: kpis.proveedoresActivos, sub: 'proveedores activos', color: 'bg-emerald-500 text-white' },
-          { id: 'alertas', label: 'Alertas', icon: AlertTriangle, route: '/flota/mantenimientos', value: kpis.otsPendientes > 0 ? kpis.otsPendientes : '—', sub: 'requieren atención', color: 'bg-amber-500 text-white' },
+          { id: 'alertas', label: 'Alertas', icon: AlertTriangle, route: '/bi', value: (kpis.facturasPorConformar + kpis.cxpVencidos + kpis.cartasVencidas + kpis.rendicionesPorRevisar) || '—', sub: 'facturas, pagos vencidos, cartas y rendiciones', color: 'bg-amber-500 text-white' },
         ].filter(card => can(MODULO_DE_TARJETA[card.id], 'ver')).map((card) => {
           const accentColor = isDark ? '#f0c000' : '#000000';
           const isHovered = hoveredId === card.id;

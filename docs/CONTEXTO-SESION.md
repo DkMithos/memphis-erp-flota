@@ -1,7 +1,7 @@
 # CONTEXTO DE TRABAJO — Memphis ERP
 
 > **Documento vivo.** Se actualiza al cerrar cada tarea o cuando el contexto de la sesión
-> de trabajo se acerca al límite. Última actualización: **2026-10-27**.
+> de trabajo se acerca al límite. Última actualización: **2026-10-28**.
 > Es el punto de re-entrada para retomar el trabajo sin re-derivar contexto.
 
 ---
@@ -4272,3 +4272,26 @@ Pedido de Kevin: un QR para proyectar en presentaciones que muestre solo los nú
 - **Pendiente de activación:** la página está en la rama `claude/gallant-knuth-vr7ow6`; el QR recién resuelve cuando
   `public/contactos.html` llegue a `main` (prod despliega solo desde `main`). El QR es estable: la misma imagen sirve para
   siempre una vez desplegado.
+## Dashboard y BI actualizados a lo que el ERP ya sabe (2026-10-28)
+
+Kevin: "revisa y actualiza el dashboard". BI & Reportería seguía diciendo "lo que todavía no se puede reportar: deuda con
+proveedores, ingresos por proyecto, contabilidad" como texto fijo, meses después de cargar facturas, CxP, pagos, valorizaciones y
+contabilidad. El Dashboard General mostraba "OTs pendientes 0" y "Equipos biomédicos 0" (cosas que Memphis no usa) y "Proyectos
+activos 1" (contaba solo entre los 5 recientes).
+
+- **`bi_panel_resumen()`** (`20261028100000_bi_panel_resumen.sql`): una llamada con los agregados del tenant: facturas
+  (recibidas, por conformar, conformes), CxP (pendiente y vencido por moneda, compromisos), CxC, tesorería del año (pagado y
+  cobrado por moneda), bancos (movimientos, sin conciliar, extracto hasta, lotes), proyectos (contratos, cobrado, valorizaciones,
+  sin presupuesto), contabilidad (asientos, periodos abiertos, TC SUNAT, facturas 2026 sin asiento), operaciones (viajes,
+  rendiciones, cartas, unidades con serie, obligaciones, presupuesto de área, CRM y Biomédico).
+- **BI & Reportería**: tarjetas nuevas Facturas de proveedores, Cuentas por pagar, Tesorería y bancos, Ingresos por proyecto
+  (contratos S/ 161.1 M, cobrado S/ 98.8 M, por cobrar), Contabilidad, Viajes y viáticos, Inventario con serie; Proyectos suma las
+  cartas pendientes. "Lo que todavía falta alimentar" ahora lo calcula `pendientesDeAlimentar(resumen)` con datos (cada punto lleva
+  a su pantalla): hoy: extracto BBVA de octubre sin importar (llega al 30/09), 168 movimientos sin conciliar, ningún lote de pago
+  armado, 12 facturas por conformar, 25 facturas 2026 sin asiento, 2 proyectos en ejecución sin presupuesto, presupuestos de área
+  sin cargar, 100 acciones de correspondencia sin plazo, CRM y Biomédico sin uso. Cuando algo se carga, desaparece solo.
+- **Dashboard General**: "OTs pendientes" → **Facturas por conformar** (12), "Equipos biomédicos" → **Cuentas por pagar
+  vencidas** (547 compromisos), Alertas = facturas por conformar + CxP vencidas + cartas vencidas + rendiciones por revisar (559,
+  lleva a BI); Proyectos activos se cuenta en la base (28, no 1).
+- Verificado en el preview con QA (borrado); sin errores de consola.
+
