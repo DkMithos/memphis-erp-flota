@@ -4358,3 +4358,15 @@ edición de OC → compras.aprobar; resultado → quien la pidió. QA con `qa.ge
 solo su "Te toca firmar como Gerencia"; Personal ve solo su aviso de viaje; RLS verificada con el JWT real por REST.
 Ojo MCP: `set_config('role')` en execute_sql no aplica RLS (la conexión es superusuario); verificar RLS por REST con token.
 
+## Selector de idioma oculto (2026-10-29)
+
+Kevin preguntó si el botón de idioma traducía todo. No: solo 5 de 249 componentes usan `useTranslation` (menú lateral, barra
+superior, selector de proyecto, selector de CDC y centros de costo; 235 claves en es/en). Todo lo demás está en español
+directo. Decisión de Kevin: ocultar el botón por ahora. Se quitó el dropdown de `ERPTopbar.tsx` y `src/lib/i18n/index.ts`
+quedó con `lng: 'es'` fijo (sin detector de navegador ni `memphis:lang` en localStorage, para que nadie quede con el menú en
+inglés). Las claves en inglés se conservan. Si aparece un usuario que necesite inglés, hay que traducir los módulos primero
+(varios días: textos, estados que vienen de la base, fechas y moneda) y recién mostrar el botón.
+
+Pendiente anotado: cuando llegue el organigrama nuevo, agregar jefe por persona para que el aviso de viaje vaya solo a su
+jefatura (hoy va a todos los que tienen `viajes.aprobar`).
+

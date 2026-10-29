@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Bell, Search, Moon, Sun, Monitor, ChevronDown, LogOut, User, Settings, CheckCheck, Loader2, Languages } from 'lucide-react';
+import { Bell, Search, Moon, Sun, Monitor, ChevronDown, LogOut, User, Settings, CheckCheck, Loader2 } from 'lucide-react';
 import { usePermissions } from '../../lib/rbac/usePermissions';
 import { buscar } from '../../lib/shared/busqueda-global';
 import { useTranslation } from 'react-i18next';
@@ -64,7 +64,7 @@ function formatRelative(iso: string): string {
 
 export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onSetTheme, tenantName, userName, onNavigate, currentRoute }: ERPTopbarProps) {
 
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { signOut, user, tenantId } = useAuth();
   const { can } = usePermissions();
   const { notificaciones, noLeidas, marcarLeida, marcarTodasLeidas } = useNotifications();
@@ -250,28 +250,11 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Language Toggle */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" title={t('topbar.language')} className="hover:!bg-black hover:!text-white dark:hover:!bg-accent dark:hover:!text-accent-foreground">
-              <Languages className="size-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-36">
-            <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">{t('topbar.language')}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => i18n.changeLanguage('es')}>
-              <span className="text-base">🇵🇪</span>
-              <span>{t('topbar.lang_es')}</span>
-              {i18n.language.startsWith('es') && <span className="ml-auto text-primary text-xs">✓</span>}
-            </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => i18n.changeLanguage('en')}>
-              <span className="text-base">🇺🇸</span>
-              <span>{t('topbar.lang_en')}</span>
-              {i18n.language.startsWith('en') && <span className="ml-auto text-primary text-xs">✓</span>}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Selector de idioma: oculto por decisión de Kevin (29/10/2026). Solo el menú, la barra
+            superior y dos selectores están traducidos (5 de 249 componentes); el resto del ERP
+            está en español directo, así que el botón prometía lo que no cumplía. El idioma queda
+            fijo en español en `src/lib/i18n/index.ts`. Cuando haya un usuario que necesite inglés,
+            hay que traducir los módulos antes de volver a mostrarlo. */}
 
         {/* Theme Toggle */}
         <DropdownMenu>
