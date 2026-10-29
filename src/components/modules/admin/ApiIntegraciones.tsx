@@ -16,10 +16,23 @@ import { PageNav } from '../../shared/PageNav';
 import { useConfirmAction } from '../../shared/ConfirmDialogProvider';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
+import { Paginador } from '../../shared/Paginador';
+import { usePagination } from '@/lib/shared/usePagination';
 import { usePermissions } from '@/lib/rbac/usePermissions';
 import { MODULOS_API, cargarAccesosRecientes, cargarClaves, crearClave, revocarClave, urlBaseApi, type ApiAcceso, type ApiClave } from '../../../lib/admin/api-claves';
 
 const fechaHora = (s: string | null) => s ? new Date(s).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+/** Ruta sin query ni uuids, para agrupar la bitácora por recurso. */
+const rutaBase = (ruta: string) => ruta.split('?')[0].replace(/\/api\/v1\//, '/').replace(/[0-9a-f]{8}-[0-9a-f-]{27}/gi, ':id');
+/** Qué suele significar cada código, en palabras, para quien revisa la bitácora sin saber HTTP. */
+const explicaEstado = (e: number) =>
+  e === 401 ? 'clave inválida, revocada o vencida: crear otra en esta pantalla y cambiarla en el sistema que llama'
+  : e === 403 ? 'la clave no tiene alcance para ese módulo: crear una clave con el alcance que falta'
+  : e === 404 ? 'la ruta no existe: revisar el nombre del recurso en la documentación'
+  : e === 422 ? 'datos inválidos en el cuerpo de la llamada'
+  : e === 429 ? 'pasó el tope de 120 llamadas por minuto: espaciar las llamadas o pedir menos páginas'
+  : e >= 500 ? 'falla del servidor al consultar: revisar con TI (normalmente una columna o vista que cambió)'
+  : '';
 
 export function ApiIntegraciones() {
   const { can } = usePermissions();
@@ -29,21 +42,52 @@ export function ApiIntegraciones() {
   const [loading, setLoading] = useState(true);
   const [nueva, setNueva] = useState(false);
   const [creada, setCreada] = useState<{ nombre: string; clave: string } | null>(null);
+  const [dias, setDias] = useState<7 | 30>(7);
+  const [soloErrores, setSoloErrores] = useState(false);
+  const [fRuta, setFRuta] = useState('');
+  const [fClave, setFClave] = useState('');
   const base = urlBaseApi();
 
-  const cargar = async () => {
+  const cargar = async (d: 7 | 30 = dias) => {
     setLoading(true);
-    try { const [c, a] = await Promise.all([cargarClaves(), cargarAccesosRecientes(7)]); setClaves(c); setAccesos(a); }
+    try { const [c, a] = await Promise.all([cargarClaves(), cargarAccesosRecientes(d)]); setClaves(c); setAccesos(a); }
     catch (e) { toast.error(e instanceof Error ? e.message : String(e)); }
     finally { setLoading(false); }
   };
-  useEffect(() => { void cargar(); }, []);
+  useEffect(() => { void cargar(dias); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [dias]);
 
   const usoPorClave = useMemo(() => {
     const m: Record<string, { llamadas: number; errores: number }> = {};
     for (const a of accesos) { const k = a.clave_id ?? '?'; m[k] = m[k] ?? { llamadas: 0, errores: 0 }; m[k].llamadas++; if (a.estado >= 400) m[k].errores++; }
     return m;
   }, [accesos]);
+
+  const totales = useMemo(() => {
+    const errores = accesos.filter(a => a.estado >= 400).length;
+    const ms = accesos.map(a => a.duracion_ms ?? 0).filter(Boolean).sort((x, y) => x - y);
+    return { llamadas: accesos.length, errores, p50: ms.length ? ms[Math.floor(ms.length / 2)] : 0, max: ms.length ? ms[ms.length - 1] : 0 };
+  }, [accesos]);
+
+  /** Resumen por recurso: cuántas llamadas, cuántas fallan, con qué código y cuánto tardan. Las que fallan van primero. */
+  const porRuta = useMemo(() => {
+    const m: Record<string, { ruta: string; llamadas: number; errores: number; codigos: Record<number, number>; ms: number; ultimo: string; ultimoError: string | null }> = {};
+    for (const a of accesos) {
+      const k = `${a.metodo} ${rutaBase(a.ruta)}`;
+      const r = m[k] = m[k] ?? { ruta: k, llamadas: 0, errores: 0, codigos: {}, ms: 0, ultimo: a.creado_en, ultimoError: null };
+      r.llamadas++; r.ms += a.duracion_ms ?? 0; if (a.creado_en > r.ultimo) r.ultimo = a.creado_en;
+      if (a.estado >= 400) { r.errores++; r.codigos[a.estado] = (r.codigos[a.estado] ?? 0) + 1; if (!r.ultimoError || a.creado_en > r.ultimoError) r.ultimoError = a.creado_en; }
+    }
+    return Object.values(m).sort((x, y) => (y.errores - x.errores) || (y.llamadas - x.llamadas));
+  }, [accesos]);
+
+  const filtradas = useMemo(() => {
+    const q = fRuta.trim().toLowerCase();
+    return accesos.filter(a => (!soloErrores || a.estado >= 400) && (!fClave || a.clave_id === fClave) && (!q || a.ruta.toLowerCase().includes(q)));
+  }, [accesos, soloErrores, fClave, fRuta]);
+  const pag = usePagination(filtradas, 20);
+  useEffect(() => { pag.reset(); },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [soloErrores, fClave, fRuta, dias]);
 
   const copiar = async (texto: string, msg = 'Copiado') => { try { await navigator.clipboard.writeText(texto); toast.success(msg); } catch { toast.error('No se pudo copiar'); } };
   const revocar = async (c: ApiClave) => {
@@ -74,7 +118,7 @@ export function ApiIntegraciones() {
         <Card className="lg:col-span-2"><CardHeader className="pb-2"><CardTitle className="text-base">Claves</CardTitle></CardHeader>
           <CardContent className="p-0">
             <Table>
-              <TableHeader><TableRow><TableHead>Integración</TableHead><TableHead>Clave</TableHead><TableHead>Alcances</TableHead><TableHead>Uso (7 días)</TableHead><TableHead>Último uso</TableHead><TableHead>Estado</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Integración</TableHead><TableHead>Clave</TableHead><TableHead>Alcances</TableHead><TableHead>Uso ({dias} días)</TableHead><TableHead>Último uso</TableHead><TableHead>Estado</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
               <TableBody>
                 {loading && <TableRow><TableCell colSpan={7} className="text-center py-8"><Loader2 className="size-5 animate-spin inline" /></TableCell></TableRow>}
                 {!loading && claves.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Todavía no hay claves. Cree una por cada sistema que vaya a leer el ERP.</TableCell></TableRow>}
@@ -113,24 +157,75 @@ export function ApiIntegraciones() {
         </Card>
       </div>
 
-      <Card><CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Activity className="size-4" /> Últimas llamadas</CardTitle></CardHeader>
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-base flex items-center gap-2"><Activity className="size-4" /> Llamadas por recurso ({dias} días)</CardTitle>
+            <div className="flex items-center gap-1 text-sm">
+              {([7, 30] as const).map(d => <Button key={d} size="sm" variant={dias === d ? 'default' : 'outline'} onClick={() => setDias(d)}>{d} días</Button>)}
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {totales.llamadas} llamadas · {totales.errores ? <span className="text-red-600 font-medium">{totales.errores} con error</span> : 'sin errores'} · tiempo típico {totales.p50} ms (máximo {totales.max} ms).
+            {accesos.length >= 2000 && ' Se muestran las 2,000 más recientes.'}
+          </p>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader><TableRow><TableHead>Recurso</TableHead><TableHead className="text-right">Llamadas</TableHead><TableHead className="text-right">Errores</TableHead><TableHead>Códigos</TableHead><TableHead className="text-right">ms prom.</TableHead><TableHead>Última</TableHead><TableHead>Qué hacer</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {porRuta.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground">Sin llamadas en los últimos {dias} días.</TableCell></TableRow>}
+              {porRuta.map(r => {
+                const peor = Object.keys(r.codigos).map(Number).sort((x, y) => (r.codigos[y] - r.codigos[x]))[0];
+                return (
+                  <TableRow key={r.ruta} className={r.errores ? 'bg-red-50/60 dark:bg-red-950/20' : ''}>
+                    <TableCell className="font-mono text-xs">{r.ruta}</TableCell>
+                    <TableCell className="text-right text-sm">{r.llamadas}</TableCell>
+                    <TableCell className="text-right text-sm">{r.errores ? <span className="text-red-600 font-medium">{r.errores}</span> : <span className="text-muted-foreground">0</span>}</TableCell>
+                    <TableCell><div className="flex flex-wrap gap-1">{Object.entries(r.codigos).map(([c, n]) => <Badge key={c} variant="destructive" className="text-[10px]">{c} ×{n}</Badge>)}</div></TableCell>
+                    <TableCell className="text-right text-xs">{r.llamadas ? Math.round(r.ms / r.llamadas) : '—'}</TableCell>
+                    <TableCell className="text-xs">{fechaHora(r.ultimo)}{r.ultimoError && <div className="text-red-600">último error {fechaHora(r.ultimoError)}</div>}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[360px]">{peor ? explicaEstado(peor) : r.errores === 0 && r.llamadas ? 'Todo bien' : ''}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-base">Bitácora de llamadas</CardTitle>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input placeholder="Buscar en la ruta…" value={fRuta} onChange={e => setFRuta(e.target.value)} className="h-8 w-56 text-sm" />
+              <select className="h-8 rounded-md border bg-background px-2 text-sm" value={fClave} onChange={e => setFClave(e.target.value)}>
+                <option value="">Todas las integraciones</option>
+                {claves.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+              <label className="flex items-center gap-2 text-sm"><Checkbox checked={soloErrores} onCheckedChange={(v: boolean | 'indeterminate') => setSoloErrores(v === true)} /> Solo errores</label>
+            </div>
+          </div>
+        </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader><TableRow><TableHead>Cuándo</TableHead><TableHead>Integración</TableHead><TableHead>Ruta</TableHead><TableHead>Estado</TableHead><TableHead>ms</TableHead><TableHead>IP</TableHead></TableRow></TableHeader>
             <TableBody>
-              {accesos.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">Sin llamadas en los últimos 7 días.</TableCell></TableRow>}
-              {accesos.slice(0, 20).map(a => (
+              {filtradas.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">{accesos.length === 0 ? `Sin llamadas en los últimos ${dias} días.` : 'Ninguna llamada coincide con los filtros.'}</TableCell></TableRow>}
+              {pag.paged.map(a => (
                 <TableRow key={a.id}>
-                  <TableCell className="text-xs">{fechaHora(a.creado_en)}</TableCell>
+                  <TableCell className="text-xs whitespace-nowrap">{fechaHora(a.creado_en)}</TableCell>
                   <TableCell className="text-sm">{claves.find(c => c.id === a.clave_id)?.nombre ?? '—'}</TableCell>
                   <TableCell className="font-mono text-xs max-w-[420px] truncate" title={a.ruta}>{a.metodo} {a.ruta}</TableCell>
-                  <TableCell><Badge variant={a.estado >= 400 ? 'destructive' : 'outline'}>{a.estado}</Badge></TableCell>
+                  <TableCell><Badge variant={a.estado >= 400 ? 'destructive' : 'outline'} title={explicaEstado(a.estado)}>{a.estado}</Badge></TableCell>
                   <TableCell className="text-xs">{a.duracion_ms ?? '—'}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{a.ip ?? '—'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          <Paginador page={pag.page} totalPages={pag.totalPages} totalItems={pag.totalItems} pageSize={pag.pageSize} setPage={pag.setPage} nombre="llamadas" />
         </CardContent>
       </Card>
 

@@ -4308,3 +4308,20 @@ transacción (100 de agosto, 67 de setiembre, 1 de marzo): 88 transferencias a p
 desde Bancos), 67 por clasificar (préstamos, planilla, AFP, compras de camiones/ambulancias, intereses, cuotas), 8 de caja chica,
 4 préstamos y 1 planilla. En cargos: S/ 10.35 M y US$ 4.16 M sin cruzar.
 
+## API: reporte de llamadas y corrección de cuentas por cobrar (2026-10-29)
+
+Kevin pidió ver el reporte de llamadas a la API y si había errores. Bitácora `api_accesos` desde el 21/10: 936 llamadas,
+13 con error, tiempo típico 771 ms. La integración real es "Facturas MA" (Miguelángel con Claude): recorre pagos, facturas,
+cuentas por pagar, órdenes, proveedores, proyectos, valorizaciones, fianzas e indicadores a diario desde la IP de la oficina.
+Los 3 errores del 21/10 (403, 404) fueron las pruebas del despliegue con claves ya revocadas.
+
+**El único error real**: `GET /v1/cuentas-por-cobrar` devolvía 500 en todas sus llamadas (10 desde el 22/10) porque el recurso
+pide `valorizacion_id` y la vista `v_cxc` no exponía esa columna (la tabla base `flujo_compromisos` sí la tiene). Se revisaron
+los 20 recursos de la API contra `information_schema` (columnas, orden y filtros): era la única columna que faltaba.
+Migración `20261029100000_v_cxc_valorizacion_id.sql` (se agrega al final de la vista). Probado de punta a punta con una clave
+temporal (borrada): 200 con 68 cuentas por cobrar y la columna presente.
+
+Pantalla Administración › API e integraciones: antes mostraba solo las últimas 20 llamadas. Ahora tiene resumen por recurso
+(llamadas, errores, códigos, ms promedio, última llamada y "qué hacer" según el código), selector 7/30 días, bitácora
+filtrable por integración, ruta y "solo errores", paginada de 20 en 20. QA con usuario temporal `qa.api@` (borrado).
+
