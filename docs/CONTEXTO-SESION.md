@@ -4370,3 +4370,27 @@ inglés). Las claves en inglés se conservan. Si aparece un usuario que necesite
 Pendiente anotado: cuando llegue el organigrama nuevo, agregar jefe por persona para que el aviso de viaje vaya solo a su
 jefatura (hoy va a todos los que tienen `viajes.aprobar`).
 
+## Pendientes cerrados sin depender de nadie (2026-10-29)
+
+Kevin: "sigamos con lo demás que quedó pendiente". Se revisó la lista y se cerró lo que no esperaba decisión de un área:
+- **Página de contactos / QR**: ya estaba en `main` (639ab3d1) y producción responde 200 en `/contactos.html`; el pendiente
+  "de activación" anotado el 27/10 quedó resuelto al fusionar la rama. El QR es válido.
+- **API v1.1.0**: recurso nuevo `GET /v1/cotizaciones` (compras:leer; filtros estado, proveedor, proyecto, requerimiento,
+  fechas) y columnas `descuento_global_tipo/valor/global` en `/ordenes-compra` y `/cotizaciones` (quedó anotado al
+  implementar descuentos el 26/10). `docs/API-MEMPHIS.md` actualizado. Los descuentos por ítem siguen sin exponerse (ítems).
+- **Aviso diario de correspondencia** (pendiente del 21/10): `correspondencia_aviso_diario()` + cron
+  `correspondencia-aviso-diario` (L-V 08:05 Perú). Solo avisa si hay cartas vencidas o que vencen en 7 días: un aviso dirigido
+  por `responsable_id` con sus cartas y uno a `proyectos.editar` con las que no tienen responsable (más el conteo de las sin
+  plazo). Hoy: 0 vencidas, 0 por vencer, **100 sin plazo** (sigue en manos de Operaciones ponerles fecha límite; sin plazo el
+  ERP no puede avisar). Ninguna carta tiene responsable todavía: cuando Operaciones lo asigne, el aviso llega a esa persona.
+- **Proveedores sujetos a detracción** (pendiente del sprint 0 de lotes): migración
+  `20261029173000_proveedores_detraccion_desde_facturas.sql`. Regla: factura recibida con detracción en el SIRE → el
+  proveedor es sujeto; tasa fijada solo si sus facturas muestran 1-2 tasas y la moda es 4/10/12 %. Resultado: 54 → 90
+  sujetos; tasas 12 % (66), 10 % (9), 4 % (7), sin tasa (8, p. ej. Peruana de Motores con 17 tasas distintas: Contabilidad
+  fija por línea). Un proveedor con facturas marcadas pero sin monto de detracción quedó fuera a propósito.
+
+Siguen esperando a alguien: Carolina (adelantos de caja chica en el ERP o en papel), Operaciones (plazos de las 100 cartas,
+versión de presupuesto que manda en 4 proyectos), Finanzas (saldo inicial de 806/830 y de caja, presupuestos de área, lotes de
+pago como práctica), Contabilidad (25 facturas 2026 sin asiento, cuentas y momento de contabilización), Administración
+(extracto BBVA de octubre), Kevin (organigrama para jefe por persona; Capacitor/tiendas para la app).
+

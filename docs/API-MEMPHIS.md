@@ -48,6 +48,7 @@ administración.
 | `/correspondencia` · `/correspondencia/{id}` | proyectos | `v_correspondencia` | `proyecto_id`, `estado`, `tipo`, `vencida`, `desde`, `hasta` |
 | `/capacitaciones` · `/certificados` | proyectos | `capacitaciones`, `certificados` | `proyecto_id` / `capacitacion_id`, `estado` |
 | `/ordenes-compra` · `/ordenes-compra/{id}` | compras | `ordenes_compra` | `estado`, `proyecto_id`, `proveedor_id`, `numero`, `desde`, `hasta` |
+| `/cotizaciones` | compras | `cotizaciones` | `estado`, `proveedor_id`, `proyecto_id`, `requerimiento_id`, `desde`, `hasta` |
 | `/facturas` · `/facturas/{id}` | compras | `comprobantes_pago` | `direccion`, `estado_flujo`, `proyecto_id`, `ruc`, `proveedor_id`, `desde`, `hasta` |
 | `/proveedores` · `/proveedores/{id}` | proveedores | `proveedores` | `estado`, `ruc`, `q` |
 | `/cuentas-por-pagar` | finanzas | `v_cxp` | `estado_pago`, `vencido`, `proyecto_id`, `proveedor_id`, `area`, `desde`, `hasta` |
@@ -63,6 +64,11 @@ administración.
 | `/yo` | — | la clave | quién soy y mis alcances |
 
 Las columnas exactas de cada recurso están en el OpenAPI (descripción de cada ruta).
+
+Descuentos de proveedor (desde el 26/10/2026): en `/ordenes-compra` y `/cotizaciones` viajan `descuento_global_tipo`
+(`porcentaje` o `monto`), `descuento_global_valor` y `descuento_global` (monto ya calculado). La regla es
+`subtotal = bruto − descuentos por ítem − descuento global`; `igv` y `total` se calculan sobre ese subtotal. Los descuentos
+por ítem están en los ítems de la orden, que la API todavía no expone.
 
 ## Escritura
 

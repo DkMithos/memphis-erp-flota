@@ -25,7 +25,7 @@ import { withSupabase } from 'npm:@supabase/server'
 
 type Admin = Parameters<Parameters<typeof withSupabase>[1]>[1]['supabaseAdmin']
 
-const VERSION = '1.0.0'
+const VERSION = '1.1.0' // 1.1.0 (29/10/2026): recurso /cotizaciones y descuentos de proveedor en órdenes y cotizaciones
 const TOPE_POR_MINUTO = 120
 const MAX_POR_PAGINA = 200
 
@@ -58,9 +58,13 @@ const RECURSOS: Recurso[] = [
     orden: [{ columna: 'codigo' }],
     filtros: [{ param: 'estado', columna: 'estado', op: 'eq', descripcion: 'idea · planificacion · en_ejecucion · completado · cancelado' }, { param: 'region', columna: 'region', op: 'ilike', descripcion: 'contiene' }, { param: 'q', columna: '', op: 'or', columnas: ['codigo', 'nombre', 'entidad_cliente'], descripcion: 'busca en código, nombre y entidad' }] },
   { ruta: 'ordenes-compra', modulo: 'compras', tabla: 'ordenes_compra', titulo: 'Órdenes de compra',
-    columnas: ['id','numero','tipo','estado','fecha_emision','fecha_entrega_esperada','fecha_vencimiento_pago','proveedor_id','proyecto_id','centro_costo_id','centro_costo_texto','moneda','tipo_cambio','subtotal','igv','total','condiciones_pago','dias_credito','lugar_entrega','regimen_igv','detraccion','pago_ligado_a','comprador_email','aprobado_por','aprobado_en','observaciones','creado_en','modificado_en'],
+    columnas: ['id','numero','tipo','estado','fecha_emision','fecha_entrega_esperada','fecha_vencimiento_pago','proveedor_id','proyecto_id','centro_costo_id','centro_costo_texto','moneda','tipo_cambio','subtotal','descuento_global_tipo','descuento_global_valor','descuento_global','igv','total','condiciones_pago','dias_credito','lugar_entrega','regimen_igv','detraccion','pago_ligado_a','comprador_email','aprobado_por','aprobado_en','observaciones','creado_en','modificado_en'],
     orden: [{ columna: 'fecha_emision', asc: false }, { columna: 'numero', asc: false }],
     filtros: [{ param: 'estado', columna: 'estado', op: 'eq', descripcion: 'estado de la OC' }, { param: 'proyecto_id', columna: 'proyecto_id', op: 'eq', descripcion: 'uuid del proyecto' }, { param: 'proveedor_id', columna: 'proveedor_id', op: 'eq', descripcion: 'uuid del proveedor' }, { param: 'numero', columna: 'numero', op: 'ilike', descripcion: 'MM-000123' }, ...fechas('fecha_emision')] },
+  { ruta: 'cotizaciones', modulo: 'compras', tabla: 'cotizaciones', titulo: 'Cotizaciones de proveedores',
+    columnas: ['id','numero','tipo','estado','fecha_emision','fecha_validez','requerimiento_id','proveedor_id','proyecto_id','centro_costo_id','moneda','subtotal','descuento_global_tipo','descuento_global_valor','descuento_global','igv','total','regimen_igv','plazo_entrega','condiciones_pago','es_tarifario','tarifario_vigencia','aprobado_por','aprobado_en','motivo_rechazo','observaciones','creado_en','modificado_en'],
+    orden: [{ columna: 'fecha_emision', asc: false }],
+    filtros: [{ param: 'estado', columna: 'estado', op: 'eq', descripcion: 'estado de la cotización' }, { param: 'proveedor_id', columna: 'proveedor_id', op: 'eq', descripcion: 'uuid del proveedor' }, { param: 'proyecto_id', columna: 'proyecto_id', op: 'eq', descripcion: 'uuid del proyecto' }, { param: 'requerimiento_id', columna: 'requerimiento_id', op: 'eq', descripcion: 'uuid del requerimiento' }, ...fechas('fecha_emision')] },
   { ruta: 'facturas', modulo: 'compras', tabla: 'comprobantes_pago', titulo: 'Facturas (recibidas y emitidas)',
     columnas: ['id','tipo','serie','numero','numero_completo','direccion','fecha_emision','fecha_vencimiento','ruc_emisor','razon_social_emisor','ruc_receptor','razon_social_receptor','subtotal','igv','total','moneda','tipo_cambio','tiene_detraccion','detraccion_monto','tiene_retencion','retencion_monto','estado','estado_flujo','proveedor_id','cliente_id','orden_compra_id','orden_compra_numero','proyecto_id','centro_costo_id','contabilizado','origen','periodo_sire','observaciones','creado_en'],
     orden: [{ columna: 'fecha_emision', asc: false }],
