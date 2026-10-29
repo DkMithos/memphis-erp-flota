@@ -100,15 +100,20 @@ Deno.serve(async (req: Request) => {
     aprobadores, solicitante, estado: 'pendiente',
   }).select('id').single()
 
-  // Notificación in-app (campanita del ERP)
-  await admin.from('notificaciones').insert({
-    tenant_id: tenantId,
-    tipo: 'warning',
-    titulo: `Aprobación requerida: ${numero ?? ''}`,
-    mensaje: `${MODULO_LABEL[modulo] ?? modulo} · ${new Intl.NumberFormat('es-PE', { style: 'currency', currency: moneda }).format(Number(monto) || 0)}`,
-    entidad_tipo: modulo,
-    entidad_id: numero ?? entidadId,
-  })
+  // Notificación in-app (campanita del ERP), dirigida a quien le toca aprobar.
+  // Orden de compra: la crea el trigger de la base al pasar a "enviada" (va a la etapa en turno,
+  // comprador → operaciones → gerencia), así que aquí no se duplica. Los demás módulos van a los
+  // roles del nivel; si el nivel no define roles, a quien aprueba en Finanzas/Compras.
+  if (modulo !== 'orden_compra') {
+    const permisos = rolesReq.length ? null : (modulo === 'caja_chica' ? ['finanzas.aprobar'] : ['compras.aprobar'])
+    await admin.rpc('notif_emitir', {
+      p_tenant: tenantId, p_tipo: 'warning',
+      p_titulo: `Aprobación requerida: ${numero ?? ''}`,
+      p_mensaje: `${MODULO_LABEL[modulo] ?? modulo} · ${new Intl.NumberFormat('es-PE', { style: 'currency', currency: moneda }).format(Number(monto) || 0)} · pide ${solicitante}`,
+      p_entidad_tipo: modulo, p_entidad_id: numero ?? entidadId,
+      p_usuarios: null, p_roles: rolesReq.length ? rolesReq : null, p_permisos: permisos, p_excluir: [userId],
+    })
+  }
 
   // Tarjeta Teams
   const fmt = new Intl.NumberFormat('es-PE', { style: 'currency', currency: moneda }).format(Number(monto) || 0)

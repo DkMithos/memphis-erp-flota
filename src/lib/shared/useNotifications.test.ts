@@ -76,3 +76,29 @@ describe('a quien solo le toca aprobar, solo le llega lo que aprueba', () => {
     expect(puedeVerNotificacion('caja_chica', gerencia)).toBe(false);
   });
 });
+
+import { esVisibleParaMi } from './useNotifications';
+
+describe('un aviso dirigido a mí se ve siempre; uno general, según mis módulos', () => {
+  const personal = soloVe('viajes');
+
+  it('el resultado de mi viaje me llega aunque no vea Finanzas ni Compras', () => {
+    expect(esVisibleParaMi({ dirigida: true, titulo: 'Viaje VJ-2026-010 aprobado', entidadTipo: 'viaje' }, personal, false)).toBe(true);
+  });
+
+  it('la solicitud de firma dirigida a Gerencia pasa su filtro de "solo aprobaciones"', () => {
+    expect(esVisibleParaMi({ dirigida: true, titulo: 'Aprobación requerida: MM-001253', entidadTipo: 'orden_compra' }, gerencia, true)).toBe(true);
+  });
+
+  it('a Gerencia no le llega un aviso general que no pide aprobación', () => {
+    expect(esVisibleParaMi({ dirigida: false, titulo: 'Edición autorizada: MM-001291', entidadTipo: 'orden_compra' }, gerencia, true)).toBe(false);
+  });
+
+  it('un aviso general de caja chica no le llega a quien no ve Finanzas', () => {
+    expect(esVisibleParaMi({ dirigida: false, titulo: 'Aprobación requerida: GCC-2026-001', entidadTipo: 'caja_chica' }, compras, false)).toBe(false);
+  });
+
+  it('un aviso general de su módulo sí le llega', () => {
+    expect(esVisibleParaMi({ dirigida: false, titulo: 'Edición autorizada: MM-001291', entidadTipo: 'orden_compra' }, compras, false)).toBe(true);
+  });
+});

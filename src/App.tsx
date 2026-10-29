@@ -180,6 +180,7 @@ import { EquipoQRPrint } from './components/modules/biomedico/EquipoQRPrint';
 
 // Perfil
 const UserProfile = lazyModulo(() => import('./components/modules/perfil/UserProfile').then(m => ({ default: m.UserProfile })));
+const NotificacionesCentro = lazyModulo(() => import('./components/modules/NotificacionesCentro').then(m => ({ default: m.NotificacionesCentro })));
 
 // Portal de proveedores (ruta pública /portal, con su propio login por RUC)
 const PortalProveedores = lazyModulo(() => import('./components/portal/PortalProveedores').then(m => ({ default: m.PortalProveedores })));
@@ -996,6 +997,9 @@ export default function App() {
     // Perfil de usuario
     if (currentRoute === '/perfil') {
       return <UserProfile />;
+    }
+    if (currentRoute === '/notificaciones') {
+      return <NotificacionesCentro onNavigate={navigateTo} />;
     }
 
     // Admin

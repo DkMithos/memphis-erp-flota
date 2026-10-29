@@ -216,6 +216,12 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
                         articulo: '/inventario/articulos',
                         proveedor: n.entidadId ? `/proveedores/directorio/${n.entidadId}` : '/proveedores/directorio',
                         factura: '/compras/facturas',
+                        factura_proveedor: '/compras/facturas',
+                        viaje: n.entidadId ? `/viajes/${n.entidadId}` : '/viajes',
+                        lote_pago: '/finanzas/lotes-pago',
+                        caja_chica: '/finanzas/caja-chica',
+                        vencimientos: '/flota',
+                        carta_fianza: '/fianzas',
                       };
                       const destino = n.entidadTipo ? rutas[n.entidadTipo] : undefined;
                       if (destino) onNavigate?.(destino);
@@ -233,6 +239,14 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
                 ))
               )}
             </div>
+            <DropdownMenuSeparator />
+            <button
+              type="button"
+              className="w-full px-3 py-2 text-xs text-center text-primary hover:bg-accent transition-colors"
+              onClick={() => onNavigate?.('/notificaciones')}
+            >
+              Ver todas las notificaciones
+            </button>
           </DropdownMenuContent>
         </DropdownMenu>
 

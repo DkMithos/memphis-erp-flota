@@ -4325,3 +4325,36 @@ Pantalla Administración › API e integraciones: antes mostraba solo las últim
 (llamadas, errores, códigos, ms promedio, última llamada y "qué hacer" según el código), selector 7/30 días, bitácora
 filtrable por integración, ruta y "solo errores", paginada de 20 en 20. QA con usuario temporal `qa.api@` (borrado).
 
+## Notificaciones por destinatario y según el flujo de aprobación (2026-10-29)
+
+Kevin: "las notificaciones deben ser para cada usuario lo que le corresponde… y en base a los flujos de aprobación".
+Hasta hoy `notificaciones` era por tenant (todos veían todo, filtrado por módulo en pantalla) y los avisos de viajes NUNCA se
+grabaron: `viaje_notificar` escribía el paso ('viaje_solicitado') en `tipo`, que solo admite info/warning/error/success, y el
+error se tragaba (109 viajes, 0 avisos).
+
+Migración `20261029140000_notificaciones_por_destinatario_y_flujos.sql`:
+- `notificaciones.dirigida` + `notificaciones_destinatarios (notificacion_id, user_id)`; RLS: un aviso dirigido solo lo ve su
+  destinatario; los generales (sin destinatario) siguen filtrándose por módulo en el cliente. Realtime incluye la tabla nueva.
+- `notif_emitir(tenant, tipo, titulo, mensaje, entidad_tipo, entidad_id, usuarios[], roles[], permisos['modulo.accion'][], excluir[])`:
+  único punto para avisos dirigidos. Excluye a quien hace la acción; si un rol/permiso no tiene a nadie, lo reciben los
+  Administradores; si solo se dieron usuarios y no queda ninguno, no se crea nada.
+- OC: `notif_oc_etapa_en_turno` + `notif_oc_solicitar` (misma regla que el front: nivel por monto → etapas → primera sin firma).
+  Triggers: al pasar a `enviada` avisa a la etapa en turno; cada firma (o firma borrada al reenviar) cierra el aviso anterior
+  para todos y avisa a la etapa siguiente; aprobada/rechazada → avisa al comprador (`creado_por`/`comprador_email`).
+  approvals-dispatch ya no inserta el aviso de OC (solo `aprobaciones` + Teams); para caja chica usa `notif_emitir` por roles.
+- Viajes: `viaje_notificar` misma firma, destinatarios por paso: solicitado → viajes.aprobar; jefatura OK → aprobar_final +
+  solicitante/viajeros; aprobado/rechazado/observada/aprobada → solicitante y viajeros; rendición presentada → jefatura.
+- Lotes: `lote_notificar` por estado: en_revision → lotes_validar; validado → lotes_armar + quien lo armó; por_pagar →
+  lotes_pagar; pagado → armó + Compras + Contabilidad; borrador/anulado → quien lo armó.
+- OT nueva y tarea vencida: triggers en la base (antes cada navegador abierto insertaba un aviso). Resumen de vencimientos
+  (notif-scheduler) → flota.editar/aprobar y biomedico.editar.
+- `mis_notificaciones(limite)`: lo visible con la lectura ya resuelta. Saneamiento: los 14 avisos de OC abiertos pasaron a
+  dirigidos a Gerencia (todas esperan esa firma).
+
+Front: `useNotifications` carga por `mis_notificaciones`, escucha `notificaciones_destinatarios`, `esVisibleParaMi` (dirigida →
+siempre; general → módulo; Gerencia → solo solicitudes), `pushNotificacion` acepta `destinatarios`. Campana: rutas de viaje,
+lote, caja chica y "Ver todas". Nueva pantalla `/notificaciones` (centro, paginado 20, filtros pendientes/tipo). Solicitud de
+edición de OC → compras.aprobar; resultado → quien la pidió. QA con `qa.gerencia@` y `qa.personal@` (borrados): Gerencia ve
+solo su "Te toca firmar como Gerencia"; Personal ve solo su aviso de viaje; RLS verificada con el JWT real por REST.
+Ojo MCP: `set_config('role')` en execute_sql no aplica RLS (la conexión es superusuario); verificar RLS por REST con token.
+

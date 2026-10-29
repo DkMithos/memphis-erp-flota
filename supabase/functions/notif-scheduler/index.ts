@@ -169,14 +169,13 @@ Deno.serve(async (req: Request) => {
     ],
   }
 
-  // Notificación in-app (campanita del ERP)
-  await admin.from('notificaciones').insert({
-    tenant_id: tenantId,
-    tipo: 'warning',
-    titulo: 'Resumen de vencimientos',
-    mensaje: `Docs:${nDocs} OTs:${nOts} Calibs:${nCalibs} Garantias:${nGar}`,
-    entidad_tipo: 'vencimientos',
-    entidad_id: null,
+  // Notificación in-app (campanita del ERP), solo para quien lleva Flota o Biomédico.
+  await admin.rpc('notif_emitir', {
+    p_tenant: tenantId, p_tipo: 'warning',
+    p_titulo: 'Resumen de vencimientos',
+    p_mensaje: `Docs:${nDocs} OTs:${nOts} Calibs:${nCalibs} Garantias:${nGar}`,
+    p_entidad_tipo: 'vencimientos', p_entidad_id: null,
+    p_usuarios: null, p_roles: null, p_permisos: ['flota.editar', 'flota.aprobar', 'biomedico.editar'], p_excluir: null,
   })
 
   try {

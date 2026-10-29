@@ -25,6 +25,15 @@
  * la orden queda aprobada/rechazada). Cuando alguien firma una etapa, el
  * trigger de `orden_aprobaciones` le anota la lectura solo a él: a los demás
  * firmantes el aviso les sigue pendiente, que es lo correcto.
+ *
+ * DIRIGIDAS (2026-10-29). Un aviso puede venir DIRIGIDO a personas concretas
+ * (`dirigida = true` + `notificaciones_destinatarios`): la base solo se lo
+ * entrega a ellas (RLS) y aquí se muestra siempre, sin filtro por módulo. Así
+ * la solicitud de firma de una orden le llega solo a la etapa en turno, la de
+ * un viaje a su jefatura, y el resultado a quien lo pidió. Los avisos generales
+ * (sin destinatario) siguen filtrándose por módulo como antes. Los avisos de OT
+ * nueva y tarea vencida ya no los inserta el navegador (cada sesión abierta
+ * metía uno): los crean triggers en la base.
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../supabase/client';
@@ -110,18 +119,39 @@ export interface Notificacion {
   mensaje?: string;
   /** Leída por mí o cerrada para todos por el sistema. */
   leida: boolean;
+  /** Dirigida a mí (la base ya decidió que me corresponde): se muestra siempre. */
+  dirigida: boolean;
   entidadTipo?: string;
   entidadId?: string;
   creadoEn: string;
 }
 
-/** Fila cruda de la tabla; `leida` aquí es la marca global (cerrada para todos). */
+/**
+ * ¿Le corresponde a esta persona ver este aviso?
+ *
+ * Lo dirigido a ella, siempre. Lo general, solo si ve el módulo; y a quien solo
+ * le toca aprobar (Gerencia, por decisión de Kevin el 10/09) únicamente las
+ * solicitudes de aprobación de los módulos donde de verdad aprueba.
+ */
+export function esVisibleParaMi(
+  n: Pick<Notificacion, 'dirigida' | 'titulo' | 'entidadTipo'>,
+  can: (m: Modulo, a: Accion) => boolean,
+  soloNotificaAprobaciones: boolean,
+): boolean {
+  if (n.dirigida) return true;
+  if (!puedeVerNotificacion(n.entidadTipo, can)) return false;
+  if (!soloNotificaAprobaciones) return true;
+  return esSolicitudDeAprobacion(n.titulo) && puedeAprobarNotificacion(n.entidadTipo, can);
+}
+
+/** Fila cruda; `cerrada` es la marca global (`leida` en la tabla: cerrada para todos). */
 interface FilaNotif {
   id: string;
   tipo: Notificacion['tipo'];
   titulo: string;
   mensaje?: string;
   cerrada: boolean;
+  dirigida: boolean;
   entidadTipo?: string;
   entidadId?: string;
   creadoEn: string;
@@ -133,12 +163,17 @@ function mapRow(r: Record<string, unknown>): FilaNotif {
     tipo: r.tipo as Notificacion['tipo'],
     titulo: r.titulo as string,
     mensaje: (r.mensaje as string) ?? undefined,
-    cerrada: Boolean(r.leida),
+    // `mis_notificaciones` la llama `cerrada`; la tabla cruda (realtime), `leida`.
+    cerrada: Boolean(r.cerrada ?? r.leida),
+    dirigida: Boolean(r.dirigida),
     entidadTipo: (r.entidad_tipo as string) ?? undefined,
     entidadId: (r.entidad_id as string) ?? undefined,
     creadoEn: r.creado_en as string,
   };
 }
+
+/** Cuántos avisos recientes se tienen en memoria (campana y centro de notificaciones). */
+const LIMITE = 200;
 
 // ── Estado compartido por tenant + usuario ─────────────────────────────────
 
@@ -170,6 +205,7 @@ function vista(c: Compartido): Notificacion[] {
     titulo: f.titulo,
     mensaje: f.mensaje,
     leida: f.cerrada || c.lecturas.has(f.id),
+    dirigida: f.dirigida,
     entidadTipo: f.entidadTipo,
     entidadId: f.entidadId,
     creadoEn: f.creadoEn,
@@ -184,37 +220,45 @@ function emitir(clave: string, cambio?: (c: Compartido) => void): void {
   for (const oyente of c.oyentes) oyente(lista);
 }
 
-async function cargar(clave: string, tenantId: string, userId: string): Promise<void> {
-  const [{ data: notifs }, { data: lecturas }] = await Promise.all([
-    supabase
-      .from('notificaciones')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .order('creado_en', { ascending: false })
-      .limit(50),
-    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-    (supabase.from('notificaciones_lecturas') as any)
-      .select('notificacion_id')
-      .eq('user_id', userId) as Promise<{ data: { notificacion_id: string }[] | null }>,
-  ]);
+/** La base devuelve solo lo que me corresponde (RLS) con mi lectura ya resuelta. */
+async function cargar(clave: string): Promise<void> {
+  const { data } = await (supabase.rpc as any)('mis_notificaciones', { p_limite: LIMITE }) as { data: Record<string, unknown>[] | null };
+  if (!data) return;
   emitir(clave, c => {
-    if (notifs) c.filas = (notifs as Record<string, unknown>[]).map(mapRow);
-    if (lecturas) c.lecturas = new Set(lecturas.map(l => l.notificacion_id));
+    c.filas = data.map(mapRow);
+    c.lecturas = new Set(data.filter(r => r.leida_por_mi === true).map(r => r.id as string));
   });
+}
+
+function agregarFila(clave: string, nueva: FilaNotif): void {
+  emitir(clave, c => {
+    if (!c.filas.some(n => n.id === nueva.id)) {
+      c.filas = [nueva, ...c.filas].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn)).slice(0, LIMITE);
+    }
+  });
+}
+
+/** Un aviso dirigido a mí llegó: se lee por id (la RLS ya me lo permite) y se suma a la lista. */
+async function traerUna(clave: string, id: string): Promise<void> {
+  const { data } = await supabase.from('notificaciones').select('*').eq('id', id).maybeSingle();
+  if (data) agregarFila(clave, mapRow(data as Record<string, unknown>));
 }
 
 function abrirCanal(clave: string, tenantId: string, userId: string): ReturnType<typeof supabase.channel> {
   return supabase.channel(`notif-${tenantId}-${userId}`)
-    // Notificaciones nuevas (otras sesiones o usuarios del mismo tenant)
+    // Notificaciones nuevas del tenant. Realtime aplica la RLS: un aviso dirigido a
+    // otra persona no llega aquí.
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'notificaciones', filter: `tenant_id=eq.${tenantId}` },
-      (payload) => {
-        const nueva = mapRow(payload.new as Record<string, unknown>);
-        emitir(clave, c => {
-          if (!c.filas.some(n => n.id === nueva.id)) c.filas = [nueva, ...c.filas].slice(0, 50);
-        });
-      },
+      (payload) => { agregarFila(clave, mapRow(payload.new as Record<string, unknown>)); },
+    )
+    // Me pusieron como destinatario de un aviso (por si el evento de arriba se
+    // evaluó antes de que existiera la fila de destinatario).
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'notificaciones_destinatarios', filter: `user_id=eq.${userId}` },
+      (payload) => { void traerUna(clave, (payload.new as { notificacion_id: string }).notificacion_id); },
     )
     // Un aviso cerrado para todos (la orden ya se aprobó/rechazó) desaparece en vivo
     .on(
@@ -236,44 +280,6 @@ function abrirCanal(clave: string, tenantId: string, userId: string): ReturnType
         emitir(clave, c => { c.lecturas.add(id); });
       },
     )
-    // Nuevas OTs
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'ordenes_trabajo', filter: `tenant_id=eq.${tenantId}` },
-      async (payload) => {
-        const ot = payload.new as Record<string, unknown>;
-        await supabase.from('notificaciones').insert({
-          tenant_id: tenantId,
-          tipo: 'info',
-          titulo: `Nueva OT: ${ot.numero_ot}`,
-          mensaje: `${ot.titulo} — ${ot.taller_nombre}`,
-          entidad_tipo: 'orden_trabajo',
-          entidad_id: ot.numero_ot as string,
-        });
-      },
-    )
-    // Tareas vencidas (detectadas al cambiar fecha_vencimiento)
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'tareas_proyecto', filter: `tenant_id=eq.${tenantId}` },
-      async (payload) => {
-        const t = payload.new as Record<string, unknown>;
-        const hoy = new Date().toISOString().split('T')[0];
-        if (
-          t.estado !== 'completada' && t.estado !== 'cancelada' &&
-          t.fecha_vencimiento && (t.fecha_vencimiento as string) < hoy
-        ) {
-          await supabase.from('notificaciones').insert({
-            tenant_id: tenantId,
-            tipo: 'warning',
-            titulo: `Tarea vencida: ${t.titulo}`,
-            mensaje: `Venció el ${t.fecha_vencimiento}`,
-            entidad_tipo: 'tarea',
-            entidad_id: t.id as string,
-          });
-        }
-      },
-    )
     .subscribe();
 }
 
@@ -285,7 +291,7 @@ function suscribir(clave: string, tenantId: string, userId: string, oyente: Oyen
 
   if (primero) {
     c.canal = abrirCanal(clave, tenantId, userId);
-    void cargar(clave, tenantId, userId);
+    void cargar(clave);
   } else {
     // Ya hay datos cargados: el que llega tarde los recibe de inmediato.
     oyente(vista(c));
@@ -321,19 +327,10 @@ export function useNotifications() {
     () => (clave ? vista(estado(clave)) : []),
   );
 
-  // La caché es del tenant; lo que cada uno ve depende de sus módulos.
-  //
-  // Y hay puestos que solo quieren saber de lo que tienen que firmar —Gerencia,
-  // por decisión de Kevin el 10/09—: para ellos se deja pasar únicamente la
-  // solicitud de aprobación, y solo de los módulos donde de verdad aprueban.
-  // Ver Flota no basta para que le lleguen avisos de órdenes de trabajo.
+  // Lo dirigido a mí se muestra siempre; lo general depende de mis módulos (y a
+  // quien solo aprueba, solo le pasan las solicitudes de aprobación). Ver `esVisibleParaMi`.
   const notificaciones = useMemo(
-    () => todas.filter(n => {
-      if (!puedeVerNotificacion(n.entidadTipo, can)) return false;
-      if (!soloNotificaAprobaciones) return true;
-      return esSolicitudDeAprobacion(n.titulo)
-        && puedeAprobarNotificacion(n.entidadTipo, can);
-    }),
+    () => todas.filter(n => esVisibleParaMi(n, can, soloNotificaAprobaciones)),
     [todas, can, soloNotificaAprobaciones],
   );
 
@@ -347,25 +344,25 @@ export function useNotifications() {
 
   const noLeidas = notificaciones.filter(n => !n.leida).length;
 
+  /**
+   * Crea un aviso. Con `destinatarios` (usuarios, roles o permisos "modulo.accion")
+   * va dirigido y solo lo ven ellos; sin destinatarios es general (lo ve quien vea
+   * el módulo). Quien lo emite no se lo manda a sí mismo.
+   */
   const pushNotificacion = useCallback(async (
-    notif: Omit<Notificacion, 'id' | 'leida' | 'creadoEn'>,
+    notif: Omit<Notificacion, 'id' | 'leida' | 'creadoEn' | 'dirigida'>
+      & { destinatarios?: { usuarios?: string[]; roles?: string[]; permisos?: string[] } },
   ) => {
     if (!tenantId || !clave) return;
-    const { data } = await supabase.from('notificaciones').insert({
-      tenant_id: tenantId,
-      tipo: notif.tipo,
-      titulo: notif.titulo,
-      mensaje: notif.mensaje ?? null,
-      entidad_tipo: notif.entidadTipo ?? null,
-      entidad_id: notif.entidadId ?? null,
-    }).select().single();
-    if (data) {
-      const nueva = mapRow(data as Record<string, unknown>);
-      emitir(clave, c => {
-        if (!c.filas.some(n => n.id === nueva.id)) c.filas = [nueva, ...c.filas].slice(0, 50);
-      });
-    }
-  }, [tenantId, clave]);
+    const d = notif.destinatarios;
+    const { data: id } = await (supabase.rpc as any)('notif_emitir', {
+      p_tenant: tenantId, p_tipo: notif.tipo, p_titulo: notif.titulo, p_mensaje: notif.mensaje ?? null,
+      p_entidad_tipo: notif.entidadTipo ?? null, p_entidad_id: notif.entidadId ?? null,
+      p_usuarios: d?.usuarios ?? null, p_roles: d?.roles ?? null, p_permisos: d?.permisos ?? null,
+      p_excluir: userId ? [userId] : null,
+    }) as { data: string | null };
+    if (id && !d) await traerUna(clave, id);
+  }, [tenantId, clave, userId]);
 
   // Leer es personal: se anota MI lectura, no se cierra el aviso para los demás.
   const marcarLeida = useCallback(async (id: string) => {

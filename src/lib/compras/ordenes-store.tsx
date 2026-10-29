@@ -938,12 +938,14 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
       } as Record<string, unknown>);
       if (error) return { exito: false, errores: [error.message] };
 
-      // Aviso para quien aprueba (la campana lo filtra por módulo/permiso).
-      await supabase.from('notificaciones').insert({
-        tenant_id: tenantId, tipo: 'warning',
-        titulo: `Solicitud de edición: ${orden.id}`,
-        mensaje: `${profile?.nombre ?? user.email ?? 'Compras'} pide editar la orden: ${motivo.trim()}`,
-        entidad_tipo: 'orden_compra', entidad_id: orden.id,
+      // Aviso dirigido a quienes resuelven ediciones (compras.aprobar), no a todo el tenant.
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      await (supabase.rpc as any)('notif_emitir', {
+        p_tenant: tenantId, p_tipo: 'warning',
+        p_titulo: `Solicitud de edición: ${orden.id}`,
+        p_mensaje: `${profile?.nombre ?? user.email ?? 'Compras'} pide editar la orden: ${motivo.trim()}`,
+        p_entidad_tipo: 'orden_compra', p_entidad_id: orden.id,
+        p_usuarios: null, p_roles: null, p_permisos: ['compras.aprobar'], p_excluir: [user.id],
       });
 
       setOrdenes(prev => prev.map(o => o.id === id
@@ -986,17 +988,20 @@ export function OrdenStoreProvider({ children }: { children: React.ReactNode }) 
         await (supabase.from('orden_aprobaciones') as any).delete().eq('orden_id', dbId).neq('etapa', 'comprador');
       }
 
-      // Se cierra el aviso de la solicitud y se avisa el resultado.
+      // Se cierra el aviso de la solicitud y se le avisa el resultado a quien la pidió.
       await supabase.from('notificaciones').update({ leida: true })
         .eq('tenant_id', tenantId).eq('entidad_tipo', 'orden_compra').eq('entidad_id', orden.id)
         .ilike('titulo', 'Solicitud de edici%');
-      await supabase.from('notificaciones').insert({
-        tenant_id: tenantId, tipo: autorizar ? 'success' : 'warning',
-        titulo: `Edición ${autorizar ? 'autorizada' : 'denegada'}: ${orden.id}`,
-        mensaje: autorizar
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      await (supabase.rpc as any)('notif_emitir', {
+        p_tenant: tenantId, p_tipo: autorizar ? 'success' : 'warning',
+        p_titulo: `Edición ${autorizar ? 'autorizada' : 'denegada'}: ${orden.id}`,
+        p_mensaje: autorizar
           ? 'La orden volvió a borrador: edítela y vuelva a enviarla a aprobación.'
           : (observacion?.trim() || 'La solicitud de edición fue denegada.'),
-        entidad_tipo: 'orden_compra', entidad_id: orden.id,
+        p_entidad_tipo: 'orden_compra', p_entidad_id: orden.id,
+        p_usuarios: previa.solicitadoPor ? [previa.solicitadoPor] : null, p_roles: null,
+        p_permisos: previa.solicitadoPor ? null : ['compras.crear'], p_excluir: [user.id],
       });
 
       setOrdenes(prev => prev.map(o => o.id === id
