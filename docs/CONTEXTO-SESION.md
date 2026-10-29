@@ -4394,3 +4394,30 @@ versión de presupuesto que manda en 4 proyectos), Finanzas (saldo inicial de 80
 pago como práctica), Contabilidad (25 facturas 2026 sin asiento, cuentas y momento de contabilización), Administración
 (extracto BBVA de octubre), Kevin (organigrama para jefe por persona; Capacitor/tiendas para la app).
 
+## Pendiente anotado por Kevin (2026-10-29)
+
+**Pedir a Operaciones plazos y responsables** de las 100 cartas pendientes con el Estado (Proyectos › Correspondencia): sin
+`fecha_limite` ni `responsable_id` el aviso diario `correspondencia-aviso-diario` no tiene a quién ni cuándo avisar.
+
+## API v1.2.0: órdenes y facturas con TODA la información (2026-10-29)
+
+Kevin: "me solicitaron que con la API se pueda extraer toda la información de las órdenes y de las facturas". Antes
+`/ordenes-compra` y `/facturas` devolvían un subconjunto de columnas y nada relacionado (ni ítems).
+- **Columnas completas**: la orden expone sus 46 columnas de negocio (incluye `detraccion`, `banco_seleccionado`,
+  `cuenta_seleccionada`, `solicitud_edicion`, rechazo, anulación, migración); la factura sus 52 (op_gravada/exonerada/inafecta,
+  tasas, conformidad, asiento, SIRE…). Solo quedan fuera `tenant_id` y las rutas internas de archivo.
+- **`?incluir=`** (lista separada por coma o `todo`; en `/{id}` todo por defecto; la respuesta agrega `incluido`):
+  órdenes → `items` (con descuento por ítem), `proveedor`, `proyecto`, `centro_costo`, `firmas` (sin imagen), `recepciones`
+  (con líneas), `facturas`, `ediciones`, `pagos`, `compromisos`. Facturas → `detalle`, `proveedor`, `proyecto`,
+  `centro_costo`, `orden`, `detracciones`, `pagos`, `compromiso`, `archivos` (`pdf_url`/`xml_url` firmadas 10 min desde el
+  bucket `facturas-proveedores`). Pagos, compromisos y detracciones exigen `finanzas:leer`; si la clave no lo tiene, la fila
+  trae `_omitido` con el motivo en vez de fallar. Cada expansión es una consulta por página (`in (...)`), no por fila.
+- Filtros nuevos en facturas: `orden_compra_id`, `numero` (numero_completo). `docs/API-MEMPHIS.md` actualizado.
+- Probado en producción con clave temporal (borrada): detalle de MM-S-000464 (57 columnas + 10 expansiones: 1 ítem,
+  2 firmas, factura FP30-0003207 conforme, compromiso), lista de 50 órdenes desde setiembre con `todo` en 6 s, factura
+  FP30-0003215 con PDF firmado, lista de facturas pagadas con `pagos` (18 de 20 con pago enlazado). `incluir` inválido se
+  ignora. Observación: `comprobantes_detalle` tiene 0 filas (el SIRE no trae líneas; solo las facturas del portal las
+  tendrían), así que `detalle` vendrá vacío en casi todas hasta que se carguen XML.
+- Pendiente de rendimiento si hace falta: las expansiones corren en serie (un detalle con todo tarda ~6-7 s por el arranque
+  en frío de la función); se pueden paralelizar con Promise.all.
+

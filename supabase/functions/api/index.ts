@@ -25,7 +25,11 @@ import { withSupabase } from 'npm:@supabase/server'
 
 type Admin = Parameters<Parameters<typeof withSupabase>[1]>[1]['supabaseAdmin']
 
-const VERSION = '1.1.0' // 1.1.0 (29/10/2026): recurso /cotizaciones y descuentos de proveedor en órdenes y cotizaciones
+// 1.1.0 (29/10/2026): recurso /cotizaciones y descuentos de proveedor en órdenes y cotizaciones.
+// 1.2.0 (29/10/2026): órdenes y facturas completas — todas las columnas de negocio y `?incluir=` con ítems, firmas,
+//   recepciones, facturas, pagos, compromisos, detracciones, detalle y archivos (URL firmada 10 min). El detalle por id
+//   trae todo por defecto. Pedido de Kevin: "que con la API se pueda extraer TODA la información de órdenes y facturas".
+const VERSION = '1.2.0'
 const TOPE_POR_MINUTO = 120
 const MAX_POR_PAGINA = 200
 
@@ -33,6 +37,8 @@ interface Clave { id: string; tenant_id: string; nombre: string; alcances: strin
 interface Filtro { param: string; columna: string; op: 'eq' | 'gte' | 'lte' | 'ilike' | 'bool' | 'or'; descripcion: string; columnas?: string[] }
 interface Recurso {
   ruta: string; modulo: string; tabla: string; titulo: string; columnas: string[]; orden: { columna: string; asc?: boolean }[]; filtros: Filtro[]
+  /** Qué se puede pedir con `?incluir=a,b` (o `todo`). Solo órdenes y facturas por ahora. */
+  incluye?: string[]
 }
 
 async function sha256(s: string): Promise<string> {
@@ -58,17 +64,22 @@ const RECURSOS: Recurso[] = [
     orden: [{ columna: 'codigo' }],
     filtros: [{ param: 'estado', columna: 'estado', op: 'eq', descripcion: 'idea · planificacion · en_ejecucion · completado · cancelado' }, { param: 'region', columna: 'region', op: 'ilike', descripcion: 'contiene' }, { param: 'q', columna: '', op: 'or', columnas: ['codigo', 'nombre', 'entidad_cliente'], descripcion: 'busca en código, nombre y entidad' }] },
   { ruta: 'ordenes-compra', modulo: 'compras', tabla: 'ordenes_compra', titulo: 'Órdenes de compra',
-    columnas: ['id','numero','tipo','estado','fecha_emision','fecha_entrega_esperada','fecha_vencimiento_pago','proveedor_id','proyecto_id','centro_costo_id','centro_costo_texto','moneda','tipo_cambio','subtotal','descuento_global_tipo','descuento_global_valor','descuento_global','igv','total','condiciones_pago','dias_credito','lugar_entrega','regimen_igv','detraccion','pago_ligado_a','comprador_email','aprobado_por','aprobado_en','observaciones','creado_en','modificado_en'],
+    // Todas las columnas de negocio de la orden (solo queda fuera tenant_id).
+    columnas: ['id','numero','tipo','estado','fecha_emision','fecha_entrega_esperada','fecha_vencimiento_pago','vencimiento_manual','vencimiento_estimado','cotizacion_id','proveedor_id','proyecto_id','centro_costo_id','centro_costo_texto','moneda','tipo_cambio','tipo_cambio_migracion','subtotal','descuento_global_tipo','descuento_global_valor','descuento_global','igv','total','condiciones_pago','dias_credito','lugar_entrega','regimen_igv','aplica_retencion_rh','detraccion','banco_seleccionado','cuenta_seleccionada','pago_ligado_a','comprador_email','aprobado_por','aprobado_en','motivo_rechazo','rechazado_por','rechazado_en','motivo_anulacion','solicitud_edicion','observaciones','migrado_de','migrado_id','creado_por','creado_en','modificado_por','modificado_en'],
     orden: [{ columna: 'fecha_emision', asc: false }, { columna: 'numero', asc: false }],
-    filtros: [{ param: 'estado', columna: 'estado', op: 'eq', descripcion: 'estado de la OC' }, { param: 'proyecto_id', columna: 'proyecto_id', op: 'eq', descripcion: 'uuid del proyecto' }, { param: 'proveedor_id', columna: 'proveedor_id', op: 'eq', descripcion: 'uuid del proveedor' }, { param: 'numero', columna: 'numero', op: 'ilike', descripcion: 'MM-000123' }, ...fechas('fecha_emision')] },
+    filtros: [{ param: 'estado', columna: 'estado', op: 'eq', descripcion: 'estado de la OC' }, { param: 'proyecto_id', columna: 'proyecto_id', op: 'eq', descripcion: 'uuid del proyecto' }, { param: 'proveedor_id', columna: 'proveedor_id', op: 'eq', descripcion: 'uuid del proveedor' }, { param: 'numero', columna: 'numero', op: 'ilike', descripcion: 'MM-000123' }, ...fechas('fecha_emision')],
+    incluye: ['items', 'proveedor', 'proyecto', 'centro_costo', 'firmas', 'recepciones', 'facturas', 'ediciones', 'pagos', 'compromisos'] },
   { ruta: 'cotizaciones', modulo: 'compras', tabla: 'cotizaciones', titulo: 'Cotizaciones de proveedores',
     columnas: ['id','numero','tipo','estado','fecha_emision','fecha_validez','requerimiento_id','proveedor_id','proyecto_id','centro_costo_id','moneda','subtotal','descuento_global_tipo','descuento_global_valor','descuento_global','igv','total','regimen_igv','plazo_entrega','condiciones_pago','es_tarifario','tarifario_vigencia','aprobado_por','aprobado_en','motivo_rechazo','observaciones','creado_en','modificado_en'],
     orden: [{ columna: 'fecha_emision', asc: false }],
     filtros: [{ param: 'estado', columna: 'estado', op: 'eq', descripcion: 'estado de la cotización' }, { param: 'proveedor_id', columna: 'proveedor_id', op: 'eq', descripcion: 'uuid del proveedor' }, { param: 'proyecto_id', columna: 'proyecto_id', op: 'eq', descripcion: 'uuid del proyecto' }, { param: 'requerimiento_id', columna: 'requerimiento_id', op: 'eq', descripcion: 'uuid del requerimiento' }, ...fechas('fecha_emision')] },
   { ruta: 'facturas', modulo: 'compras', tabla: 'comprobantes_pago', titulo: 'Facturas (recibidas y emitidas)',
-    columnas: ['id','tipo','serie','numero','numero_completo','direccion','fecha_emision','fecha_vencimiento','ruc_emisor','razon_social_emisor','ruc_receptor','razon_social_receptor','subtotal','igv','total','moneda','tipo_cambio','tiene_detraccion','detraccion_monto','tiene_retencion','retencion_monto','estado','estado_flujo','proveedor_id','cliente_id','orden_compra_id','orden_compra_numero','proyecto_id','centro_costo_id','contabilizado','origen','periodo_sire','observaciones','creado_en'],
+    // Todas las columnas de negocio de la factura. Las rutas de archivo (pdf_path/xml_path) no salen: con `incluir=archivos`
+    // se entregan URLs firmadas de 10 minutos (`pdf_url`, `xml_url`).
+    columnas: ['id','tipo','serie','numero','numero_completo','direccion','fecha_emision','fecha_vencimiento','ruc_emisor','razon_social_emisor','ruc_receptor','razon_social_receptor','op_gravada','op_exonerada','op_inafecta','op_exportacion','subtotal','igv','otros_tributos','total','moneda','tipo_cambio','tiene_detraccion','detraccion_codigo','detraccion_tasa','detraccion_monto','tiene_retencion','retencion_tasa','retencion_monto','estado','estado_flujo','motivo_observacion','validado_en','conforme_por','conforme_en','proveedor_id','cliente_id','orden_compra_id','orden_compra_numero','recepcion_id','proyecto_id','centro_costo_id','contabilizado','asiento_id','contabilizacion_error','origen','periodo_sire','subido_por_proveedor','subido_por','observaciones','creado_por','creado_en'],
     orden: [{ columna: 'fecha_emision', asc: false }],
-    filtros: [{ param: 'direccion', columna: 'direccion', op: 'eq', descripcion: 'recibido · emitido' }, { param: 'estado_flujo', columna: 'estado_flujo', op: 'eq', descripcion: 'recibida · conforme · programada_pago · pagada · observada · historica' }, { param: 'proyecto_id', columna: 'proyecto_id', op: 'eq', descripcion: 'uuid del proyecto' }, { param: 'ruc', columna: 'ruc_emisor', op: 'eq', descripcion: 'RUC del emisor' }, { param: 'proveedor_id', columna: 'proveedor_id', op: 'eq', descripcion: 'uuid del proveedor' }, ...fechas('fecha_emision')] },
+    filtros: [{ param: 'direccion', columna: 'direccion', op: 'eq', descripcion: 'recibido · emitido' }, { param: 'estado_flujo', columna: 'estado_flujo', op: 'eq', descripcion: 'recibida · conforme · programada_pago · pagada · observada · historica' }, { param: 'proyecto_id', columna: 'proyecto_id', op: 'eq', descripcion: 'uuid del proyecto' }, { param: 'ruc', columna: 'ruc_emisor', op: 'eq', descripcion: 'RUC del emisor' }, { param: 'proveedor_id', columna: 'proveedor_id', op: 'eq', descripcion: 'uuid del proveedor' }, { param: 'orden_compra_id', columna: 'orden_compra_id', op: 'eq', descripcion: 'uuid de la OC' }, { param: 'numero', columna: 'numero_completo', op: 'ilike', descripcion: 'F001-123' }, ...fechas('fecha_emision')],
+    incluye: ['detalle', 'proveedor', 'proyecto', 'centro_costo', 'orden', 'detracciones', 'pagos', 'compromiso', 'archivos'] },
   { ruta: 'proveedores', modulo: 'proveedores', tabla: 'proveedores', titulo: 'Proveedores',
     columnas: ['id','codigo','razon_social','nombre_comercial','ruc','tipo','categoria','estado','condicion','score','email','telefono','celular','web','pais','departamento','provincia','distrito','direccion','contacto','contacto_cargo','contacto_email','contacto_telefono','domiciliado','regimen_igv','sujeto_detraccion','tasa_detraccion','sujeto_retencion','agente_retencion','agente_percepcion','buen_contribuyente','verificado_sunat','creado_en','modificado_en'],
     orden: [{ columna: 'razon_social' }],
@@ -132,6 +143,139 @@ function tieneAlcance(clave: Clave, modulo: string, accion: 'leer' | 'escribir')
   return a.includes('*') || a.includes(`*:${accion}`) || a.includes(`${modulo}:${accion}`) || (accion === 'leer' && a.includes(`${modulo}:escribir`))
 }
 
+// ── Expansiones (`?incluir=`): la orden y la factura con TODO lo que las rodea ──────────────────────────────────────
+/** Qué pidió el cliente; `todo` = todas las expansiones del recurso. En el detalle por id, sin parámetro = todo. */
+function incluirDe(url: URL, r: Recurso, todoPorDefecto: boolean): Set<string> {
+  const permitidas = r.incluye ?? []
+  const raw = url.searchParams.get('incluir')
+  if (raw == null || raw === '') return new Set(todoPorDefecto ? permitidas : [])
+  const pedidas = raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+  if (pedidas.includes('todo')) return new Set(permitidas)
+  return new Set(pedidas.filter(p => permitidas.includes(p)))
+}
+
+function agrupar<T extends Record<string, any>>(filas: T[] | null | undefined, clave: string): Map<string, T[]> {
+  const m = new Map<string, T[]>()
+  for (const f of filas ?? []) { const k = String(f[clave] ?? ''); if (!m.has(k)) m.set(k, []); m.get(k)!.push(f) }
+  return m
+}
+
+/** Catálogos pequeños que van en varios recursos: proveedor, proyecto y centro de costo (solo identificación). */
+async function catalogos(admin: Admin, tenant: string, filas: Record<string, any>[], inc: Set<string>) {
+  const ids = (col: string) => [...new Set(filas.map(f => f[col]).filter(Boolean))] as string[]
+  if (inc.has('proveedor') && ids('proveedor_id').length) {
+    const { data } = await admin.from('proveedores').select('id, codigo, razon_social, nombre_comercial, ruc, estado, sujeto_detraccion, tasa_detraccion, sujeto_retencion').eq('tenant_id', tenant).in('id', ids('proveedor_id'))
+    const m = new Map((data ?? []).map(p => [p.id, p])); for (const f of filas) f.proveedor = m.get(f.proveedor_id) ?? null
+  }
+  if (inc.has('proyecto') && ids('proyecto_id').length) {
+    const { data } = await admin.from('proyectos').select('id, codigo, nombre, estado, entidad_cliente').eq('tenant_id', tenant).in('id', ids('proyecto_id'))
+    const m = new Map((data ?? []).map(p => [p.id, p])); for (const f of filas) f.proyecto = m.get(f.proyecto_id) ?? null
+  }
+  if (inc.has('centro_costo') && ids('centro_costo_id').length) {
+    const { data } = await admin.from('centros_costo').select('id, codigo, nombre').eq('tenant_id', tenant).in('id', ids('centro_costo_id'))
+    const m = new Map((data ?? []).map(p => [p.id, p])); for (const f of filas) f.centro_costo = m.get(f.centro_costo_id) ?? null
+  }
+}
+
+/** Pagos (tesorería) y compromisos (CxP) son de Finanzas: solo salen si la clave tiene finanzas:leer. */
+const COLS_PAGO = 'id, numero, tipo, estado, fecha, fecha_pago, monto, moneda, tipo_cambio, monto_soles, descripcion, referencia_tipo, referencia_numero, cuenta_bancaria_id, comprobante_id, orden_compra_id, compromiso_id, movimiento_bancario_id, conciliado_en'
+const COLS_COMPROMISO = 'id, concepto, moneda, monto_presupuestado, monto_ejecutado, monto_pagado, estado_pago, fecha_vencimiento, fecha_pagado, origen, orden_compra_id, comprobante_id'
+
+async function expandirOrdenes(admin: Admin, clave: Clave, filas: Record<string, any>[], inc: Set<string>) {
+  if (!filas.length || !inc.size) return
+  const t = clave.tenant_id; const ids = filas.map(f => f.id as string)
+  await catalogos(admin, t, filas, inc)
+  if (inc.has('items')) {
+    const { data } = await admin.from('orden_items').select('id, orden_id, descripcion, unidad, cantidad, precio_unitario, descuento_tipo, descuento_valor, descuento, precio_total, articulo_id, partida_id, presupuesto_linea_id').eq('tenant_id', t).in('orden_id', ids).order('id')
+    const m = agrupar(data, 'orden_id'); for (const f of filas) f.items = m.get(f.id) ?? []
+  }
+  if (inc.has('firmas')) {
+    // Sin la imagen de la rúbrica: quién firmó qué etapa y cuándo.
+    const { data } = await admin.from('orden_aprobaciones').select('orden_id, etapa, aprobado_por_nombre, aprobado_por_email, aprobado_en, origen').eq('tenant_id', t).in('orden_id', ids).order('aprobado_en')
+    const m = agrupar(data, 'orden_id'); for (const f of filas) f.firmas = m.get(f.id) ?? []
+  }
+  if (inc.has('recepciones')) {
+    const { data } = await admin.from('recepciones').select('id, orden_id, numero, estado, fecha_recepcion, numero_guia, numero_factura, almacen_id, observaciones, creado_en').eq('tenant_id', t).in('orden_id', ids).order('fecha_recepcion')
+    const rec = data ?? []
+    if (rec.length) {
+      const { data: ri } = await admin.from('recepcion_items').select('id, recepcion_id, orden_item_id, descripcion, unidad, cantidad_pedida, cantidad_recibida, conforme, precio_unitario, valor_recibido, articulo_id, observaciones').eq('tenant_id', t).in('recepcion_id', rec.map(r => r.id))
+      const mi = agrupar(ri, 'recepcion_id'); for (const r of rec) (r as any).items = mi.get(r.id) ?? []
+    }
+    const m = agrupar(rec, 'orden_id'); for (const f of filas) f.recepciones = m.get(f.id) ?? []
+  }
+  if (inc.has('facturas')) {
+    const { data } = await admin.from('comprobantes_pago').select('id, orden_compra_id, tipo, numero_completo, fecha_emision, fecha_vencimiento, moneda, subtotal, igv, total, estado, estado_flujo, tiene_detraccion, detraccion_monto, tiene_retencion, retencion_monto, contabilizado').eq('tenant_id', t).eq('direccion', 'recibido').in('orden_compra_id', ids).order('fecha_emision')
+    const m = agrupar(data, 'orden_compra_id'); for (const f of filas) f.facturas = m.get(f.id) ?? []
+  }
+  if (inc.has('ediciones')) {
+    const { data } = await admin.from('orden_solicitudes_edicion').select('id, orden_id, solicitado_por, solicitado_en, motivo, estado, resuelto_por, resuelto_en, comentario_resolucion, origen').eq('tenant_id', t).in('orden_id', ids).order('solicitado_en')
+    const m = agrupar(data, 'orden_id'); for (const f of filas) f.ediciones = m.get(f.id) ?? []
+  }
+  if (inc.has('pagos') || inc.has('compromisos')) {
+    if (!tieneAlcance(clave, 'finanzas', 'leer')) { for (const f of filas) f._omitido = 'pagos y compromisos requieren el alcance finanzas:leer' }
+    else {
+      if (inc.has('pagos')) {
+        const { data } = await admin.from('transacciones').select(COLS_PAGO).eq('tenant_id', t).in('orden_compra_id', ids).neq('estado', 'anulada').order('fecha_pago')
+        const m = agrupar(data, 'orden_compra_id'); for (const f of filas) f.pagos = m.get(f.id) ?? []
+      }
+      if (inc.has('compromisos')) {
+        const { data } = await admin.from('flujo_compromisos').select(COLS_COMPROMISO).eq('tenant_id', t).in('orden_compra_id', ids)
+        const m = agrupar(data, 'orden_compra_id'); for (const f of filas) f.compromisos = m.get(f.id) ?? []
+      }
+    }
+  }
+}
+
+async function expandirFacturas(admin: Admin, clave: Clave, filas: Record<string, any>[], inc: Set<string>) {
+  if (!filas.length || !inc.size) return
+  const t = clave.tenant_id; const ids = filas.map(f => f.id as string)
+  await catalogos(admin, t, filas, inc)
+  if (inc.has('detalle')) {
+    const { data } = await admin.from('comprobantes_detalle').select('id, comprobante_id, numero_linea, descripcion, unidad, cantidad, precio_unitario, descuento, valor_venta, tipo_afectacion_igv, igv_linea, precio_venta, cuenta_contable').eq('tenant_id', t).in('comprobante_id', ids).order('numero_linea')
+    const m = agrupar(data, 'comprobante_id'); for (const f of filas) f.detalle = m.get(f.id) ?? []
+  }
+  if (inc.has('orden')) {
+    const oids = [...new Set(filas.map(f => f.orden_compra_id).filter(Boolean))] as string[]
+    if (oids.length) {
+      const { data } = await admin.from('ordenes_compra').select('id, numero, tipo, estado, fecha_emision, moneda, total, proyecto_id, centro_costo_id').eq('tenant_id', t).in('id', oids)
+      const m = new Map((data ?? []).map(o => [o.id, o])); for (const f of filas) f.orden = m.get(f.orden_compra_id) ?? null
+    } else for (const f of filas) f.orden = null
+  }
+  if (inc.has('detracciones') || inc.has('pagos') || inc.has('compromiso')) {
+    if (!tieneAlcance(clave, 'finanzas', 'leer')) { for (const f of filas) f._omitido = 'detracciones, pagos y compromiso requieren el alcance finanzas:leer' }
+    else {
+      if (inc.has('detracciones')) {
+        const { data } = await admin.from('detracciones').select('id, comprobante_id, codigo_bien_servicio, descripcion_bien_servicio, tasa, base_detraccion, monto_detraccion, moneda_origen, tipo_cambio, estado, periodo, fecha_deposito, numero_constancia, cuenta_detraccion, fecha_pago_proveedor, origen, observaciones').eq('tenant_id', t).in('comprobante_id', ids)
+        const m = agrupar(data, 'comprobante_id'); for (const f of filas) f.detracciones = m.get(f.id) ?? []
+      }
+      if (inc.has('pagos')) {
+        const { data } = await admin.from('transacciones').select(COLS_PAGO).eq('tenant_id', t).in('comprobante_id', ids).neq('estado', 'anulada').order('fecha_pago')
+        const m = agrupar(data, 'comprobante_id'); for (const f of filas) f.pagos = m.get(f.id) ?? []
+      }
+      if (inc.has('compromiso')) {
+        const { data } = await admin.from('flujo_compromisos').select(COLS_COMPROMISO).eq('tenant_id', t).in('comprobante_id', ids)
+        const m = agrupar(data, 'comprobante_id'); for (const f of filas) f.compromiso = (m.get(f.id) ?? [])[0] ?? null
+      }
+    }
+  }
+  if (inc.has('archivos')) {
+    // Las rutas internas no salen; se firma una URL de 10 minutos por archivo (solo las facturas con PDF/XML cargado).
+    const { data } = await admin.from('comprobantes_pago').select('id, pdf_path, xml_path').eq('tenant_id', t).in('id', ids)
+    const rutas = new Map((data ?? []).map(x => [x.id, x]))
+    const firmar = async (p: string | null) => {
+      if (!p) return null
+      const { data: s } = await admin.storage.from('facturas-proveedores').createSignedUrl(p, 600)
+      return s?.signedUrl ?? null
+    }
+    for (const f of filas) { const x = rutas.get(f.id); f.pdf_url = await firmar(x?.pdf_path ?? null); f.xml_url = await firmar(x?.xml_path ?? null) }
+  }
+}
+
+const EXPANSORES: Record<string, (admin: Admin, clave: Clave, filas: Record<string, any>[], inc: Set<string>) => Promise<void>> = {
+  'ordenes-compra': expandirOrdenes,
+  facturas: expandirFacturas,
+}
+
 async function listar(admin: Admin, clave: Clave, r: Recurso, url: URL) {
   const pagina = Math.max(1, parseInt(url.searchParams.get('pagina') ?? '1') || 1)
   const porPagina = Math.min(MAX_POR_PAGINA, Math.max(1, parseInt(url.searchParams.get('por_pagina') ?? '50') || 50))
@@ -159,7 +303,10 @@ async function listar(admin: Admin, clave: Clave, r: Recurso, url: URL) {
   } else for (const o of r.orden) q = q.order(o.columna, { ascending: o.asc !== false, nullsFirst: false })
   const { data, error: e, count } = await q.range((pagina - 1) * porPagina, pagina * porPagina - 1)
   if (e) throw new Error(e.message)
-  return { data: data ?? [], paginacion: { pagina, por_pagina: porPagina, total: count ?? 0 } }
+  const filas = (data ?? []) as Record<string, any>[]
+  const inc = incluirDe(url, r, false)
+  if (EXPANSORES[r.ruta] && inc.size) await EXPANSORES[r.ruta](admin, clave, filas, inc)
+  return { data: filas, paginacion: { pagina, por_pagina: porPagina, total: count ?? 0 }, ...(inc.size ? { incluido: [...inc] } : {}) }
 }
 
 function openapi(base: string) {
@@ -170,11 +317,12 @@ function openapi(base: string) {
     { name: 'orden', in: 'query', description: 'columna; con "-" delante ordena descendente', schema: { type: 'string' } },
   ]
   for (const r of RECURSOS) {
-    paths[`/v1/${r.ruta}`] = { get: { tags: [r.modulo], summary: r.titulo, description: `Alcance requerido: \`${r.modulo}:leer\`. Columnas: ${r.columnas.join(', ')}.`,
-      parameters: [...pag, ...r.filtros.map(f => ({ name: f.param, in: 'query', description: f.descripcion, schema: { type: 'string' } }))],
+    const incluir = r.incluye?.length ? [{ name: 'incluir', in: 'query', description: `Datos relacionados, separados por coma, o \`todo\`: ${r.incluye.join(', ')}. En el detalle por id vienen todos por defecto. Pagos, compromisos y detracciones exigen además finanzas:leer.`, schema: { type: 'string' } }] : []
+    paths[`/v1/${r.ruta}`] = { get: { tags: [r.modulo], summary: r.titulo, description: `Alcance requerido: \`${r.modulo}:leer\`. Columnas: ${r.columnas.join(', ')}.${r.incluye?.length ? ` Relacionados (\`incluir\`): ${r.incluye.join(', ')}.` : ''}`,
+      parameters: [...pag, ...incluir, ...r.filtros.map(f => ({ name: f.param, in: 'query', description: f.descripcion, schema: { type: 'string' } }))],
       responses: { 200: { description: 'Lista paginada', content: { 'application/json': { schema: { type: 'object', properties: { data: { type: 'array', items: { type: 'object' } }, paginacion: { type: 'object', properties: { pagina: { type: 'integer' }, por_pagina: { type: 'integer' }, total: { type: 'integer' } } } } } } } }, 401: { description: 'Clave inválida' }, 403: { description: 'Sin alcance' }, 429: { description: 'Tope por minuto' } } } }
     if (['proyectos', 'ordenes-compra', 'facturas', 'proveedores', 'viajes', 'correspondencia', 'flota/vehiculos'].includes(r.ruta)) {
-      paths[`/v1/${r.ruta}/{id}`] = { get: { tags: [r.modulo], summary: `${r.titulo}: uno por id`, parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'Objeto' }, 404: { description: 'No existe' } } } }
+      paths[`/v1/${r.ruta}/{id}`] = { get: { tags: [r.modulo], summary: `${r.titulo}: uno por id${r.incluye?.length ? ' (con todo lo relacionado)' : ''}`, parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }, ...incluir], responses: { 200: { description: 'Objeto' }, 404: { description: 'No existe' } } } }
     }
   }
   paths['/v1/proyectos/{id}/financiero'] = { get: { tags: ['proyectos'], summary: 'Cifras financieras del proyecto (presupuesto, gasto, utilidad, margen, cadena)', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'Objeto con financiero y cadena' } } } }
@@ -243,7 +391,11 @@ export default {
         if (!tieneAlcance(k, r.modulo, 'leer')) return c.json({ error: `La clave no tiene el alcance ${r.modulo}:leer`, codigo: 'sin_alcance' }, 403)
         const { data, error: e } = await admin.from(r.tabla).select(r.columnas.join(',')).eq('tenant_id', k.tenant_id).eq('id', c.req.param('id')).maybeSingle()
         if (e) return c.json({ error: e.message, codigo: 'consulta' }, 500)
-        return data ? c.json({ data }) : c.json({ error: 'No existe', codigo: 'no_existe' }, 404)
+        if (!data) return c.json({ error: 'No existe', codigo: 'no_existe' }, 404)
+        // El detalle por id trae TODO lo relacionado salvo que se pida `?incluir=` concreto.
+        const inc = incluirDe(new URL(c.req.url), r, true)
+        if (EXPANSORES[r.ruta] && inc.size) { try { await EXPANSORES[r.ruta](admin, k, [data as Record<string, any>], inc) } catch (e2) { return c.json({ error: (e2 as Error).message, codigo: 'consulta' }, 500) } }
+        return c.json({ data, ...(inc.size ? { incluido: [...inc] } : {}) })
       })
     }
 

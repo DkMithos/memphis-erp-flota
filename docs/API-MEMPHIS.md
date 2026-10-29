@@ -37,6 +37,16 @@ administración.
 - Errores: `{ "error": "mensaje", "codigo": "sin_clave | clave_invalida | sin_alcance | tope | no_existe | validacion" }`.
 - Fechas `AAAA-MM-DD`; montos en la moneda de cada fila (`moneda`), con `tipo_cambio` cuando aplica.
 - Solo salen columnas de negocio: nunca tokens, rutas de archivos, firmas ni claves.
+- **Datos relacionados (`?incluir=`)** en órdenes de compra y facturas: lista separada por coma o `todo`. En el detalle
+  por id (`/ordenes-compra/{id}`, `/facturas/{id}`) viene todo por defecto. La respuesta agrega `incluido: [...]`.
+  - `/ordenes-compra`: `items` (líneas con descuento por ítem), `proveedor`, `proyecto`, `centro_costo`, `firmas` (etapa,
+    quién y cuándo; sin la imagen), `recepciones` (con sus líneas), `facturas` (recibidas contra la OC), `ediciones`
+    (solicitudes de edición), `pagos` y `compromisos` (estos dos exigen también `finanzas:leer`).
+  - `/facturas`: `detalle` (líneas), `proveedor`, `proyecto`, `centro_costo`, `orden`, `archivos` (`pdf_url` y `xml_url`
+    firmadas por 10 minutos), `detracciones`, `pagos` y `compromiso` (los tres últimos exigen `finanzas:leer`).
+  - Si la clave no tiene el alcance para una expansión, la fila trae `_omitido` con el motivo en lugar de fallar.
+  - Con `incluir` la página se arma con una consulta extra por expansión (no por fila): 200 órdenes con todo tardan
+    unos segundos, no minutos. Para volcados completos, paginar con `por_pagina=200`.
 
 ## Recursos (GET)
 
@@ -47,9 +57,9 @@ administración.
 | `/valorizaciones` | proyectos | `valorizaciones` | `proyecto_id`, `estado` |
 | `/correspondencia` · `/correspondencia/{id}` | proyectos | `v_correspondencia` | `proyecto_id`, `estado`, `tipo`, `vencida`, `desde`, `hasta` |
 | `/capacitaciones` · `/certificados` | proyectos | `capacitaciones`, `certificados` | `proyecto_id` / `capacitacion_id`, `estado` |
-| `/ordenes-compra` · `/ordenes-compra/{id}` | compras | `ordenes_compra` | `estado`, `proyecto_id`, `proveedor_id`, `numero`, `desde`, `hasta` |
+| `/ordenes-compra` · `/ordenes-compra/{id}` | compras | `ordenes_compra` (todas las columnas) + `incluir` | `estado`, `proyecto_id`, `proveedor_id`, `numero`, `desde`, `hasta` |
 | `/cotizaciones` | compras | `cotizaciones` | `estado`, `proveedor_id`, `proyecto_id`, `requerimiento_id`, `desde`, `hasta` |
-| `/facturas` · `/facturas/{id}` | compras | `comprobantes_pago` | `direccion`, `estado_flujo`, `proyecto_id`, `ruc`, `proveedor_id`, `desde`, `hasta` |
+| `/facturas` · `/facturas/{id}` | compras | `comprobantes_pago` (todas las columnas) + `incluir` | `direccion`, `estado_flujo`, `proyecto_id`, `ruc`, `proveedor_id`, `orden_compra_id`, `numero`, `desde`, `hasta` |
 | `/proveedores` · `/proveedores/{id}` | proveedores | `proveedores` | `estado`, `ruc`, `q` |
 | `/cuentas-por-pagar` | finanzas | `v_cxp` | `estado_pago`, `vencido`, `proyecto_id`, `proveedor_id`, `area`, `desde`, `hasta` |
 | `/cuentas-por-cobrar` | finanzas | `v_cxc` | `estado_pago`, `proyecto_id`, `desde`, `hasta` |
@@ -68,7 +78,11 @@ Las columnas exactas de cada recurso están en el OpenAPI (descripción de cada 
 Descuentos de proveedor (desde el 26/10/2026): en `/ordenes-compra` y `/cotizaciones` viajan `descuento_global_tipo`
 (`porcentaje` o `monto`), `descuento_global_valor` y `descuento_global` (monto ya calculado). La regla es
 `subtotal = bruto − descuentos por ítem − descuento global`; `igv` y `total` se calculan sobre ese subtotal. Los descuentos
-por ítem están en los ítems de la orden, que la API todavía no expone.
+por ítem (`descuento_tipo`, `descuento_valor`, `descuento`) vienen en cada línea con `incluir=items`.
+
+Ejemplos de "todo": `GET /ordenes-compra?desde=2026-01-01&incluir=todo&por_pagina=200` (órdenes del año con ítems,
+firmas, recepciones, facturas y pagos) · `GET /facturas/{id}` (la factura con detalle, orden, detracciones, pagos y enlaces
+al PDF/XML).
 
 ## Escritura
 
