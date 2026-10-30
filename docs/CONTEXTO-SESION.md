@@ -4471,3 +4471,13 @@ de Dirección". Migración `20261030100000_direccion_roles_socio_y_lectura.sql`:
 Verificado en la base: Guillermo y Miguel Zegarra = Gerencia + Socio [solo dirección]; William y Tony = Gerencia (ven
 Dirección y Compras); Miguelángel = Proyectos + Técnico Flota + Dirección (lectura).
 
+## Solo William y Miguelángel firman (2026-10-30)
+
+Kevin: "Tony, Guillermo y Miguel no firman ni aprueban nada; solo Miguelángel y William; los demás roles se mantienen".
+Migración `20261030110000_solo_william_y_miguelangel_firman.sql`: Guillermo Macher y Miguel Zegarra quedan solo con **Socio**;
+Tony pasa a **Consultor** (los módulos de Gerencia en lectura/exportación + Dirección, sin aprobar ni aprobar_final, solo
+avisos de aprobación = ninguno); **Gerencia** queda solo para William (firma la etapa Gerencia de las OC y aprueba viajes y
+rendiciones); Miguelángel sin cambios (Operaciones con Proyectos, jefatura de viajes). Los 14 avisos "Aprobación requerida"
+abiertos dejaron de estar dirigidos a los tres. Efecto en el flujo de OC: la etapa Gerencia ahora la firma únicamente William
+(`rolesPorEtapa.gerencia = ['Gerencia']`); si William no está, firma un Administrador.
+
