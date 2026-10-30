@@ -7,7 +7,7 @@ import { Login } from './components/auth/Login';
 import { PendingAccess } from './components/auth/PendingAccess';
 import { FijarClave } from './components/auth/FijarClave';
 import { SinAcceso } from './components/auth/SinAcceso';
-import { puedeVerRuta } from './lib/rbac/rutas';
+import { puedeVerRuta, rutaPermitidaSoloDireccion } from './lib/rbac/rutas';
 import { usePermissions } from './lib/rbac/usePermissions';
 
 // Layout
@@ -150,6 +150,11 @@ const InventarioUnidades = lazyModulo(() => import('./components/modules/inventa
 const BIDashboard = lazyModulo(() => import('./components/modules/bi/BIDashboard').then(m => ({ default: m.BIDashboard })));
 const ReporteCruzado = lazyModulo(() => import('./components/modules/bi/ReporteCruzado').then(m => ({ default: m.ReporteCruzado })));
 const FlujoGerencia = lazyModulo(() => import('./components/modules/bi/FlujoGerencia').then(m => ({ default: m.FlujoGerencia })));
+// Dirección: el ERP para socios y Gerencia (tableros con fechas, descargas, OKRs, lo que les toca firmar)
+const DireccionTablero = lazyModulo(() => import('./components/modules/direccion/DireccionTablero').then(m => ({ default: m.DireccionTablero })));
+const DireccionOKRs = lazyModulo(() => import('./components/modules/direccion/DireccionOKRs').then(m => ({ default: m.DireccionOKRs })));
+const DireccionProyectos = lazyModulo(() => import('./components/modules/direccion/DireccionProyectos').then(m => ({ default: m.DireccionProyectos })));
+const DireccionFlujo = lazyModulo(() => import('./components/modules/direccion/DireccionFlujo').then(m => ({ default: m.DireccionFlujo })));
 
 // Contabilidad (carga diferida — módulo pesado, no en ruta crítica)
 const ContabilidadDashboard = lazyModulo(() => import('./components/modules/contabilidad/ContabilidadDashboard').then(m => ({ default: m.ContabilidadDashboard })));
@@ -252,7 +257,7 @@ function rutaActual(): string {
 
 export default function App() {
   const { user, profile, tenantName, loading, signOut, recuperandoClave } = useAuth();
-  const { can, isAdmin, sinRolConfirmado, loading: permsLoading } = usePermissions();
+  const { can, isAdmin, sinRolConfirmado, loading: permsLoading, soloDireccion } = usePermissions();
 
   const [currentModule, setCurrentModule] = useState(() => {
     const path = window.location.pathname || '/home';
@@ -486,6 +491,18 @@ export default function App() {
     // no se bloquea nada, para no expulsar a nadie en un refresco.
     if (!permsLoading && !puedeVerRuta(currentRoute, can)) {
       return <SinAcceso ruta={currentRoute} onVolver={() => navigateTo('/home')} />;
+    }
+    // Socios y Gerencia (rol "solo Dirección"): tableros, descargas y lo que firman; los módulos no.
+    if (!permsLoading && soloDireccion && !rutaPermitidaSoloDireccion(currentRoute)) {
+      return <SinAcceso ruta={currentRoute} onVolver={() => navigateTo('/direccion')} />;
+    }
+
+    // Dirección (va antes del Home: para el rol "solo Dirección" el inicio ES el tablero)
+    if (currentRoute.startsWith('/direccion') || (soloDireccion && (currentRoute === '/home' || currentRoute === '/' || currentRoute === ''))) {
+      if (currentRoute === '/direccion/okrs') return <DireccionOKRs onNavigate={navigateTo} />;
+      if (currentRoute === '/direccion/proyectos') return <DireccionProyectos onNavigate={navigateTo} />;
+      if (currentRoute === '/direccion/flujo') return <DireccionFlujo onNavigate={navigateTo} />;
+      return <DireccionTablero onNavigate={navigateTo} />;
     }
 
     // Home de bienvenida — ruta raíz y /home

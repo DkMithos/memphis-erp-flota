@@ -26,6 +26,7 @@ export const MODULES_DEFAULT: ModuleConfig[] = [
   { id: 'crm',         label: 'CRM',             descripcion: 'Clientes, oportunidades y actividades',  enabled: false },
   { id: 'viajes',      label: 'Viajes',          descripcion: 'Viajes, pasajes, viáticos y rendiciones (app móvil /app)', enabled: true },
   { id: 'bi',          label: 'BI & Reportería', descripcion: 'Dashboard cruzado de inteligencia',      enabled: true },
+  { id: 'direccion',   label: 'Dirección',       descripcion: 'Tablero para socios y Gerencia: deuda, pagos, cobros y OKRs por fechas, con descargas', enabled: true },
 ];
 
 const STORAGE_KEY = 'kesa_modules_config';

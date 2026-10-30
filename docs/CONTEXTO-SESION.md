@@ -4421,3 +4421,41 @@ Kevin: "me solicitaron que con la API se pueda extraer toda la información de l
 - Pendiente de rendimiento si hace falta: las expansiones corren en serie (un detalle con todo tarda ~6-7 s por el arranque
   en frío de la función); se pueden paralelizar con Promise.all.
 
+## Dirección: el ERP para socios y Gerencia (2026-10-29)
+
+Kevin preguntó si socios y Gerencia ya podían ver indicadores, OKRs, cuánto se debe / deberemos / pagaremos / hemos pagado
+por rango de fechas. Respuesta verificada: no. Gerencia no tenía Finanzas ni BI de socios, las pantallas no aceptaban rangos
+libres y no existía nada de OKRs. Decisión de Kevin: "los socios y Gerencia no tendrían por qué tener acceso a los módulos;
+deberían ver solo dashboards, descargar los reportes que quieran, todo visual; el ERP debe darles todo el análisis para la
+toma de decisiones".
+
+Migración `20261029200000_direccion_tablero_socios.sql`:
+- Módulo **Dirección** (`/direccion`): permisos `direccion.ver` / `exportar` / `editar` (editar = definir OKRs). Administrador
+  todo; Gerencia ver + exportar.
+- `roles.solo_direccion` (Gerencia = true): el menú muestra solo Dirección y las rutas de módulos se cierran
+  (`rutaPermitidaSoloDireccion`); conservan el DETALLE de la OC (`/compras/ordenes/MM-…`) y del viaje que les toca firmar.
+  Para ese rol el inicio es el tablero.
+- `direccion_resumen(desde, hasta, corte)` (security definer, Finanzas tiene RLS por permiso): deuda registrada hoy, vencida,
+  deuda a la fecha de corte, por pagar en el rango (y sin fecha), por cobrar, pagado/cobrado en el rango, OC y facturas del
+  rango, bancos al corte (saldo inicial + extracto), cajas, serie mensual, top proveedores/proyectos por deuda y por pago.
+  **Deuda registrada** = `flujo_compromisos` origen real/comprometido; lo **proyectado** del Excel de flujo (1,025 líneas,
+  S/ 75 M, proveedores "Estimado", fechas del año 2000) se informa aparte y no se suma.
+- `direccion_detalle(tipo, …)`: filas descargables (pagos, cobros, por pagar, por cobrar, deuda completa, órdenes, facturas;
+  tope 5,000). `direccion_por_firmar()`: OC en su etapa (misma regla que `notif_oc_etapa_en_turno`), viajes y rendiciones.
+- OKRs: `okr_objetivos` + `okr_resultados` (meta, inicial, actual, subir/bajar) con `fuente` automática
+  (`okr_valor_fuente`: deuda vencida, cobrado/pagado del año, facturas por conformar, cartas vencidas…); vista
+  `v_okr_resultados` con `valor` y `avance_pct`. RLS: ven quienes ven Dirección; editan `direccion.editar`.
+
+Front: `src/lib/direccion/direccion.ts`; `components/modules/direccion/` (Tablero con presets de rango y fecha de corte,
+gráfico mensual soles/dólares, botones Excel por cifra, "Le toca firmar"; Proyectos = Flujo Gerencia; Flujo de caja =
+`FlujoCajaMensual` con meses elegibles; OKRs con edición por diálogo). `usePermissions` expone `soloDireccion`; menú y
+App lo aplican; `modules-config` y `GestionUsuarios` conocen `direccion`.
+
+QA con `qa.socio@` (rol Gerencia, borrado): entra directo al tablero, menú solo Dirección, /compras y /finanzas bloqueados,
+el detalle de MM-001240 abre con "Te toca firmar como Gerencia", 14 órdenes en "Le toca firmar", OKRs vacío con el mensaje
+correcto, flujo y proyectos cargan. Cifras del año 2026 con origen real/comprometido: ver tablero.
+
+**Pendiente de Gerencia:** definir los objetivos y resultados clave (Kevin/Adrián los cargan con `direccion.editar`).
+**Pendiente de Finanzas:** saldo inicial del Banco de la Nación (hoy 0) y extracto de octubre para que "Bancos al corte" sea
+real; fechas a los compromisos "sin fecha" (S/ 5.5 M).
+

@@ -118,7 +118,7 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [modulesConfig, setModulesConfig] = useState<ModuleConfig[]>(loadModulesConfig);
   // El menú solo muestra lo que el usuario puede abrir de verdad (RBAC).
-  const { can, loading: permisosLoading } = usePermissions();
+  const { can, loading: permisosLoading, soloDireccion } = usePermissions();
 
   // Re-leer config cuando GestionModulos guarda cambios
   useEffect(() => {
@@ -143,6 +143,19 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       label: t('nav.dashboard'),
       icon: <LayoutDashboard className="size-5" />,
       href: '/dashboard'
+    },
+    // Dirección: el ERP para socios y Gerencia (Kevin, 29/10/2026) — tableros con fechas, descargas y OKRs.
+    {
+      id: 'direccion',
+      label: t('nav.direccion', 'Dirección'),
+      icon: <Gauge className="size-5" />,
+      href: '/direccion',
+      subItems: [
+        { label: 'Resumen', href: '/direccion', id: 'direccion-resumen' },
+        { label: 'Proyectos', href: '/direccion/proyectos', id: 'direccion-proyectos' },
+        { label: 'Flujo de caja', href: '/direccion/flujo', id: 'direccion-flujo' },
+        { label: 'OKRs', href: '/direccion/okrs', id: 'direccion-okrs' },
+      ]
     },
     {
       id: 'proveedores',
@@ -392,6 +405,10 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
       '/app': <Smartphone className="size-4" />,
       '/bi': <BarChart3 className="size-4" />,
       '/bi/gerencia': <LineChart className="size-4" />,
+      '/direccion': <Gauge className="size-4" />,
+      '/direccion/proyectos': <TrendingUp className="size-4" />,
+      '/direccion/flujo': <Wallet className="size-4" />,
+      '/direccion/okrs': <Target className="size-4" />,
       '/compras/facturas': <Receipt className="size-4" />,
       '/compras/ordenes': <ShoppingBag className="size-4" />,
       '/contabilidad/asientos': <BookOpenCheck className="size-4" />,
@@ -532,6 +549,8 @@ export function ERPSidebar({ currentModule, onModuleChange, currentRoute = '' }:
         <div className="px-3 space-y-1">
           {permisosLoading && <MenuCargando />}
           {!permisosLoading && navItems.filter(item => {
+          // Rol "solo Dirección" (socios y Gerencia): el menú es Dirección y nada más.
+          if (soloDireccion) return item.id === 'direccion';
           if (item.id === 'home') return true; // siempre visible
           // 1) interruptor del tenant (módulo apagado para todos)
           if (item.id !== 'admin') {

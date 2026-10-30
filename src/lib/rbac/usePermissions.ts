@@ -32,6 +32,7 @@ export type Modulo =
   | 'fianzas'
   | 'documentos'
   | 'viajes'
+  | 'direccion'
   | 'admin';
 
 export type Accion =
@@ -76,6 +77,12 @@ interface EstadoPermisos {
    * seguirá recibiendo lo suyo.
    */
   soloNotificaAprobaciones: boolean;
+  /**
+   * Todos sus roles viven solo en Dirección (socios y Gerencia, decisión de Kevin
+   * 29/10/2026): ven tableros, descargan reportes y firman lo que les toca, pero el
+   * menú y las rutas de los módulos se les cierran. Como arriba, es "todos".
+   */
+  soloDireccion: boolean;
 }
 
 const SIN_RESPUESTA: EstadoPermisos = {
@@ -85,6 +92,7 @@ const SIN_RESPUESTA: EstadoPermisos = {
   sinRolConfirmado: false,
   loading: true,
   soloNotificaAprobaciones: false,
+  soloDireccion: false,
 };
 
 // ── Estado compartido ───────────────────────────────────────────────────────
@@ -148,7 +156,7 @@ async function consultar(user: any, profile: any, tenantId: string | null, inten
 
   const { data: userRoles, error } = await supabase
     .from('usuarios_roles')
-    .select('rol_id, roles(nombre, solo_notifica_aprobaciones, roles_permisos(permiso_id, permisos(modulo, accion)))')
+    .select('rol_id, roles(nombre, solo_notifica_aprobaciones, solo_direccion, roles_permisos(permiso_id, permisos(modulo, accion)))')
     .eq('tenant_id', tenantId)
     .eq('user_id', user.id);
 
@@ -178,16 +186,19 @@ async function consultar(user: any, profile: any, tenantId: string | null, inten
   const permisos: PermisoEntry[] = [];
   let esAdmin = false;
   const marcas: boolean[] = [];
+  const marcasDireccion: boolean[] = [];
 
   for (const ur of userRoles as any[]) {
     const rol = ur.roles as {
       nombre: string;
       solo_notifica_aprobaciones?: boolean;
+      solo_direccion?: boolean;
       roles_permisos: Array<{ permiso_id: string; permisos: { modulo: string; accion: string } | null }>;
     } | null;
     if (!rol) continue;
     if (rol.nombre === 'Administrador') esAdmin = true;
     marcas.push(rol.solo_notifica_aprobaciones === true);
+    marcasDireccion.push(rol.solo_direccion === true);
     for (const rp of rol.roles_permisos ?? []) {
       if (rp.permisos) permisos.push({ modulo: rp.permisos.modulo, accion: rp.permisos.accion });
     }
@@ -200,6 +211,7 @@ async function consultar(user: any, profile: any, tenantId: string | null, inten
     sinRolConfirmado: false,
     loading: false,
     soloNotificaAprobaciones: marcas.length > 0 && marcas.every(Boolean),
+    soloDireccion: !esAdmin && marcasDireccion.length > 0 && marcasDireccion.every(Boolean),
   });
 }
 
@@ -256,7 +268,7 @@ export function usePermissions() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clave]);
 
-  const { permisos, isAdmin, hasRole, sinRolConfirmado, loading, soloNotificaAprobaciones } = snapshot;
+  const { permisos, isAdmin, hasRole, sinRolConfirmado, loading, soloNotificaAprobaciones, soloDireccion } = snapshot;
 
   const can = useCallback(
     (modulo: Modulo, accion: Accion): boolean => {
@@ -275,5 +287,5 @@ export function usePermissions() {
     [can, isAdmin],
   );
 
-  return { can, canAny, loading, isAdmin, hasRole, sinRolConfirmado, permisos, soloNotificaAprobaciones };
+  return { can, canAny, loading, isAdmin, hasRole, sinRolConfirmado, permisos, soloNotificaAprobaciones, soloDireccion };
 }

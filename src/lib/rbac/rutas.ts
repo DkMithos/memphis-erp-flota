@@ -48,7 +48,27 @@ const MODULO_POR_PREFIJO: { prefijo: string; modulo: Modulo }[] = [
   { prefijo: '/biomedico', modulo: 'biomedico' },
   { prefijo: '/crm', modulo: 'crm' },
   { prefijo: '/viajes', modulo: 'viajes' },
+  { prefijo: '/direccion', modulo: 'direccion' },
 ];
+
+/**
+ * Rol "solo Dirección" (socios y Gerencia, Kevin 29/10/2026): el ERP es para ellos un
+ * tablero, no un sistema para operar. Pueden abrir Dirección, lo libre (inicio,
+ * perfil, notificaciones) y el DETALLE de lo que firman: una orden en aprobación o un
+ * viaje/rendición por aprobar. Nada más, aunque sus roles tengan permiso de ver el módulo.
+ */
+export function rutaPermitidaSoloDireccion(ruta: string): boolean {
+  const r = (ruta || '/').split('?')[0];
+  if (r === '/direccion' || r.startsWith('/direccion/')) return true;
+  // Lo que firman: el detalle (nunca el alta ni la lista) de una orden o de un viaje.
+  if (/^\/compras\/ordenes\/[^/]+$/.test(r) && !esRutaDeAlta(r)) return true;
+  if (/^\/viajes\/[^/]+$/.test(r) && r !== '/viajes/tarifas' && !esRutaDeAlta(r)) return true;
+  // Todo lo que es un módulo de trabajo, el tablero general, BI o Administración, no.
+  const esModulo = MODULO_POR_PREFIJO.some(m => m.modulo !== 'direccion' && (r === m.prefijo || r.startsWith(m.prefijo + '/')));
+  if (esModulo || r === '/dashboard' || r.startsWith('/dashboard/') || r === '/bi' || r.startsWith('/bi/') || r === '/admin' || r.startsWith('/admin/')) return false;
+  // El resto (inicio, perfil, notificaciones, ayuda, login, rutas técnicas) sigue abierto.
+  return true;
+}
 
 /**
  * Excepciones ruta→permiso. Se evalúan por prefijo y gana la más específica,

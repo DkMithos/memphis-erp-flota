@@ -50,6 +50,7 @@ import { GestionCatalogos } from './GestionCatalogos';
 // ─────────────────────────────────────────────────────────────
 
 const MODULOS_ORDEN = [
+  'direccion',
   'flota',
   'biomedico',
   'compras',
