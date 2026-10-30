@@ -78,9 +78,10 @@ interface EstadoPermisos {
    */
   soloNotificaAprobaciones: boolean;
   /**
-   * Todos sus roles viven solo en Dirección (socios y Gerencia, decisión de Kevin
-   * 29/10/2026): ven tableros, descargan reportes y firman lo que les toca, pero el
-   * menú y las rutas de los módulos se les cierran. Como arriba, es "todos".
+   * ALGUNO de sus roles es "solo Dirección" (rol Socio, Kevin 29-30/10/2026): ve
+   * tableros, descarga reportes y firma lo que le toca, pero el menú y las rutas de
+   * los módulos se le cierran. Es "alguno" a propósito: el socio conserva Gerencia
+   * para poder firmar órdenes y viajes, y aun así no debe operar módulos.
    */
   soloDireccion: boolean;
 }
@@ -211,7 +212,7 @@ async function consultar(user: any, profile: any, tenantId: string | null, inten
     sinRolConfirmado: false,
     loading: false,
     soloNotificaAprobaciones: marcas.length > 0 && marcas.every(Boolean),
-    soloDireccion: !esAdmin && marcasDireccion.length > 0 && marcasDireccion.every(Boolean),
+    soloDireccion: !esAdmin && marcasDireccion.some(Boolean),
   });
 }
 

@@ -4459,3 +4459,15 @@ correcto, flujo y proyectos cargan. Cifras del año 2026 con origen real/comprom
 **Pendiente de Finanzas:** saldo inicial del Banco de la Nación (hoy 0) y extracto de octubre para que "Bancos al corte" sea
 real; fechas a los compromisos "sin fecha" (S/ 5.5 M).
 
+## Dirección: quién es solo tablero y quién además opera (2026-10-30)
+
+Kevin: "William y Tony sí tienen que ver los módulos que tenían antes, incluyendo Dirección; habilita a Miguelángel el módulo
+de Dirección". Migración `20261030100000_direccion_roles_socio_y_lectura.sql`:
+- **Gerencia** ya no es "solo Dirección": William Belevan y Tony (consultor@) recuperan Compras, Proyectos, Flota, Fianzas y
+  Viajes (lectura/aprobación) y ven Dirección.
+- Rol **Socio** (solo Dirección + solo avisos de aprobación) para Guillermo Macher y Miguel Zegarra, que conservan Gerencia
+  para firmar. La bandera `solo_direccion` manda si CUALQUIER rol la tiene (`usePermissions`: `some`, antes `every`).
+- Rol **Dirección (lectura)** (direccion.ver/exportar) para Miguelángel, sumado a Proyectos y Técnico Flota.
+Verificado en la base: Guillermo y Miguel Zegarra = Gerencia + Socio [solo dirección]; William y Tony = Gerencia (ven
+Dirección y Compras); Miguelángel = Proyectos + Técnico Flota + Dirección (lectura).
+
