@@ -4481,3 +4481,36 @@ rendiciones); Miguelángel sin cambios (Operaciones con Proyectos, jefatura de v
 abiertos dejaron de estar dirigidos a los tres. Efecto en el flujo de OC: la etapa Gerencia ahora la firma únicamente William
 (`rolesPorEtapa.gerencia = ['Gerencia']`); si William no está, firma un Administrador.
 
+## Registrar pagos en lote con comprobante adjunto (2026-11-04)
+
+Kevin: "quiero marcar facturas ya pagadas y subir los comprobantes… veo tedioso el proceso… ¿y los no domiciliados que no
+suben facturas pero están pagados?". Antes había tres caminos (Cuentas por pagar fila por fila sin datos, Bancos por cargo,
+Lotes por línea) y ningún sitio para adjuntar el voucher (solo un campo URL en Transacciones).
+
+Migración `20261104100000_pagos_registrar_con_comprobante.sql`:
+- `pagos_registrar(compromisos[], comprobantes[], fecha, cuenta, referencia, voucher_path)`: una transacción por cada factura o
+  compromiso (reusa `registrar_pago_compromiso`, que cierra compromiso y factura), con cuenta bancaria, referencia (OPE) y el
+  comprobante enlazado en `transacciones.comprobante_url` (ruta del bucket `vouchers-pagos`). Las facturas conformes sin
+  compromiso (anteriores al corte de CxP, 13 hoy) se pagan directo. Devuelve `pagados`, `transacciones` y `omitidos` con motivo.
+  Permiso: `pagos_puede_registrar()` = finanzas.editar/crear/flujo.
+- OJO: `registrar_pago_compromiso.p_cuenta` escribe en `transacciones.cuenta_id` (FK a `cuentas_contables`), no en
+  `cuenta_bancaria_id`; pasarle una cuenta bancaria da 409 (FK). `pagos_registrar` lo pasa null y fija `cuenta_bancaria_id` aparte.
+- `pago_adjuntar_comprobante(tx, path)`, `factura_pagos(comprobante)` (pagos de una factura con su voucher),
+  `cuentas_bancarias_breve()` (la tabla tiene RLS por Finanzas). Bucket `vouchers-pagos`: suben quienes registran pagos o
+  tesorería; ven Finanzas, Compras, Contabilidad y Dirección (el voucher va junto a la factura).
+
+Front: `src/lib/finanzas/pagos.ts` + `RegistrarPagoDialog` (fecha, cuenta filtrada por la moneda de lo seleccionado, referencia,
+comprobante PDF/imagen ≤ 10 MB). **Facturas de proveedores**: las conformes/programadas tienen casilla y botón "Pagar"; con
+varias marcadas, "Registrar pago de N"; la vista previa muestra los pagos con enlace al comprobante y "Registrar pago…".
+**Cuentas por pagar**: "Registrar pago" por fila y "Registrar pago de N" con lo marcado (también para quien no arma lotes).
+**Transacciones**: clip para ver el comprobante y clip para adjuntarlo a un egreso pagado sin voucher.
+
+**No domiciliados** (Google, OpenAI, Anthropic, Vercel, Supabase, VMEG): no hay factura; su OC aprobada ya es un compromiso en
+Cuentas por pagar (origen "comprometido", 35 líneas pendientes) y se paga desde ahí con el mismo diálogo. 14 OC suyas
+aprobadas antes del corte 2026-07-01 no tienen compromiso: si están pagadas, nada que hacer; si no, Finanzas crea el compromiso.
+
+QA con `qa.pagos@` (rol Administración, borrado): compromiso de prueba S/ 10 pagado desde Cuentas por pagar con fecha, BBVA
+Soles 806, referencia y PDF adjunto (primer intento falló por el 409 del FK, corregido); transacción TRX con voucher,
+descarga firmada 200; clip en Transacciones; en Facturas el diálogo con 2 conformes en US$ (cancelado sin pagar). Datos,
+objetos del bucket y usuario de prueba eliminados.
+

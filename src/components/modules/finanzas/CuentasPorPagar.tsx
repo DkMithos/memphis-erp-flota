@@ -26,6 +26,8 @@ import { supabase } from '../../../lib/supabase/client';
 import { usePermissions } from '@/lib/rbac/usePermissions';
 import { crearLote, agregarCompromisos } from '@/lib/finanzas/lotes-pago';
 import { toast } from 'sonner';
+import { RegistrarPagoDialog } from './RegistrarPagoDialog';
+import type { ItemPago } from '@/lib/finanzas/pagos';
 
 interface Cxp {
   id: string;
@@ -78,6 +80,7 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
   const { can } = usePermissions();
   const puedeEditar = can('finanzas', 'editar') || can('finanzas', 'flujo');
   const puedeArmarLote = can('finanzas', 'lotes_armar');
+  const puedeSeleccionar = puedeArmarLote || puedeEditar;
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
   const [creandoLote, setCreandoLote] = useState(false);
   const [filas, setFilas] = useState<Cxp[]>([]);
@@ -89,7 +92,8 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
   const [soloVencidas, setSoloVencidas] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [pagina, setPagina] = useState(1);
-  const [marcando, setMarcando] = useState<string | null>(null);
+  const [pagoDe, setPagoDe] = useState<Cxp[] | null>(null);
+  const itemsPago = (fs: Cxp[]): ItemPago[] => fs.map(f => ({ compromisoId: f.id, etiqueta: f.referencia ?? (f.concepto ?? '').slice(0, 40), detalle: f.proveedor ?? f.concepto ?? undefined, moneda: f.moneda, monto: f.pendiente }));
 
   const cargar = async () => {
     setCargando(true);
@@ -239,18 +243,9 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
     const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n;
   });
 
-  // El pago ya no es un check: nace una transacción de Finanzas (egreso pagado,
-  // enlazada a la factura/OC) y la base cierra el compromiso y la factura.
-  const marcarPagado = async (f: Cxp) => {
-    if (!window.confirm(`¿Registrar el pago de "${f.concepto ?? ''}" por ${f.moneda === 'USD' ? 'US$' : 'S/'} ${f.pendiente.toLocaleString('es-PE')} con fecha de hoy?`)) return;
-    setMarcando(f.id);
-    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-    const { error } = await (supabase as any).rpc('registrar_pago_compromiso', { p_compromiso: f.id, p_fecha: hoyISO() });
-    setMarcando(null);
-    if (error) { toast.error('No se pudo registrar el pago: ' + error.message); return; }
-    toast.success('Pago registrado en Finanzas (transacción creada)');
-    void cargar();
-  };
+  // El pago nace como transacción de Finanzas (egreso pagado, enlazado a la factura/OC) y la base cierra el compromiso y
+  // la factura. Desde el 04/11/2026 pasa por el diálogo común (fecha, cuenta, referencia y comprobante), uno o muchos a la vez.
+  const marcarPagado = (f: Cxp) => setPagoDe([f]);
 
   // Lote de pago: lo marcado se convierte en un lote en borrador y se abre.
   const toggleSel = (id: string) => setSeleccion(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -289,6 +284,11 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {puedeEditar && (
+            <Button variant="outline" disabled={seleccion.size === 0} onClick={() => setPagoDe(filas.filter(f => seleccion.has(f.id)))} title="Registra el pago de lo marcado con una fecha, una referencia y un comprobante (sin pasar por lote)">
+              Registrar pago de {seleccion.size || '…'}
+            </Button>
+          )}
           {puedeArmarLote && (
             <Button disabled={seleccion.size === 0 || creandoLote} onClick={crearLoteConSeleccion} title="Crea un lote de pago en borrador con lo marcado">
               {creandoLote ? <Loader2 className="size-4 animate-spin" /> : `Crear lote de pago (${seleccion.size})`}
@@ -505,7 +505,7 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
           <table className="w-full text-sm">
             <thead className="text-xs text-muted-foreground border-b bg-muted/30">
               <tr>
-                {puedeArmarLote && (
+                {puedeSeleccionar && (
                   <th className="px-2 py-2">
                     <input type="checkbox" title="Marcar todo lo visible en esta página"
                       checked={paginado.length > 0 && paginado.every(f => seleccion.has(f.id))}
@@ -525,7 +525,7 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
             <tbody className="divide-y">
               {paginado.map(f => (
                 <tr key={f.id} className={`${f.vencido ? 'bg-red-50/40 dark:bg-red-950/20' : ''} ${seleccion.has(f.id) ? 'bg-primary/5' : ''}`}>
-                  {puedeArmarLote && (
+                  {puedeSeleccionar && (
                     <td className="px-2 py-1.5"><input type="checkbox" checked={seleccion.has(f.id)} onChange={() => toggleSel(f.id)} /></td>
                   )}
                   <td className="px-3 py-1.5 whitespace-nowrap tabular-nums">
@@ -552,20 +552,21 @@ export function CuentasPorPagar({ onNavigate }: { onNavigate?: (r: string) => vo
                   <td className="px-3 py-1.5 text-right tabular-nums whitespace-nowrap">{soles2(f.pendienteSoles)}</td>
                   <td className="px-3 py-1.5 text-right">
                     {puedeEditar && (
-                      <Button size="sm" variant="ghost" disabled={marcando === f.id} onClick={() => marcarPagado(f)}>
-                        {marcando === f.id ? <Loader2 className="size-4 animate-spin" /> : 'Marcar pagado'}
-                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => marcarPagado(f)} title="Registrar el pago con fecha, referencia y comprobante">Registrar pago</Button>
                     )}
                   </td>
                 </tr>
               ))}
               {paginado.length === 0 && !cargando && (
-                <tr><td colSpan={puedeArmarLote ? 9 : 8} className="px-3 py-6 text-center text-muted-foreground">Sin compromisos pendientes.</td></tr>
+                <tr><td colSpan={puedeSeleccionar ? 9 : 8} className="px-3 py-6 text-center text-muted-foreground">Sin compromisos pendientes.</td></tr>
               )}
             </tbody>
           </table>
         </CardContent>
       </Card>
+
+      <RegistrarPagoDialog items={itemsPago(pagoDe ?? [])} abierto={!!pagoDe} onCerrar={() => setPagoDe(null)}
+        onHecho={() => { setPagoDe(null); setSeleccion(new Set()); void cargar(); }} />
     </div>
   );
 }

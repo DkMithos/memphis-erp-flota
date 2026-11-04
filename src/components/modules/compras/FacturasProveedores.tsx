@@ -12,7 +12,9 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePersistedState } from '../../../lib/shared/usePersistedState';
-import { FileText, Search, X, RefreshCw, CheckCircle2, AlertTriangle, FileDown, CalendarClock, BadgeCheck, Upload, Loader2, Eye, ChevronLeft, ChevronRight, Download, ExternalLink } from 'lucide-react';
+import { FileText, Search, X, RefreshCw, CheckCircle2, AlertTriangle, FileDown, CalendarClock, BadgeCheck, Upload, Loader2, Eye, ChevronLeft, ChevronRight, Download, ExternalLink, Banknote, Paperclip } from 'lucide-react';
+import { RegistrarPagoDialog } from '../finanzas/RegistrarPagoDialog';
+import { cargarPagosDeFactura, abrirComprobante, type PagoDeFactura } from '@/lib/finanzas/pagos';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
@@ -83,6 +85,8 @@ const ESTADOS: Record<string, { label: string; variant: 'default' | 'secondary' 
   historica: { label: 'Histórica (SIRE)', variant: 'outline' },
 };
 const PENDIENTES = ['recibida', 'validada'];
+/** Conformes o programadas: se pueden marcar pagadas (Kevin, 04/11/2026: un solo diálogo con comprobante). */
+const PAGABLES = ['conforme', 'programada_pago'];
 const POR_PAGINA = 20;
 
 const fmt = (monto: number, moneda: string) =>
@@ -120,6 +124,8 @@ export function FacturasProveedores({ onNavigate }: Props) {
   const puedeGestionar = can('compras', 'editar');
   const puedeExportar = can('compras', 'exportar');
   const puedeImportarSire = can('compras', 'editar') || can('contabilidad', 'editar') || can('finanzas', 'lotes_validar');
+  // Registrar un pago es un acto de Finanzas (misma puerta que registrar_pago_compromiso).
+  const puedePagar = can('finanzas', 'editar') || can('finanzas', 'crear') || can('finanzas', 'flujo');
 
   const [filas, setFilas] = useState<FacturaRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -140,6 +146,7 @@ export function FacturasProveedores({ onNavigate }: Props) {
   const [motivo, setMotivo] = useState('');
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
+  const [pagoDe, setPagoDe] = useState<FacturaRow[] | null>(null);
 
   // La búsqueda espera 350 ms a que termine de escribir antes de ir a la base.
   useEffect(() => { const t = setTimeout(() => setBusquedaLista(busqueda), 350); return () => clearTimeout(t); }, [busqueda]);
@@ -177,8 +184,11 @@ export function FacturasProveedores({ onNavigate }: Props) {
   const recargar = async () => { await Promise.all([cargarPagina(), cargarResumen()]); };
 
   const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA));
-  const pendientesPagina = useMemo(() => filas.filter(f => PENDIENTES.includes(f.estadoFlujo)), [filas]);
+  // Seleccionables: las pendientes de conformidad y, para quien registra pagos, las conformes por pagar.
+  const pendientesPagina = useMemo(() => filas.filter(f => PENDIENTES.includes(f.estadoFlujo) || (puedePagar && PAGABLES.includes(f.estadoFlujo))), [filas, puedePagar]);
   const seleccionadas = useMemo(() => filas.filter(f => seleccion.has(f.id) && PENDIENTES.includes(f.estadoFlujo)), [filas, seleccion]);
+  const seleccionadasPago = useMemo(() => filas.filter(f => seleccion.has(f.id) && PAGABLES.includes(f.estadoFlujo)), [filas, seleccion]);
+  const itemsPago = (fs: FacturaRow[]) => fs.map(f => ({ comprobanteId: f.id, etiqueta: f.numeroCompleto, detalle: f.proveedorNombre, moneda: f.moneda, monto: f.total }));
 
   /** Cambia una factura y la refleja en pantalla sin recargar la lista; el resumen se refresca aparte (es barato). */
   const actualizarEstado = async (id: string, cambios: Record<string, unknown>, exito: string) => {
@@ -379,6 +389,11 @@ export function FacturasProveedores({ onNavigate }: Props) {
                   <CheckCircle2 className="size-4" /> Dar conformidad a {seleccionadas.length} seleccionada(s)
                 </Button>
               )}
+              {puedePagar && seleccionadasPago.length > 0 && (
+                <Button size="sm" variant="outline" disabled={trabajando} onClick={() => setPagoDe(seleccionadasPago)} title="Registra el pago de todas las seleccionadas con una fecha, una referencia y un comprobante">
+                  <Banknote className="size-4" /> Registrar pago de {seleccionadasPago.length}
+                </Button>
+              )}
               {(busqueda || filtroEstado !== 'pendientes') && (
                 <Button variant="ghost" size="sm" onClick={() => { setBusqueda(''); setFiltroEstado('pendientes'); }}><X className="size-4" /> Limpiar</Button>
               )}
@@ -393,7 +408,7 @@ export function FacturasProveedores({ onNavigate }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                {puedeGestionar && <TableHead className="w-8"><Checkbox checked={todasSeleccionadas} disabled={pendientesPagina.length === 0} onCheckedChange={(v: boolean | 'indeterminate') => alternarTodas(v === true)} title="Seleccionar las pendientes de esta página" /></TableHead>}
+                {(puedeGestionar || puedePagar) && <TableHead className="w-8"><Checkbox checked={todasSeleccionadas} disabled={pendientesPagina.length === 0} onCheckedChange={(v: boolean | 'indeterminate') => alternarTodas(v === true)} title="Seleccionar las pendientes de conformidad o de pago de esta página" /></TableHead>}
                 <TableHead>Factura</TableHead>
                 <TableHead>Proveedor</TableHead>
                 <TableHead>Orden</TableHead>
@@ -417,7 +432,7 @@ export function FacturasProveedores({ onNavigate }: Props) {
                 const pendiente = PENDIENTES.includes(f.estadoFlujo);
                 return (
                   <TableRow key={f.id} className={loading ? 'opacity-60' : ''}>
-                    {puedeGestionar && <TableCell>{pendiente && <Checkbox checked={seleccion.has(f.id)} onCheckedChange={(v: boolean | 'indeterminate') => alternar(f.id, v === true)} />}</TableCell>}
+                    {(puedeGestionar || puedePagar) && <TableCell>{(pendiente || (puedePagar && PAGABLES.includes(f.estadoFlujo))) && <Checkbox checked={seleccion.has(f.id)} onCheckedChange={(v: boolean | 'indeterminate') => alternar(f.id, v === true)} />}</TableCell>}
                     <TableCell>
                       <button className="font-mono font-medium text-left hover:underline" onClick={() => setPreviewId(f.id)} title="Vista previa">{f.numeroCompleto}</button>
                       <p className="text-xs text-muted-foreground">{f.fechaEmision ?? '—'}{f.subidoPorProveedor ? ' · vía portal' : f.origen === 'sire' ? ' · SIRE' : ' · manual'}</p>
@@ -466,6 +481,9 @@ export function FacturasProveedores({ onNavigate }: Props) {
                             <Button size="sm" variant="outline" onClick={() => { setObservarDe(f); setMotivo(''); }} disabled={trabajando}><AlertTriangle className="size-4" /> Observar</Button>
                           </>
                         )}
+                        {puedePagar && PAGABLES.includes(f.estadoFlujo) && (
+                          <Button size="sm" variant="outline" disabled={trabajando} title="Registrar el pago con fecha, referencia y comprobante" onClick={() => setPagoDe([f])}><Banknote className="size-4" /> Pagar</Button>
+                        )}
                         {puedeGestionar && f.estadoFlujo === 'conforme' && (
                           <Button size="sm" variant="outline" disabled={trabajando} onClick={() => actualizarEstado(f.id, { estado_flujo: 'programada_pago' }, `Factura ${f.numeroCompleto} programada de pago`)}>
                             <CalendarClock className="size-4" /> Programar pago
@@ -505,7 +523,7 @@ export function FacturasProveedores({ onNavigate }: Props) {
       <Sheet open={!!preview} onOpenChange={o => !o && setPreviewId(null)}>
         <SheetContent side="right" className="w-full sm:max-w-[min(96vw,1100px)] overflow-y-auto">
           {preview && (
-            <PreviewFactura f={preview} puedeGestionar={puedeGestionar} trabajando={trabajando} urlFirmada={urlFirmada}
+            <PreviewFactura f={preview} puedeGestionar={puedeGestionar} puedePagar={puedePagar} onPagar={() => setPagoDe([preview])} trabajando={trabajando} urlFirmada={urlFirmada}
               anterior={previewIdx > 0 ? () => setPreviewId(filas[previewIdx - 1].id) : undefined}
               siguiente={previewIdx < filas.length - 1 ? () => setPreviewId(filas[previewIdx + 1].id) : undefined}
               onConformar={async () => { if (await conformar([preview])) { const sig = filas.slice(previewIdx + 1).find(x => PENDIENTES.includes(x.estadoFlujo)); if (sig) setPreviewId(sig.id); } }}
@@ -551,6 +569,10 @@ export function FacturasProveedores({ onNavigate }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Diálogo: registrar pago (una o varias) con comprobante */}
+      <RegistrarPagoDialog items={itemsPago(pagoDe ?? [])} abierto={!!pagoDe} onCerrar={() => setPagoDe(null)}
+        onHecho={() => { setPagoDe(null); setSeleccion(new Set()); void recargar(); }} />
 
       {/* Diálogo: observar */}
       <Dialog open={!!observarDe} onOpenChange={o => !o && setObservarDe(null)}>
@@ -614,8 +636,8 @@ function Kpi({ texto, valor, onClick, activo, chico }: { texto: string; valor: n
 }
 
 /** Panel lateral: datos de la factura a la izquierda y el PDF a la derecha; conformidad y siguiente sin volver a la lista. */
-function PreviewFactura({ f, puedeGestionar, trabajando, urlFirmada, anterior, siguiente, onConformar, onConformarConRecepcion, onObservar, onAbrirOrden }: {
-  f: FacturaRow; puedeGestionar: boolean; trabajando: boolean; urlFirmada: (p: string | null) => Promise<string | null>;
+function PreviewFactura({ f, puedeGestionar, puedePagar, onPagar, trabajando, urlFirmada, anterior, siguiente, onConformar, onConformarConRecepcion, onObservar, onAbrirOrden }: {
+  f: FacturaRow; puedeGestionar: boolean; puedePagar: boolean; onPagar: () => void; trabajando: boolean; urlFirmada: (p: string | null) => Promise<string | null>;
   anterior?: () => void; siguiente?: () => void; onConformar: () => Promise<void>; onConformarConRecepcion: () => void; onObservar: () => void; onAbrirOrden?: () => void;
 }) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -646,6 +668,9 @@ function PreviewFactura({ f, puedeGestionar, trabajando, urlFirmada, anterior, s
           {f.subidoPorProveedor ? <span>· vía portal</span> : f.origen === 'sire' ? <span>· SIRE {f.periodoSire ?? ''}</span> : null}
         </SheetDescription>
       </SheetHeader>
+
+      {/* Pagos registrados contra esta factura, con su comprobante; y el botón para registrar uno. */}
+      <PagosFactura comprobanteId={f.id} estadoFlujo={f.estadoFlujo} puedePagar={puedePagar} trabajando={trabajando} onPagar={onPagar} />
 
       {puedeGestionar && (
         <div className="flex flex-wrap gap-2 rounded-md border bg-muted/30 p-2">
@@ -697,3 +722,34 @@ function PreviewFactura({ f, puedeGestionar, trabajando, urlFirmada, anterior, s
     </div>
   );
 }
+
+/** Los pagos de una factura (transacciones enlazadas) con el comprobante adjunto, y "Registrar pago" si sigue por pagar. */
+function PagosFactura({ comprobanteId, estadoFlujo, puedePagar, trabajando, onPagar }: { comprobanteId: string; estadoFlujo: string; puedePagar: boolean; trabajando: boolean; onPagar: () => void }) {
+  const [pagos, setPagos] = useState<PagoDeFactura[] | null>(null);
+  useEffect(() => { let vivo = true; setPagos(null); cargarPagosDeFactura(comprobanteId).then(p => { if (vivo) setPagos(p); }).catch(() => { if (vivo) setPagos([]); }); return () => { vivo = false; }; }, [comprobanteId, estadoFlujo]);
+  const pagable = puedePagar && PAGABLES.includes(estadoFlujo);
+  if (!pagable && (!pagos || pagos.length === 0)) return null;
+  return (
+    <div className="rounded-md border p-2 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">Pagos</p>
+        {pagable && <Button size="sm" variant="outline" disabled={trabajando} onClick={onPagar}><Banknote className="size-4" /> Registrar pago…</Button>}
+      </div>
+      {pagos === null ? <p className="text-xs text-muted-foreground">Cargando…</p> : pagos.length === 0 ? <p className="text-xs text-muted-foreground">Todavía sin pagos registrados.</p> : (
+        <div className="text-sm divide-y">
+          {pagos.map(p => (
+            <div key={p.id} className="py-1 flex flex-wrap items-center justify-between gap-2">
+              <span><span className="font-mono text-xs">{p.numero}</span> · {p.fecha}{p.cuenta ? ` · ${p.cuenta}` : ''}{p.referencia ? ` · ref. ${p.referencia}` : ''}</span>
+              <span className="flex items-center gap-2 tabular-nums">{fmt(Number(p.monto), p.moneda)}
+                {p.comprobante_url
+                  ? <Button size="sm" variant="ghost" className="h-7 px-2" title="Ver comprobante" onClick={() => void abrirComprobante(p.comprobante_url!)}><Paperclip className="size-3.5" /> Comprobante</Button>
+                  : <span className="text-xs text-muted-foreground">sin comprobante</span>}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+

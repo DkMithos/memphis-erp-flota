@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import {
   Plus, Search, Filter, TrendingUp, TrendingDown, AlertCircle,
-  Check, X, Ban, ChevronDown, ArrowLeftRight
+  Check, X, Ban, ChevronDown, ArrowLeftRight,
+  Paperclip,
 } from 'lucide-react';
 import { PageNav } from '@/components/shared/PageNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +26,7 @@ import { CentroCostoSelector } from '../../shared/CentroCostoSelector';
 import { toast } from 'sonner';
 import { useFinanzas, type Transaccion } from '@/lib/finanzas/finanzas-store';
 import { useAuth } from '@/auth/AuthProvider';
+import { abrirComprobante, subirComprobantePago, adjuntarComprobante } from '@/lib/finanzas/pagos';
 import { usePermissions } from '@/lib/rbac/usePermissions';
 import { usePagination } from '@/lib/shared/usePagination';
 
@@ -91,6 +93,17 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
   // que autoriza a registrar. Contabilidad y Proyectos la tienen en lectura.
   const { can } = usePermissions();
   const puedeRegistrar = can('finanzas', 'crear');
+  // Comprobantes adjuntados en esta sesión (para verlos sin recargar la lista).
+  const [adjuntos, setAdjuntos] = useState<Record<string, string>>({});
+  const adjuntar = async (t: Transaccion, archivo: File) => {
+    if (!tenantId || !t._dbId) return;
+    try {
+      const path = await subirComprobantePago(tenantId, archivo);
+      await adjuntarComprobante(t._dbId, path);
+      setAdjuntos(prev => ({ ...prev, [t._dbId as string]: path }));
+      toast.success('Comprobante adjuntado');
+    } catch (e) { toast.error(e instanceof Error ? e.message : String(e)); }
+  };
   const [formData, setFormData] = useState<FormData>(defaultForm);
   const [trxProyectoId, setTrxProyectoId] = useState<string | null>(null);
   const [trxCentroCostoId, setTrxCentroCostoId] = useState<string | null>(null);
@@ -413,6 +426,17 @@ export function FinanzasTransacciones({ onNavigate: _onNavigate }: Props) {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
+                          {(adjuntos[t._dbId ?? ''] ?? t.comprobanteUrl) && (
+                            <Button variant="ghost" size="icon" className="size-7" title="Ver comprobante" onClick={() => void abrirComprobante((adjuntos[t._dbId ?? ''] ?? t.comprobanteUrl) as string)}>
+                              <Paperclip className="size-3.5" />
+                            </Button>
+                          )}
+                          {!(adjuntos[t._dbId ?? ''] ?? t.comprobanteUrl) && t.estado === 'pagada' && t.tipo === 'egreso' && puedeRegistrar && t._dbId && (
+                            <label className="inline-flex" title="Adjuntar comprobante (PDF o imagen)">
+                              <input type="file" className="hidden" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void adjuntar(t, f); }} />
+                              <span className="inline-flex items-center justify-center size-7 rounded-md hover:bg-accent cursor-pointer text-muted-foreground"><Paperclip className="size-3.5" /></span>
+                            </label>
+                          )}
                           {t.estado === 'pendiente' && (
                             <>
                               <Button
