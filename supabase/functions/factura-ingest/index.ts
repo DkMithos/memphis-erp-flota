@@ -44,7 +44,7 @@ export default {
     if (!body?.xml) return Response.json({ error: 'Falta el XML de la factura' }, { status: 400 });
     // El PDF (representación impresa) es obligatorio: es lo que revisa Compras y lo que se archiva.
     if (!body.pdf_base64 || body.pdf_base64.length < 100) {
-      return Response.json({ ok: false, errores: ['Falta el PDF de la factura (representación impresa). Suba el XML y el PDF con el mismo nombre.'] }, { status: 422 });
+      return Response.json({ ok: false, errores: ['Falta el PDF de la factura (representación impresa). Suba el XML junto con su PDF.'] }, { status: 422 });
     }
 
     let f;

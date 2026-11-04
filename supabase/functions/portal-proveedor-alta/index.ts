@@ -63,7 +63,7 @@ async function enviarEnlacePorCorreo(p: {
       <p><a href="${p.enlace}" style="display:inline-block;background:#0A66C2;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">Crear mi contraseña</a></p>
       <p style="font-size:12px;color:#555">Si el botón no abre, copie este enlace en su navegador:<br>${p.enlace}</p>
       <p>Luego ingrese en <b>erp.memphismaquinarias.com/portal</b> con su RUC <b>${p.ruc}</b> y la contraseña que creó.</p>
-      <p>Por cada factura debe subir <b>dos archivos con el mismo nombre</b>: el <b>XML</b> y el <b>PDF</b>. Indique el número de la orden de compra (OrderReference del XML) para que se asigne sola.</p>
+      <p>Por cada factura debe subir <b>dos archivos</b>: el <b>XML</b> (factura electrónica) y el <b>PDF</b> (representación impresa); puede elegirlos juntos o uno después del otro, el portal los une por el número de la factura. Indique el número de la orden de compra (OrderReference del XML) para que se asigne sola.</p>
       <p>Le adjuntamos la <b>Guía del Portal de Proveedores</b> (PDF) con el paso a paso. También puede verla en: <a href="${GUIA_URL}">${GUIA_URL}</a>.</p>
       <p style="color:#555">Compras — Memphis Maquinarias S.A.C.</p>
     </div>`;

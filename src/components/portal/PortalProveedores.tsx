@@ -21,7 +21,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../ui/select';
-import { Building2, FileUp, LogOut, KeyRound, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Building2, FileUp, LogOut, KeyRound, CheckCircle2, AlertTriangle, RefreshCw, X } from 'lucide-react';
+import { emparejarFacturas, esCdr, esPdf, esXml, idDesdeXml } from '../../lib/portal/emparejar-archivos';
 
 interface Props {
   route: string;
@@ -111,6 +112,8 @@ export function PortalProveedores({ route, onNavigate }: Props) {
   // Subida
   const [subiendo, setSubiendo] = useState(false);
   const [resultados, setResultados] = useState<ResultadoSubida[]>([]);
+  // Archivos elegidos que aún no tienen pareja (XML sin PDF o PDF sin XML): esperan la siguiente selección.
+  const [pendientes, setPendientes] = useState<File[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const esProveedor = session?.user?.app_metadata?.tipo === 'proveedor';
@@ -336,42 +339,78 @@ export function PortalProveedores({ route, onNavigate }: Props) {
     return { archivo, ok: false, mensaje: 'No se pudo registrar', errores, permiteElegirOC, xml, pdfBase64 };
   };
 
+  const aBase64 = async (archivo: File): Promise<string> => {
+    const buf = new Uint8Array(await archivo.arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < buf.length; i += 32768) bin += String.fromCharCode(...buf.subarray(i, i + 32768));
+    return btoa(bin);
+  };
+
+  // Une lo recién elegido con lo que quedó pendiente de selecciones anteriores, empareja cada XML con
+  // su PDF (mismo nombre, mismo número de comprobante o uno-y-uno) y envía las parejas completas.
+  // Lo que no tiene pareja se retiene y se explica, en vez de rechazarlo.
   const procesarArchivos = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setSubiendo(true);
-    const lista = Array.from(files);
-    const xmls = lista.filter(f => f.name.toLowerCase().endsWith('.xml'));
-    const pdfs = new Map(lista.filter(f => f.name.toLowerCase().endsWith('.pdf'))
-      .map(f => [f.name.toLowerCase().replace(/\.pdf$/, ''), f]));
-    if (xmls.length === 0) {
-      setResultados(r => [{ archivo: '—', ok: false, mensaje: 'Seleccione el XML y el PDF de cada factura (los dos son obligatorios y deben llamarse igual, p. ej. F001-00000458.xml y F001-00000458.pdf)' }, ...r]);
-      setSubiendo(false);
-      return;
-    }
     const nuevos: ResultadoSubida[] = [];
-    for (const f of xmls) {
-      const xml = await f.text();
-      // El PDF (representación impresa) es obligatorio: Compras y Contabilidad
-      // lo revisan y es el que se archiva. Se empareja con el XML por nombre.
-      const pdf = pdfs.get(f.name.toLowerCase().replace(/\.xml$/, ''));
-      if (!pdf) {
-        nuevos.push({
-          archivo: f.name, ok: false, mensaje: 'Falta el PDF de esta factura',
-          errores: [`Sube también ${f.name.replace(/\.xml$/i, '.pdf')} (la representación impresa). Selecciona el XML y el PDF juntos.`],
-        });
-        continue;
+    let quedan: File[] = [];
+    try {
+      const vistos = new Set<string>();
+      const lista = [...pendientes, ...Array.from(files)].filter(f => {
+        const k = `${f.name.toLowerCase()}|${f.size}`;
+        if (vistos.has(k)) return false;
+        vistos.add(k); return true;
+      });
+      const xmls = lista.filter(f => esXml(f.name));
+      const pdfs = lista.filter(f => esPdf(f.name));
+      const otros = lista.filter(f => !esXml(f.name) && !esPdf(f.name));
+      for (const o of otros) {
+        nuevos.push({ archivo: o.name, ok: false, mensaje: 'Este archivo no es una factura', errores: ['Solo se reciben el XML (factura electrónica) y el PDF (representación impresa).'] });
       }
-      const buf = new Uint8Array(await pdf.arrayBuffer());
-      let bin = '';
-      for (let i = 0; i < buf.length; i += 32768) bin += String.fromCharCode(...buf.subarray(i, i + 32768));
-      const pdfBase64 = btoa(bin);
-      nuevos.push(await subirXml(f.name, xml, pdfBase64));
+
+      const textos = new Map<File, string>();
+      const candidatos = [];
+      for (const x of xmls) {
+        const texto = await x.text();
+        if (esCdr(texto)) {
+          // El "R-…xml" es la constancia de SUNAT; se descarta con explicación en vez de mandarlo al servidor.
+          nuevos.push({ archivo: x.name, ok: false, mensaje: 'Este XML es la constancia de SUNAT (CDR), no la factura', errores: ['Sube el XML de la factura (el que no empieza con "R-") junto con su PDF.'] });
+          continue;
+        }
+        textos.set(x, texto);
+        candidatos.push({ archivo: x, id: idDesdeXml(texto) });
+      }
+      const { pares, xmlsSinPdf, pdfsSinXml } = emparejarFacturas(candidatos, pdfs);
+
+      for (const par of pares) {
+        nuevos.push(await subirXml(par.xml.name, textos.get(par.xml)!, await aBase64(par.pdf)));
+      }
+      quedan = [...xmlsSinPdf, ...pdfsSinXml];
+      for (const x of xmlsSinPdf) {
+        const id = idDesdeXml(textos.get(x) ?? '');
+        nuevos.push({
+          archivo: x.name, ok: false, mensaje: 'Falta el PDF de esta factura: queda en espera',
+          errores: [`Selecciona ahora el PDF (representación impresa)${id ? ` de ${id}` : ''}; se enviará junto con este XML, no hace falta volver a elegirlo.`],
+        });
+      }
+      for (const p of pdfsSinXml) {
+        nuevos.push({
+          archivo: p.name, ok: false, mensaje: 'Falta el XML de esta factura: queda en espera',
+          errores: ['Selecciona ahora el XML (factura electrónica); se enviará junto con este PDF.'],
+        });
+      }
+    } catch (e) {
+      nuevos.push({ archivo: '—', ok: false, mensaje: 'No se pudieron leer los archivos', errores: [(e as Error).message || 'Inténtalo de nuevo o escribe a Compras.'] });
+    } finally {
+      setPendientes(quedan);
+      setResultados(r => [...nuevos, ...r]);
+      setSubiendo(false);
+      if (fileRef.current) fileRef.current.value = '';
+      cargarDatos();
     }
-    setResultados(r => [...nuevos, ...r]);
-    setSubiendo(false);
-    if (fileRef.current) fileRef.current.value = '';
-    cargarDatos();
   };
+
+  const quitarPendiente = (archivo: File) => setPendientes(p => p.filter(x => x !== archivo));
 
   const reintentarConOC = async (idx: number, ordenCompraId: string) => {
     const r = resultados[idx];
@@ -678,10 +717,10 @@ export function PortalProveedores({ route, onNavigate }: Props) {
             <CardHeader>
               <CardTitle className="text-base">Enviar facturas electrónicas</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Por cada factura sube <strong>dos archivos con el mismo nombre</strong>: el <strong>XML</strong> (factura
-                electrónica) y el <strong>PDF</strong> (representación impresa), p. ej. <code>F001-00000458.xml</code> y{' '}
-                <code>F001-00000458.pdf</code>. Ambos son obligatorios. Si el XML incluye el número de la orden de compra
-                (OrderReference), se asigna sola; si no, podrás elegir la orden. Puedes subir varias facturas a la vez.
+                Por cada factura sube <strong>dos archivos</strong>: el <strong>XML</strong> (factura electrónica) y el{' '}
+                <strong>PDF</strong> (representación impresa). Puedes elegirlos juntos o uno después del otro: el portal los
+                une por el número de la factura (p. ej. <code>F001-00001089</code>). Si el XML incluye el número de la orden
+                de compra, se asigna sola; si no, podrás elegir la orden. Puedes subir varias facturas a la vez.
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -695,6 +734,22 @@ export function PortalProveedores({ route, onNavigate }: Props) {
                 className="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:opacity-90"
               />
               {subiendo && <p className="text-sm text-muted-foreground flex items-center gap-2"><FileUp className="size-4 animate-pulse" /> Procesando archivos…</p>}
+              {pendientes.length > 0 && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3 text-sm space-y-2">
+                  <p className="font-medium">En espera de su pareja ({pendientes.length})</p>
+                  <ul className="space-y-1">
+                    {pendientes.map(p => (
+                      <li key={`${p.name}-${p.size}`} className="flex items-center justify-between gap-2">
+                        <span className="truncate">{p.name} · falta el {esXml(p.name) ? 'PDF' : 'XML'}</span>
+                        <Button size="sm" variant="ghost" onClick={() => quitarPendiente(p)} disabled={subiendo} aria-label={`Quitar ${p.name}`}>
+                          <X className="size-4" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-muted-foreground">Selecciona el archivo que falta y se enviarán juntos.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

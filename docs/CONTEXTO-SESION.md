@@ -4524,3 +4524,33 @@ ni factura en el ERP. Migración `20261104120000_compromisos_oc_no_domiciliados_
 PENDIENTES, área SISTEMAS/ADMINISTRACION, vencimiento = fecha de la OC. Finanzas los cierra con "Registrar pago" (referencia
 de la tarjeta, comprobante opcional). `fuente = 'manual'` es nuevo: compromisos creados a mano desde una OC.
 
+## Pagos con tarjeta de las 14 OC de no domiciliados pre-corte (2026-11-04)
+
+Kevin: "Márcalos como pagados con tarjeta, fecha de cada orden". `20261104130000_pagar_oc_no_domiciliados_tarjeta.sql`
+(ejecutado una vez por MCP, guardado como registro): `registrar_pago_compromiso(compromiso, fecha_emision de la OC, null,
+null, 'Tarjeta de crédito')` para los 14 compromisos de fuente 'manual' como Kevin. Resultado: 14 PAGADO, transacciones
+TRX-2026-1332..1345 con fecha de cada OC (10-abr a 15-jun), sin cuenta bancaria (tarjeta) y referencia "Tarjeta de crédito".
+
+## Portal de proveedores: XML y PDF ya no tienen que llamarse igual ni elegirse juntos (2026-11-04)
+
+PROVISIONES TECNOLOGICAS (RUC 20604953236) no podía subir F001-00001089 (OC MM-001309, US$ 123.90): "selecciona el XML y
+el PDF y le sale error". Diagnóstico: en los logs del día **no hay ninguna llamada a `factura-ingest` del proveedor**
+(solo su login a las 11:08); el XML parsea bien, la OC es suya, está `recibida_total` con saldo 123.90 y el RUC receptor
+es el nuestro. El fallo era del navegador: el portal exigía **el mismo nombre de archivo** para XML y PDF **y que se
+eligieran en una sola selección** (el `input multiple` reemplaza la selección anterior); con el PDF con otro nombre o
+elegido después, salía "Falta el PDF de esta factura". Ayer PERUMOTOR subió 10 sin problema (nombres iguales).
+
+Fix (`src/lib/portal/emparejar-archivos.ts`, 14 tests; `PortalProveedores.tsx`):
+- Emparejamiento en cascada: mismo nombre base (ignora " (1)", " - copia"), mismo **número de comprobante** (el cbc:ID del
+  XML contra el nombre del PDF, p. ej. `20604953236-01-F001-00001089.xml` + `Factura F001-1089.pdf`), y si queda un XML y
+  un PDF sueltos, van juntos.
+- Lo que no tiene pareja **queda en espera** (tarjeta ámbar con "Quitar") y se envía cuando llega el archivo que falta en
+  la siguiente selección; mensajes explican qué falta. El CDR de SUNAT (`R-…xml`, ApplicationResponse) se descarta con aviso.
+- `try/catch` en la lectura de archivos (antes una excepción dejaba "Procesando…" para siempre).
+- Texto del portal y del correo de invitación (`portal-proveedor-alta` v9) ya no piden "mismo nombre"; `factura-ingest`
+  solo cambia el texto del 422 (repo). La guía PDF sigue diciendo "mismo nombre": sigue siendo válido, no se regeneró.
+- QA con proveedor temporal `20999999992` (borrado): XML solo → en espera; PDF con otro nombre después → emparejado por
+  número y enviado; el servidor respondió 422 "RUC emisor no coincide" (esperado para el QA), es decir, la solicitud llega.
+  Con el proveedor real pasaría: RUC, OC y saldo cuadran.
+- Pendiente: pedirle a PROVISIONES que vuelva a subir F001-00001089 (XML + PDF) tras el deploy de Vercel.
+
