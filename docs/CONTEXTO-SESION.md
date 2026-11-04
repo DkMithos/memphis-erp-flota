@@ -4514,3 +4514,13 @@ Soles 806, referencia y PDF adjunto (primer intento falló por el 409 del FK, co
 descarga firmada 200; clip en Transacciones; en Facturas el diálogo con 2 conformes en US$ (cancelado sin pagar). Datos,
 objetos del bucket y usuario de prueba eliminados.
 
+## Compromisos de las 14 OC de no domiciliados anteriores al corte (2026-11-04)
+
+Kevin: "crea los compromisos de las 14 OC de no domiciliados que faltan". Son suscripciones de abril-junio 2026 (Supabase,
+Vercel, Anthropic, Google, VMEG; US$ 20-60, y dos de S/ 1 y S/ 0.02), aprobadas antes de `cxp_desde` (2026-07-01), sin pago
+ni factura en el ERP. Migración `20261104120000_compromisos_oc_no_domiciliados_pre_corte.sql`: función
+`compromiso_desde_oc_forzar(oc)` (misma forma que `sync_compromiso_de_oc`, pero `fuente = 'manual'` para que la rama
+"anterior al corte" del sync no los borre al editar la OC; la unicidad por OC es parcial sobre fuente 'erp'). 14 creados,
+PENDIENTES, área SISTEMAS/ADMINISTRACION, vencimiento = fecha de la OC. Finanzas los cierra con "Registrar pago" (referencia
+de la tarjeta, comprobante opcional). `fuente = 'manual'` es nuevo: compromisos creados a mano desde una OC.
+
