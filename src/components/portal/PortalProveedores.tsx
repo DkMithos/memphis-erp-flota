@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../ui/select';
-import { Building2, FileUp, LogOut, KeyRound, CheckCircle2, AlertTriangle, RefreshCw, X } from 'lucide-react';
+import { Building2, FileUp, LogOut, KeyRound, CheckCircle2, AlertTriangle, RefreshCw, X, FileDown } from 'lucide-react';
 import { emparejarFacturas, esCdr, esPdf, esXml, idDesdeXml } from '../../lib/portal/emparejar-archivos';
 
 interface Props {
@@ -42,6 +42,15 @@ interface OrdenPortal {
   estadoFacturacion: string;
 }
 
+interface PagoPortal {
+  transaccion: string;
+  fecha: string | null;
+  monto: number;
+  moneda: string;
+  referencia: string | null;
+  comprobanteUrl: string | null; // ruta en vouchers-pagos o enlace externo
+}
+
 interface FacturaPortal {
   id: string;
   numeroCompleto: string;
@@ -51,6 +60,7 @@ interface FacturaPortal {
   estadoFlujo: string;
   orden: string | null;
   motivoObservacion: string | null;
+  pagos: PagoPortal[];
 }
 
 interface ResultadoSubida {
@@ -192,7 +202,7 @@ export function PortalProveedores({ route, onNavigate }: Props) {
   // ── Datos del proveedor (bajo RLS) ──
   const cargarDatos = useCallback(async () => {
     setCargandoDatos(true);
-    const [prov, ocs, saldos, facts] = await Promise.all([
+    const [prov, ocs, saldos, facts, pagos] = await Promise.all([
       supabase.from('proveedores').select('razon_social').limit(1).maybeSingle(),
       supabase.from('ordenes_compra')
         .select('id, numero, fecha_emision, estado, moneda, total')
@@ -201,7 +211,15 @@ export function PortalProveedores({ route, onNavigate }: Props) {
       supabase.from('comprobantes_pago')
         .select('id, numero_completo, fecha_emision, total, moneda, estado_flujo, orden_compra_numero, motivo_observacion')
         .order('creado_en', { ascending: false }).limit(500),
+      // Pagos de sus facturas (función security definer: el proveedor no tiene tenant en el JWT)
+      supabase.rpc('portal_mis_pagos'),
     ]);
+    const pagosPorFactura = new Map<string, PagoPortal[]>();
+    for (const p of (pagos.data ?? []) as any[]) {
+      const lista = pagosPorFactura.get(p.comprobante_id) ?? [];
+      lista.push({ transaccion: p.transaccion, fecha: p.fecha, monto: Number(p.monto ?? 0), moneda: p.moneda ?? 'PEN', referencia: p.referencia, comprobanteUrl: p.comprobante_url });
+      pagosPorFactura.set(p.comprobante_id, lista);
+    }
     setRazonSocial(prov.data?.razon_social ?? '');
     const saldoPorOc = new Map((saldos.data ?? []).map((s: any) => [s.orden_compra_id, s]));
     setOrdenes((ocs.data ?? []).map((o: any): OrdenPortal => {
@@ -220,6 +238,7 @@ export function PortalProveedores({ route, onNavigate }: Props) {
       total: Number(f.total ?? 0), moneda: f.moneda ?? 'PEN',
       estadoFlujo: f.estado_flujo ?? 'recibida', orden: f.orden_compra_numero,
       motivoObservacion: f.motivo_observacion,
+      pagos: pagosPorFactura.get(f.id) ?? [],
     })));
     setCargandoDatos(false);
   }, []);
@@ -407,6 +426,24 @@ export function PortalProveedores({ route, onNavigate }: Props) {
       setSubiendo(false);
       if (fileRef.current) fileRef.current.value = '';
       cargarDatos();
+    }
+  };
+
+  // El comprobante del pago: ruta del bucket privado `vouchers-pagos` (URL firmada 10 min, la política
+  // solo deja firmar los de sus propias facturas) o un enlace externo que Finanzas pegó a mano.
+  const [abriendoVoucher, setAbriendoVoucher] = useState<string | null>(null);
+  const abrirComprobante = async (p: PagoPortal) => {
+    if (!p.comprobanteUrl) return;
+    if (/^https?:\/\//i.test(p.comprobanteUrl)) { window.open(p.comprobanteUrl, '_blank', 'noopener'); return; }
+    setAbriendoVoucher(p.transaccion);
+    try {
+      const { data, error } = await supabase.storage.from('vouchers-pagos').createSignedUrl(p.comprobanteUrl, 600);
+      if (error || !data?.signedUrl) throw new Error(error?.message ?? 'sin URL');
+      window.open(data.signedUrl, '_blank', 'noopener');
+    } catch (e) {
+      setResultados(r => [{ archivo: p.transaccion, ok: false, mensaje: 'No se pudo abrir el comprobante de pago', errores: [(e as Error).message] }, ...r]);
+    } finally {
+      setAbriendoVoucher(null);
     }
   };
 
@@ -807,11 +844,12 @@ export function PortalProveedores({ route, onNavigate }: Props) {
                     <TableHead>Orden</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead>Estado</TableHead>
+                    <TableHead>Pago</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {facturas.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Aún no has enviado facturas</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Aún no has enviado facturas</TableCell></TableRow>
                   ) : facturas.map(f => {
                     const badge = ESTADO_FACTURA[f.estadoFlujo] ?? { label: f.estadoFlujo, variant: 'outline' as const };
                     return (
@@ -825,6 +863,22 @@ export function PortalProveedores({ route, onNavigate }: Props) {
                           {f.estadoFlujo === 'observada' && f.motivoObservacion && (
                             <p className="text-xs text-red-600 mt-1">{f.motivoObservacion}</p>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          {f.pagos.length === 0 ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : f.pagos.map(p => (
+                            <div key={p.transaccion} className="text-sm flex items-center gap-2 flex-wrap">
+                              <span>{p.fecha ?? '—'} · {fmt(p.monto, p.moneda)}{p.referencia ? ` · ${p.referencia}` : ''}</span>
+                              {p.comprobanteUrl ? (
+                                <Button size="sm" variant="outline" onClick={() => abrirComprobante(p)} disabled={abriendoVoucher === p.transaccion}>
+                                  <FileDown className="size-4" /> Comprobante
+                                </Button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">sin comprobante adjunto</span>
+                              )}
+                            </div>
+                          ))}
                         </TableCell>
                       </TableRow>
                     );

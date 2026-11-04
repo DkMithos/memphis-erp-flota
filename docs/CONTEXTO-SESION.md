@@ -4554,3 +4554,20 @@ Fix (`src/lib/portal/emparejar-archivos.ts`, 14 tests; `PortalProveedores.tsx`):
   Con el proveedor real pasaría: RUC, OC y saldo cuadran.
 - Pendiente: pedirle a PROVISIONES que vuelva a subir F001-00001089 (XML + PDF) tras el deploy de Vercel.
 
+## F001-00001089 recibida y pagada; el proveedor descarga el comprobante de pago desde el portal (2026-11-04)
+
+PROVISIONES TECNOLOGICAS subió F001-00001089 a las 12:07 (tras el fix de emparejamiento), Kevin la dio conforme a las 12:24 y
+registró el pago TRX-2026-1346 (03-nov, US$ 123.90, TC 3.466 = S/ 429.44, voucher en `vouchers-pagos`, sin cuenta bancaria).
+Revisión: XML y registro coinciden (total, IGV 18.90, OC MM-001309, vencimiento 13-nov), OC con saldo 0, compromiso PAGADO,
+factura y pago contabilizados. Sin observaciones.
+
+Kevin: "revisa si el proveedor puede descargar el comprobante de ese pago". No podía: el portal solo mostraba "Pagada", las
+transacciones tienen RLS por tenant (el proveedor no tiene tenant en el JWT) y el bucket solo lo leía personal interno.
+`20261104150000_portal_proveedor_ve_pagos.sql`: `portal_mis_pagos()` (pagos de SUS facturas, security definer),
+`portal_voucher_es_mio(ruta)` y política `vouchers_pagos_proveedor_lee` en storage (solo los vouchers de pagos de sus
+facturas). Portal: columna **Pago** en Mis facturas (fecha · monto · referencia) con botón **Comprobante** (URL firmada
+10 min; si Finanzas pegó un enlace externo, se abre tal cual; si no hay voucher, "sin comprobante adjunto").
+QA con proveedor temporal 20999999992 + factura/pago QA insertados sin triggers (borrados): el RPC devuelve su pago, firma y
+descarga su voucher (200, application/pdf), no puede firmar el de otro (404), y en pantalla aparece el botón. Para el
+proveedor real, `portal_mis_pagos()` simulando su JWT devuelve TRX-2026-1346 con la ruta del voucher.
+
