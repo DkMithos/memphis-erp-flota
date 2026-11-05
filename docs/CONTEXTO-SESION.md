@@ -4624,3 +4624,27 @@ en compras (SIRE oct subido hoy, aún no importado) pero sin SIRE Ventas set/oct
   día en Ica basta volver a correr `scripts/migration-oc/migrar-flota-ica.mjs` (idempotente) o usar Cargas (Excel) del
   módulo; no se hizo porque Kevin pidió revisar, no cargar.
 
+## Mantenimientos de Ica cargados; sin duplicados portal/SIRE; hallazgo: SIRE en USD guardado en soles (2026-11-05)
+
+- **Flota Ica al día**: `scripts/flota-ica/cargar-mantos-ica.mjs` (nuevo; mismas claves uuid v5 que la migración de julio,
+  idempotente; dry-run y luego `--cargar` con rol temporal `flota_tmp_nov`, borrado). Camionetas: 211 servicios nuevos
+  (jul-oct, US$ 77,466.93) → 756, último 29-oct; motos: 476 nuevos (ene-jul) → 1,004, último 14-jul (el Excel de motos
+  se dejó de llenar ahí); km de las 50 camionetas al 4-nov (hoja PRINCIPAL, greatest) y lecturas de motos desde cada
+  servicio; `vehiculos.ultimo_mantenimiento` actualizado. Unidades: ninguna nueva (50 VIN y 200 padrones coinciden).
+- **Duplicados portal vs SIRE: ninguno.** 0 facturas repetidas por RUC+serie+número; el importador del SIRE salta las que
+  el proveedor ya subió. Lo que faltaba era el `periodo_sire` de esas 97 del portal: 78 ya lo tienen (set/oct), 19 son
+  de noviembre o aún no declaradas. Los 360 "mismo RUC+fecha+total" son numeraciones consecutivas (taxis, viáticos), no
+  duplicados.
+- **HALLAZGO (pendiente de decisión de Kevin)**: en el SIRE de SUNAT los importes de los comprobantes en dólares vienen
+  **en soles** (convertidos al TC de la fila) y el importador los guardó tal cual con `moneda = 'USD'`. Prueba: las 71
+  facturas del portal en USD que también están en el SIRE cuadran exactamente como `total_SIRE / TC` (FP30-3137: portal
+  US$ 559.32, SIRE 1,929.65, TC 3.45); las FP30 de Perumotor 2025 dan 222.67 / 328.46 (las tarifas del contrato) al
+  dividir; los pagos históricos en USD coinciden con `total / TC`. Alcance: 1,777 comprobantes `origen = 'sire'`,
+  `moneda = 'USD'`, `tipo_cambio > 1` (las que traen TC = 1 ya están en USD y no se tocan): 72 conformes "US$ 11.96 M"
+  que en realidad son **US$ 3.50 M**, 1,656 históricas (68.5 M → 19.4 M), 4 pagadas, 1 programada, 6 emitidas y 30
+  históricas de ventas. Efectos: compromisos y Dirección (deuda en USD inflada ≈ US$ 8.5 M), asientos de esas 75
+  facturas contabilizados ×TC otra vez (INVERCOOP E001-2311: asiento S/ 28.9 M en vez de S/ 8.4 M), reportes de Oscar.
+  Corrección propuesta: dividir importes entre `tipo_cambio` en esas filas, recomputar compromisos, anular y volver a
+  generar sus asientos, y corregir `sire_importar_compras/ventas` (dividir entre TC al importar cuando moneda USD y
+  TC > 1) y los lectores (`src/lib/compras/sire.ts`, `scripts/sire-historico/1-parsear-sire.mjs`).
+
