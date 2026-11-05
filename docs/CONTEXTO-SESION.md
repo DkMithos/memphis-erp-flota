@@ -4594,3 +4594,13 @@ Recomendación (pendiente de Kevin): una sola definición en el ERP → `/v1/ind
 Dirección (+ antigüedad y calendario), filtro `origen`/`categoria` en /cuentas-por-pagar, `/v1/obligaciones` con cuotas y
 `/v1/lotes-pago`; Gerencia ya tiene estas cifras en el módulo Dirección (regla de Kevin: socios/gerencia solo tableros).
 
+## Revisión de carpetas OneDrive: qué está desfasado (2026-11-05)
+
+Kevin: "revisa todas las carpetas porque el personal no está subiendo la información". Inventario de 87,033 archivos
+(solo nombre y fecha) cruzado con el ERP → `docs/REVISION-Carpetas-Desactualizadas-2026-11-05.md`. En corto: Finanzas
+atrasada un mes (sin extracto de octubre en dólares, sin `PAGOS 202610`, lotes del ERP en cero); Contabilidad al día
+en compras (SIRE oct subido hoy, aún no importado) pero sin SIRE Ventas set/oct, sin detracciones depositadas desde el
+7-oct y sin XML desde agosto; Proyectos al día en carpetas pero el ERP tiene 25 valorizaciones menos que las carpetas
+(cargadas una vez el 12-oct); Administración y Flujo Financiero al día; Operaciones Teams es archivo muerto salvo Ica
+(controles de mantenimiento parados desde julio). Tabla de pedidos por responsable en el punto 8 del documento.
+
