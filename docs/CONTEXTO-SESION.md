@@ -4683,3 +4683,25 @@ moneda). Cargos de ago-set que siguen sin conciliar en Bancos: 50 pago_proveedor
 Dirección hoy: deuda registrada S/ 10.51 M + US$ 10.79 M. Siguen 414 conformes vencidas en soles y 89 en dólares sin
 pago, casi todas del SIRE de octubre (vencen a 30 días y el extracto de octubre aún no está cargado).
 
+## Notas de crédito y débito del SIRE aplicadas a su factura (2026-11-05)
+
+Kevin pasó `03-notas-credito-facturas-pendientes.xlsx` (cruce hecho por TI con el SIRE de octubre y la API): 6 notas de
+crédito que anulan por completo facturas que el ERP mostraba conformes y pendientes (COOPAC E001-2311 US$ 2,443,262.41,
+OXI E001-84 S/ 1,108,458.61, AURA E001-502 S/ 93,757.87, SECURENET E001-6 S/ 22,142.70, PREMIUM REALTY E001-1 S/ 1,040,
+F002-261 S/ 110) y una nota de débito de PACÍFICO (FD12-209486, S/ 2,013.76) sobre F028-1130026. Verificado: cierto, el
+importador saltaba los tipos 07/08.
+Hecho (migraciones `20261105180000_notas_credito_debito_recibidas`, `..181000_comprobantes_unicidad_incluye_tipo`,
+`..182000_compromiso_factura_neto_de_notas`):
+- `comprobantes_pago.afecta_comprobante_id`; `nota_aplicar(nota)`: saldo = total − NC + ND; si queda en cero la factura
+  pasa a **`cancelada_nc`** (nuevo estado: etiqueta "Anulada por NC" en Compras y en el portal) y su compromiso sin pagos se
+  elimina; si no, el compromiso queda por el neto. La nota se contabiliza (asiento invertido para 07) y entra al RCE.
+- `trg_factura_compromiso`: las notas no generan compromiso propio y el compromiso de la factura usa el total neto de
+  notas (antes cualquier recalc lo devolvía al total). `sire_importar_compras` importa 07/08 (USD entre el TC, abs) y las
+  aplica buscando la factura por RUC + Serie/Nro CP Modificado; lectores (`sire.ts`, `1-parsear-sire.mjs`) traen
+  `mod_tipo/mod_serie/mod_numero/tipo_nota`. Se eliminó el índice único viejo sin tipo (una NC puede repetir serie-número
+  de una factura del mismo emisor).
+- Aplicadas las 7 notas de octubre: 6 facturas canceladas (fuera de CxP y de las listas de pago), Pacífico con saldo
+  S/ 11,019.31. Dirección: deuda registrada baja a S/ 9.30 M + US$ 8.35 M.
+Pendiente de Kevin: OC MM-001300 (SECURENET, enviada, S/ 22,142.70) cuya factura E001-6 fue anulada; SECURENET emitió
+E001-7 y E001-8 contra MM-001301, así que MM-001300 probablemente se anula.
+

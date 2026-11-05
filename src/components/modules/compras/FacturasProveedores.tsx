@@ -80,6 +80,7 @@ const ESTADOS: Record<string, { label: string; variant: 'default' | 'secondary' 
   observada: { label: 'Observada', variant: 'destructive' },
   conforme: { label: 'Conforme', variant: 'default' },
   programada_pago: { label: 'Prog. pago', variant: 'default' },
+  cancelada_nc: { label: 'Anulada por NC', variant: 'destructive' },
   pagada: { label: 'Pagada', variant: 'default' },
   anulada: { label: 'Anulada', variant: 'destructive' },
   historica: { label: 'Histórica (SIRE)', variant: 'outline' },
@@ -608,7 +609,7 @@ export function FacturasProveedores({ onNavigate }: Props) {
                 <thead className="bg-muted/30 sticky top-0"><tr><th className="text-left px-2 py-1">Fecha</th><th className="text-left px-2 py-1">Tipo</th><th className="text-left px-2 py-1">Comprobante</th><th className="text-left px-2 py-1">RUC</th><th className="text-left px-2 py-1">Proveedor</th><th className="text-right px-2 py-1">Total</th><th className="text-left px-2 py-1">Det.</th></tr></thead>
                 <tbody className="divide-y">
                   {sire.filas.slice(0, 400).map((f, i) => (
-                    <tr key={i} className={f.tipo === '07' || f.tipo === '08' ? 'text-muted-foreground line-through' : ''}>
+                    <tr key={i} className={f.tipo === '07' || f.tipo === '08' ? 'text-muted-foreground italic' : ''} title={f.tipo === '07' || f.tipo === '08' ? `Nota ${f.tipo === '07' ? 'de crédito' : 'de débito'}: se aplica a ${f.mod_serie ?? ''}-${f.mod_numero ?? ''}` : undefined}>
                       <td className="px-2 py-1 whitespace-nowrap">{f.fecha_emision}</td><td className="px-2 py-1">{f.tipo}</td><td className="px-2 py-1 font-mono">{f.serie}-{f.numero}</td><td className="px-2 py-1">{f.ruc}</td><td className="px-2 py-1 truncate max-w-[240px]">{f.razon_social}</td><td className="px-2 py-1 text-right tabular-nums whitespace-nowrap">{f.moneda} {f.total.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td><td className="px-2 py-1">{f.detraccion}</td>
                     </tr>
                   ))}

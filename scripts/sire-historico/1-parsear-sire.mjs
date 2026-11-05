@@ -19,13 +19,16 @@ function leerHoja(filas) {
   const h = filas[hi].map(norm);
   const col = (...ns) => { for (const n of ns) { const i = h.findIndex(x => x.includes(norm(n))); if (i >= 0) return i; } return -1; };
   const c = { periodo: col('periodo'), fe: col('fechadeemision'), fv: col('fechavcto'), tipo: col('tipocpdoc'), serie: col('seriedelcdp'), num: col('nrocpodocnroinicial', 'nrocp'), ruc: col('nrodocidentidad'), razon: col('apellidosnombres', 'razonsocial'),
-    bi: col('bigravadodg'), igv: col('igvipmdg'), ng: col('valoradqng'), total: col('totalcp'), m: h.findIndex(x => x === 'moneda') >= 0 ? h.findIndex(x => x === 'moneda') : h.findIndex(x => x === 'm'), tc: col('tipodecambio') >= 0 ? col('tipodecambio') : h.findIndex(x => x === 'tc'), det: col('detraccion') >= 0 ? col('detraccion') : h.findIndex(x => x === 'd'), est: col('estcomp') };
+    bi: col('bigravadodg'), igv: col('igvipmdg'), ng: col('valoradqng'), total: col('totalcp'), m: h.findIndex(x => x === 'moneda') >= 0 ? h.findIndex(x => x === 'moneda') : h.findIndex(x => x === 'm'), tc: col('tipodecambio') >= 0 ? col('tipodecambio') : h.findIndex(x => x === 'tc'), det: col('detraccion') >= 0 ? col('detraccion') : h.findIndex(x => x === 'd'), est: col('estcomp'),
+    modTipo: col('tipocpmodificado'), modSerie: col('seriecpmodificado'), modNum: col('nrocpmodificado'), tipoNota: col('tipodenota') };
   const avisos = []; if (c.ruc < 0 || c.total < 0 || c.serie < 0) avisos.push('faltan columnas clave');
   const g = (r, i) => (i >= 0 ? r[i] : null); const out = [];
   for (let i = hi + 1; i < filas.length; i++) { const r = filas[i] ?? []; const ruc = String(g(r, c.ruc) ?? '').replace(/\D/g, ''); const fe = fechaISO(g(r, c.fe)); if (!ruc || !fe) continue;
     out.push({ periodo: String(g(r, c.periodo) ?? '').replace(/\D/g, ''), fecha_emision: fe, fecha_vencimiento: fechaISO(g(r, c.fv)), tipo: String(g(r, c.tipo) ?? '01').replace(/\D/g, '').padStart(2, '0'), serie: String(g(r, c.serie) ?? '').trim().toUpperCase(),
       numero: String(g(r, c.num) ?? '').replace(/\D/g, ''), ruc, razon_social: String(g(r, c.razon) ?? '').trim(), bi_gravada: numero(g(r, c.bi)) ?? 0, igv: numero(g(r, c.igv)) ?? 0, no_gravada: numero(g(r, c.ng)) ?? 0, total: numero(g(r, c.total)) ?? 0,
-      moneda: String(g(r, c.m) ?? 'PEN').trim().toUpperCase() || 'PEN', tc: numero(g(r, c.tc)), detraccion: String(g(r, c.det) ?? '').trim(), estado: String(g(r, c.est) ?? '').trim() }); }
+      moneda: String(g(r, c.m) ?? 'PEN').trim().toUpperCase() || 'PEN', tc: numero(g(r, c.tc)), detraccion: String(g(r, c.det) ?? '').trim(), estado: String(g(r, c.est) ?? '').trim(),
+      // notas de crédito/débito: el comprobante que modifican (el importador las aplica a esa factura)
+      mod_tipo: String(g(r, c.modTipo) ?? '').replace(/\D/g, '').padStart(2, '0').replace(/^00$/, ''), mod_serie: String(g(r, c.modSerie) ?? '').trim().toUpperCase(), mod_numero: String(g(r, c.modNum) ?? '').replace(/\D/g, ''), tipo_nota: String(g(r, c.tipoNota) ?? '').trim() }); }
   return { filas: out, avisos, cols: c };
 }
 for (const f of readdirSync(dir).filter(x => x.endsWith('.xlsx')).sort()) {

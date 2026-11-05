@@ -18,6 +18,8 @@ export interface FilaSire {
   periodo: string; fecha_emision: string; fecha_vencimiento: string | null; tipo: string; serie: string; numero: string;
   ruc: string; razon_social: string; bi_gravada: number; igv: number; no_gravada: number; total: number;
   moneda: string; tc: number | null; detraccion: string; estado: string;
+  /** Notas de crédito/débito (tipo 07/08): comprobante que modifican; el importador las aplica a esa factura. */
+  mod_tipo?: string; mod_serie?: string; mod_numero?: string; tipo_nota?: string;
 }
 
 type Celda = string | number | boolean | Date | null | undefined;
@@ -38,6 +40,7 @@ export function leerHojaSire(filas: Celda[][]): { filas: FilaSire[]; avisos: str
     num: col('nrocpodocnroinicial', 'nrocp'), ruc: col('nrodocidentidad'), razon: col('apellidosnombres', 'razonsocial'),
     bi: col('bigravadodg'), igv: col('igvipmdg'), ng: col('valoradqng'), total: col('totalcp'), m: -1, tc: col('tipodecambio'),
     det: col('detraccion'), est: col('estcomp'),
+    modTipo: col('tipocpmodificado'), modSerie: col('seriecpmodificado'), modNum: col('nrocpmodificado'), tipoNota: col('tipodenota'),
   };
   // columnas de una o dos letras: exactas, para no confundirlas con otras
   const exacta = (...nombres: string[]) => { for (const n of nombres) { const i = h.findIndex(x => x === n); if (i >= 0) return i; } return -1; };
@@ -58,6 +61,7 @@ export function leerHojaSire(filas: Celda[][]): { filas: FilaSire[]; avisos: str
       numero: String(g(r, c.num) ?? '').replace(/\D/g, ''), ruc, razon_social: String(g(r, c.razon) ?? '').trim(),
       bi_gravada: numero(g(r, c.bi)) ?? 0, igv: numero(g(r, c.igv)) ?? 0, no_gravada: numero(g(r, c.ng)) ?? 0, total: numero(g(r, c.total)) ?? 0,
       moneda: String(g(r, c.m) ?? 'PEN').trim().toUpperCase() || 'PEN', tc: numero(g(r, c.tc)), detraccion: String(g(r, c.det) ?? '').trim(),
+      mod_tipo: String(g(r, c.modTipo) ?? '').replace(/\D/g, '').padStart(2, '0').replace(/^00$/, ''), mod_serie: String(g(r, c.modSerie) ?? '').trim().toUpperCase(), mod_numero: String(g(r, c.modNum) ?? '').replace(/\D/g, ''), tipo_nota: String(g(r, c.tipoNota) ?? '').trim(),
       estado: String(g(r, c.est) ?? '').trim(),
     });
   }
