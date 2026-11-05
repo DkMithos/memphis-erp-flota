@@ -4604,3 +4604,23 @@ en compras (SIRE oct subido hoy, aún no importado) pero sin SIRE Ventas set/oct
 (cargadas una vez el 12-oct); Administración y Flujo Financiero al día; Operaciones Teams es archivo muerto salvo Ica
 (controles de mantenimiento parados desde julio). Tabla de pedidos por responsable en el punto 8 del documento.
 
+## SIRE Compras de octubre cargado; Flota de Ica: unidades iguales, mantenimientos desfasados (2026-11-05)
+
+- **SIRE 202610** (`2026/10. Oct 26/1.Compras (PDF)/10-2026 SIRE COMPRAS MEMPHIS MAQUINARIAS.xlsx`, subido por Contabilidad
+  el 5-nov): parseado con `scripts/sire-historico/1-parsear-sire.mjs` y cargado con `2-cargar-sire.mjs` (copia en el
+  scratchpad con el `sub` de Kevin, rol temporal `qa_sire_oct` por el pooler, borrado al terminar; dry-run antes).
+  584 filas → **402 nuevas** (conforme, S/ 5,930,526.44 + US$ 9,172,813.21, con compromiso PENDIENTE cada una),
+  173 ya existían (portal y facturas de setiembre registradas en el periodo de octubre), 7 notas de crédito fuera,
+  2 saltadas (sin total), **61 sin proveedor en el directorio** (38 de ellas sin asiento). Pendiente: Compras crea esos
+  proveedores y Contabilidad revisa las 61; el SIRE Ventas de set/oct sigue sin subir.
+- **Flota (fuente: `GOBIERNO REGIONAL ICA OPERACIONES POSTVENTA`)**: las 50 camionetas de `50 CAMIONETAS PLACAS.xlsx`
+  coinciden VIN por VIN con el ERP (placa de rodaje e interna iguales); las 200 motos también. **No hay unidades
+  nuevas.** Lo que sí hay son mantenimientos sin registrar en el ERP: camionetas (`CONTROL DE MANTENIMIENTO CAMIONETAS
+  ICA.xlsx › mantenimientos historico`, 759 filas al 29-oct) frente a 546 en el ERP (último 4-jul): **206 servicios de
+  julio a octubre (S/ 76,104.87, con conformidad, sin OC ni factura)**; motos (`Cumplimiento mantenimientos preventivo
+  Motos`, 1,004 filas, pero el Excel se dejó de llenar el 14-jul) frente a 528 en el ERP (último 14-ene): **≈475
+  servicios de ene-jul 2026**. Km del ERP al 8-jul; el Excel de km está al 4-nov. Las otras siete flotas del ERP
+  (Amazonas, Huánuco, Cusco, Loreto, propios) no tienen mantenimientos ni placas: nadie las alimenta. Para ponerlas al
+  día en Ica basta volver a correr `scripts/migration-oc/migrar-flota-ica.mjs` (idempotente) o usar Cargas (Excel) del
+  módulo; no se hizo porque Kevin pidió revisar, no cargar.
+
