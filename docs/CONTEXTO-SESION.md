@@ -4705,3 +4705,12 @@ Hecho (migraciones `20261105180000_notas_credito_debito_recibidas`, `..181000_co
 Pendiente de Kevin: OC MM-001300 (SECURENET, enviada, S/ 22,142.70) cuya factura E001-6 fue anulada; SECURENET emitió
 E001-7 y E001-8 contra MM-001301, así que MM-001300 probablemente se anula.
 
+## SECURENET: OC MM-001300 anulada y la laptop de setiembre amarrada a su OC (2026-11-05)
+
+Kevin: la laptop sí se compró; la compra grande de equipos (MM-001300, S/ 22,142.70) se canceló en la empresa después de
+que SECURENET facturara, por eso la NC E001-2 (anulación de la operación); no se sabe si se comprará. Hecho como Kevin:
+- MM-001300 → **anulada** con motivo (si se retoma, OC nueva). E001-7 y E001-8 (S/ 19,110.10) cuadran al céntimo con
+  MM-001301 (redes), que queda como está.
+- La factura de la laptop, E001-5 del 7-set (S/ 5,544.82, conforme, cargada del SIRE sin OC), se amarró a MM-001249:
+  se eliminó su compromiso suelto (sin pagos) y el trigger la enlazó al compromiso de la OC, así ya no cuenta dos veces.
+
