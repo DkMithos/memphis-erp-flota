@@ -4729,3 +4729,19 @@ CARDENAS FFF1-10736 S/ 4,000): revisar devolución o saldo a favor; (b) 7 NC de 
 superan el total de la factura que modifican (facturas de US$ 230 a 5,869): revisar si esas facturas están bien
 cargadas (TC = 1 en el SIRE de origen) o si la NC aplica a otra póliza.
 
+## Informe para Contabilidad y tres correcciones más (2026-11-05)
+
+Kevin: "dame el detalle para enviarlo a contabilidad". `scripts/sire-historico/7-informe-contabilidad.mjs` (rol temporal de
+solo lectura, borrado) genera `docs/informes/Revision-Contabilidad-2026-11-05.xlsx`, 12 hojas: resumen de lo hecho y lo que
+toca revisar; 50 facturas anuladas por NC; 9 pagadas que luego recibieron NC; 5 NC de RIMAC mayores que su factura; 36
+notas de débito; 64 comprobantes del SIRE oct sin proveedor; 1 factura sin asiento (E001-11 de mayo, IGV al 6 %); 83
+pagos ago-set sin factura; 3 ambiguos; 81 filas de detracción en bloque; 87 cargos sin conciliar; 499 conformes vencidas.
+Al armarlo salieron tres cosas y se corrigieron:
+- Las notas aplicadas quedaban "conformes" (vencidas y pagables): nuevo estado `aplicada`
+  (`20261105184000_notas_estado_aplicada`, etiqueta "Nota aplicada" en Compras y portal); 104 notas.
+- 64 facturas de set/oct sin asiento por "no cuadra base + IGV": tolerancia de contabilizar_comprobante pasa de 5 centavos
+  a 1 sol o 0.2 % (`20261105185000`), y el SIRE trae ISC/ICBPER/otros cargos (recargo al consumo) que no se leían:
+  lectores + importador los guardan en `otros_tributos` (`20261105186000`); rellenadas 58 facturas y recontabilizadas las
+  33 restantes. Queda 1 (E001-11, mayo, IGV distinto de 18 %).
+- Conformes vencidas sin pago reales (sin notas): 499 = S/ 1.08 M + US$ 0.44 M, casi todas del SIRE de octubre.
+

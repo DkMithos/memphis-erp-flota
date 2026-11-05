@@ -82,6 +82,7 @@ const ESTADO_FACTURA: Record<string, { label: string; variant: 'default' | 'seco
   conforme: { label: 'Conforme', variant: 'default' },
   programada_pago: { label: 'Programada de pago', variant: 'default' },
   cancelada_nc: { label: 'Anulada por nota de crédito', variant: 'destructive' },
+  aplicada: { label: 'Nota aplicada a su factura', variant: 'secondary' },
   pagada: { label: 'Pagada', variant: 'default' },
   anulada: { label: 'Anulada', variant: 'destructive' },
 };

@@ -81,6 +81,7 @@ const ESTADOS: Record<string, { label: string; variant: 'default' | 'secondary' 
   conforme: { label: 'Conforme', variant: 'default' },
   programada_pago: { label: 'Prog. pago', variant: 'default' },
   cancelada_nc: { label: 'Anulada por NC', variant: 'destructive' },
+  aplicada: { label: 'Nota aplicada', variant: 'secondary' },
   pagada: { label: 'Pagada', variant: 'default' },
   anulada: { label: 'Anulada', variant: 'destructive' },
   historica: { label: 'Histórica (SIRE)', variant: 'outline' },

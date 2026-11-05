@@ -20,6 +20,8 @@ export interface FilaSire {
   moneda: string; tc: number | null; detraccion: string; estado: string;
   /** Notas de crédito/débito (tipo 07/08): comprobante que modifican; el importador las aplica a esa factura. */
   mod_tipo?: string; mod_serie?: string; mod_numero?: string; tipo_nota?: string;
+  /** ISC + ICBPER + otros cargos (recargo al consumo): suman al total, no son base ni IGV. */
+  otros_tributos?: number;
 }
 
 type Celda = string | number | boolean | Date | null | undefined;
@@ -41,10 +43,12 @@ export function leerHojaSire(filas: Celda[][]): { filas: FilaSire[]; avisos: str
     bi: col('bigravadodg'), igv: col('igvipmdg'), ng: col('valoradqng'), total: col('totalcp'), m: -1, tc: col('tipodecambio'),
     det: col('detraccion'), est: col('estcomp'),
     modTipo: col('tipocpmodificado'), modSerie: col('seriecpmodificado'), modNum: col('nrocpmodificado'), tipoNota: col('tipodenota'),
+    isc: -1, icbper: -1, otros: col('otrostribcargos', 'otrostributos'),
   };
   // columnas de una o dos letras: exactas, para no confundirlas con otras
   const exacta = (...nombres: string[]) => { for (const n of nombres) { const i = h.findIndex(x => x === n); if (i >= 0) return i; } return -1; };
   c.m = exacta('moneda', 'm');
+  c.isc = exacta('isc'); c.icbper = exacta('icbper');
   if (c.tc < 0) c.tc = exacta('tc');
   if (c.det < 0) c.det = exacta('d');
   if (c.ruc < 0 || c.total < 0 || c.serie < 0) avisos.push('Faltan columnas clave (RUC, serie o total).');
@@ -62,6 +66,7 @@ export function leerHojaSire(filas: Celda[][]): { filas: FilaSire[]; avisos: str
       bi_gravada: numero(g(r, c.bi)) ?? 0, igv: numero(g(r, c.igv)) ?? 0, no_gravada: numero(g(r, c.ng)) ?? 0, total: numero(g(r, c.total)) ?? 0,
       moneda: String(g(r, c.m) ?? 'PEN').trim().toUpperCase() || 'PEN', tc: numero(g(r, c.tc)), detraccion: String(g(r, c.det) ?? '').trim(),
       mod_tipo: String(g(r, c.modTipo) ?? '').replace(/\D/g, '').padStart(2, '0').replace(/^00$/, ''), mod_serie: String(g(r, c.modSerie) ?? '').trim().toUpperCase(), mod_numero: String(g(r, c.modNum) ?? '').replace(/\D/g, ''), tipo_nota: String(g(r, c.tipoNota) ?? '').trim(),
+      otros_tributos: (numero(g(r, c.isc)) ?? 0) + (numero(g(r, c.icbper)) ?? 0) + (numero(g(r, c.otros)) ?? 0),
       estado: String(g(r, c.est) ?? '').trim(),
     });
   }
