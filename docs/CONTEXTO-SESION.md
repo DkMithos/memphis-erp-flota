@@ -4714,3 +4714,18 @@ que SECURENET facturara, por eso la NC E001-2 (anulación de la operación); no 
 - La factura de la laptop, E001-5 del 7-set (S/ 5,544.82, conforme, cargada del SIRE sin OC), se amarró a MM-001249:
   se eliminó su compromiso suelto (sin pagos) y el trigger la enlazó al compromiso de la OC, así ya no cuenta dos veces.
 
+## Notas de crédito y débito de enero a setiembre 2026 aplicadas (2026-11-05)
+
+El hallazgo del archivo de TI valía para todo el año: los SIRE mensuales de ene-set traían **97 notas únicas (62 NC, 35 ND)**
+que el importador había saltado. Parseados los 19 archivos SIRE de `2026/<mes>/1. Compras (PDF)` con el lector nuevo
+(`scratchpad/carga/sire-2026`), deduplicados por tipo+serie+número+RUC, cargados con `sire_importar_compras` (dry-run y
+luego commit, rol temporal borrado): 97 nuevas, 97 aplicadas, 0 sin factura. Regla añadida
+(`20261105183000_notas_sin_asiento_si_factura_sin_asiento`): la nota solo se contabiliza si su factura tiene asiento en
+el ERP (las históricas no). Efecto: 44 facturas más pasan a `cancelada_nc` (S/ 2.17 M + US$ 0.88 M, casi todas
+históricas: OXI E001-77 S/ 1.10 M, ICEMONT 2 × S/ 380 K, CPB MEDICAL 4 facturas USD, RIMAC, YAMAHA F101-95654 US$ 229 K);
+15 NC y 34 ND sobre históricas quedan registradas sin tocar deuda. Para Contabilidad: (a) 4 facturas que ya estaban
+pagadas recibieron NC completa (MSCA E001-197 S/ 11,775.46, CHUNGA E001-62 S/ 8,549.10, SECURENET E001-1 S/ 4,168.94,
+CARDENAS FFF1-10736 S/ 4,000): revisar devolución o saldo a favor; (b) 7 NC de RIMAC (F581-35328xx, US$ 3,355.90 c/u)
+superan el total de la factura que modifican (facturas de US$ 230 a 5,869): revisar si esas facturas están bien
+cargadas (TC = 1 en el SIRE de origen) o si la NC aplica a otra póliza.
+
