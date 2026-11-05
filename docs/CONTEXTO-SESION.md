@@ -4571,3 +4571,26 @@ QA con proveedor temporal 20999999992 + factura/pago QA insertados sin triggers 
 descarga su voucher (200, application/pdf), no puede firmar el de otro (404), y en pantalla aparece el botón. Para el
 proveedor real, `portal_mis_pagos()` simulando su JWT devuelve TRX-2026-1346 con la ruta del voucher.
 
+## Pedido de TI (Oscar Salazar, 04-nov): deuda para el dashboard BI por la API — análisis (2026-11-05)
+
+Documento `Pedido-Kevin-Deuda-ERP.pdf`: Gerencia quiere deuda hoy / fin de mes / 30-60-90 / al 31-dic en un dashboard
+externo que lee la API. Verificado contra la base el 05-nov:
+- H1 (facturas conformes vencidas sin pago): cierto. 247 conformes/programadas vencidas sin ningún pago en el ERP; 209 son
+  SIRE de setiembre (S/ 532 K + US$ 2.79 M). No es "conciliación": la factura pasa a pagada cuando se registra el pago
+  (lote, Registrar pago o Pagar facturas desde Bancos); el extracto BBVA de octubre sigue sin cargar (pendiente Finanzas).
+- H2 (v_cxp mezcla): cierto, pero ya está separado por `origen` (real / comprometido / proyectado) y `fuente`; la API no
+  tiene filtro `origen` (hay que agregarlo). 384 proyectadas con 2000-01-01 = presupuestos de proyectos en cartera (Excel
+  de flujo, área PROYECTOS); "CASO 1" y "SALDO A FAVOR" son estados del Excel. Dirección ya excluye proyectado.
+- H3 (OC no dicen si se pagaron): a medias. `/v1/ordenes-compra?incluir=compromisos,pagos,facturas` ya trae el estado de
+  pago; de las 1,177 OC vivas vencidas, 912 son anteriores al corte de CxP (01-jul, sin compromiso por diseño), 341 PAGADO
+  y 255 PENDIENTE. Comprometido no facturado = compromisos origen comprometido (233 pend., S/ 1.87 M + US$ 6.56 M, casi
+  todo Excel de proyectos).
+- H4 (obligaciones y lotes fuera de la API): a medias. Las 67 cuotas pendientes de las 20 obligaciones ya están en
+  /cuentas-por-pagar como origen real · categoría financiamiento (S/ 2.19 M + US$ 1.06 M; hasta nov S/ 1.61 M + US$ 1.06 M,
+  dic S/ 290 K, 2027+ S/ 297 K). Lotes de pago: 0 creados hoy.
+- Cifra del ERP hoy (direccion_resumen, misma definición que pide Oscar): deuda registrada S/ 4.56 M + US$ 10.43 M (590
+  compromisos), vencida S/ 2.58 M + US$ 7.39 M; proyectado aparte S/ 75.4 M + US$ 26.2 M.
+Recomendación (pendiente de Kevin): una sola definición en el ERP → `/v1/indicadores/deuda` sobre la misma lógica de
+Dirección (+ antigüedad y calendario), filtro `origen`/`categoria` en /cuentas-por-pagar, `/v1/obligaciones` con cuotas y
+`/v1/lotes-pago`; Gerencia ya tiene estas cifras en el módulo Dirección (regla de Kevin: socios/gerencia solo tableros).
+
