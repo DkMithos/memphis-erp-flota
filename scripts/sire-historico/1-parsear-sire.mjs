@@ -1,3 +1,6 @@
+// OJO (2026-11-05): en el SIRE de SUNAT los comprobantes en USD vienen con los importes EN SOLES y el TC en la fila.
+// Este lector los deja tal cual (total/bi/igv en soles para USD); la conversión a la moneda del documento la hace
+// sire_importar_compras/ventas (divide entre el TC cuando moneda = USD y TC > 1). No convertir aquí: se duplicaría.
 // Replica leerHojaSire (src/lib/compras/sire.ts) fuera del bundle: lee cada SIRE y deja un JSON por archivo.
 import { createRequire } from 'node:module';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';

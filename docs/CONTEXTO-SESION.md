@@ -4648,3 +4648,17 @@ en compras (SIRE oct subido hoy, aún no importado) pero sin SIRE Ventas set/oct
   generar sus asientos, y corregir `sire_importar_compras/ventas` (dividir entre TC al importar cuando moneda USD y
   TC > 1) y los lectores (`src/lib/compras/sire.ts`, `scripts/sire-historico/1-parsear-sire.mjs`).
 
+## Corrección aplicada: SIRE en USD pasado de soles a dólares (2026-11-05)
+
+Kevin: "Sí, aplícalo". `20261105150000_sire_usd_en_soles_corregir.sql` (dry-run por el pooler con rol temporal, luego aplicada
+por MCP): `sire_importar_compras` (3 parámetros; la de 2 se eliminó) y `sire_importar_ventas` dividen entre el TC cuando
+moneda = USD y TC > 1; los lectores (`src/lib/compras/sire.ts`, `scripts/sire-historico/1-parsear-sire.mjs`) llevan la
+nota de NO convertir. Datos: 1,777 comprobantes corregidos (total, subtotal, bases, IGV entre el TC; observación con la
+fecha y el TC), compromisos recalculados por trigger, 75 asientos anulados y regenerados (0 errores), registro de
+compras/ventas reactivado con los importes corregidos. Resultado: conformes SIRE en USD 72 = US$ 3,495,099 (antes
+11,963,605); históricas US$ 21.7 M (antes 77.1 M); INVERCOOP E001-2311 = US$ 2,443,262.41, asiento AST-2026-002164 por
+S/ 8,397,492.90. Dirección hoy: deuda registrada S/ 10.49 M + US$ 11.14 M (992 compromisos; incluye el SIRE de octubre
+recién cargado); antes de corregir, con octubre cargado, habría dicho US$ 19.6 M.
+Pendiente para Contabilidad: 4 facturas SIRE de setiembre que no cuadran base+IGV vs total por más de 5 centavos y por
+eso no tienen asiento (F001-12708, FP01-7824, FP30-3028, FP30-3052); ya venían así antes de la corrección.
+

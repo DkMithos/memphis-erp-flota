@@ -11,6 +11,9 @@
 import { supabase } from '../supabase/client';
 import { fechaISO, numero } from '../finanzas/bancos-bbva';
 
+// OJO (2026-11-05): en el SIRE de SUNAT los comprobantes en USD vienen con los importes EN SOLES y el TC en la fila.
+// Este lector los deja tal cual (total/bi/igv en soles para USD); la conversión a la moneda del documento la hace
+// sire_importar_compras/ventas (divide entre el TC cuando moneda = USD y TC > 1). No convertir aquí: se duplicaría.
 export interface FilaSire {
   periodo: string; fecha_emision: string; fecha_vencimiento: string | null; tipo: string; serie: string; numero: string;
   ruc: string; razon_social: string; bi_gravada: number; igv: number; no_gravada: number; total: number;
