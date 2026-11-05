@@ -4662,3 +4662,24 @@ recién cargado); antes de corregir, con octubre cargado, habría dicho US$ 19.6
 Pendiente para Contabilidad: 4 facturas SIRE de setiembre que no cuadran base+IGV vs total por más de 5 centavos y por
 eso no tienen asiento (F001-12708, FP01-7824, FP30-3028, FP30-3052); ya venían así antes de la corrección.
 
+## Cruce de pagos de Contabilidad (PAGOS 202608/202609) → facturas pagadas (2026-11-05)
+
+Kevin: "revisa el cruce de pagos del archivo que tiene contabilidad para que coloques las facturas como pagadas". Los
+`PAGOS 2026MM.xlsx` (hojas `806 SOLES` / `830 DOLARES`, un comprobante por fila con OPE y fecha) son la continuación del
+acumulado ene-jul ya cargado como HIST-2026. Agosto y setiembre: 717 egresos (S/ 24.8 M + US$ 4.16 M), 577 con
+comprobante. Script nuevo `scripts/historico-pagos/6-cruzar-mensual.mjs` (dry-run y `--cargar`, rol temporal borrado):
+cruza por serie-número + razón social (desempate por importe), busca el cargo del banco por cuenta + OPE + fecha, crea una
+transacción por fila como pago histórico de Contabilidad conciliada con el cargo y llama a `sire_enlazar_pago_historico`
+(histórica → conforme con compromiso → recalc → regla del 85 % por detracción → pagada).
+Resultado: **373 pagos (S/ 3.10 M + US$ 3.08 M), 80 cargos conciliados, 366 facturas enlazadas: 364 pagadas (350 eran
+"históricas" de SIRE jun-ago) y 2 parciales** (DON JUANITO E001-3634 S/ 287,000 pagados 37,000; CHUNGA E001-53
+S/ 7,805.70 pagados 5,000). Quedaron fuera, a propósito: 77 filas de depósitos de detracción en bloque (2 OPE, S/ 132 K,
+ya registrados como "Detracción SPOT" el 13-oct; la factura se cierra por la regla del 85 %), 4 filas cuyo cargo ya
+tenía transacción, 37 ya pagadas, 3 ambiguas (recibos de MACHER S/ 35,000, GUERREROS S/ 20,000, ZEGARRA S/ 35,000 que no
+coinciden con ninguna factura de esa serie), 83 sin factura en el ERP (27 recibos INTEGRATEL S300/S5AA, 40 notas de
+débito en USD, EMTRAMED F002-21148 S/ 185,997.50 y otras 15) y 140 sin comprobante (NPS, planilla, contratos, cambio de
+moneda). Cargos de ago-set que siguen sin conciliar en Bancos: 50 pago_proveedor (S/ 6.18 M), 24 por clasificar
+(S/ 802 K), 4 préstamos (S/ 1.06 M), 8 caja chica, 1 planilla: Finanzas los clasifica desde /finanzas/bancos.
+Dirección hoy: deuda registrada S/ 10.51 M + US$ 10.79 M. Siguen 414 conformes vencidas en soles y 89 en dólares sin
+pago, casi todas del SIRE de octubre (vencen a 30 días y el extracto de octubre aún no está cargado).
+
