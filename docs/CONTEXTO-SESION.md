@@ -4745,3 +4745,113 @@ Al armarlo salieron tres cosas y se corrigieron:
   33 restantes. Queda 1 (E001-11, mayo, IGV distinto de 18 %).
 - Conformes vencidas sin pago reales (sin notas): 499 = S/ 1.08 M + US$ 0.44 M, casi todas del SIRE de octubre.
 
+
+## Presupuesto de TI 2027 (2026-11-06)
+
+Kevin: "Tomando como punto de partida BD TI 2026.xlsx, arma el presupuesto de TI 2027 teniendo en cuenta también la información
+del ERP"; luego sumó `TI - TI/3. Pagos/1. Control/pagosTI.xlsx` (control viejo, con los meses que faltaban), fijó como únicos
+proveedores 2027 a **Provisiones Tecnológicas, SECURENET y los no domiciliados**, y retiró Figma (no se renueva).
+Fuentes cruzadas: BD TI 2026 (69 líneas mar-dic, S/ 81,698.72 ejecutado/provisionado, S/ 12,050 pagado), pagosTI (14 ítems
+2025-26: calendario bianual de dominios, 9 Premium de SYSTEMBASE migradas a Standard, 11 Basic de Entel → SYSTEMBASE feb-2026),
+ERP (OCs del CDC SISTEMAS con ítems y precios unitarios: MM-000717, MM-000905, MM-001159, MM-001232/33, MM-001249, MM-001300
+anulada, MM-001301; facturas SIRE/portal de esos RUC; 69 `flujo_compromisos` del área TI; 17 usuarios).
+Entregable: `docs/informes/Presupuesto-TI-2027.xlsx` (generado con `scratchpad/build_presupuesto.py`, recalculado con Excel por
+COM: 781 fórmulas, 0 errores, 4 controles en 0). Hojas: Resumen (por CDC vs 2026, por proveedor, flujo mensual, hitos),
+Supuestos (TC 3.50, IGV, precios y cantidades editables en azul), Presupuesto 2027 (34 líneas con Incluir 1/0, mes inicio y
+n° pagos → columnas Ene-Dic), Base 2026 (BD TI copiada + pagosTI con tratamiento 2027), Notas.
+**Resultado: S/ 81,979 (US$ 23,423) vs S/ 81,699 en 2026 (+0.3 %)**: Licencias S/ 35,285 (+40 %: Microsoft a lista nueva
+jul-2026 —Basic 84, Standard 168, Copilot 252 US$/año— y todo a Provisiones; Claude US$ 200/mes; Google AI Pro 3 cuentas),
+Equipos S/ 33,179 (la compra cancelada MM-001300 se re-presupuesta en ene-feb + laptop de reserva + repuestos), Mantenimiento
+S/ 3,068, Red S/ 2,950 (en 2026 fue el proyecto de S/ 19,110), Cloud S/ 3,388 (Acronis 28 usuarios vía Provisiones), Vercel
+S/ 1,680, Supabase S/ 1,890 (US$ 45/mes), Dominios S/ 540. Por proveedor: SECURENET 49 %, Provisiones 31 %, Anthropic 10 %.
+Decisiones que quedan a Kevin (líneas con Incluir = 0 o notas): hosting E. Brenner (se asume migrar la web a Vercel),
+.com de GoDaddy → Vercel Domains, Punto.pe como excepción para los .pe, baja de la cuenta Google AI Pro del OC-System
+(S/ 888/año), 1 vs 2 asientos ChatGPT, iniciativas (IA en el ERP US$ 50/mes, Copilot +2, Power BI Gerencia, app en tiendas).
+Fuera del presupuesto TI: internet Claro, BUK, GPS Geosatelital (se carga a proyectos), Monday.
+
+## Presupuesto de TI 2027, versión 2: parte de lo ya comprado (2026-11-10)
+
+Kevin observó la versión del 06-nov: "está mal, debes tener en cuenta las compras que se han realizado este año, no siempre
+cambiamos de equipos, una computadora no se cambia cada año". La v1 volvía a presupuestar completa la OC MM-001300 anulada,
+más laptop de reserva, monitores y bolsa de red (Equipos S/ 33,179). Rehecho con `scratchpad/build_presupuesto_v2.py` en
+**`docs/informes/Presupuesto-TI-2027-v2.xlsx`** (917 fórmulas, 0 errores, controles en 0). El archivo v1
+`Presupuesto-TI-2027.xlsx` estaba abierto en Excel y no se pudo reemplazar: queda obsoleto, borrarlo al cerrarlo.
+Fuentes nuevas: `TI - TI/2. Inventario/Inventario equipos.xlsx` (laptops, PCs, monitores, periféricos por colaborador, con
+estado y antigüedad), solicitudes de pago de TI mar-oct 2026, plan operativo TI 2026, e ítems de OCs 2024-2026 del ERP.
+- **Equipos comprados**: 2025 = 6 laptops (MM-000282), 3 PCs i7-10700 (MM-000179), 10 monitores, S/ 28,296; 2026 = PC de TI
+  (MM-001233, ago), ThinkPad T14 (MM-001249, set), 3 laptops repotenciadas (MM-000779, mar), red nueva (MM-001301, oct).
+  Hoja **Equipos**: evaluación equipo por equipo (27 filas) con año, vida útil (laptop 4, PC 5), estado del inventario y acción.
+  Solo se renuevan las **2 PCs obsoletas aún en uso** (Richard Navarro i5-8400, Gustavo Montero i7-3770): S/ 7,063 + 2 Windows.
+  Fuera (Incluir = 0, visibles): tercera PC (Nicolas: laptop repotenciada), segunda PC de TI, segunda ThinkPad, 4 monitores,
+  kits, diagnóstico de red. Mantenimiento = 17 servicios que pide el inventario × S/ 180; repuestos = promedio 2025-2026.
+- **Base 2026 corregida**: BD TI dice S/ 81,699 pero lo realmente comprado es **S/ 64,855**: S/ 20,833 de equipos y S/ 900 de
+  Windows son provisiones "Requiere VB" nunca compradas, "MONITORES (1)" S/ 654.90 está duplicado dentro de la PC, y falta la
+  ThinkPad T14 de setiembre (S/ 5,544.82). Para que Kevin corrija BD TI.
+- **Licencias recontadas**: 26 puestos M365 (7 Basic + 4 Standard en febrero; 12 Standard + 3 Standard con Copilot en junio),
+  igual a los 26 usuarios de Acronis; la v1 contaba 24. Claude US$ 180/mes (1 Max + 4 Pro), no 200. Google AI Pro 2 cuentas
+  (la del OC-System se dio de baja en oct). ChatGPT sin órdenes desde oct: opcional. Supabase US$ 40. TC 3.46 (el de BD TI).
+- **Resultado: S/ 53,477 (US$ 15,456)**, −17.5 % vs lo comprado en 2026: Licencias 33,437; Equipos 9,238; Mantenimiento 3,611;
+  Cloud 3,331; Vercel 1,661; Supabase 1,661; Dominios 538; Redes 0. Recurrente 75 %, renovación 14 %, mantenimiento 11 %.
+  Evaluado y fuera: S/ 28,859.
+- Hallazgo para Kevin: el plan de trabajo 2026 fija la línea base de Intune, pero Intune requiere Business Premium y en julio
+  los 9 puestos Premium pasaron a Standard (iniciativa opcional: US$ 96 por puesto al año).
+Pendiente de Kevin: confirmar el conteo de 26 licencias en el centro de administración, a quién se asignó la ThinkPad T14,
+actualizar el inventario (PC de TI y T14 no figuran; 5 PCs "motlima" sin especificaciones) y decidir hosting E. Brenner.
+
+## Presupuesto de TI 2027, versión 3, y Plan de Trabajo TI 2027 (2026-11-10)
+
+Kevin corrigió la v2 con nueve puntos y dos cotizaciones de SECURENET (20/10/2026 por S/ 29,189.66 y 09/11/2026 por S/ 1,180):
+1. Lo "Provisionado - Requiere VB" de BD TI **sí está aprobado** (olvidó cambiar la observación): cuenta para 2026.
+2. Claude: una licencia más subió a Max → **US$ 260 al mes** (2 Max + 3 Pro).
+3. **No se trabaja con Intune ni licencias Premium** (se retiró del presupuesto y del plan).
+4. Usar la cotización del 20/10 para recalcular. 5. Las 3 laptops repotenciadas **sí se cambian** por nuevas.
+6. Considerar software y licencias nuevas. 7. Plan de trabajo 2027 con comparativo inicio / cierre 2026.
+8. Las licencias de febrero (factura SYSTEMBASE FA01-9301: 7 Basic + 4 Standard) se renuevan con Provisiones. 9. Recalcular.
+Entregables: **`docs/informes/Presupuesto-TI-2027-v3.xlsx`** (`scratchpad/make_v3.py` genera `build_presupuesto_v3.py` desde la v2;
+926 fórmulas, 0 errores, controles en 0) y **`docs/informes/Plan-Trabajo-TI-2027.docx`** (6 páginas, `scratchpad/build_plan.js`
+con docx-js; revisado exportando a PDF con Word). Las versiones v1 y v2 del Excel quedan obsoletas en la misma carpeta.
+- **Compra aprobada 2026**: la cotización del 20/10 incluye la ThinkPad T14 ya comprada en setiembre (MM-001249); lo que falta
+  ejecutar es **S/ 23,644.84** (3 PC Ryzen 7, PC i5 de TI, laptop Lenovo V15, 3 monitores, webcam, kits, discos, SSD, mouse,
+  auriculares) contra S/ 20,833.49 de BD TI. La OC MM-001300 quedó anulada: emitir una nueva. Va al cierre 2026, no a 2027
+  (línea opcional "arrastre" por si pasa a enero).
+- **Cierre 2026 estimado S/ 91,235** = BD TI 81,699 + T14 5,545 + diferencia de cotización 2,811 + mantenimiento de 10 PCs 1,180.
+- **Presupuesto 2027: S/ 68,384 (US$ 19,764, TC 3.46)**, 25 % menos que el cierre estimado: Licencias 37,059 (Claude US$ 260 × 12);
+  Equipos 11,359 (3 Lenovo V15 a S/ 2,600 + IGV, repuestos); Mantenimiento 3,304 (10 laptops a S/ 180 y 10 PCs a S/ 100);
+  Cloud 3,331; Vercel 1,661; Supabase 1,661; Dominios 538; Redes 0; **Nuevos software y licencias 9,471**.
+- **Nuevos (precios de lista, Incluir = 1, cada uno se puede quitar)**: API de Claude US$ 50/mes (asistente ERP + radar de
+  licitaciones), Claude Pro para 3 usuarios más, Power BI Pro Gerencia (2), cuentas Apple/Google para la app, GitHub Team (el
+  repo está en cuenta personal), gestor de contraseñas Bitwarden 10 usuarios (claves hoy en Excel), Sentry. Opcionales en 0:
+  Copilot +2, ChatGPT, hosting E. Brenner.
+- **Plan de trabajo**: balance 2026 por frente (ERP en producción 31/08, 1,470 órdenes, 844 proveedores, 102 en el portal,
+  red nueva, 26 puestos M365, Monday → Planner, 8 → 4 proveedores), hitos 2026 con estado, 7 objetivos con indicador,
+  portafolio de 10 proyectos, cronograma y desembolsos por trimestre, decisiones que se piden a Gerencia.
+Pendiente de Kevin: actualizar BD TI (observaciones, T14, Claude 260, monitor posiblemente duplicado, mantenimiento de PCs);
+confirmar con Oscar el estado del sitio web y de Hospitales Móviles (figuran "por confirmar" en el plan); elegir V15 o
+ThinkPad; si la V15 aprobada reemplaza la laptop de Richard, bajar a 2 las laptops de 2027.
+
+## Flujo de TI para la consolidación de Miguelángel, horizonte a enero (2026-11-10)
+
+Miguelángel pidió (correo 10:09) que todas las áreas actualicen su flujo antes de las 3:00 p. m. con horizonte a enero. BD TI
+2026.xlsx no se tocó (regla: los Excel de SharePoint no se editan); se entregó
+`docs/informes/Actualizacion-Flujo-TI-nov2026-ene2027.xlsx` para que Kevin copie: hoja **Cambios** (observación "Aprobado -
+Pendiente de pago" en filas 6, 7, 8, 10, 11 y 25; fila 6 a S/ 5,160.14 y fila 11 a S/ 2,856.78 según la cotización del 20/10;
+Windows al 30-nov; Claude de noviembre a US$ 240 porque la fila 63 ya tiene US$ 20 pagados), hoja **Filas nuevas** (5 filas de
+enero 2027: Google AI Pro × 2, Vercel, Supabase, Claude; opcionales: mantenimiento de 10 PCs y la ThinkPad T14 de setiembre) y
+hoja **Flujo nov-ene**: por pagar S/ 25,780 en noviembre (S/ 24,545 de equipos y Windows aprobados), S/ 1,305 en diciembre y
+S/ 1,305 en enero. Kevin ya había subido Claude a US$ 260 en BD TI a las 10:06. El cron `flujo-import` lee el Excel a las 15:00.
+
+## Buscador de la barra superior: ahora encuentra lo que se compró (2026-11-17)
+
+Kevin: "quiero buscar un ítem que se compró, una laptop, pero me sale sin resultados". Causa: `busqueda-global.ts` solo
+consultaba número de OC, nombre/código de proyecto, razón social/RUC de proveedor, OT, placa, cliente y nombre de artículo
+(el catálogo de artículos no tiene laptops); la descripción de los ítems de órdenes y cotizaciones no se buscaba.
+- `20261117100000_buscador_items_compra.sql`: extensión `unaccent` y `buscar_items_compra(término, límite)` (security
+  invoker, RLS del tenant): OC y cotizaciones cuyo ítem contiene el término, sin distinguir tildes ni mayúsculas, la más
+  reciente primero y las anuladas al final; devuelve el ítem de mayor importe y cuántos coinciden.
+- Fuente nueva `items_compra` (ruta `/compras`, así solo la consulta quien ve Compras): resultados "Ítem OC" / "Ítem
+  cotización" con `número (estado) · descripción (+n ítems) · proveedor`, que abren el detalle. Desplegable con scroll,
+  más ancho, tooltip con la línea completa y colores para OC, ítems y proveedor. 11 tests.
+- QA con `qa.buscador@` (rol Compras, borrado): "laptop" → MM-001249, MM-000779, MM-000282, MM-001300 (anulada, al final)
+  y 3 cotizaciones; "bateria" sin tilde encuentra "Batería…"; clic abre `/compras/ordenes/MM-000779`.
+- No se incluyeron los ítems de requerimientos: quien no tiene `compras.ver` solo ve los suyos y la búsqueda los filtraría mal.
+

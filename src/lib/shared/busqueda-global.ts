@@ -1,7 +1,7 @@
 /**
  * BUSCADOR DE LA BARRA SUPERIOR — qué se consulta y para quién.
  *
- * Antes consultaba las siete tablas para todo el mundo: órdenes de trabajo,
+ * Antes consultaba todas las tablas para todo el mundo: órdenes de trabajo,
  * vehículos, proyectos, clientes, artículos, proveedores y órdenes de compra.
  * A quien solo tiene Compras eso le devolvía placas de vehículos, nombres de
  * clientes y códigos de artículos — datos de módulos que ni aparecen en su
@@ -51,6 +51,24 @@ export const FUENTES: FuenteBusqueda[] = [
     })),
   },
   {
+    // Lo que se compró: la descripción de los ítems de órdenes y cotizaciones (sin distinguir tildes ni mayúsculas).
+    // Antes solo se buscaba por el número de la orden, y "laptop" no devolvía nada.
+    id: 'items_compra',
+    ruta: '/compras',
+    buscar: t => (supabase as any).rpc('buscar_items_compra', { p_termino: t, p_limite: 6 }),
+    mapear: filas => filas.map(r => {
+      const esCot = r.tipo === 'cotizacion';
+      const desc = recortar(r.descripcion, 60);
+      const extra = Number(r.coincidencias) > 1 ? ` (+${Number(r.coincidencias) - 1} ítem${Number(r.coincidencias) > 2 ? 's' : ''})` : '';
+      return {
+        tipo: esCot ? 'Ítem cotización' : 'Ítem OC',
+        // El estado va pegado al número: si el desplegable recorta la línea, que no se pierda que está anulada.
+        label: [`${r.numero} (${r.estado})`, `${desc}${extra}`, r.proveedor ? recortar(r.proveedor, 28) : null].filter(Boolean).join(' · '),
+        route: `/compras/${esCot ? 'cotizaciones' : 'ordenes'}/${encodeURIComponent(r.numero)}`,
+      };
+    }),
+  },
+  {
     id: 'proveedores',
     ruta: '/proveedores',
     buscar: t => supabase.from('proveedores').select('codigo,razon_social,ruc')
@@ -94,6 +112,12 @@ export const FUENTES: FuenteBusqueda[] = [
     })),
   },
 ];
+
+/** Texto en una línea y con tope de largo, para que el resultado quepa en el desplegable. */
+function recortar(texto: string | null | undefined, max: number): string {
+  const t = String(texto ?? '').replace(/\s+/g, ' ').trim();
+  return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t;
+}
 
 /** Las fuentes que este usuario puede consultar, en el orden del catálogo. */
 export function fuentesPermitidas(

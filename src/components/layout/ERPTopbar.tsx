@@ -31,6 +31,10 @@ const TIPO_BADGE: Record<string, string> = {
   'Proyecto': 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
   'Cliente': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   'Artículo': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  'OC': 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+  'Ítem OC': 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+  'Ítem cotización': 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
+  'Proveedor': 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
 };
 
 interface ERPTopbarProps {
@@ -138,7 +142,7 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
             onFocus={() => results.length > 0 && setShowResults(true)}
           />
           {showResults && results.length > 0 && (
-            <div className="absolute top-full mt-1 left-0 right-0 z-50 bg-popover border rounded-lg shadow-lg overflow-hidden">
+            <div className="absolute top-full mt-1 left-0 right-0 min-w-[34rem] max-w-[90vw] z-50 bg-popover border rounded-lg shadow-lg overflow-y-auto max-h-[70vh]">
               {results.map((r, i) => (
                 <button
                   key={i}
@@ -148,7 +152,7 @@ export function ERPTopbar({ darkMode, onToggleDarkMode, themeMode = 'light', onS
                   <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded shrink-0 ${TIPO_BADGE[r.tipo] ?? 'bg-muted text-muted-foreground'}`}>
                     {r.tipo}
                   </span>
-                  <span className="truncate">{r.label}</span>
+                  <span className="truncate" title={r.label}>{r.label}</span>
                 </button>
               ))}
             </div>

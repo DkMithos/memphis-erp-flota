@@ -9,7 +9,7 @@ const soloVe = (...modulos: Modulo[]) =>
 describe('el buscador no consulta módulos que el usuario no tiene', () => {
   it('un rol de Compras solo busca en compras y proveedores', () => {
     const ids = fuentesPermitidas(soloVe('compras', 'proveedores')).map(f => f.id);
-    expect(ids).toEqual(['ordenes_compra', 'proveedores']);
+    expect(ids).toEqual(['ordenes_compra', 'items_compra', 'proveedores']);
   });
 
   it('no le devuelve vehículos, clientes ni artículos', () => {
@@ -41,6 +41,30 @@ describe('el buscador no consulta módulos que el usuario no tiene', () => {
       }])[0];
       expect(ejemplo.route.startsWith(f.ruta + '/')).toBe(true);
     }
+  });
+});
+
+describe('lo que se compró se encuentra por la descripción del ítem', () => {
+  const fuente = FUENTES.find(f => f.id === 'items_compra')!;
+
+  it('una orden con el ítem lleva a su detalle y dice proveedor y estado', () => {
+    const [r] = fuente.mapear([{ tipo: 'oc', numero: 'MM-001249', estado: 'aprobada', descripcion: ' LAPTOP LENOVO  ThinkPad T14 ', proveedor: 'SECURENET ENTERPRISE S.A.C.', coincidencias: '1' }]);
+    expect(r.tipo).toBe('Ítem OC');
+    expect(r.route).toBe('/compras/ordenes/MM-001249');
+    expect(r.label).toBe('MM-001249 (aprobada) · LAPTOP LENOVO ThinkPad T14 · SECURENET ENTERPRISE S.A.C.');
+  });
+
+  it('una cotización migrada con barra en el número no rompe la ruta', () => {
+    const [r] = fuente.mapear([{ tipo: 'cotizacion', numero: 'C0001/32', estado: 'recibida', descripcion: 'Batería para laptop', proveedor: '', coincidencias: '3' }]);
+    expect(r.tipo).toBe('Ítem cotización');
+    expect(r.route).toBe('/compras/cotizaciones/C0001%2F32');
+    expect(r.label).toBe('C0001/32 (recibida) · Batería para laptop (+2 ítems)');
+  });
+
+  it('una descripción larga se recorta', () => {
+    const [r] = fuente.mapear([{ tipo: 'oc', numero: 'MM-1', estado: 'aprobada', descripcion: 'x'.repeat(200), proveedor: '', coincidencias: '1' }]);
+    expect(r.label.length).toBeLessThan(95);
+    expect(r.label).toContain('…');
   });
 });
 
