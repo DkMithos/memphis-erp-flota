@@ -4855,3 +4855,17 @@ consultaba número de OC, nombre/código de proyecto, razón social/RUC de prove
   y 3 cotizaciones; "bateria" sin tilde encuentra "Batería…"; clic abre `/compras/ordenes/MM-000779`.
 - No se incluyeron los ítems de requerimientos: quien no tiene `compras.ver` solo ve los suyos y la búsqueda los filtraría mal.
 
+## Login con Microsoft caído: venció el secreto de la app de Azure (2026-11-25)
+
+Kevin: no se puede ingresar al ERP (`error_description=Unable to exchange external code`). Log de Supabase Auth:
+`AADSTS7000222: The provided client secret keys for app 'ee341cf2-6605-482e-9624-b25f95bbc62e' are expired`. Es la app
+"Memphis ERP" de Entra ID; su secreto venció el 24-nov entre las 13:18 y las 13:33 (hora de Lima). Afecta a:
+- el botón "Microsoft" del login (4 usuarios con proveedor azure; los 14 con correo y contraseña entran normal);
+- las funciones que usan Graph con `MS_CLIENT_SECRET`: `fianzas-import` (500 desde el 24-nov 13:33), `flujo-import` (sin
+  importaciones nuevas desde el 24-nov 13:15), `fianzas-cargos-import`, `excel-sync`, `correo-enviar`,
+  `documentos-sharepoint`, `presupuesto-import`, `ms-user-sync`.
+No es un fallo de código. Arreglo (lo hace Kevin, son credenciales): Entra ID → App registrations → Memphis ERP →
+Certificates & secrets → New client secret (24 meses) → copiar el **Value** → (1) Supabase → Authentication → Sign In /
+Providers → Azure → Secret Value; (2) Supabase → Edge Functions → Secrets → `MS_CLIENT_SECRET`. Anotar la fecha de
+vencimiento nueva y poner recordatorio un mes antes.
+
