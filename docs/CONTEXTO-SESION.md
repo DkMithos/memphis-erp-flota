@@ -4869,3 +4869,7 @@ Certificates & secrets → New client secret (24 meses) → copiar el **Value** 
 Providers → Azure → Secret Value; (2) Supabase → Edge Functions → Secrets → `MS_CLIENT_SECRET`. Anotar la fecha de
 vencimiento nueva y poner recordatorio un mes antes.
 
+**Resuelto el 2026-11-25 a las 12:26 (Lima).** Kevin creó el secreto nuevo y lo pegó en Auth › Azure y en `MS_CLIENT_SECRET`.
+Verificado en logs: login con Microsoft de kcastillo@ OK (12:26), `ms-user-sync` 200, `flujo-import` volvió a importar los
+cuatro Excel (12:30), `fianzas-import` y `fianzas-cargos-import` 200 (12:33; fianzas actualizadas). Estuvo caído unas 23 horas.
+
